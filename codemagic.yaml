@@ -1,4 +1,4 @@
-# Codemagic — Prophet of Numbers (iOS).
+# Codemagic — Prophet (iOS).
 #
 # Trois flux :
 #   validate   : compilation + tests simulateur, sans signature.
@@ -199,7 +199,7 @@ workflows:
         auth: integration
         submit_to_app_store: true
         release_type: AFTER_APPROVAL
-        copyright: 2026 Prophet of Numbers
+        copyright: 2026 Prophet
       email:
         recipients:
           - hakik2.ramadani@gmail.com

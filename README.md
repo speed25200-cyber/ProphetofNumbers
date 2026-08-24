@@ -1,4 +1,4 @@
-# Prophet of Numbers
+# Prophet
 
 Oracle iOS pour **Loto Express** (Loterie Romande). Tirage live, grilles CRF-9
 (Alpha / Omega / Nexus) pour 5/5 → 10/10, analyse 1–80, séance du jour.

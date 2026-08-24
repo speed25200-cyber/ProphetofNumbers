@@ -1,4 +1,4 @@
-# Prophet of Numbers — XcodeGen (source of truth).
+# Prophet — XcodeGen (source of truth).
 # Generate:  xcodegen generate
 # Codemagic runs this before resolve/build.
 
