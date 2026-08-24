@@ -1,0 +1,208 @@
+# Codemagic — Prophet of Numbers (iOS).
+#
+# Trois flux :
+#   validate   : compilation + tests simulateur, sans signature.
+#   testflight : IPA signée → TestFlight (intégration App Store Connect).
+#   release    : publication App Store, déclenchée par une étiquette v*.
+#
+# Même équipe, même intégration ASC que Limbator / PetMind.
+
+workflows:
+
+  validate:
+    name: Vérification (compilation + tests)
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: Prophet.xcodeproj
+        XCODE_SCHEME: Prophet
+        BUNDLE_ID: com.prophetofnumbers.app
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: "main"
+          include: true
+          source: true
+        - pattern: "claude/**"
+          include: true
+          source: true
+    scripts:
+      - name: Chaîne d'outils
+        script: |
+          xcodebuild -version
+          swift --version
+          xcrun simctl list devices available | grep "iPhone" | head -20
+
+      - name: Générer le projet Xcode (XcodeGen)
+        script: |
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate
+
+      - name: Compiler pour le simulateur
+        script: |
+          set -o pipefail
+          FORMAT=$(command -v xcbeautify || echo cat)
+          DEST=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $1 "|" $2; exit}')
+          echo "Destination brute: $DEST"
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=iPhone 16 Pro,OS=latest" \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES \
+            build 2>&1 | "$FORMAT" \
+          || xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES \
+            build 2>&1 | "$FORMAT"
+
+      - name: Tests unitaires
+        script: |
+          set -o pipefail
+          FORMAT=$(command -v xcbeautify || echo cat)
+          xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=iPhone 16 Pro,OS=latest" \
+            CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath "$CM_BUILD_DIR/TestResults.xcresult" \
+            test 2>&1 | "$FORMAT" \
+          || xcodebuild \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath "$CM_BUILD_DIR/TestResults.xcresult" \
+            test 2>&1 | "$FORMAT"
+    artifacts:
+      - $CM_BUILD_DIR/TestResults.xcresult
+    publishing:
+      email:
+        recipients:
+          - hakik2.ramadani@gmail.com
+        notify:
+          success: false
+          failure: true
+
+  testflight:
+    name: Distribution TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: PetMind ASC API
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: Prophet.xcodeproj
+        XCODE_SCHEME: Prophet
+        BUNDLE_ID: com.prophetofnumbers.app
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.prophetofnumbers.app
+    scripts:
+      - name: Générer le projet Xcode (XcodeGen)
+        script: |
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate
+
+      - name: Numéro de build depuis le compteur
+        script: |
+          cd "$CM_BUILD_DIR"
+          agvtool new-version -all $(($PROJECT_BUILD_NUMBER + 1))
+
+      - name: Signature
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Construire l'IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release \
+            --archive-flags="-destination 'generic/platform=iOS'"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      email:
+        recipients:
+          - hakik2.ramadani@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  release:
+    name: Publication App Store
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: PetMind ASC API
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: Prophet.xcodeproj
+        XCODE_SCHEME: Prophet
+        BUNDLE_ID: com.prophetofnumbers.app
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.prophetofnumbers.app
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
+    scripts:
+      - name: Générer le projet Xcode (XcodeGen)
+        script: |
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate
+      - name: Numéro de build depuis l'étiquette
+        script: |
+          cd "$CM_BUILD_DIR"
+          agvtool new-version -all $(($PROJECT_BUILD_NUMBER + 1))
+      - name: Signature
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Construire et archiver
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_app_store: true
+        release_type: AFTER_APPROVAL
+        copyright: 2026 Prophet of Numbers
+      email:
+        recipients:
+          - hakik2.ramadani@gmail.com
+        notify:
+          success: true
+          failure: true

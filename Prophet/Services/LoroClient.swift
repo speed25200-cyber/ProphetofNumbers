@@ -1,0 +1,213 @@
+import Foundation
+
+enum LoroError: LocalizedError {
+    case http(Int)
+    case decode
+    case empty
+
+    var errorDescription: String? {
+        switch self {
+        case .http(let code): return "Loro \(code)"
+        case .decode: return "Réponse Loro illisible"
+        case .empty: return "Aucun tirage dans le flux"
+        }
+    }
+}
+
+actor LoroClient {
+    static let shared = LoroClient()
+
+    private let gameURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress")!
+    private let drawsURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws")!
+    private let source = "https://jeux.loro.ch/games/lotoexpress"
+    private let historyWindow = 199
+    private let pageSize = 100
+
+    private var cache: [Int: Draw] = [:]
+    private var live: LivePayload?
+    private var liveAt: Date = .distantPast
+
+    func loadLive(force: Bool = false) async throws -> LivePayload {
+        if !force, let live, Date().timeIntervalSince(liveAt) < 4 {
+            return live
+        }
+        let json = try await fetchJSON(gameURL)
+        let details = dict(json["details"])
+        let results = dict(details["results"])
+        let raw = dict(results["raw"])
+
+        var rawDraw: [String: Any] = [
+            "drawNumber": raw["drawNumber"] as Any,
+            "drawDate": (raw["drawDate"] ?? results["drawDate"]) as Any,
+        ]
+        if let result = raw["result"] {
+            rawDraw["drawResult"] = result
+        } else {
+            rawDraw["drawResult"] = [
+                "matrix1": [
+                    "main": results["primarySelection"] as Any,
+                    "boost": results["secondarySelection"] as Any,
+                    "bonus": results["tertiarySelection"] as Any,
+                ]
+            ]
+        }
+        if let last = parseDraw(rawDraw) {
+            cache[last.drawNumber] = last
+        }
+
+        let last = cache.values.max(by: { $0.drawNumber < $1.drawNumber })
+        let latestId = last?.drawNumber ?? 0
+        let from = max(1, latestId - historyWindow)
+        let history = latestId > 0 ? try await ensureRange(from: from, to: latestId) : []
+        let key = Zurich.todayKey()
+        let today = history.filter { draw in
+            guard let date = Zurich.parseISO(draw.drawDate) else { return false }
+            return Zurich.parts(date).dayKey == key
+        }
+
+        let nextDrawAt: Date? = {
+            if let s = details["drawDate"] as? String { return Zurich.parseISO(s) }
+            return nil
+        }()
+
+        let payload = LivePayload(
+            status: details["status"] as? String ?? "UNKNOWN",
+            nextDrawAt: nextDrawAt,
+            last: last,
+            jackpots: parseJackpots(details["extraJackpots"]),
+            today: today,
+            history: history,
+            fetchedAt: Date(),
+            source: source
+        )
+        live = payload
+        liveAt = Date()
+        return payload
+    }
+
+    private func ensureRange(from: Int, to: Int) async throws -> [Draw] {
+        var end = to
+        while end >= from {
+            let start = max(from, end - (pageSize - 1))
+            var missing = false
+            for id in start...end {
+                if cache[id] == nil { missing = true; break }
+            }
+            if missing {
+                let url = URL(string: "\(drawsURL.absoluteString)?from=\(start)&to=\(end)&pageSize=\(pageSize)")!
+                if let json = try? await fetchJSON(url) {
+                    let rows = json["results"] as? [Any] ?? []
+                    for row in rows {
+                        if let rec = row as? [String: Any], let draw = parseDraw(rec) {
+                            cache[draw.drawNumber] = draw
+                        }
+                    }
+                }
+            }
+            end -= pageSize
+        }
+        var out: [Draw] = []
+        var id = to
+        while id >= from {
+            if let d = cache[id] { out.append(d) }
+            id -= 1
+        }
+        return out
+    }
+
+    private func fetchJSON(_ url: URL) async throws -> [String: Any] {
+        var req = URLRequest(url: url, timeoutInterval: 12)
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("https://jeux.loro.ch", forHTTPHeaderField: "Origin")
+        req.setValue(source, forHTTPHeaderField: "Referer")
+        req.setValue(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+            forHTTPHeaderField: "User-Agent"
+        )
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            throw LoroError.http(http.statusCode)
+        }
+        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw LoroError.decode
+        }
+        return obj
+    }
+
+    private func parseDraw(_ raw: [String: Any]) -> Draw? {
+        guard let drawNumber = asInt(raw["drawNumber"]) else { return nil }
+        let drawDate = raw["drawDate"] as? String ?? ""
+        guard !drawDate.isEmpty else { return nil }
+        let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
+        guard matrix.numbers.count >= 15 else { return nil }
+        return Draw(
+            drawNumber: drawNumber,
+            drawDate: drawDate,
+            numbers: matrix.numbers,
+            boost: matrix.boost,
+            bonus: matrix.bonus
+        )
+    }
+
+    private func parseMatrix(_ raw: Any) -> (numbers: [Int], boost: Int?, bonus: Int?) {
+        let obj = dict(raw)
+        let matrix1 = dict(obj["matrix1"])
+        let result = dict(obj["result"])
+        let matrix = matrix1.isEmpty ? dict(result["matrix1"]) : matrix1
+        let src = matrix.isEmpty ? obj : matrix
+        let numbers = parseNumbers(src["main"] ?? obj["primarySelection"])
+        let boostArr = parseLoose(src["boost"])
+        let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"])
+        return (numbers, boostArr.first, bonusArr.first)
+    }
+
+    private func parseNumbers(_ raw: Any?) -> [Int] {
+        guard let arr = raw as? [Any] else { return [] }
+        var out: [Int] = []
+        for item in arr {
+            if let rec = item as? [String: Any], let n = asInt(rec["number"]), (1...80).contains(n) {
+                out.append(n)
+            } else if let n = asInt(item), (1...80).contains(n) {
+                out.append(n)
+            }
+        }
+        return Array(Set(out)).sorted()
+    }
+
+    private func parseLoose(_ raw: Any?) -> [Int] {
+        guard let arr = raw as? [Any] else { return [] }
+        return arr.compactMap(asInt)
+    }
+
+    private func parseJackpots(_ raw: Any?) -> [Jackpot] {
+        guard let arr = raw as? [Any] else { return [] }
+        var out: [Jackpot] = []
+        for row in arr {
+            let rec = dict(row)
+            if let stake = asInt(rec["id"]), let amount = asDouble(rec["amount"]) {
+                out.append(Jackpot(stake: stake, amount: amount))
+            }
+        }
+        return out.sorted { $0.stake < $1.stake }
+    }
+
+    private func dict(_ raw: Any?) -> [String: Any] {
+        raw as? [String: Any] ?? [:]
+    }
+
+    private func asInt(_ v: Any?) -> Int? {
+        if let n = v as? Int { return n }
+        if let n = v as? Double { return Int(n) }
+        if let s = v as? String, let n = Int(s) { return n }
+        if let n = v as? NSNumber { return n.intValue }
+        return nil
+    }
+
+    private func asDouble(_ v: Any?) -> Double? {
+        if let n = v as? Double { return n }
+        if let n = v as? Int { return Double(n) }
+        if let s = v as? String, let n = Double(s) { return n }
+        if let n = v as? NSNumber { return n.doubleValue }
+        return nil
+    }
+}
