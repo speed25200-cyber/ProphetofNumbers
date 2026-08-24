@@ -138,14 +138,14 @@ struct GridsView: View {
     var body: some View {
         if let oracle = store.oracle,
            let pack = oracle.stakes.first(where: { $0.stake == store.stake }) {
-            gridsBody(oracle: oracle, pack: pack)
+            gridsBody(pack: pack)
         } else {
             ProgressView().tint(Palette.accent)
         }
     }
 
     @ViewBuilder
-    private func gridsBody(oracle: OracleResult, pack: StakeGrids) -> some View {
+    private func gridsBody(pack: StakeGrids) -> some View {
         let last = store.payload?.last
         let scored = last.map { draw in
             store.tickets.filter { $0.targetDraw == draw.drawNumber && $0.stake == store.stake }
