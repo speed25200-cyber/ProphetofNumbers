@@ -595,45 +595,213 @@ final class PressureHead: SwarmHead {
 }
 
 // MARK: - Moteur de l'essaim
+//
+// Deux variantes d'analyse, aux résultats identiques :
+// - SwarmEngine (incrémental) : l'état des 26 têtes, les poids Hedge, le
+//   backtest et l'e-process persistent entre les rafraîchissements —
+//   absorber un nouveau tirage coûte quelques millisecondes, les grilles
+//   sortent dans la foulée du résultat.
+// - Swarm.run (recalcul complet) : moteur neuf à chaque appel, rejoue tout
+//   l'historique en marche avant — référence des tests et passe de
+//   réconciliation. Les deux chemins exécutent les mêmes opérations dans le
+//   même ordre.
 
-enum Swarm {
+final class SwarmEngine {
     private static let pool = ProphetConst.poolSize
     private static let drawN = ProphetConst.drawSize
     private static let baseP = ProphetConst.baseP
+    private static let thetaE = 0.15
+    private static let uniformExp = Double(ProphetConst.drawSize * ProphetConst.drawSize) / Double(ProphetConst.poolSize)
 
-    private static func makeHeads() -> [SwarmHead] {
-        [
-            BayesHead(memory: 10, variant: "a"), BayesHead(memory: 33, variant: "b"), BayesHead(memory: 200, variant: "c"),
-            EwmaHead(memory: 8, variant: "a"), EwmaHead(memory: 25, variant: "b"), EwmaHead(memory: 64, variant: "c"),
-            HawkesHead(memory: 2.3, variant: "a"), HawkesHead(memory: 3.9, variant: "b"), HawkesHead(memory: 8.7, variant: "c"),
-            WeibullHead(k: 1.25), WeibullHead(k: 1.55),
-            HazardHead(), GapZHead(),
-            SpectralHead(short: 16, long: 64, momentum: false),
-            SpectralHead(short: 8, long: 32, momentum: true),
-            MarkovHead(k: 1), MarkovHead(k: 3), StreakHead(),
-            CopairHead(),
-            AcpHead(axis: 1), AcpHead(axis: 2),
-            AntiHead(base: EwmaHead(memory: 25, variant: "b")),
-            AntiHead(base: HawkesHead(memory: 3.9, variant: "b")),
-            PressureHead(),
-            AdjacencyHead(), RowPressureHead(),
-        ]
-    }
+    private var heads: [SwarmHead] = []
+    private var headCount = 0
+    private var weights: [Double] = []
+    private var headOv: [[Double]] = []
+    private var ensembleOv: [Double] = []
+    private var eLogUp = 0.0
+    private var eLogDown = 0.0
+    private var generation = 0
+    private var seed: UInt64 = 0
+    private var counts: [Double] = []
+    private var co: [Double] = []
+    private var gap: [Int] = []
+    private var recent16: [[Int]] = []
+    private var adjSeries: [Double] = []
+    private var seen = Set<Int>()
+    private var lastDrawNumber = Int.min
+    private var absorbed = 0
+    private var prevRanks: [Int]?
+    private let logMUp: Double
+    private let logMDown: Double
 
-    // Paires adjacentes du tirage sur le tableau officiel (chaque arête
-    // comptée une fois : vers le bas dans la colonne, vers la droite).
-    private static func adjacentPairs(_ drawn: Set<Int>) -> Double {
-        var c = 0.0
-        for n in drawn {
-            let row = (n - 1) % 10
-            if row < 9, drawn.contains(n + 1) { c += 1 }
-            if n <= pool - 10, drawn.contains(n + 10) { c += 1 }
+    init() {
+        var overlapPMF = [Double](repeating: 0, count: Self.drawN + 1)
+        for o in 0...Self.drawN {
+            overlapPMF[o] = Self.comb(Self.drawN, o)
+                * Self.comb(Self.pool - Self.drawN, Self.drawN - o)
+                / Self.comb(Self.pool, Self.drawN)
         }
-        return c
+        var mUp = 0.0
+        var mDown = 0.0
+        for o in 0...Self.drawN {
+            mUp += overlapPMF[o] * exp(Self.thetaE * Double(o))
+            mDown += overlapPMF[o] * exp(-Self.thetaE * Double(o))
+        }
+        logMUp = log(mUp)
+        logMDown = log(mDown)
+        resetState()
     }
 
-    static func run(_ drawsNewestFirst: [Draw]) -> OracleResult {
+    private func resetState() {
+        heads = Self.makeHeads()
+        headCount = heads.count
+        weights = [Double](repeating: 1 / Double(headCount), count: headCount)
+        headOv = Array(repeating: [], count: headCount)
+        ensembleOv = []
+        eLogUp = 0
+        eLogDown = 0
+        generation = 0
+        seed = 0x9E37_79B9_7F4A_7C15
+        counts = [Double](repeating: 0, count: Self.pool)
+        co = [Double](repeating: 0, count: Self.pool * Self.pool)
+        gap = [Int](repeating: 0, count: Self.pool)
+        recent16 = []
+        adjSeries = []
+        seen = []
+        lastDrawNumber = Int.min
+        absorbed = 0
+        prevRanks = nil
+    }
+
+    func update(_ drawsNewestFirst: [Draw]) -> OracleResult {
         let ordered = drawsNewestFirst.sorted { $0.drawNumber < $1.drawNumber }
+        let fresh = ordered.filter { !seen.contains($0.drawNumber) }
+        if fresh.allSatisfy({ $0.drawNumber > lastDrawNumber }) {
+            process(fresh)
+        } else {
+            // Un tirage plus ancien vient d'apparaître (rattrapage) : la
+            // marche avant impose de tout rejouer.
+            resetState()
+            process(ordered)
+        }
+        return assemble(ordered: ordered)
+    }
+
+    // MARK: Absorption en marche avant
+
+    private func process(_ batch: [Draw]) {
+        guard !batch.isEmpty else { return }
+        let lastIdx = batch.count - 1
+        for (i, draw) in batch.enumerated() {
+            let nums = draw.numbers
+            let drawn = Set(nums)
+
+            if absorbed > 12 {
+                evaluate(drawn)
+            }
+            if i == lastIdx, absorbed > 0 {
+                let fields = heads.map { Self.zscore($0.field()) }
+                prevRanks = Self.ranksFromScores(blendWeighted(fields))
+            }
+
+            for head in heads { head.absorb(drawn) }
+
+            for j in 0..<Self.pool { gap[j] += 1 }
+            for num in nums {
+                let j = num - 1
+                guard (0..<Self.pool).contains(j) else { continue }
+                counts[j] += 1
+                gap[j] = 0
+            }
+            for a in 0..<nums.count {
+                for b in (a + 1)..<nums.count {
+                    let x = min(nums[a], nums[b]) - 1
+                    let y = max(nums[a], nums[b]) - 1
+                    guard x >= 0, y < Self.pool else { continue }
+                    co[x * Self.pool + y] += 1
+                }
+            }
+            recent16.append(nums)
+            if recent16.count > 16 { recent16.removeFirst() }
+            adjSeries.append(Self.adjacentPairs(drawn))
+            if adjSeries.count > 480 { adjSeries.removeFirst() }
+
+            if absorbed >= 48, absorbed % 24 == 0 {
+                if evolve() { generation += 1 }
+            }
+
+            seen.insert(draw.drawNumber)
+            lastDrawNumber = max(lastDrawNumber, draw.drawNumber)
+            absorbed += 1
+        }
+    }
+
+    // Évaluation walk-forward : états et poids figés avant le tirage.
+    private func evaluate(_ drawn: Set<Int>) {
+        let fields = heads.map { Self.zscore($0.field()) }
+        let ens = blendWeighted(fields)
+        let overlap = Self.overlapCount(Self.topIndices(ens, k: Self.drawN), drawn)
+        ensembleOv.append(overlap)
+        if ensembleOv.count > 480 { ensembleOv.removeFirst() }
+        eLogUp = min(80, eLogUp + Self.thetaE * overlap - logMUp)
+        eLogDown = min(80, eLogDown - Self.thetaE * overlap - logMDown)
+
+        let hedgeEta = 0.6
+        let fixedShare = 0.02
+        for h in 0..<headCount {
+            let ovh = Self.overlapCount(Self.topIndices(fields[h], k: Self.drawN), drawn)
+            headOv[h].append(ovh)
+            if headOv[h].count > 80 { headOv[h].removeFirst() }
+            weights[h] *= exp(hedgeEta * (ovh - Self.uniformExp) / Double(Self.drawN))
+        }
+        let sum = weights.reduce(0, +)
+        if !sum.isFinite || sum <= 0 {
+            weights = [Double](repeating: 1 / Double(headCount), count: headCount)
+        } else {
+            for h in 0..<headCount {
+                weights[h] = (1 - fixedShare) * (weights[h] / sum) + fixedShare / Double(headCount)
+            }
+        }
+    }
+
+    // Mutation : la tête la plus faible d'une famille paramétrique adopte la
+    // mémoire de la plus forte, avec un jitter déterministe.
+    private func evolve() -> Bool {
+        var mutated = false
+        for fam in ["Bayes", "EWMA", "Hawkes"] {
+            let idx = heads.indices.filter { heads[$0].family == fam && heads[$0] is EvolvingHead }
+            guard idx.count >= 2 else { continue }
+            var means: [(index: Int, mean: Double)] = []
+            for i in idx {
+                let xs = headOv[i].suffix(40)
+                guard xs.count >= 20 else { continue }
+                means.append((i, xs.reduce(0, +) / Double(xs.count)))
+            }
+            guard means.count == idx.count else { continue }
+            guard let best = means.max(by: { $0.mean < $1.mean }),
+                  let worst = means.min(by: { $0.mean < $1.mean }),
+                  best.index != worst.index,
+                  best.mean - worst.mean > 0.35,
+                  let bestHead = heads[best.index] as? EvolvingHead,
+                  let worstHead = heads[worst.index] as? EvolvingHead
+            else { continue }
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            let jitter = 0.7 + 0.6 * Double((seed >> 33) & 0xFFFF) / 65535
+            worstHead.memory = min(400, max(1, bestHead.memory * jitter))
+            headOv[worst.index].removeAll()
+            weights[worst.index] = 1 / Double(headCount)
+            let s = weights.reduce(0, +)
+            if s > 0 {
+                for i in 0..<weights.count { weights[i] /= s }
+            }
+            mutated = true
+        }
+        return mutated
+    }
+
+    // MARK: Assemblage du résultat
+
+    private func assemble(ordered: [Draw]) -> OracleResult {
         let n = ordered.count
         let todayKey = Zurich.todayKey()
         let todayDraws = ordered.filter { draw in
@@ -641,113 +809,10 @@ enum Swarm {
             return Zurich.parts(date).dayKey == todayKey
         }.count
 
-        let heads = makeHeads()
-        let headCount = heads.count
-        var weights = [Double](repeating: 1 / Double(headCount), count: headCount)
-        var headOv: [[Double]] = Array(repeating: [], count: headCount)
-        var ensembleOv: [Double] = []
-        var generation = 0
-        var seed: UInt64 = 0x9E37_79B9_7F4A_7C15
-
-        var counts = [Double](repeating: 0, count: pool)
-        var co = [Double](repeating: 0, count: pool * pool)
-        var gap = [Int](repeating: 0, count: pool)
-        var recent16: [[Int]] = []
-        var adjSeries: [Double] = []
-        var prevRanks: [Int]?
-
-        let uniformExp = Double(drawN) * Double(drawN) / Double(pool)
-        let hedgeEta = 0.6
-        let fixedShare = 0.02
-
-        // Test séquentiel par pari (e-process) : sous H0 (tirage uniforme),
-        // le recouvrement O du top-20 figé suit une hypergéométrique connue.
-        // On parie via l'inclinaison exponentielle q(o) ∝ p0(o)·e^{±θo} ;
-        // la richesse cumulée est une martingale d'espérance 1 sous H0,
-        // donc P(richesse ≥ 20) ≤ 5 % à TOUT instant (inégalité de Ville).
-        let thetaE = 0.15
-        var overlapPMF = [Double](repeating: 0, count: drawN + 1)
-        for o in 0...drawN {
-            overlapPMF[o] = comb(drawN, o) * comb(pool - drawN, drawN - o) / comb(pool, drawN)
-        }
-        var mUp = 0.0
-        var mDown = 0.0
-        for o in 0...drawN {
-            mUp += overlapPMF[o] * exp(thetaE * Double(o))
-            mDown += overlapPMF[o] * exp(-thetaE * Double(o))
-        }
-        let logMUp = log(mUp)
-        let logMDown = log(mDown)
-        var eLogUp = 0.0
-        var eLogDown = 0.0
-
-        for t in 0..<n {
-            let nums = ordered[t].numbers
-            let drawn = Set(nums)
-
-            if t > 12 {
-                // Poids et états figés avant d'observer le tirage t : marche avant stricte.
-                let fields = heads.map { zscore($0.field()) }
-                let ens = blendWeighted(fields, weights)
-                let overlap = overlapCount(topIndices(ens, k: drawN), drawn)
-                ensembleOv.append(overlap)
-                eLogUp = min(80, eLogUp + thetaE * overlap - logMUp)
-                eLogDown = min(80, eLogDown - thetaE * overlap - logMDown)
-
-                for h in 0..<headCount {
-                    let ovh = overlapCount(topIndices(fields[h], k: drawN), drawn)
-                    headOv[h].append(ovh)
-                    if headOv[h].count > 80 { headOv[h].removeFirst() }
-                    weights[h] *= exp(hedgeEta * (ovh - uniformExp) / Double(drawN))
-                }
-                let sum = weights.reduce(0, +)
-                if !sum.isFinite || sum <= 0 {
-                    weights = [Double](repeating: 1 / Double(headCount), count: headCount)
-                } else {
-                    // Part fixe : garde chaque tête vivante, absorbe les changements de régime.
-                    for h in 0..<headCount {
-                        weights[h] = (1 - fixedShare) * (weights[h] / sum) + fixedShare / Double(headCount)
-                    }
-                }
-            }
-
-            for head in heads { head.absorb(drawn) }
-
-            for i in 0..<pool { gap[i] += 1 }
-            for num in nums {
-                let i = num - 1
-                guard (0..<pool).contains(i) else { continue }
-                counts[i] += 1
-                gap[i] = 0
-            }
-            for a in 0..<nums.count {
-                for b in (a + 1)..<nums.count {
-                    let i = min(nums[a], nums[b]) - 1
-                    let j = max(nums[a], nums[b]) - 1
-                    guard i >= 0, j < pool else { continue }
-                    co[i * pool + j] += 1
-                }
-            }
-            recent16.append(nums)
-            if recent16.count > 16 { recent16.removeFirst() }
-            adjSeries.append(adjacentPairs(drawn))
-
-            if t >= 48, t % 24 == 0 {
-                if evolve(heads: heads, headOv: &headOv, weights: &weights, seed: &seed) {
-                    generation += 1
-                }
-            }
-
-            if n >= 2, t == n - 2 {
-                let fields = heads.map { zscore($0.field()) }
-                prevRanks = ranksFromScores(blendWeighted(fields, weights))
-            }
-        }
-
         let rawFields = heads.map { $0.field() }
-        let zFields = rawFields.map(zscore)
-        let ensemble = blendWeighted(zFields, weights)
-        let ranks = ranksFromScores(ensemble)
+        let zFields = rawFields.map(Self.zscore)
+        let ensemble = blendWeighted(zFields)
+        let ranks = Self.ranksFromScores(ensemble)
 
         func tagBlend(_ tag: HeadTag) -> [Double] {
             let idx = (0..<headCount).filter { heads[$0].tag == tag }
@@ -759,10 +824,10 @@ enum Swarm {
             } else {
                 w = [Double](repeating: 1 / Double(idx.count), count: idx.count)
             }
-            var out = [Double](repeating: 0, count: pool)
+            var out = [Double](repeating: 0, count: Self.pool)
             for (k, i) in idx.enumerated() {
                 let f = zFields[i]
-                for j in 0..<pool { out[j] += w[k] * f[j] }
+                for j in 0..<Self.pool { out[j] += w[k] * f[j] }
             }
             return out
         }
@@ -775,14 +840,14 @@ enum Swarm {
                 blurb: h.blurb,
                 family: h.family,
                 weight: weights[i],
-                overlap: xs.isEmpty ? baseP : mean(xs) / Double(drawN),
+                overlap: xs.isEmpty ? Self.baseP : Self.mean(xs) / Double(Self.drawN),
                 scores: rawFields[i]
             )
         }
 
         var movers: [RankMove] = []
         if let prevRanks {
-            for i in 0..<pool {
+            for i in 0..<Self.pool {
                 movers.append(RankMove(
                     number: i + 1,
                     rank: ranks[i],
@@ -794,7 +859,6 @@ enum Swarm {
             movers.sort { abs($0.delta) > abs($1.delta) }
         }
 
-        // Probabilité d'inclusion (échelle probabilité) pour l'espérance des grilles.
         let inclusionIdx = heads.firstIndex { $0.id == "bayes.b" } ?? 0
         let inclusion = rawFields[inclusionIdx]
 
@@ -802,44 +866,51 @@ enum Swarm {
         let omegaSource = tagBlend(.reversion)
         let kinds: [GridKind] = [.alpha, .omega, .nexus]
         let stakes: [StakeGrids] = ProphetConst.stakes.map { stake in
-            let grids: [SuggestedGrid] = kinds.map { kind in
+            var grids: [SuggestedGrid] = []
+            for kind in kinds {
                 let source: [Double]
                 switch kind {
                 case .alpha: source = alphaSource
                 case .omega: source = omegaSource
                 case .nexus: source = ensemble
                 }
-                let numbers = greedyPick(k: stake, score: source, kind: kind, co: co, counts: counts, nDraws: n)
-                let p = numbers.map { inclusion[$0 - 1] }
-                let exp = p.reduce(0, +)
-                let pAll = heterogeneousAllHit(p)
-                return SuggestedGrid(
-                    kind: kind,
-                    label: kind.label,
-                    subtitle: kind.subtitle,
-                    numbers: numbers,
-                    expectedHits: exp,
-                    baseExpected: Double(stake) * baseP,
-                    pAllHit: pAll,
-                    basePAllHit: hypergeometricPAll(stake)
-                )
+                // Variante I : sélection principale. Variante II : disjointe
+                // de la I — double la couverture du champ.
+                let first = greedyPick(k: stake, score: source, kind: kind, banned: [])
+                let second = greedyPick(k: stake, score: source, kind: kind, banned: Set(first))
+                for (variant, numbers) in [(1, first), (2, second)] {
+                    let p = numbers.map { inclusion[$0 - 1] }
+                    grids.append(SuggestedGrid(
+                        kind: kind,
+                        variant: variant,
+                        label: variant == 1 ? kind.label : "\(kind.label) II",
+                        subtitle: variant == 1
+                            ? kind.subtitle
+                            : "Variante disjointe de \(kind.label) — double la couverture",
+                        numbers: numbers,
+                        expectedHits: p.reduce(0, +),
+                        baseExpected: Double(stake) * Self.baseP,
+                        pAllHit: Self.heterogeneousAllHit(p),
+                        basePAllHit: Self.hypergeometricPAll(stake)
+                    ))
+                }
             }
             return StakeGrids(
                 stake: stake,
                 grids: grids,
-                oddsLabel: formatPlainOdds(hypergeometricPAll(stake))
+                oddsLabel: Self.formatPlainOdds(Self.hypergeometricPAll(stake))
             )
         }
 
-        let chi2 = chiSquareUniform(counts, nDraws: n)
-        let serial = serialCorr(ordered.map(\.numbers))
-        let df = Double(pool - 1)
+        let chi2 = Self.chiSquareUniform(counts, nDraws: absorbed)
+        let serial = Self.serialCorr(ordered.map(\.numbers))
+        let df = Double(Self.pool - 1)
         let chi2Norm = df == 0 ? 0 : chi2 / df
         let structured = chi2Norm > 1.25 || abs(serial) > 0.04
 
         // Signal honnête : dérivé du backtest réel, 50 = indistinguable du hasard.
         let recentBT = Array(ensembleOv.suffix(60))
-        let btMean = recentBT.isEmpty ? uniformExp : mean(recentBT)
+        let btMean = recentBT.isEmpty ? Self.uniformExp : Self.mean(recentBT)
         var btVar = 0.0
         for x in recentBT {
             let d = x - btMean
@@ -847,21 +918,18 @@ enum Swarm {
         }
         let btSD = recentBT.count > 1 ? sqrt(btVar / Double(recentBT.count - 1)) : 1.68
         let btZ: Double = recentBT.count >= 12
-            ? (btMean - uniformExp) / (max(0.2, btSD) / sqrt(Double(recentBT.count)))
+            ? (btMean - Self.uniformExp) / (max(0.2, btSD) / sqrt(Double(recentBT.count)))
             : 0
         var confidence = Int(round(50 + 14 * btZ))
         confidence = max(5, min(95, confidence))
 
-        // Mélange bilatéral de martingales (sur- et sous-performance) :
-        // toujours une e-valeur valide, quel que soit le sens du biais.
         let eValue = 0.5 * exp(min(60, eLogUp)) + 0.5 * exp(min(60, eLogDown))
 
         // Géométrie du tableau : paires adjacentes observées vs hasard.
-        // Arêtes de la grille 8×10 : 9 par colonne + 7 par rangée de largeur 10.
-        let edges = Double(9 * (pool / 10) + 10 * (pool / 10 - 1))
-        let adjExpected = edges * Double(drawN * (drawN - 1)) / Double(pool * (pool - 1))
+        let edges = Double(9 * (Self.pool / 10) + 10 * (Self.pool / 10 - 1))
+        let adjExpected = edges * Double(Self.drawN * (Self.drawN - 1)) / Double(Self.pool * (Self.pool - 1))
         let recentAdj = Array(adjSeries.suffix(60))
-        let adjMean = recentAdj.isEmpty ? adjExpected : mean(recentAdj)
+        let adjMean = recentAdj.isEmpty ? adjExpected : Self.mean(recentAdj)
         var adjVar = 0.0
         for x in recentAdj {
             let d = x - adjMean
@@ -872,14 +940,13 @@ enum Swarm {
             ? (adjMean - adjExpected) / (max(0.3, adjSD) / sqrt(Double(recentAdj.count)))
             : 0
 
-        var freq16 = [Double](repeating: 0, count: pool)
+        var freq16 = [Double](repeating: 0, count: Self.pool)
         for drawNums in recent16 {
-            for num in drawNums where (1...pool).contains(num) {
+            for num in drawNums where (1...Self.pool).contains(num) {
                 freq16[num - 1] += 1
             }
         }
 
-        // Diagnostics de l'essaim.
         var entropy = 0.0
         for w in weights where w > 1e-12 { entropy -= w * log(w) }
         var famAgg: [String: (weight: Double, heads: Int)] = [:]
@@ -897,7 +964,7 @@ enum Swarm {
             .sorted { $0.weight > $1.weight }
 
         var bestName = "—"
-        var bestMean = uniformExp
+        var bestMean = Self.uniformExp
         var bestFound = false
         for (i, h) in heads.enumerated() {
             let xs = headOv[i].suffix(40)
@@ -936,7 +1003,7 @@ enum Swarm {
             todayDraws: todayDraws,
             backtest: ensembleOv,
             backtestMean: btMean,
-            uniformExpected: uniformExp,
+            uniformExpected: Self.uniformExp,
             backtestZ: btZ,
             eValue: eValue,
             adjacencyMean: adjMean,
@@ -948,57 +1015,107 @@ enum Swarm {
         )
     }
 
-    // Mutation : dans chaque famille paramétrique, la tête la plus faible
-    // adopte la mémoire de la plus forte, avec un jitter déterministe.
-    private static func evolve(
-        heads: [SwarmHead],
-        headOv: inout [[Double]],
-        weights: inout [Double],
-        seed: inout UInt64
-    ) -> Bool {
-        var mutated = false
-        for fam in ["Bayes", "EWMA", "Hawkes"] {
-            let idx = heads.indices.filter { heads[$0].family == fam && heads[$0] is EvolvingHead }
-            guard idx.count >= 2 else { continue }
-            var means: [(index: Int, mean: Double)] = []
-            for i in idx {
-                let xs = headOv[i].suffix(40)
-                guard xs.count >= 20 else { continue }
-                means.append((i, xs.reduce(0, +) / Double(xs.count)))
+    // MARK: Sélection des grilles
+
+    private func greedyPick(k: Int, score: [Double], kind: GridKind, banned: Set<Int>) -> [Int] {
+        var picked: [Int] = []
+        var decade = [Int](repeating: 0, count: 8)
+        let cap = kind == .nexus ? max(2, Int(ceil(Double(k) / 5)) + 1) : k
+
+        for _ in 0..<k {
+            var best = -1
+            var bestS = -Double.infinity
+            for num in 1...Self.pool {
+                if picked.contains(num) || banned.contains(num) { continue }
+                let dec = (num - 1) / 10
+                if decade[dec] >= cap { continue }
+                var s = score[num - 1]
+                if kind == .nexus {
+                    s += 0.18 * pmiBoost(picked: picked, candidate: num)
+                    let odd = num % 2 == 1
+                    let oddNow = picked.filter { $0 % 2 == 1 }.count
+                    let targetOdd = Double(k) / 2
+                    if odd && Double(oddNow) >= targetOdd + 1 { s -= 0.25 }
+                    if !odd && Double(picked.count - oddNow) >= targetOdd + 1 { s -= 0.25 }
+                } else if kind == .omega {
+                    if picked.contains(where: { abs($0 - num) == 1 }) { s -= 0.15 }
+                }
+                if s > bestS {
+                    bestS = s
+                    best = num
+                }
             }
-            guard means.count == idx.count else { continue }
-            guard let best = means.max(by: { $0.mean < $1.mean }),
-                  let worst = means.min(by: { $0.mean < $1.mean }),
-                  best.index != worst.index,
-                  best.mean - worst.mean > 0.35,
-                  let bestHead = heads[best.index] as? EvolvingHead,
-                  let worstHead = heads[worst.index] as? EvolvingHead
-            else { continue }
-            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-            let jitter = 0.7 + 0.6 * Double((seed >> 33) & 0xFFFF) / 65535
-            worstHead.memory = min(400, max(1, bestHead.memory * jitter))
-            headOv[worst.index].removeAll()
-            weights[worst.index] = 1 / Double(heads.count)
-            let s = weights.reduce(0, +)
-            if s > 0 {
-                for i in 0..<weights.count { weights[i] /= s }
+            if best < 0 {
+                for num in 1...Self.pool where !picked.contains(num) && !banned.contains(num) {
+                    if score[num - 1] > bestS {
+                        bestS = score[num - 1]
+                        best = num
+                    }
+                }
             }
-            mutated = true
+            if best > 0 {
+                picked.append(best)
+                decade[(best - 1) / 10] += 1
+            }
         }
-        return mutated
+        return picked.sorted()
     }
 
-    // MARK: - Outils numériques
+    private func pmiBoost(picked: [Int], candidate: Int) -> Double {
+        if picked.isEmpty || absorbed == 0 { return 0 }
+        var s = 0.0
+        for p in picked {
+            let a = min(p, candidate) - 1
+            let b = max(p, candidate) - 1
+            let cij = co[a * Self.pool + b]
+            let denom = (counts[a] * counts[b] + 1) / Double(absorbed)
+            s += log((cij + 0.25) / denom)
+        }
+        return s / Double(picked.count)
+    }
 
-    private static func blendWeighted(_ fields: [[Double]], _ weights: [Double]) -> [Double] {
-        var out = [Double](repeating: 0, count: pool)
+    private func blendWeighted(_ fields: [[Double]]) -> [Double] {
+        var out = [Double](repeating: 0, count: Self.pool)
         for h in 0..<fields.count {
             let w = h < weights.count ? weights[h] : 0
             if w == 0 { continue }
             let f = fields[h]
-            for i in 0..<pool { out[i] += w * f[i] }
+            for i in 0..<Self.pool { out[i] += w * f[i] }
         }
         return out
+    }
+
+    // MARK: Constantes et outils numériques
+
+    private static func makeHeads() -> [SwarmHead] {
+        [
+            BayesHead(memory: 10, variant: "a"), BayesHead(memory: 33, variant: "b"), BayesHead(memory: 200, variant: "c"),
+            EwmaHead(memory: 8, variant: "a"), EwmaHead(memory: 25, variant: "b"), EwmaHead(memory: 64, variant: "c"),
+            HawkesHead(memory: 2.3, variant: "a"), HawkesHead(memory: 3.9, variant: "b"), HawkesHead(memory: 8.7, variant: "c"),
+            WeibullHead(k: 1.25), WeibullHead(k: 1.55),
+            HazardHead(), GapZHead(),
+            SpectralHead(short: 16, long: 64, momentum: false),
+            SpectralHead(short: 8, long: 32, momentum: true),
+            MarkovHead(k: 1), MarkovHead(k: 3), StreakHead(),
+            CopairHead(),
+            AcpHead(axis: 1), AcpHead(axis: 2),
+            AntiHead(base: EwmaHead(memory: 25, variant: "b")),
+            AntiHead(base: HawkesHead(memory: 3.9, variant: "b")),
+            PressureHead(),
+            AdjacencyHead(), RowPressureHead(),
+        ]
+    }
+
+    // Paires adjacentes du tirage sur le tableau officiel (chaque arête
+    // comptée une fois : vers le bas dans la colonne, vers la droite).
+    private static func adjacentPairs(_ drawn: Set<Int>) -> Double {
+        var c = 0.0
+        for n in drawn {
+            let row = (n - 1) % 10
+            if row < 9, drawn.contains(n + 1) { c += 1 }
+            if n <= pool - 10, drawn.contains(n + 10) { c += 1 }
+        }
+        return c
     }
 
     private static func comb(_ n: Int, _ k: Int) -> Double {
@@ -1057,63 +1174,6 @@ enum Swarm {
         return ranks
     }
 
-    private static func pmiBoost(picked: [Int], candidate: Int, co: [Double], counts: [Double], nDraws: Int) -> Double {
-        if picked.isEmpty || nDraws == 0 { return 0 }
-        var s = 0.0
-        for p in picked {
-            let a = min(p, candidate) - 1
-            let b = max(p, candidate) - 1
-            let cij = co[a * pool + b]
-            let denom = (counts[a] * counts[b] + 1) / Double(nDraws)
-            s += log((cij + 0.25) / denom)
-        }
-        return s / Double(picked.count)
-    }
-
-    private static func greedyPick(k: Int, score: [Double], kind: GridKind, co: [Double], counts: [Double], nDraws: Int) -> [Int] {
-        var picked: [Int] = []
-        var decade = [Int](repeating: 0, count: 8)
-        let cap = kind == .nexus ? max(2, Int(ceil(Double(k) / 5)) + 1) : k
-
-        for _ in 0..<k {
-            var best = -1
-            var bestS = -Double.infinity
-            for num in 1...pool {
-                if picked.contains(num) { continue }
-                let dec = (num - 1) / 10
-                if decade[dec] >= cap { continue }
-                var s = score[num - 1]
-                if kind == .nexus {
-                    s += 0.18 * pmiBoost(picked: picked, candidate: num, co: co, counts: counts, nDraws: nDraws)
-                    let odd = num % 2 == 1
-                    let oddNow = picked.filter { $0 % 2 == 1 }.count
-                    let targetOdd = Double(k) / 2
-                    if odd && Double(oddNow) >= targetOdd + 1 { s -= 0.25 }
-                    if !odd && Double(picked.count - oddNow) >= targetOdd + 1 { s -= 0.25 }
-                } else if kind == .omega {
-                    if picked.contains(where: { abs($0 - num) == 1 }) { s -= 0.15 }
-                }
-                if s > bestS {
-                    bestS = s
-                    best = num
-                }
-            }
-            if best < 0 {
-                for num in 1...pool where !picked.contains(num) {
-                    if score[num - 1] > bestS {
-                        bestS = score[num - 1]
-                        best = num
-                    }
-                }
-            }
-            if best > 0 {
-                picked.append(best)
-                decade[(best - 1) / 10] += 1
-            }
-        }
-        return picked.sorted()
-    }
-
     private static func heterogeneousAllHit(_ p: [Double]) -> Double {
         let k = p.count
         if k == 0 { return 0 }
@@ -1160,5 +1220,13 @@ enum Swarm {
     private static func formatPlainOdds(_ p: Double) -> String {
         let inv = p > 0 ? Int(round(1 / p)) : 0
         return "1 / \(Format.ch.string(from: NSNumber(value: inv)) ?? "\(inv)")"
+    }
+}
+
+// Variante « recalcul complet » : un moteur neuf rejoue tout l'historique.
+// Référence des tests et passe de réconciliation de l'incrémental.
+enum Swarm {
+    static func run(_ drawsNewestFirst: [Draw]) -> OracleResult {
+        SwarmEngine().update(drawsNewestFirst)
     }
 }

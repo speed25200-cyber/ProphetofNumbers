@@ -87,7 +87,7 @@ struct GridsView: View {
                                 Circle()
                                     .fill(Palette.kindColor(t.kind))
                                     .frame(width: 6, height: 6)
-                                Text(t.kind.label)
+                                Text(t.kind.label + (t.variant == 2 ? " II" : ""))
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(Palette.fg)
                                 Spacer()

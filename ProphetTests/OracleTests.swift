@@ -94,14 +94,41 @@ final class OracleTests: XCTestCase {
     func testGridsHaveCorrectCardinality() {
         let result = Swarm.run(syntheticHistory())
         for pack in result.stakes {
-            XCTAssertEqual(pack.grids.count, 3)
+            XCTAssertEqual(pack.grids.count, 6)
             for grid in pack.grids {
                 XCTAssertEqual(grid.numbers.count, pack.stake)
                 XCTAssertEqual(Set(grid.numbers).count, pack.stake)
                 XCTAssertTrue(grid.numbers.allSatisfy { (1...80).contains($0) })
                 XCTAssertEqual(grid.numbers, grid.numbers.sorted())
             }
+            // Les variantes I et II d'une même stratégie sont disjointes.
+            for kind in GridKind.allCases {
+                let pair = pack.grids.filter { $0.kind == kind }
+                XCTAssertEqual(pair.count, 2)
+                XCTAssertTrue(Set(pair[0].numbers).isDisjoint(with: Set(pair[1].numbers)))
+            }
+            // Identifiants uniques (I et II ne se confondent pas).
+            XCTAssertEqual(Set(pack.grids.map(\.id)).count, 6)
         }
+    }
+
+    func testIncrementalEngineMatchesFullRebuild() {
+        let history = syntheticHistory() // du plus récent au plus ancien
+        let full = Swarm.run(history)
+        let engine = SwarmEngine()
+        // Les 60 tirages les plus anciens d'abord, puis le reste en incrémental.
+        _ = engine.update(Array(history.suffix(60)))
+        let incremental = engine.update(history)
+        XCTAssertEqual(incremental.scores, full.scores)
+        XCTAssertEqual(incremental.backtest, full.backtest)
+        XCTAssertEqual(incremental.confidence, full.confidence)
+        XCTAssertEqual(incremental.eValue, full.eValue)
+        XCTAssertEqual(incremental.swarm.generation, full.swarm.generation)
+        XCTAssertEqual(incremental.methods.map(\.weight), full.methods.map(\.weight))
+        for (ga, gb) in zip(incremental.stakes, full.stakes) {
+            XCTAssertEqual(ga.grids.map(\.numbers), gb.grids.map(\.numbers))
+        }
+        XCTAssertEqual(incremental.movers.map(\.number), full.movers.map(\.number))
     }
 
     func testHitsInDraw() {
@@ -206,8 +233,9 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: false, now: now), 12)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(300), hole: false, now: now), 5)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(40), hole: false, now: now), 2)
-        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 1)
-        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 1)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(15), hole: false, now: now), 0.6)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.25)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.25)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: nil, hole: false, now: now), 8)
     }
 

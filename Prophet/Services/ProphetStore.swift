@@ -24,6 +24,9 @@ final class ProphetStore: ObservableObject {
     private var lastFetchAt = Date.distantPast
     private var refreshing = false
     private var lastOracleDraw = Int.min
+    // Variante incrémentale : l'état de l'essaim persiste, absorber un
+    // nouveau tirage coûte quelques millisecondes.
+    private let engine = SwarmEngine()
     private static let memoryKey = "prophet.tickets.v1"
     private static let notifKey = "prophet.notifs.v1"
     private static let ticketRetentionDraws = 48
@@ -31,9 +34,9 @@ final class ProphetStore: ObservableObject {
     init() {
         tickets = Self.readTickets()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
-        // Tick à 1 s : la cadence réelle est décidée par Schedule.pollDelay
-        // (12 s loin du tirage → 1 s pendant la fenêtre de publication).
-        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        // Tick à 250 ms : la cadence réelle est décidée par Schedule.pollDelay
+        // (12 s loin du tirage → 250 ms pendant la fenêtre de publication).
+        poll = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { await self?.pollTick() }
         }
         Task { await refresh(force: true) }
@@ -75,12 +78,20 @@ final class ProphetStore: ObservableObject {
                 payload = live
             }
             if oracle == nil || newestDraw != lastOracleDraw {
-                let result = await Task.detached(priority: .userInitiated) {
-                    Swarm.run(history)
+                // Variante incrémentale : grilles disponibles dans la foulée
+                // du résultat.
+                let result = await Task.detached(priority: .userInitiated) { [engine] in
+                    engine.update(history)
                 }.value
                 lastOracleDraw = newestDraw
                 withAnimation(.smooth(duration: 0.5)) {
                     oracle = result
+                }
+                // Variante existante (recalcul complet) en réconciliation :
+                // mêmes opérations, même résultat — filet de sécurité.
+                Task.detached(priority: .utility) { [weak self] in
+                    let full = Swarm.run(history)
+                    await self?.reconcile(full, draw: newestDraw)
                 }
             }
             error = nil
@@ -89,6 +100,11 @@ final class ProphetStore: ObservableObject {
             self.error = error.localizedDescription
         }
         loading = false
+    }
+
+    private func reconcile(_ full: OracleResult, draw: Int) {
+        guard lastOracleDraw == draw else { return }
+        oracle = full
     }
 
     func toggleNotifications() {
@@ -167,7 +183,7 @@ final class ProphetStore: ObservableObject {
         guard target > 0 else { return }
         let fresh: [SavedTicket] = oracle.stakes.flatMap { pack in
             pack.grids.map {
-                SavedTicket(targetDraw: target, stake: pack.stake, kind: $0.kind, numbers: $0.numbers)
+                SavedTicket(targetDraw: target, stake: pack.stake, kind: $0.kind, variant: $0.variant, numbers: $0.numbers)
             }
         }
         let existing = tickets.filter { $0.targetDraw == target }

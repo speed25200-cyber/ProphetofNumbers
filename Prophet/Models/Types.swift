@@ -54,6 +54,8 @@ enum GridKind: String, Codable, CaseIterable, Identifiable {
 
 struct SuggestedGrid: Identifiable {
     var kind: GridKind
+    // 1 = sélection principale, 2 = variante disjointe (couverture doublée).
+    var variant: Int = 1
     var label: String
     var subtitle: String
     var numbers: [Int]
@@ -61,7 +63,7 @@ struct SuggestedGrid: Identifiable {
     var baseExpected: Double
     var pAllHit: Double
     var basePAllHit: Double
-    var id: String { kind.rawValue }
+    var id: String { "\(kind.rawValue).\(variant)" }
 }
 
 struct StakeGrids: Identifiable {
@@ -162,8 +164,9 @@ struct SavedTicket: Codable, Identifiable, Hashable {
     var targetDraw: Int
     var stake: Int
     var kind: GridKind
+    var variant: Int
     var numbers: [Int]
-    var id: String { "\(targetDraw)-\(stake)-\(kind.rawValue)" }
+    var id: String { "\(targetDraw)-\(stake)-\(kind.rawValue)-\(variant)" }
 }
 
 enum Zurich {
