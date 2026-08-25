@@ -1,34 +1,28 @@
 import SwiftUI
 
-// Fond vivant : trois halos de couleur qui respirent lentement.
+// Fond aurora : trois halos statiques — zéro repaint en continu,
+// le GPU reste disponible pour le défilement.
 struct AuroraBackground: View {
-    @State private var breathe = false
-
     var body: some View {
         ZStack {
             Palette.bg
             RadialGradient(
-                colors: [Palette.violet.opacity(breathe ? 0.20 : 0.12), .clear],
+                colors: [Palette.violet.opacity(0.16), .clear],
                 center: UnitPoint(x: 0.12, y: 0.02),
                 startRadius: 0, endRadius: 440
             )
             RadialGradient(
-                colors: [Palette.gold.opacity(breathe ? 0.05 : 0.11), .clear],
+                colors: [Palette.gold.opacity(0.08), .clear],
                 center: UnitPoint(x: 0.95, y: 0.18),
                 startRadius: 0, endRadius: 400
             )
             RadialGradient(
-                colors: [Palette.teal.opacity(breathe ? 0.10 : 0.05), .clear],
+                colors: [Palette.teal.opacity(0.07), .clear],
                 center: UnitPoint(x: 0.5, y: 1.05),
                 startRadius: 0, endRadius: 520
             )
         }
         .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
-                breathe = true
-            }
-        }
     }
 }
 
@@ -63,7 +57,9 @@ struct Card<Content: View>: View {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .strokeBorder(Palette.cardStroke, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.45), radius: 20, x: 0, y: 10)
+            // Aplatir la carte avant l'ombre : une seule texture à ombrer.
+            .compositingGroup()
+            .shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 8)
     }
 }
 
@@ -74,7 +70,7 @@ struct Overline: View {
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold))
-            .tracking(2.2)
+            .tracking(1.4)
             .foregroundStyle(color)
     }
 }

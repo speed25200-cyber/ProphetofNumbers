@@ -46,7 +46,8 @@ struct RootView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Overline(text: "LOTO EXPRESS · LORO")
                 Text("Prophet")
-                    .font(Typeface.display(32))
+                    .font(Typeface.display(30, weight: .bold))
+                    .tracking(-0.5)
                     .foregroundStyle(Palette.goldGradient)
             }
             Spacer()
@@ -136,6 +137,7 @@ struct RootView: View {
                     .foregroundStyle(tab == item ? Palette.accentFg : Palette.muted)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
+                    .contentShape(Rectangle())
                     .background {
                         if tab == item {
                             Capsule()

@@ -43,11 +43,14 @@ enum Palette {
 }
 
 enum Typeface {
-    static func display(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .serif)
+    // Titres : SF Pro semibold, serré — le registre des apps Apple.
+    static func display(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight, design: .default)
     }
 
-    static func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+    // Chiffres et données : SF Rounded avec chiffres à chasse fixe
+    // (style Timer / Fitness) — stable pendant les comptes à rebours.
+    static func mono(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        Font.system(size: size, weight: weight, design: .rounded).monospacedDigit()
     }
 }

@@ -36,6 +36,7 @@ struct GridsView: View {
                         .foregroundStyle(store.stake == s ? Palette.accentFg : Palette.muted)
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
+                        .contentShape(Rectangle())
                         .background {
                             if store.stake == s {
                                 Capsule()

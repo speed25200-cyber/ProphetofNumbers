@@ -25,7 +25,7 @@ struct LiveView: View {
                         TimelineView(.periodic(from: .now, by: 1)) { ctx in
                             let cd = Format.countdown(to: at, now: ctx.date)
                             Text(cd.label)
-                                .font(Typeface.mono(46, weight: .medium))
+                                .font(Typeface.mono(50, weight: .semibold))
                                 .foregroundStyle(cd.urgent ? Palette.live : Palette.fg)
                                 .contentTransition(.numericText(countsDown: true))
                                 .animation(.snappy(duration: 0.3), value: cd.label)
@@ -35,7 +35,7 @@ struct LiveView: View {
                             .foregroundStyle(Palette.muted)
                     } else {
                         Text("—")
-                            .font(Typeface.mono(46, weight: .medium))
+                            .font(Typeface.mono(50, weight: .semibold))
                             .foregroundStyle(Palette.subtle)
                     }
                 }
@@ -110,9 +110,11 @@ struct SignalCard: View {
             .frame(height: 6)
             .animation(.smooth(duration: 0.5), value: oracle.confidence)
 
-            Text("\(oracle.sampleSize) tirages · essaim de \(oracle.swarm.headCount) têtes · gén. \(oracle.swarm.generation) · \(oracle.todayDraws) aujourd’hui")
+            Text("\(oracle.sampleSize) tirages · \(oracle.swarm.headCount) têtes · gén. \(oracle.swarm.generation) · \(oracle.todayDraws) auj.")
                 .font(Typeface.mono(11))
                 .foregroundStyle(Palette.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text(oracle.regimeDetail)
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.subtle)
