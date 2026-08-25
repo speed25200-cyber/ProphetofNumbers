@@ -23,6 +23,7 @@ struct AnalyseView: View {
                 if let report = store.forensics {
                     ForensicsCard(report: report)
                 }
+                RecoveryCard()
                 FieldCard(oracle: oracle, last: store.payload?.last)
                 GeoCard(oracle: oracle)
                 HotColdCard(oracle: oracle)
@@ -93,6 +94,66 @@ struct ForensicsCard: View {
             Text(report.detail)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.subtle)
+        }
+    }
+}
+
+// Reconstruction d'état : l'attaque qui a fonctionné historiquement,
+// lancée à la demande sur les tirages publiés.
+struct RecoveryCard: View {
+    @EnvironmentObject var store: ProphetStore
+
+    var body: some View {
+        Card(tint: store.recovery?.solved == true ? Palette.live : Palette.violet) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Overline(text: "RECONSTRUCTION D’ÉTAT")
+                    Text(store.recovery?.verdict ?? "Attaque par recherche de graine")
+                        .font(Typeface.display(22))
+                        .foregroundStyle(Palette.fg)
+                }
+                Spacer()
+                if store.recoveryRunning {
+                    ProgressView().tint(Palette.gold)
+                } else {
+                    Image(systemName: store.recovery?.solved == true ? "key.fill" : "lock.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(store.recovery?.solved == true ? Palette.live : Palette.muted)
+                }
+            }
+
+            Text("Cherche l’état interne du générateur : 8 familles (LCG glibc et MSVC, java.util.Random, xorshift32 et 128+, splitmix64, PCG32, Mersenne Twister) × 3 façons de tirer 20 numéros sur 80 × amorçages horloge, n° de tirage et graines courtes. Un état ne compte que s’il reproduit un tirage entier **et** confirme le suivant.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+
+            if let r = store.recovery {
+                HStack(spacing: 8) {
+                    StatPill(label: "CANDIDATS", value: Format.ch.string(from: NSNumber(value: r.candidatesTested)) ?? "\(r.candidatesTested)")
+                    StatPill(
+                        label: "MEILLEUR",
+                        value: "\(r.bestPrefix)/20",
+                        accent: r.solved ? Palette.live : Palette.fg
+                    )
+                    StatPill(label: "HASARD", value: String(format: "%.1f/20", r.expectedPrefix))
+                    StatPill(label: "DURÉE", value: String(format: "%.1f s", r.elapsed))
+                }
+                Text(r.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(r.solved ? Palette.live : Palette.subtle)
+                if !r.solved {
+                    Text("Meilleur candidat : \(r.bestFamily) · \(r.bestSampler) · \(r.bestSeedLabel) — au niveau du bruit.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Palette.subtle)
+                }
+            }
+
+            Button {
+                Task { await store.runRecovery() }
+            } label: {
+                Text(store.recoveryRunning ? "Balayage en cours…" : (store.recovery == nil ? "Lancer l’attaque" : "Relancer sur le dernier tirage"))
+            }
+            .buttonStyle(ProphetButtonStyle())
+            .disabled(store.recoveryRunning)
         }
     }
 }

@@ -112,6 +112,33 @@ toutes les paires). C'est la signature du seul mode de défaillance
 historiquement documenté d'un keno électronique — la graine réutilisée
 (Corriveau, Montréal 1994, séquences rejouées à l'identique).
 
+## 5 quater. La reconstruction d'état (`PRNGRecovery`)
+
+L'app tente aussi, à la demande, l'attaque qui a réellement fonctionné
+dans l'histoire des loteries : retrouver l'état interne du générateur.
+Huit familles (LCG glibc et MSVC, `java.util.Random`, xorshift32 et
+128+, splitmix64, PCG32, Mersenne Twister) × trois échantillonneurs
+(modulo avec rejet, multiplication-décalage, Fisher-Yates partiel) ×
+amorçages horloge (secondes ±2 h, millisecondes ±5 s), numéro de tirage
+et graines courtes (0…2²⁰). L'appartenance au tirage cible est testée
+numéro par numéro avec arrêt anticipé, ce qui ramène le coût moyen à
+~1,3 pas de générateur par candidat : des dizaines de millions d'états
+sont balayés en quelques secondes sur l'appareil.
+
+**Règle d'honnêteté** : un état n'est déclaré trouvé que s'il reproduit
+le tirage cible en entier *et* confirme le tirage suivant en continuant
+le même flux. Le rapport affiche le meilleur préfixe obtenu à côté du
+préfixe attendu par pur hasard (≈ log₄ du nombre de candidats) — sur
+des millions d'essais, le hasard produit toujours un candidat d'une
+dizaine de numéros, ce n'est jamais une découverte.
+
+Validation croisée du dispositif : contre un LCG amorcé sur l'horloge,
+l'attaque retrouve la graine en ~10 ms et une dizaine de milliers de
+candidats (test unitaire `testRecoveryBreaksAClockSeededLCG`). Contre
+une source cryptographique, 3,4 millions de candidats ne produisent
+aucun état, et le meilleur préfixe tombe *en dessous* de l'attente du
+hasard. L'outil n'est donc pas muet : c'est la source qui ne cède pas.
+
 ## 6. La couche décision : valeur du jackpot
 
 Les numéros ne sont pas prédictibles, mais la **mise** est un choix

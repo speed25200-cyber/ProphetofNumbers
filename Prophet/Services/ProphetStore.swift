@@ -15,6 +15,8 @@ final class ProphetStore: ObservableObject {
     @Published var journal: DayJournal?
     @Published var journalHold = 1
     @Published var forensics: ForensicsReport?
+    @Published var recovery: RecoveryResult?
+    @Published var recoveryRunning = false
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -139,6 +141,20 @@ final class ProphetStore: ObservableObject {
         forensicsKey = key
         withAnimation(.smooth(duration: 0.4)) {
             forensics = result
+        }
+    }
+
+    // Reconstruction d'état : balayage lourd, lancé à la demande.
+    func runRecovery() async {
+        guard !recoveryRunning, let payload else { return }
+        recoveryRunning = true
+        let history = payload.history
+        let result = await Task.detached(priority: .userInitiated) {
+            PRNGRecovery.attack(history)
+        }.value
+        withAnimation(.smooth(duration: 0.4)) {
+            recovery = result
+            recoveryRunning = false
         }
     }
 

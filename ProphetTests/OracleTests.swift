@@ -352,6 +352,41 @@ final class OracleTests: XCTestCase {
         XCTAssertTrue(report.tests.contains { $0.name == "Uniformité du champ" && $0.flagged })
     }
 
+    func testRecoveryBreaksAClockSeededLCG() {
+        // Témoin positif : si le générateur était faible et amorcé sur
+        // l'horloge — le bug Corriveau — l'attaque doit le casser.
+        let dateString = "2026-08-25T12:00:00+02:00"
+        let date = Zurich.parseISO(dateString)!
+        let ts = UInt64(date.timeIntervalSince1970)
+        var gen = GlibcLCG(s: UInt32(truncatingIfNeeded: ts &+ 137))
+        func nextDraw() -> [Int] {
+            var out: [Int] = []
+            var seen = Set<Int>()
+            while out.count < 20 {
+                let n = Int(gen.next32() % 80) + 1
+                if seen.insert(n).inserted { out.append(n) }
+            }
+            return out.sorted()
+        }
+        let first = nextDraw()
+        let second = nextDraw()
+        let draws = [
+            Draw(drawNumber: 5002, drawDate: dateString, numbers: second, boost: nil, bonus: nil),
+            Draw(drawNumber: 5001, drawDate: dateString, numbers: first, boost: nil, bonus: nil),
+        ]
+        let result = PRNGRecovery.attack(draws, budget: 60)
+        XCTAssertTrue(result.solved, "Une graine horloge sur LCG doit être retrouvée")
+        XCTAssertEqual(result.bestPrefix, 20)
+        XCTAssertTrue(result.solvedDescription.contains("LCG glibc"))
+        XCTAssertGreaterThan(result.candidatesTested, 0)
+    }
+
+    func testRecoveryNeedsTwoDraws() {
+        let result = PRNGRecovery.attack([])
+        XCTAssertFalse(result.solved)
+        XCTAssertEqual(result.candidatesTested, 0)
+    }
+
     func testCountdownIsCeiledAndAnchored() {
         let target = Date(timeIntervalSince1970: 1_000_000)
         // 4,2 s restantes → afficher 05, pas 04.
