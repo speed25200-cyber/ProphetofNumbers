@@ -124,3 +124,85 @@ soit-elle, ne déplace pas la frontière.
 *Méthode : `numpy`, Monte-Carlo 400 réplicats pour le null du χ²,
 produit matriciel par blocs pour les 2,5 milliards de recouvrements,
 filtrage par survivants pour le balayage d'états.*
+
+---
+
+## 5. Au-delà de l'épuisement : la complexité linéaire
+
+La recherche exhaustive plafonne à 2³². Un Mersenne Twister a **19 937
+bits d'état** : l'énumérer demanderait 2¹⁹⁹³⁷ opérations. Aucune machine,
+aucune durée, ne l'atteindra jamais. Cette classe semblait donc
+définitivement hors de portée d'un audit par les sorties.
+
+Elle ne l'est pas — à condition de changer d'outil. Mersenne Twister,
+xorshift, xoroshiro, tout LFSR : ce sont des générateurs **F₂-linéaires**.
+Or l'algorithme de **Berlekamp-Massey** détermine la plus courte
+récurrence linéaire d'une suite binaire, et détecte donc un générateur
+linéaire de degré jusqu'à n/2 sur n bits — *sans jamais énumérer son
+état*.
+
+### Transformation des tirages en bits uniformes
+
+Chaque tirage est un 20-sous-ensemble de 80. Converti par le système
+combinatoire numérique en un rang r ∈ [0, C(80,20)), avec C(80,20) ≈
+2⁶¹·⁶². On n'émet ses 61 bits que si r < 2⁶¹ (rejet sinon) : sous H₀ les
+bits obtenus sont alors **exactement** uniformes et indépendants.
+
+```
+tirages acceptés : 45 872 / 70 560  (taux 0,650, conforme à 2⁶¹/C(80,20) = 0,652)
+flux obtenu      : 2 798 192 bits
+```
+
+### Batterie complète sur le flux
+
+| Test | Observé | p |
+|---|---|---|
+| Monobit | 0,500264 de 1 | 0,376 |
+| Fréquence par blocs (M = 20 000) | χ² = 130 / 139 | 0,592 |
+| Runs (alternances) | 1 399 113 vs 1 399 096 | 0,988 |
+| Plus longue série de 1 | 12,710 vs **12,636 ± 0,090** (Monte-Carlo) | 0,411 |
+| Spectral DFT (n = 1 048 576) | 497 807 pics sous seuil vs 498 074 | 0,017 |
+| Sommes cumulées | max\|S\|/√n = 1,494 | 0,023 |
+| Entropie de blocs (10 bits) | 9,99974 bit sur 10 | 0,883 |
+| **Complexité linéaire (BM, M = 500, 4 000 blocs)** | **L̄ = 250,2 vs μ = 250,2 · χ² = 7,12** | **0,310** |
+
+**8 tests sur 8 conformes.** Les deux valeurs à p ≈ 0,02 ne survivent pas
+à la correction de multiplicité (seuil de Bonferroni : 0,00125).
+
+> *Note de méthode : le test de la plus longue série sortait initialement à
+> p = 0,0001 — contre une **formule asymptotique** donnant 13,12. La
+> simulation Monte-Carlo donne 12,636 ± 0,090, et l'écart tombe à
+> z = +0,82. Même nature d'erreur que celle relevée au § 1 : une référence
+> théorique approximative prise pour l'espérance exacte. Tout seuil
+> critique de cet audit est désormais simulé, jamais tabulé.*
+
+### Ce que ce résultat exclut
+
+La complexité linéaire mesurée est **exactement à son espérance**. Sur ce
+flux, cela écarte toute récurrence F₂-linéaire de degré jusqu'à ~1,4
+million de bits, soit :
+
+- **Mersenne Twister** (19 937 bits) — 70 fois sous le seuil de détection ;
+- **xorshift / xoroshiro / xoshiro**, toutes variantes ;
+- **tout LFSR ou combinaison de LFSR** d'état inférieur à ~1,4 Mbit.
+
+C'est une classe que l'épuisement ne pourra jamais couvrir : 2¹⁹⁹³⁷ contre
+2³². Le test l'atteint sans énumérer quoi que ce soit.
+
+---
+
+## 6. Frontière consolidée
+
+| Classe de générateur | Statut | Par quel moyen |
+|---|---|---|
+| État ≤ 32 bits (LCG, xorshift32) | **Exclu** | Épuisement — 10,7 milliards d'états testés |
+| Graine dérivable (horloge, n° de tirage) | **Exclu** | Recherche de graine sur 8 familles |
+| **F₂-linéaire ≤ 1,4 Mbit (dont Mersenne Twister)** | **Exclu** | **Complexité linéaire (Berlekamp-Massey)** |
+| Rejeu de séquence (mode Corriveau) | **Exclu** | 2,489 milliards de paires, max 16/20 |
+| Biais de fréquence ≥ 0,5 % / de paires ≥ 1,5 % | **Exclu** | χ² (null simulé) + 3 160 paires, Bonferroni |
+| Non linéaire à grand état (AES-DRBG, SHA-DRBG) | hors d'atteinte | aucune méthode connue depuis les sorties |
+| Quantique (type Quantis) | sans objet | pas d'état interne à reconstruire |
+
+Les deux dernières lignes ne sont pas des lacunes de cet audit : ce sont
+les limites de ce qu'un observateur extérieur peut établir depuis des
+sorties publiées. Tout le reste a été écarté.
