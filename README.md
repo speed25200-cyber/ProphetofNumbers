@@ -26,3 +26,14 @@ Le fichier [`codemagic.yaml`](codemagic.yaml) définit trois flux, calqués sur 
 
 Un RNG équitable reste imbattable au sens strict. CRF-9 est un ensemble
 statistique (Bayes, Hawkes, Weibull, résidu spectral, ACP en ligne).
+
+
+## Dossier Claude
+
+Archive **70 560** tirages Loto Express (sans API LoRo) dans [`claude/`](claude/) :
+
+- [`claude/CLAUDE.md`](claude/CLAUDE.md) — consigne
+- [`claude/REPORT.md`](claude/REPORT.md) — χ², overlap, paires, mois
+- [`claude/draws/`](claude/draws/) — CSV brut (8 fichiers)
+
+Pour analyser : coller `claude/CLAUDE-PASTE.md` ou pointer Claude sur ce dossier.
