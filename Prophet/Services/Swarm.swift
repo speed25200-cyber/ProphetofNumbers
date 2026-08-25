@@ -708,12 +708,14 @@ final class SwarmEngine {
             let nums = draw.numbers
             let drawn = Set(nums)
 
-            if absorbed > 12 {
-                evaluate(drawn)
-            }
+            // Classement « avant le dernier tirage » (movers) : figé AVANT
+            // l'évaluation, pour que les poids n'aient pas vu son issue.
             if i == lastIdx, absorbed > 0 {
                 let fields = heads.map { Self.zscore($0.field()) }
                 prevRanks = Self.ranksFromScores(blendWeighted(fields))
+            }
+            if absorbed > 12 {
+                evaluate(drawn)
             }
 
             for head in heads { head.absorb(drawn) }
