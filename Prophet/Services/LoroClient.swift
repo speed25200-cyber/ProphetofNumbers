@@ -28,7 +28,8 @@ actor LoroClient {
     private var liveAt: Date = .distantPast
 
     func loadLive(force: Bool = false) async throws -> LivePayload {
-        if !force, let live, Date().timeIntervalSince(liveAt) < 4 {
+        let ttl = Schedule.cacheTtl(nextDrawAt: live?.nextDrawAt, hole: live?.hole ?? false)
+        if !force, let live, Date().timeIntervalSince(liveAt) < ttl {
             return live
         }
         let json = try await fetchJSON(gameURL)
@@ -39,6 +40,8 @@ actor LoroClient {
         var rawDraw: [String: Any] = [
             "drawNumber": raw["drawNumber"] as Any,
             "drawDate": (raw["drawDate"] ?? results["drawDate"]) as Any,
+            "phase": raw["phase"] as Any,
+            "wagerEndDate": raw["wagerEndDate"] as Any,
         ]
         if let result = raw["result"] {
             rawDraw["drawResult"] = result
@@ -51,11 +54,36 @@ actor LoroClient {
                 ]
             ]
         }
-        if let last = parseDraw(rawDraw) {
-            cache[last.drawNumber] = last
+        let gameSlot = parseSlot(rawDraw)
+        if let draw = gameSlot?.asDraw() {
+            cache[draw.drawNumber] = draw
         }
 
-        let last = cache.values.max(by: { $0.drawNumber < $1.drawNumber })
+        let hint = gameSlot?.drawNumber
+            ?? cache.values.map(\.drawNumber).max()
+            ?? 0
+
+        var ahead: [Schedule.Slot] = []
+        if hint > 0 {
+            ahead = await fetchSlots(from: hint, to: hint + Schedule.ahead)
+        }
+        let openIds = ahead.filter { !$0.isComplete }.map(\.drawNumber)
+        let minOpen = openIds.min() ?? (hint + 2)
+        var holeSlots: [Schedule.Slot] = []
+        if hint > 0, minOpen > hint + 1 {
+            holeSlots = await fetchSlots(from: hint + 1, to: minOpen - 1)
+        }
+
+        let fallbackNextRaw = details["drawDate"] as? String
+        let fallbackNext = fallbackNextRaw.flatMap(Zurich.parseISO)
+        let clock = Schedule.resolve(
+            slots: ahead + holeSlots,
+            fallbackNext: fallbackNext,
+            fallbackNextRaw: fallbackNextRaw,
+            fallbackLast: gameSlot?.asDraw()
+        )
+
+        let last = clock.last
         let latestId = last?.drawNumber ?? 0
         let from = max(1, latestId - historyWindow)
         let history = latestId > 0 ? try await ensureRange(from: from, to: latestId) : []
@@ -65,14 +93,13 @@ actor LoroClient {
             return Zurich.parts(date).dayKey == key
         }
 
-        let nextDrawAt: Date? = {
-            if let s = details["drawDate"] as? String { return Zurich.parseISO(s) }
-            return nil
-        }()
-
         let payload = LivePayload(
             status: details["status"] as? String ?? "UNKNOWN",
-            nextDrawAt: nextDrawAt,
+            nextDrawAt: clock.nextDrawAt,
+            nextDrawNumber: clock.nextDrawNumber,
+            wagerEndAt: clock.wagerEndAt,
+            hole: clock.hole,
+            pendingDrawNumber: clock.pendingDrawNumber,
             last: last,
             jackpots: parseJackpots(details["extraJackpots"]),
             today: today,
@@ -94,15 +121,7 @@ actor LoroClient {
                 if cache[id] == nil { missing = true; break }
             }
             if missing {
-                let url = URL(string: "\(drawsURL.absoluteString)?from=\(start)&to=\(end)&pageSize=\(pageSize)")!
-                if let json = try? await fetchJSON(url) {
-                    let rows = json["results"] as? [Any] ?? []
-                    for row in rows {
-                        if let rec = row as? [String: Any], let draw = parseDraw(rec) {
-                            cache[draw.drawNumber] = draw
-                        }
-                    }
-                }
+                _ = await fetchSlots(from: start, to: end)
             }
             end -= pageSize
         }
@@ -113,6 +132,36 @@ actor LoroClient {
             id -= 1
         }
         return out
+    }
+
+    private func fetchSlots(from: Int, to: Int) async -> [Schedule.Slot] {
+        guard to >= from else { return [] }
+        let url = URL(string: "\(drawsURL.absoluteString)?from=\(from)&to=\(to)&pageSize=\(pageSize)")!
+        guard let json = try? await fetchJSON(url) else { return [] }
+        let rows = json["results"] as? [Any] ?? []
+        var out: [Schedule.Slot] = []
+        for row in rows {
+            guard let rec = row as? [String: Any], let slot = parseSlot(rec) else { continue }
+            if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+            out.append(slot)
+        }
+        return out
+    }
+
+    private func parseSlot(_ raw: [String: Any]) -> Schedule.Slot? {
+        guard let drawNumber = asInt(raw["drawNumber"]) else { return nil }
+        let drawDate = raw["drawDate"] as? String ?? ""
+        guard !drawDate.isEmpty else { return nil }
+        let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
+        return Schedule.Slot(
+            drawNumber: drawNumber,
+            drawDate: drawDate,
+            numbers: matrix.numbers,
+            boost: matrix.boost,
+            bonus: matrix.bonus,
+            phase: raw["phase"] as? String,
+            wagerEndDate: raw["wagerEndDate"] as? String
+        )
     }
 
     private func fetchJSON(_ url: URL) async throws -> [String: Any] {

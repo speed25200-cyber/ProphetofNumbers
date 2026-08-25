@@ -24,10 +24,28 @@ struct LiveView: View {
                                 .font(.system(size: 14))
                                 .foregroundStyle(Palette.muted)
                         }
+                        if let pending = payload?.pendingDrawNumber, payload?.hole == true {
+                            Text("En attente du résultat #\(pending). Les grilles se recaleront dès qu’il est publié.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Palette.warn)
+                                .padding(.top, 8)
+                        } else {
+                            Text("Grilles à jouer maintenant, avant le tirage.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Palette.subtle)
+                                .padding(.top, 8)
+                        }
                     }
                     Spacer()
-                    Image(systemName: "timer")
-                        .foregroundStyle(Palette.subtle)
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Image(systemName: "timer")
+                            .foregroundStyle(Palette.subtle)
+                        if let n = payload?.nextDrawNumber {
+                            Text("#\(n)")
+                                .font(Typeface.mono(12))
+                                .foregroundStyle(Palette.muted)
+                        }
+                    }
                 }
                 if let jacks = payload?.jackpots, !jacks.isEmpty {
                     HStack(spacing: 6) {
@@ -150,6 +168,16 @@ struct GridsView: View {
         let scored = last.map { draw in
             store.tickets.filter { $0.targetDraw == draw.drawNumber && $0.stake == store.stake }
         } ?? []
+        let target = store.payload?.nextDrawNumber
+        let gridCaption: String = {
+            if let target {
+                if let at = store.payload?.nextDrawAt {
+                    return "Pour le #\(target) · \(Format.clock(at)) · cote de base \(pack.oddsLabel)"
+                }
+                return "Pour le #\(target) · cote de base \(pack.oddsLabel)"
+            }
+            return "Cote de base \(pack.oddsLabel) · modèle recalibré après chaque tirage"
+        }()
 
         VStack(alignment: .leading, spacing: 16) {
             Text("MISE")
@@ -176,9 +204,14 @@ struct GridsView: View {
             .background(Palette.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            Text("Cote de base \(pack.oddsLabel) · modèle recalibré après chaque tirage")
+            Text(gridCaption)
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.subtle)
+            if let pending = store.payload?.pendingDrawNumber, store.payload?.hole == true {
+                Text("Résultat #\(pending) pas encore publié — grilles provisoires, recalage automatique.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.warn)
+            }
 
             if !scored.isEmpty, let last {
                 Card {

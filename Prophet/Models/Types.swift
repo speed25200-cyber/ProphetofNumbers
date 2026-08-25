@@ -107,6 +107,10 @@ struct OracleResult {
 struct LivePayload {
     var status: String
     var nextDrawAt: Date?
+    var nextDrawNumber: Int?
+    var wagerEndAt: Date?
+    var hole: Bool
+    var pendingDrawNumber: Int?
     var last: Draw?
     var jackpots: [Jackpot]
     var today: [Draw]

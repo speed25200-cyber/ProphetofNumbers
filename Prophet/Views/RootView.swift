@@ -67,7 +67,11 @@ struct RootView: View {
                 .background(Palette.elevated)
                 .clipShape(Capsule())
                 .overlay(Capsule().stroke(Palette.fg.opacity(0.12), lineWidth: 1))
-                if let last = store.payload?.last {
+                if let next = store.payload?.nextDrawNumber {
+                    Text("#\(next)")
+                        .font(Typeface.mono(12))
+                        .foregroundStyle(Palette.muted)
+                } else if let last = store.payload?.last {
                     Text("#\(last.drawNumber)")
                         .font(Typeface.mono(12))
                         .foregroundStyle(Palette.muted)

@@ -13,6 +13,7 @@ final class ProphetStore: ObservableObject {
 
     private var timer: Timer?
     private var poll: Timer?
+    private var inFlight = false
     private let memoryKey = "prophet.tickets.v1"
 
     init() {
@@ -20,8 +21,8 @@ final class ProphetStore: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.now = Date() }
         }
-        poll = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
-            Task { await self?.refresh() }
+        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { await self?.tick() }
         }
         Task { await refresh(force: true) }
     }
@@ -31,8 +32,19 @@ final class ProphetStore: ObservableObject {
         // via RunLoop; they hold only a weak reference back to self.
     }
 
+    func tick() async {
+        now = Date()
+        if inFlight { return }
+        let delay = Schedule.pollDelay(nextDrawAt: payload?.nextDrawAt, hole: payload?.hole ?? false, now: now)
+        let age = payload.map { now.timeIntervalSince($0.fetchedAt) } ?? 999
+        if age >= delay { await refresh() }
+    }
+
     func refresh(force: Bool = false) async {
+        if inFlight && !force { return }
+        inFlight = true
         if payload == nil { loading = true }
+        defer { inFlight = false }
         do {
             let live = try await LoroClient.shared.loadLive(force: force)
             payload = live
@@ -51,15 +63,15 @@ final class ProphetStore: ObservableObject {
     }
 
     private func rememberTickets(live: LivePayload) {
-        guard let last = live.last, let oracle else { return }
-        let next = last.drawNumber + 1
-        if tickets.contains(where: { $0.targetDraw == next }) { return }
+        guard let oracle else { return }
+        let target = live.nextDrawNumber ?? (live.last.map { $0.drawNumber + 1 } ?? 0)
+        guard target > 0 else { return }
         let fresh: [SavedTicket] = oracle.stakes.flatMap { pack in
             pack.grids.map {
-                SavedTicket(targetDraw: next, stake: pack.stake, kind: $0.kind, numbers: $0.numbers)
+                SavedTicket(targetDraw: target, stake: pack.stake, kind: $0.kind, numbers: $0.numbers)
             }
         }
-        tickets = tickets.filter { $0.targetDraw >= next - 12 } + fresh
+        tickets = tickets.filter { $0.targetDraw != target && $0.targetDraw >= target - 12 } + fresh
         Self.writeTickets(tickets)
     }
 
