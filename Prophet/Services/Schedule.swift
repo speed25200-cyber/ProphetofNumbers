@@ -111,11 +111,11 @@ enum Schedule {
     }
 
     static func pollDelay(nextDrawAt: Date?, hole: Bool, now: Date = Date()) -> TimeInterval {
-        if hole { return 0.25 }
+        if hole { return 0.1 }
         guard let nextDrawAt else { return 8 }
         let ms = nextDrawAt.timeIntervalSince(now)
-        if ms < 8 { return 0.25 }
-        if ms < 20 { return 0.6 }
+        if ms < 8 { return 0.1 }
+        if ms < 20 { return 0.4 }
         if ms < 45 { return 2 }
         if ms < 360 { return 5 }
         return 12
