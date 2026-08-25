@@ -25,7 +25,7 @@ struct LiveView: View {
                                 .foregroundStyle(Palette.muted)
                         }
                         if let pending = payload?.pendingDrawNumber, payload?.hole == true {
-                            Text("En attente du résultat #\(pending). Les grilles se recaleront dès qu’il est publié.")
+                            Text("En attente du résultat #\(pending). Les grilles visent déjà le tour suivant.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(Palette.warn)
                                 .padding(.top, 8)
@@ -208,7 +208,7 @@ struct GridsView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.subtle)
             if let pending = store.payload?.pendingDrawNumber, store.payload?.hole == true {
-                Text("Résultat #\(pending) pas encore publié — grilles provisoires, recalage automatique.")
+                Text("Résultat #\(pending) pas encore publié — grilles déjà calées pour le tour suivant.")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.warn)
             }

@@ -20,7 +20,7 @@ actor LoroClient {
     private let gameURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress")!
     private let drawsURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws")!
     private let source = "https://jeux.loro.ch/games/lotoexpress/results"
-    private let historyWindow = 199
+    private let historyWindow = 399
     private let pageSize = 100
 
     private var cache: [Int: Draw] = [:]
@@ -65,8 +65,10 @@ actor LoroClient {
             gameSlot?.asDraw()?.drawNumber ?? 0,
             slots.filter(\.isComplete).map(\.drawNumber).max() ?? 0
         )
-        let pending = await fetchDraws(ids: [hint + 1, hint + 2])
+        let pending = await fetchDraws(ids: [hint + 1, hint + 2, hint + 3])
+        let recent = await fetchRecent(previous: hint)
         slots.append(contentsOf: pending)
+        slots.append(contentsOf: recent)
         if let gameSlot { slots.append(gameSlot) }
 
         let fallbackNextRaw = details["drawDate"] as? String
@@ -146,6 +148,12 @@ actor LoroClient {
 
     private func fetchEdge() async -> [Schedule.Slot] {
         let url = URL(string: "\(drawsURL.absoluteString)?pageSize=20")!
+        return await parseSlotList(url)
+    }
+
+    private func fetchRecent(previous: Int) async -> [Schedule.Slot] {
+        guard previous > 0 else { return [] }
+        let url = URL(string: "\(drawsURL.absoluteString)?previousDraw=\(previous)&pageSize=40")!
         return await parseSlotList(url)
     }
 

@@ -3,6 +3,7 @@ import Foundation
 enum Schedule {
     static let interval: TimeInterval = 5 * 60
     static let ahead = 16
+    static let lockAhead: TimeInterval = 20
 
     struct Slot {
         var drawNumber: Int
@@ -84,15 +85,28 @@ enum Schedule {
             return last.drawNumber + max(1, steps)
         }()
 
-        let hole = last != nil && nextDrawNumber != nil && nextDrawNumber! > last!.drawNumber + 1
+        var playNumber = nextDrawNumber
+        var playAt = nextDrawAt
+        var playSlot = next
+        if let current = playNumber, let at = playAt, at.timeIntervalSince(now) <= lockAhead {
+            let followNum = current + 1
+            let follow = slots.first(where: { $0.drawNumber == followNum })
+                ?? open.first(where: { $0.drawNumber == followNum })
+            playNumber = followNum
+            playAt = follow.flatMap { Zurich.parseISO($0.drawDate) }
+                ?? at.addingTimeInterval(interval)
+            playSlot = follow ?? playSlot
+        }
+
+        let hole = last != nil && playNumber != nil && playNumber! > last!.drawNumber + 1
         return Clock(
             last: last,
-            nextDrawAt: nextDrawAt,
-            nextDrawNumber: nextDrawNumber,
-            wagerEndAt: next.flatMap { Zurich.parseISO($0.wagerEndDate ?? "") } ?? nextDrawAt,
+            nextDrawAt: playAt,
+            nextDrawNumber: playNumber,
+            wagerEndAt: playSlot.flatMap { Zurich.parseISO($0.wagerEndDate ?? "") } ?? playAt,
             hole: hole,
             pendingDrawNumber: hole ? last!.drawNumber + 1 : nil,
-            phase: next?.phase
+            phase: playSlot?.phase
         )
     }
 
