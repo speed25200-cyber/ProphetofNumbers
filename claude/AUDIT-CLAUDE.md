@@ -206,3 +206,70 @@ C'est une classe que l'épuisement ne pourra jamais couvrir : 2¹⁹⁹³⁷ con
 Les deux dernières lignes ne sont pas des lacunes de cet audit : ce sont
 les limites de ce qu'un observateur extérieur peut établir depuis des
 sorties publiées. Tout le reste a été écarté.
+
+---
+
+## 7. La frontière 48 bits : de « inatteignable » à « une nuit de calcul »
+
+### Pourquoi ce cas échappe au théorème du § 2
+
+La preuve d'impossibilité algébrique du § 2 porte sur un observable
+`n = x mod 80` où `x` est **l'état brut** : elle ne livre que `x mod 16`
+et `x mod 5`, et la récurrence des bits bas étant close, rien ne remonte
+vers les bits hauts.
+
+`java.util.Random` ne fait pas cela. Il émet `next(31) = s >> 17` : le
+numéro tiré dépend des **bits de poids fort** de l'état. La récurrence
+basse close ne s'applique pas, et le raisonnement du § 2 est muet sur ce
+cas. C'est la dernière classe où le calcul a encore quelque chose à dire.
+
+### Ce qui a été balayé sur les tirages réels
+
+| Volet | Espace | Débit | Profondeur max | Trouvés |
+|---|---|---|---|---|
+| Graines = millisecondes epoch, fenêtre ±24 h | 172 800 000 | 14 M/s | 12/20 | **0** |
+| Graines dérivées du n° de tirage (×1, ×10³, ×10⁶ ± 1000) | 6 003 | — | 7/20 | **0** |
+| LCG mod 2⁴⁸ brut, sortie bits hauts | 16 777 216 | — | 10/20 | **0** |
+
+Le motif `new Random(System.currentTimeMillis())` — la faute
+d'implémentation la plus répandue — est donc **écarté sur une fenêtre de
+48 heures autour du tirage**.
+
+### Le noyau de balayage : `tools/sweep48.c`
+
+Le plein espace 2⁴⁸ = 281 474 976 710 656 états restait hors de portée en
+Python (5 M états/s → 691 jours). Un noyau C avec arrêt anticipé, masque
+de doublons sur deux mots de 64 bits et sortie dès le premier écart
+atteint **156 millions d'états par seconde et par cœur** — 31 fois plus.
+
+| Configuration | Durée pour couvrir 2⁴⁸ intégralement |
+|---|---|
+| 1 cœur | 20,9 jours |
+| 4 cœurs (cette machine) | 5,2 jours |
+| 64 cœurs (une instance louée) | **~8 heures** |
+| GPU (noyau dédié) | **~20 minutes** |
+
+Le programme prend une tranche `[lo, hi)` en argument : la parallélisation
+est triviale, sans communication entre les workers.
+
+```sh
+cc -O3 -march=native -o sweep48 tools/sweep48.c
+./sweep48 0 1099511627776  5 6 10 11 13 22 26 28 32 35 37 38 39 41 50 55 66 68 78 79
+```
+
+### Ce que cela change
+
+Avant ce noyau, la frontière de l'audit était 2³² — le reste relevait de
+l'impossibilité pratique. Elle est désormais à **2⁴⁸, soit 65 536 fois
+plus d'états**, et le coût de la franchir intégralement est chiffré : une
+nuit de calcul sur une machine louée, vingt minutes sur GPU.
+
+Ce n'est pas une méthode de reconstruction nouvelle : c'est la même
+recherche exhaustive, portée à une classe qu'on croyait hors d'atteinte
+et dont le théorème du § 2 ne dit rien. La probabilité qu'une loterie
+certifiée tourne sur `java.util.Random` est infime — mais elle n'est plus
+*indécidable*, et c'est la différence entre une hypothèse et un fait.
+
+Au-delà de 2⁴⁸, la barrière redevient absolue : 2⁶⁴ coûterait 65 536 fois
+plus (des siècles sur GPU), et 2¹²⁸ dépasse le nombre d'opérations
+réalisables dans l'univers observable.
