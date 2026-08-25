@@ -21,7 +21,7 @@ final class ProphetStore: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.now = Date() }
         }
-        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        poll = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { await self?.tick() }
         }
         Task { await refresh(force: true) }
