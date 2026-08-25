@@ -98,7 +98,7 @@ final class OracleTests: XCTestCase {
     func testGridsHaveCorrectCardinality() {
         let result = Swarm.run(syntheticHistory())
         for pack in result.stakes {
-            XCTAssertEqual(pack.grids.count, 9)
+            XCTAssertEqual(pack.grids.count, 12)
             for grid in pack.grids {
                 XCTAssertEqual(grid.numbers.count, pack.stake)
                 XCTAssertEqual(Set(grid.numbers).count, pack.stake)
@@ -107,7 +107,7 @@ final class OracleTests: XCTestCase {
             }
             for kind in GridKind.allCases {
                 let variants = pack.grids.filter { $0.kind == kind }
-                XCTAssertEqual(variants.count, 3)
+                XCTAssertEqual(variants.count, 4)
                 // I et II sont disjointes ; l'Anti joue le bas du classement,
                 // donc ne recoupe pas la sélection principale.
                 let one = variants.first { $0.variant == 1 }!
@@ -117,7 +117,7 @@ final class OracleTests: XCTestCase {
                 XCTAssertTrue(Set(one.numbers).isDisjoint(with: Set(anti.numbers)))
             }
             // Identifiants uniques (I, II et Anti ne se confondent pas).
-            XCTAssertEqual(Set(pack.grids.map(\.id)).count, 9)
+            XCTAssertEqual(Set(pack.grids.map(\.id)).count, 12)
         }
     }
 
@@ -265,7 +265,7 @@ final class OracleTests: XCTestCase {
         // Tous les tirages du jour dès que le modèle a 13 tirages d'amorce.
         XCTAssertEqual(journal.plays.count, 67)
         for play in journal.plays {
-            XCTAssertEqual(play.plays.count, 9)
+            XCTAssertEqual(play.plays.count, 12)
             XCTAssertEqual(play.draw.count, 20)
             for gp in play.plays {
                 XCTAssertEqual(gp.numbers.count, 10)

@@ -135,7 +135,7 @@ struct JournalCard: View {
     private var lines: [Line] {
         var out: [Line] = []
         for kind in GridKind.allCases {
-            for variant in [1, 2, 3] {
+            for variant in [1, 2, 3, 4] {
                 var plays = 0
                 var hits = 0
                 var best = 0

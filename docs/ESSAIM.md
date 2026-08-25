@@ -68,11 +68,15 @@ optimisation hors ligne ni fuite d'information.
 - **Nexus** = essaim complet + bonus d'information mutuelle (PMI) dans la
   sélection gloutonne, avec caps par décade et équilibre pair/impair.
 
-Chaque stratégie décline trois variantes : **I** (sélection principale),
-**II** (disjointe de la I — double la couverture du champ) et **Anti**
-(le pari inverse : les numéros classés derniers). L'Anti est la
-contre-épreuve vivante du modèle — sur un RNG équitable elle fait jeu
-égal avec la principale, et le bilan de l'app le mesure en continu.
+Chaque stratégie décline quatre variantes : **I** (sélection
+principale), **II** (disjointe de la I — double la couverture du champ),
+**Anti** (le pari inverse : les numéros classés derniers — la
+contre-épreuve vivante du modèle) et **Furtif** (le même signal,
+pénalisé par la popularité humaine des numéros : dates ≤ 31, « 7 »,
+motifs 11/22/33). Le Furtif est la seule stratégie faiblement dominante
+qui existe en théorie des jeux de loterie : mêmes hits attendus, mais si
+un jackpot est partagé entre gagnants simultanés, éviter les choix de la
+foule réduit le partage — coût nul, gain conditionnel réel.
 
 ## 5. La mesure honnête : backtest en marche avant
 

@@ -180,7 +180,12 @@ struct GridPlay: Identifiable, Hashable {
     var hits: Int
     var id: String { "\(kind.rawValue).\(variant)" }
     var label: String {
-        variant == 3 ? "Anti-\(kind.label)" : kind.label + (variant == 2 ? " II" : "")
+        switch variant {
+        case 2: return "\(kind.label) II"
+        case 3: return "Anti-\(kind.label)"
+        case 4: return "\(kind.label) Furtif"
+        default: return kind.label
+        }
     }
 }
 

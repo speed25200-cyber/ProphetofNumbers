@@ -1067,6 +1067,23 @@ final class SwarmEngine {
         )
     }
 
+    // Popularité humaine des numéros (dates de naissance, « 7 », motifs) :
+    // sans effet sur les hits, mais un jackpot partagé se partage moins
+    // quand on évite les choix de la foule — dominance faible, coût nul.
+    private static let popularity: [Double] = {
+        var p = [Double](repeating: 0, count: ProphetConst.poolSize)
+        for n in 1...ProphetConst.poolSize {
+            var s = 0.0
+            if n <= 31 { s += 1.0 }
+            if n <= 12 { s += 0.4 }
+            if n % 10 == 7 { s += 0.5 }
+            if n % 11 == 0 { s += 0.4 }
+            if n % 10 == 0 { s += 0.2 }
+            p[n - 1] = s
+        }
+        return p
+    }()
+
     func makeGrids(stake: Int, sources: GridSources) -> [SuggestedGrid] {
         var grids: [SuggestedGrid] = []
         for kind in [GridKind.alpha, .omega, .nexus] {
@@ -1084,7 +1101,12 @@ final class SwarmEngine {
             let first = greedyPick(k: stake, score: source, kind: kind, banned: [])
             let second = greedyPick(k: stake, score: source, kind: kind, banned: Set(first))
             let anti = greedyPick(k: stake, score: source.map { -$0 }, kind: kind, banned: [])
-            for (variant, numbers) in [(1, first), (2, second), (3, anti)] {
+            // Furtif : même signal, pénalisé par la popularité humaine —
+            // mêmes hits attendus, jackpot moins susceptible d'être partagé.
+            var stealthScore = source
+            for i in 0..<Self.pool { stealthScore[i] -= 0.4 * Self.popularity[i] }
+            let stealth = greedyPick(k: stake, score: stealthScore, kind: kind, banned: [])
+            for (variant, numbers) in [(1, first), (2, second), (3, anti), (4, stealth)] {
                 let p = numbers.map { sources.inclusion[$0 - 1] }
                 let label: String
                 let subtitle: String
@@ -1095,9 +1117,12 @@ final class SwarmEngine {
                 case 2:
                     label = "\(kind.label) II"
                     subtitle = "Variante disjointe de \(kind.label) — double la couverture"
-                default:
+                case 3:
                     label = "Anti-\(kind.label)"
                     subtitle = "Le pari inverse — les numéros que \(kind.label) classe derniers"
+                default:
+                    label = "\(kind.label) Furtif"
+                    subtitle = "Évite les numéros de la foule — un jackpot se partage moins"
                 }
                 grids.append(SuggestedGrid(
                     kind: kind,
