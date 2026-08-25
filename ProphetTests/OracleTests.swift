@@ -33,9 +33,23 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(Set(result.ranks).count, 80)
         XCTAssertEqual(result.methods.count, 6)
         XCTAssertEqual(result.stakes.count, 5)
-        XCTAssertGreaterThanOrEqual(result.confidence, 18)
-        XCTAssertLessThanOrEqual(result.confidence, 86)
+        XCTAssertGreaterThanOrEqual(result.confidence, 5)
+        XCTAssertLessThanOrEqual(result.confidence, 95)
         XCTAssertEqual(result.sampleSize, 80)
+        XCTAssertEqual(result.gaps.count, 80)
+        XCTAssertEqual(result.freq16.count, 80)
+    }
+
+    func testBacktestIsWalkForward() {
+        let result = Oracle.run(syntheticHistory())
+        // Évaluation à partir du 14e tirage : 80 - 13 points.
+        XCTAssertEqual(result.backtest.count, 67)
+        XCTAssertTrue(result.backtest.allSatisfy { (0...20).contains($0) })
+        XCTAssertEqual(result.uniformExpected, 5.0, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(result.backtestMean, 0)
+        XCTAssertLessThanOrEqual(result.backtestMean, 20)
+        // Sur un historique pseudo-aléatoire, la moyenne doit rester proche du hasard.
+        XCTAssertEqual(result.backtestMean, 5.0, accuracy: 2.0)
     }
 
     func testGridsHaveCorrectCardinality() {
@@ -62,6 +76,8 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.scores.count, 80)
         XCTAssertEqual(result.sampleSize, 0)
         XCTAssertEqual(result.stakes[0].grids[0].numbers.count, 5)
+        XCTAssertTrue(result.backtest.isEmpty)
+        XCTAssertEqual(result.confidence, 50)
     }
 
     func testZurichDayKey() {

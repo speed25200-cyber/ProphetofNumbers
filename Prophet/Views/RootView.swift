@@ -17,7 +17,7 @@ enum ProphetTab: String, CaseIterable, Identifiable {
         switch self {
         case .live: return "dot.radiowaves.left.and.right"
         case .grids: return "sparkles"
-        case .analyse: return "chart.bar"
+        case .analyse: return "waveform"
         case .history: return "clock.arrow.circlepath"
         }
     }
@@ -26,64 +26,52 @@ enum ProphetTab: String, CaseIterable, Identifiable {
 struct RootView: View {
     @EnvironmentObject var store: ProphetStore
     @State private var tab: ProphetTab = .live
+    @Namespace private var tabNS
 
     var body: some View {
         ZStack {
-            Palette.bg.ignoresSafeArea()
+            AuroraBackground()
             VStack(spacing: 0) {
                 header
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                tabBar
             }
         }
+        .safeAreaInset(edge: .bottom) { tabBar }
+        .sensoryFeedback(.selection, trigger: tab)
     }
 
     private var header: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("LOTO EXPRESS · LORO")
-                    .font(.system(size: 11, weight: .medium))
-                    .tracking(2.4)
-                    .foregroundStyle(Palette.subtle)
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 3) {
+                Overline(text: "LOTO EXPRESS · LORO")
                 Text("Prophet")
-                    .font(Typeface.display(34))
-                    .foregroundStyle(Palette.fg)
+                    .font(Typeface.display(32))
+                    .foregroundStyle(Palette.goldGradient)
             }
             Spacer()
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Palette.live)
-                        .frame(width: 6, height: 6)
-                        .opacity(store.payload == nil ? 0.4 : 1)
-                    Text("LIVE")
-                        .font(.system(size: 11, weight: .medium))
-                        .tracking(1.4)
-                        .foregroundStyle(Palette.muted)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Palette.elevated)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(Palette.fg.opacity(0.12), lineWidth: 1))
+            VStack(alignment: .trailing, spacing: 6) {
+                LiveBadge(active: store.payload != nil)
                 if let last = store.payload?.last {
                     Text("#\(last.drawNumber)")
-                        .font(Typeface.mono(12))
-                        .foregroundStyle(Palette.muted)
+                        .font(Typeface.mono(11))
+                        .foregroundStyle(Palette.subtle)
+                        .contentTransition(.numericText())
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 12)
-        .background(Palette.bg.opacity(0.92))
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 14)
     }
 
     @ViewBuilder
     private var content: some View {
         if let message = store.error, store.payload == nil {
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
+                Image(systemName: "antenna.radiowaves.left.and.right.slash")
+                    .font(.system(size: 30))
+                    .foregroundStyle(Palette.subtle)
                 Text("Flux indisponible")
                     .font(Typeface.display(28))
                     .foregroundStyle(Palette.fg)
@@ -97,10 +85,16 @@ struct RootView: View {
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if store.payload == nil {
-            ProgressView().tint(Palette.accent).frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 14) {
+                ProgressView().tint(Palette.gold)
+                Text("Connexion au flux Loro…")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.subtle)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView {
-                Group {
+                VStack(spacing: 16) {
                     switch tab {
                     case .live: LiveView()
                     case .grids: GridsView()
@@ -109,96 +103,52 @@ struct RootView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 28)
+                .padding(.top, 6)
+                .padding(.bottom, 20)
+                .id(tab)
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity.combined(with: .offset(y: 14)),
+                        removal: .opacity
+                    )
+                )
             }
+            .scrollIndicators(.hidden)
         }
     }
 
     private var tabBar: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(ProphetTab.allCases) { item in
                 Button {
-                    tab = item
+                    guard tab != item else { return }
+                    withAnimation(.snappy(duration: 0.32)) { tab = item }
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Image(systemName: item.symbol)
-                            .font(.system(size: 16, weight: tab == item ? .semibold : .regular))
+                            .font(.system(size: 15, weight: .semibold))
                         Text(item.label)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 10, weight: .semibold))
                     }
-                    .foregroundStyle(tab == item ? Palette.fg : Palette.subtle)
+                    .foregroundStyle(tab == item ? Palette.accentFg : Palette.muted)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 48)
+                    .frame(height: 52)
+                    .background {
+                        if tab == item {
+                            Capsule()
+                                .fill(Palette.goldGradient)
+                                .matchedGeometryEffect(id: "tabpill", in: tabNS)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
-        .background(Palette.bg.opacity(0.94))
-        .overlay(alignment: .top) {
-            Rectangle().fill(Palette.fg.opacity(0.12)).frame(height: 1)
-        }
-    }
-}
-
-struct ProphetButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(Palette.accentFg)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .background(Palette.accent.opacity(configuration.isPressed ? 0.8 : 1))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-}
-
-struct NumberBall: View {
-    var n: Int
-    var size: CGFloat = 32
-    var tone: Tone = .plain
-
-    enum Tone { case plain, pick, hit, hot, cold }
-
-    var body: some View {
-        Text("\(n)")
-            .font(Typeface.mono(size * 0.38, weight: .medium))
-            .foregroundStyle(fg)
-            .frame(width: size, height: size)
-            .background(bg)
-            .clipShape(Circle())
-            .overlay(Circle().stroke(Palette.fg.opacity(0.12), lineWidth: 1))
-    }
-
-    private var bg: Color {
-        switch tone {
-        case .plain: return Palette.elevated
-        case .pick: return Palette.elevated
-        case .hit: return Palette.accent
-        case .hot: return Palette.gain.opacity(0.35)
-        case .cold: return Palette.live.opacity(0.28)
-        }
-    }
-
-    private var fg: Color {
-        tone == .hit ? Palette.accentFg : Palette.fg
-    }
-}
-
-struct Card<Content: View>: View {
-    @ViewBuilder var content: Content
-    var body: some View {
-        content
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Palette.fg.opacity(0.12), lineWidth: 1)
-            )
+        .padding(5)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+        .shadow(color: .black.opacity(0.5), radius: 18, x: 0, y: 8)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 4)
     }
 }

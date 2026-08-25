@@ -1,7 +1,12 @@
 # Prophet
 
-Oracle iOS pour **Loto Express** (Loterie Romande). Tirage live, grilles CRF-9
-(Alpha / Omega / Nexus) pour 5/5 → 10/10, analyse 1–80, séance du jour.
+Oracle iOS pour **Loto Express** (Loterie Romande). Tirage live avec anneau de
+compte à rebours, grilles CRF-9 (Alpha / Omega / Nexus) pour 5/5 → 10/10 avec
+bilan réel des grilles jouées, analyse 1–80, backtest walk-forward de
+l'ensemble (« Vérité terrain »), séance du jour.
+
+Design : obsidienne + or champagne, fond aurora animé, verre dépoli,
+haptiques, transitions spring. L'oracle est calculé hors du main thread.
 
 Bundle ID : `com.prophetofnumbers.app`  
 Équipe : `BTMRPS8F79`

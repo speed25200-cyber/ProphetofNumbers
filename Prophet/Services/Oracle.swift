@@ -45,6 +45,8 @@ enum Oracle {
             "beta": [], "ewma": [], "hawkes": [],
             "weibull": [], "spectral": [], "crf": [],
         ]
+        // Backtest walk-forward : hits du top-20 de l'ensemble, prédit AVANT chaque tirage.
+        var ensembleOv: [Double] = []
         var prevRanks: [Int]?
         var lastRanks = Array(1...pool)
         var lastScores = [Double](repeating: 0, count: pool)
@@ -95,6 +97,10 @@ enum Oracle {
 
                 if t > 12 {
                     let snap = snapshot()
+                    // Les poids sont figés avant d'observer le tirage t : aucune fuite d'information.
+                    let weightsNow = currentWeights(ov)
+                    let ensembleTop = topIndices(blend(snap, weightsNow), k: drawN)
+                    ensembleOv.append(overlapCount(ensembleTop, drawn))
                     let pack: [String: [Double]] = [
                         "beta": snap["betaP"]!,
                         "ewma": snap["ewma"]!,
@@ -261,10 +267,29 @@ enum Oracle {
         let df = Double(pool - 1)
         let chi2Norm = df == 0 ? 0 : chi2 / df
         let structured = chi2Norm > 1.25 || abs(serial) > 0.04
-        let agreement = gridAgreement(stakes)
-        let sampleBoost = min(1, Double(n) / 80)
-        var confidence = Int(round(100 * (0.28 + 0.34 * sampleBoost + 0.22 * agreement + 0.16 * (structured ? 0.7 : 0.45))))
-        confidence = max(18, min(86, confidence))
+
+        // Signal honnête : dérivé du backtest réel, 50 = indistinguable du hasard.
+        let recentBT = Array(ensembleOv.suffix(60))
+        let uniformExp = Double(drawN) * Double(drawN) / Double(pool)
+        let btMean = recentBT.isEmpty ? uniformExp : mean(recentBT)
+        var btVar = 0.0
+        for x in recentBT {
+            let d = x - btMean
+            btVar += d * d
+        }
+        let btSD = recentBT.count > 1 ? sqrt(btVar / Double(recentBT.count - 1)) : 1.68
+        let btZ: Double = recentBT.count >= 12
+            ? (btMean - uniformExp) / (max(0.2, btSD) / sqrt(Double(recentBT.count)))
+            : 0
+        var confidence = Int(round(50 + 14 * btZ))
+        confidence = max(5, min(95, confidence))
+
+        var freq16 = [Double](repeating: 0, count: pool)
+        for drawNums in window.suffix(16) {
+            for num in drawNums where (1...pool).contains(num) {
+                freq16[num - 1] += 1
+            }
+        }
 
         return OracleResult(
             scores: scores,
@@ -280,7 +305,13 @@ enum Oracle {
             serial: serial,
             confidence: confidence,
             sampleSize: n,
-            todayDraws: todayDraws
+            todayDraws: todayDraws,
+            backtest: ensembleOv,
+            backtestMean: btMean,
+            uniformExpected: uniformExp,
+            backtestZ: btZ,
+            gaps: gap,
+            freq16: freq16
         )
     }
 
@@ -481,19 +512,4 @@ enum Oracle {
         return out
     }
 
-    private static func gridAgreement(_ stakes: [StakeGrids]) -> Double {
-        guard let g = stakes.first(where: { $0.stake == 10 })?.grids, g.count >= 3 else { return 0.5 }
-        let sets = g.map { Set($0.numbers) }
-        var acc = 0.0
-        var c = 0.0
-        for i in 0..<sets.count {
-            for j in (i + 1)..<sets.count {
-                let inter = Double(sets[i].intersection(sets[j]).count)
-                let uni = Double(sets[i].union(sets[j]).count)
-                acc += uni == 0 ? 0 : inter / uni
-                c += 1
-            }
-        }
-        return c == 0 ? 0.5 : acc / c
-    }
 }

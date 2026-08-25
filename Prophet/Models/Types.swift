@@ -102,6 +102,14 @@ struct OracleResult {
     var confidence: Int
     var sampleSize: Int
     var todayDraws: Int
+    // Backtest walk-forward de l'ensemble : hits du top-20 par tirage évalué (0…20).
+    var backtest: [Double]
+    var backtestMean: Double
+    var uniformExpected: Double
+    var backtestZ: Double
+    // État courant du champ 1–80.
+    var gaps: [Int]
+    var freq16: [Double]
 }
 
 struct LivePayload {
