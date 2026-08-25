@@ -123,6 +123,65 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.swarm.bestHeadName, "—")
     }
 
+    func testScheduleResolvePicksOpenSlot() {
+        let now = Zurich.parseISO("2026-08-25T12:00:00+02:00")!
+        let slots = [
+            Schedule.Slot(
+                drawNumber: 100, drawDate: "2026-08-25T11:55:00+02:00",
+                numbers: Array(1...20), boost: nil, bonus: nil,
+                phase: "RESULTS_AVAILABLE", wagerEndDate: nil
+            ),
+            Schedule.Slot(
+                drawNumber: 101, drawDate: "2026-08-25T12:05:00+02:00",
+                numbers: [], boost: nil, bonus: nil,
+                phase: "OPEN", wagerEndDate: "2026-08-25T12:04:30+02:00"
+            ),
+        ]
+        let clock = Schedule.resolve(
+            slots: slots, fallbackNext: nil, fallbackNextRaw: nil, fallbackLast: nil, now: now
+        )
+        XCTAssertEqual(clock.last?.drawNumber, 100)
+        XCTAssertEqual(clock.nextDrawNumber, 101)
+        XCTAssertFalse(clock.hole)
+        XCTAssertNil(clock.pendingDrawNumber)
+        XCTAssertNotNil(clock.wagerEndAt)
+        XCTAssertEqual(clock.nextDrawAt, Zurich.parseISO("2026-08-25T12:05:00+02:00"))
+    }
+
+    func testScheduleDetectsHole() {
+        let now = Zurich.parseISO("2026-08-25T12:01:00+02:00")!
+        let slots = [
+            Schedule.Slot(
+                drawNumber: 100, drawDate: "2026-08-25T11:55:00+02:00",
+                numbers: Array(1...20), boost: nil, bonus: nil,
+                phase: "RESULTS_AVAILABLE", wagerEndDate: nil
+            ),
+            // Le résultat du 101 n'est pas encore publié : le prochain ouvert est 102.
+            Schedule.Slot(
+                drawNumber: 102, drawDate: "2026-08-25T12:05:00+02:00",
+                numbers: [], boost: nil, bonus: nil,
+                phase: "OPEN", wagerEndDate: nil
+            ),
+        ]
+        let clock = Schedule.resolve(
+            slots: slots, fallbackNext: nil, fallbackNextRaw: nil, fallbackLast: nil, now: now
+        )
+        XCTAssertEqual(clock.last?.drawNumber, 100)
+        XCTAssertEqual(clock.nextDrawNumber, 102)
+        XCTAssertTrue(clock.hole)
+        XCTAssertEqual(clock.pendingDrawNumber, 101)
+    }
+
+    func testSchedulePollDelayTiers() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: false, now: now), 12)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(300), hole: false, now: now), 5)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(40), hole: false, now: now), 2)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 1)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 1)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: nil, hole: false, now: now), 8)
+    }
+
     func testCountdownIsCeiledAndAnchored() {
         let target = Date(timeIntervalSince1970: 1_000_000)
         // 4,2 s restantes → afficher 05, pas 04.

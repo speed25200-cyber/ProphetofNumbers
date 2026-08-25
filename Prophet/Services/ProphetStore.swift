@@ -31,9 +31,9 @@ final class ProphetStore: ObservableObject {
     init() {
         tickets = Self.readTickets()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
-        // Tick rapide : la cadence réelle est décidée dans pollTick —
-        // 2 s forcées autour du tirage, 8 s en croisière.
-        poll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        // Tick à 1 s : la cadence réelle est décidée par Schedule.pollDelay
+        // (12 s loin du tirage → 1 s pendant la fenêtre de publication).
+        poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { await self?.pollTick() }
         }
         Task { await refresh(force: true) }
@@ -45,19 +45,16 @@ final class ProphetStore: ObservableObject {
 
     private func pollTick() async {
         let now = Date()
-        let hot = inDrawWindow(now)
-        let interval: TimeInterval = hot ? 2 : 8
-        guard now.timeIntervalSince(lastFetchAt) >= interval - 0.1 else { return }
-        await refresh(force: hot)
-    }
-
-    // Fenêtre chaude : de 5 s avant le tirage annoncé jusqu'à ce que l'API
-    // publie le nouveau numéro (nextDrawAt repasse alors dans le futur).
-    // Comparaison en temps serveur Loro, pas en horloge locale.
-    private func inDrawWindow(_ now: Date) -> Bool {
-        guard let payload else { return true }
-        guard let next = payload.nextDrawAt else { return false }
-        return now.addingTimeInterval(payload.clockOffset) >= next.addingTimeInterval(-5)
+        // Cadence en temps serveur Loro ; le TTL du client se resserre de la
+        // même façon près du tirage et pendant un « hole ».
+        let serverNow = now.addingTimeInterval(payload?.clockOffset ?? 0)
+        let delay = Schedule.pollDelay(
+            nextDrawAt: payload?.nextDrawAt,
+            hole: payload?.hole ?? false,
+            now: serverNow
+        )
+        guard now.timeIntervalSince(lastFetchAt) >= delay - 0.1 else { return }
+        await refresh()
     }
 
     func refresh(force: Bool = false) async {
@@ -113,7 +110,8 @@ final class ProphetStore: ObservableObject {
         guard notificationsOn,
               let payload,
               let next = payload.nextDrawAt,
-              let last = payload.last else { return }
+              let number = payload.nextDrawNumber ?? payload.last.map({ $0.drawNumber + 1 })
+        else { return }
         let prediction = oracle?.stakes
             .first { $0.stake == stake }?
             .grids.first { $0.kind == .nexus }?
@@ -122,7 +120,7 @@ final class ProphetStore: ObservableObject {
         // pour que la notification parte au bon instant local.
         Notifier.scheduleDrawNotifications(
             nextDrawAt: next.addingTimeInterval(-payload.clockOffset),
-            nextDrawNumber: last.drawNumber + 1,
+            nextDrawNumber: number,
             prediction: prediction,
             stake: stake
         )
@@ -160,15 +158,19 @@ final class ProphetStore: ObservableObject {
     }
 
     private func rememberTickets(live: LivePayload) {
-        guard let last = live.last, let oracle else { return }
-        let next = last.drawNumber + 1
-        if tickets.contains(where: { $0.targetDraw == next }) { return }
+        guard let oracle else { return }
+        // Cible le vrai prochain tirage ouvert ; les grilles du même tirage
+        // sont remplacées quand le modèle se recale sur un résultat tardif.
+        let target = live.nextDrawNumber ?? (live.last.map { $0.drawNumber + 1 } ?? 0)
+        guard target > 0 else { return }
         let fresh: [SavedTicket] = oracle.stakes.flatMap { pack in
             pack.grids.map {
-                SavedTicket(targetDraw: next, stake: pack.stake, kind: $0.kind, numbers: $0.numbers)
+                SavedTicket(targetDraw: target, stake: pack.stake, kind: $0.kind, numbers: $0.numbers)
             }
         }
-        tickets = tickets.filter { $0.targetDraw >= next - Self.ticketRetentionDraws } + fresh
+        let existing = tickets.filter { $0.targetDraw == target }
+        if existing.count == fresh.count, Set(existing) == Set(fresh) { return }
+        tickets = tickets.filter { $0.targetDraw != target && $0.targetDraw >= target - Self.ticketRetentionDraws } + fresh
         Self.writeTickets(tickets)
     }
 

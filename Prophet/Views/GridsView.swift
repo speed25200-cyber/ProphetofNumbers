@@ -11,9 +11,23 @@ struct GridsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Overline(text: "MISE")
                 stakePicker
-                Text("Cote de base \(pack.oddsLabel) · modèle recalibré après chaque tirage")
+                let caption: String = {
+                    if let target = store.payload?.nextDrawNumber {
+                        if let at = store.payload?.nextDrawAt {
+                            return "Pour le #\(target) · \(Zurich.parts(at).time) · cote de base \(pack.oddsLabel)"
+                        }
+                        return "Pour le #\(target) · cote de base \(pack.oddsLabel)"
+                    }
+                    return "Cote de base \(pack.oddsLabel) · modèle recalibré après chaque tirage"
+                }()
+                Text(caption)
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
+                if let pending = store.payload?.pendingDrawNumber, store.payload?.hole == true {
+                    Text("Résultat #\(pending) pas encore publié — grilles provisoires, recalage automatique.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Palette.gold)
+                }
                 jackpotCard(oracle: oracle)
                 ledgerCard
                 ForEach(pack.grids) { grid in

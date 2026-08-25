@@ -44,8 +44,21 @@ struct LiveView: View {
                 }
                 Spacer()
                 if let at = payload?.nextDrawAt {
-                    CountdownRing(target: at, clockOffset: offset)
+                    VStack(spacing: 6) {
+                        CountdownRing(target: at, clockOffset: offset)
+                        if let n = payload?.nextDrawNumber {
+                            Text("#\(n)")
+                                .font(Typeface.mono(11))
+                                .foregroundStyle(Palette.muted)
+                                .contentTransition(.numericText())
+                        }
+                    }
                 }
+            }
+            if let pending = payload?.pendingDrawNumber, payload?.hole == true {
+                Text("En attente du résultat #\(pending) — les grilles se recaleront dès sa publication.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.gold)
             }
             if let jacks = payload?.jackpots, !jacks.isEmpty {
                 HStack(spacing: 6) {

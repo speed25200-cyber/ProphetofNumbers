@@ -140,6 +140,13 @@ struct OracleResult {
 struct LivePayload {
     var status: String
     var nextDrawAt: Date?
+    // Le vrai prochain tirage ouvert (le endpoint jeu retarde d'un tirage).
+    var nextDrawNumber: Int?
+    var wagerEndAt: Date?
+    // « Hole » : un résultat attendu entre le dernier connu et le prochain
+    // ouvert n'est pas encore publié — polling agressif jusqu'à résolution.
+    var hole: Bool = false
+    var pendingDrawNumber: Int?
     var last: Draw?
     var jackpots: [Jackpot]
     var today: [Draw]

@@ -67,10 +67,13 @@ struct RootView: View {
                     .buttonStyle(.plain)
                     LiveBadge(fetchedAt: store.payload?.fetchedAt)
                 }
-                if let payload = store.payload, let last = payload.last {
+                if let payload = store.payload {
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
                         let age = Int(max(0, ctx.date.timeIntervalSince(payload.fetchedAt)))
-                        Text("#\(last.drawNumber) · sync \(age) s")
+                        let label = payload.nextDrawNumber.map { "→ #\($0)" }
+                            ?? payload.last.map { "#\($0.drawNumber)" }
+                            ?? "—"
+                        Text("\(label) · sync \(age) s")
                             .font(Typeface.mono(11))
                             .foregroundStyle(Palette.subtle)
                             .contentTransition(.numericText())

@@ -19,7 +19,7 @@ actor LoroClient {
 
     private let gameURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress")!
     private let drawsURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws")!
-    private let source = "https://jeux.loro.ch/games/lotoexpress"
+    private let source = "https://jeux.loro.ch/games/lotoexpress/results"
     private let historyWindow = 199
     private let pageSize = 100
 
@@ -39,10 +39,17 @@ actor LoroClient {
     }()
 
     func loadLive(force: Bool = false) async throws -> LivePayload {
-        if !force, let live, Date().timeIntervalSince(liveAt) < 4 {
+        let serverNow = Date().addingTimeInterval(clockOffset)
+        let ttl = Schedule.cacheTtl(nextDrawAt: live?.nextDrawAt, hole: live?.hole ?? false, now: serverNow)
+        if !force, let live, Date().timeIntervalSince(liveAt) < ttl {
             return live
         }
+
+        // Le bord de la liste /draws en parallèle du endpoint jeu.
+        async let edgeTask = fetchEdge()
         let json = try await fetchJSON(gameURL)
+        var slots = await edgeTask
+
         let details = dict(json["details"])
         let results = dict(details["results"])
         let raw = dict(results["raw"])
@@ -50,6 +57,8 @@ actor LoroClient {
         var rawDraw: [String: Any] = [
             "drawNumber": raw["drawNumber"] as Any,
             "drawDate": (raw["drawDate"] ?? results["drawDate"]) as Any,
+            "phase": raw["phase"] as Any,
+            "wagerEndDate": raw["wagerEndDate"] as Any,
         ]
         if let result = raw["result"] {
             rawDraw["drawResult"] = result
@@ -62,11 +71,43 @@ actor LoroClient {
                 ]
             ]
         }
-        if let last = parseDraw(rawDraw) {
-            cache[last.drawNumber] = last
+        let gameSlot = parseSlot(rawDraw)
+        if let draw = gameSlot?.asDraw() {
+            cache[draw.drawNumber] = draw
         }
 
-        let last = cache.values.max(by: { $0.drawNumber < $1.drawNumber })
+        // Le endpoint jeu retarde d'un tirage, et la liste saute le dernier
+        // résultat pendant ~1 min ; GET /draws/{id} l'a immédiatement — même
+        // source que la page résultats Loro.
+        let hint = max(
+            gameSlot?.asDraw()?.drawNumber ?? 0,
+            slots.filter(\.isComplete).map(\.drawNumber).max() ?? 0
+        )
+        let pending = await fetchDraws(ids: [hint + 1, hint + 2])
+        slots.append(contentsOf: pending)
+        if let gameSlot { slots.append(gameSlot) }
+
+        let fallbackNextRaw = details["drawDate"] as? String
+        let fallbackNext = fallbackNextRaw.flatMap(Zurich.parseISO)
+        var clock = Schedule.resolve(
+            slots: slots,
+            fallbackNext: fallbackNext,
+            fallbackNextRaw: fallbackNextRaw,
+            fallbackLast: gameSlot?.asDraw(),
+            now: serverNow
+        )
+        if let pendingId = clock.pendingDrawNumber, let extra = await fetchDraw(pendingId) {
+            slots.append(extra)
+            clock = Schedule.resolve(
+                slots: slots,
+                fallbackNext: fallbackNext,
+                fallbackNextRaw: fallbackNextRaw,
+                fallbackLast: gameSlot?.asDraw(),
+                now: serverNow
+            )
+        }
+
+        let last = clock.last
         let latestId = last?.drawNumber ?? 0
         let from = max(1, latestId - historyWindow)
         let history = latestId > 0 ? try await ensureRange(from: from, to: latestId) : []
@@ -76,14 +117,13 @@ actor LoroClient {
             return Zurich.parts(date).dayKey == key
         }
 
-        let nextDrawAt: Date? = {
-            if let s = details["drawDate"] as? String { return Zurich.parseISO(s) }
-            return nil
-        }()
-
         let payload = LivePayload(
             status: details["status"] as? String ?? "UNKNOWN",
-            nextDrawAt: nextDrawAt,
+            nextDrawAt: clock.nextDrawAt,
+            nextDrawNumber: clock.nextDrawNumber,
+            wagerEndAt: clock.wagerEndAt,
+            hole: clock.hole,
+            pendingDrawNumber: clock.pendingDrawNumber,
             last: last,
             jackpots: parseJackpots(details["extraJackpots"]),
             today: today,
@@ -106,15 +146,7 @@ actor LoroClient {
                 if cache[id] == nil { missing = true; break }
             }
             if missing {
-                let url = URL(string: "\(drawsURL.absoluteString)?from=\(start)&to=\(end)&pageSize=\(pageSize)")!
-                if let json = try? await fetchJSON(url) {
-                    let rows = json["results"] as? [Any] ?? []
-                    for row in rows {
-                        if let rec = row as? [String: Any], let draw = parseDraw(rec) {
-                            cache[draw.drawNumber] = draw
-                        }
-                    }
-                }
+                _ = await fetchSlots(from: start, to: end)
             }
             end -= pageSize
         }
@@ -125,6 +157,62 @@ actor LoroClient {
             id -= 1
         }
         return out
+    }
+
+    private func fetchSlots(from: Int, to: Int) async -> [Schedule.Slot] {
+        guard to >= from else { return [] }
+        let url = URL(string: "\(drawsURL.absoluteString)?from=\(from)&to=\(to)&pageSize=\(pageSize)")!
+        return await parseSlotList(url)
+    }
+
+    private func fetchEdge() async -> [Schedule.Slot] {
+        let url = URL(string: "\(drawsURL.absoluteString)?pageSize=20")!
+        return await parseSlotList(url)
+    }
+
+    private func fetchDraw(_ id: Int) async -> Schedule.Slot? {
+        guard id > 0 else { return nil }
+        let url = URL(string: "\(drawsURL.absoluteString)/\(id)")!
+        guard let json = try? await fetchJSON(url) else { return nil }
+        guard let slot = parseSlot(json) else { return nil }
+        if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+        return slot
+    }
+
+    private func fetchDraws(ids: [Int]) async -> [Schedule.Slot] {
+        var out: [Schedule.Slot] = []
+        for id in ids {
+            if let slot = await fetchDraw(id) { out.append(slot) }
+        }
+        return out
+    }
+
+    private func parseSlotList(_ url: URL) async -> [Schedule.Slot] {
+        guard let json = try? await fetchJSON(url) else { return [] }
+        let rows = json["results"] as? [Any] ?? []
+        var out: [Schedule.Slot] = []
+        for row in rows {
+            guard let rec = row as? [String: Any], let slot = parseSlot(rec) else { continue }
+            if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+            out.append(slot)
+        }
+        return out
+    }
+
+    private func parseSlot(_ raw: [String: Any]) -> Schedule.Slot? {
+        guard let drawNumber = asInt(raw["drawNumber"]) else { return nil }
+        let drawDate = raw["drawDate"] as? String ?? ""
+        guard !drawDate.isEmpty else { return nil }
+        let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
+        return Schedule.Slot(
+            drawNumber: drawNumber,
+            drawDate: drawDate,
+            numbers: matrix.numbers,
+            boost: matrix.boost,
+            bonus: matrix.bonus,
+            phase: raw["phase"] as? String,
+            wagerEndDate: raw["wagerEndDate"] as? String
+        )
     }
 
     private func fetchJSON(_ url: URL) async throws -> [String: Any] {
@@ -159,21 +247,6 @@ actor LoroClient {
             throw LoroError.decode
         }
         return obj
-    }
-
-    private func parseDraw(_ raw: [String: Any]) -> Draw? {
-        guard let drawNumber = asInt(raw["drawNumber"]) else { return nil }
-        let drawDate = raw["drawDate"] as? String ?? ""
-        guard !drawDate.isEmpty else { return nil }
-        let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
-        guard matrix.numbers.count >= 15 else { return nil }
-        return Draw(
-            drawNumber: drawNumber,
-            drawDate: drawDate,
-            numbers: matrix.numbers,
-            boost: matrix.boost,
-            bonus: matrix.bonus
-        )
     }
 
     private func parseMatrix(_ raw: Any) -> (numbers: [Int], boost: Int?, bonus: Int?) {
