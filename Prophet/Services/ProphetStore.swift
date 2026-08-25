@@ -14,6 +14,7 @@ final class ProphetStore: ObservableObject {
     @Published var turbo = false
     @Published var journal: DayJournal?
     @Published var journalHold = 1
+    @Published var forensics: ForensicsReport?
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -122,6 +123,24 @@ final class ProphetStore: ObservableObject {
     // Journal du jour : rejeu déterministe, recalculé uniquement quand un
     // nouveau tirage arrive ou que la mise change.
     private var journalKey = ""
+
+    // Forensique du générateur : batterie lourde (spectral compris), donc
+    // hors main thread et seulement sur un nouveau tirage.
+    private var forensicsKey = ""
+
+    func loadForensics() async {
+        guard let payload else { return }
+        let key = "\(payload.last?.drawNumber ?? 0)"
+        if forensicsKey == key, forensics != nil { return }
+        let history = payload.history
+        let result = await Task.detached(priority: .utility) {
+            Forensics.run(history)
+        }.value
+        forensicsKey = key
+        withAnimation(.smooth(duration: 0.4)) {
+            forensics = result
+        }
+    }
 
     func setJournalHold(_ hold: Int) {
         journalHold = max(1, hold)

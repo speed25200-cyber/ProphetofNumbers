@@ -245,17 +245,20 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: false, now: now), 12)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(300), hole: false, now: now), 5)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(40), hole: false, now: now), 2)
-        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(15), hole: false, now: now), 0.6)
-        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.25)
-        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.25)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(15), hole: false, now: now), 0.4)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.1)
+        XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.1)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: nil, hole: false, now: now), 8)
-        // Paliers du mode Turbo.
-        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(400), hole: false, now: now), 5)
-        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(300), hole: false, now: now), 2)
-        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(40), hole: false, now: now), 1)
-        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(15), hole: false, now: now), 0.25)
-        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.12)
-        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.12)
+        // Le Turbo est partout au moins aussi rapide que la cadence normale.
+        for secs in [400.0, 300, 40, 15, 5] {
+            let at = now.addingTimeInterval(secs)
+            XCTAssertLessThanOrEqual(
+                Schedule.turboDelay(nextDrawAt: at, hole: false, now: now),
+                Schedule.pollDelay(nextDrawAt: at, hole: false, now: now)
+            )
+        }
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.08)
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.08)
     }
 
     func testDayReplayJournalsEveryEvaluableDraw() {
@@ -312,6 +315,41 @@ final class OracleTests: XCTestCase {
                 )
             }
         }
+    }
+
+    func testForensicsReportIsWellFormed() {
+        let report = Forensics.run(syntheticHistory(count: 200))
+        XCTAssertEqual(report.tests.count, 7)
+        XCTAssertEqual(report.sampleSize, 200)
+        XCTAssertTrue(report.tests.allSatisfy { $0.sigma.isFinite && $0.sigma >= 0 })
+        // Classé du plus suspect au moins suspect.
+        XCTAssertEqual(report.tests.map(\.sigma), report.tests.map(\.sigma).sorted(by: >))
+        // Déterministe.
+        let again = Forensics.run(syntheticHistory(count: 200))
+        XCTAssertEqual(again.tests.map(\.statistic), report.tests.map(\.statistic))
+        // Échantillon trop court : pas de verdict.
+        let short = Forensics.run(syntheticHistory(count: 20))
+        XCTAssertTrue(short.tests.isEmpty)
+        XCTAssertEqual(short.flagged, 0)
+    }
+
+    func testForensicsCatchesABrokenSource() {
+        // Témoin positif : source de période 3 (le bug Corriveau caricaturé).
+        let cycle = [Array(1...20), Array(21...40), Array(41...60)]
+        var draws: [Draw] = []
+        for i in 1...120 {
+            draws.append(Draw(
+                drawNumber: 20_000 + i,
+                drawDate: "2026-08-24T12:00:00+02:00",
+                numbers: cycle[i % 3],
+                boost: nil,
+                bonus: nil
+            ))
+        }
+        let report = Forensics.run(draws.reversed())
+        XCTAssertGreaterThan(report.flagged, 0)
+        XCTAssertTrue(report.tests.contains { $0.name == "Périodicité" && $0.flagged })
+        XCTAssertTrue(report.tests.contains { $0.name == "Uniformité du champ" && $0.flagged })
     }
 
     func testCountdownIsCeiledAndAnchored() {

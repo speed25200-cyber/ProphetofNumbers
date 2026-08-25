@@ -248,12 +248,33 @@ actor LoroClient {
         try? await fetchJSON(url)
     }
 
+    // Loro sert /draws/{id} par langue, et les caches ne se remplissent pas
+    // au même instant : on lance les trois et on garde le premier payload
+    // complet.
     private func fetchDraw(_ id: Int, bust: Bool = false) async -> Schedule.Slot? {
         guard id > 0 else { return nil }
+        guard bust else { return await fetchDrawLang(id, lang: "de-CH", bust: false) }
+        return await withTaskGroup(of: Schedule.Slot?.self) { group in
+            for lang in ["de-CH", "fr-CH", "it-CH"] {
+                group.addTask { await self.fetchDrawLang(id, lang: lang, bust: true) }
+            }
+            var fallback: Schedule.Slot?
+            for await slot in group {
+                if let slot, slot.isComplete {
+                    group.cancelAll()
+                    return slot
+                }
+                if fallback == nil { fallback = slot }
+            }
+            return fallback
+        }
+    }
+
+    private func fetchDrawLang(_ id: Int, lang: String, bust: Bool) async -> Schedule.Slot? {
         var raw = "\(drawsURL.absoluteString)/\(id)"
-        if bust { raw += "?_=\(Int(Date().timeIntervalSince1970 * 1000))" }
+        if bust { raw += "?_=\(Int(Date().timeIntervalSince1970 * 1000))&l=\(lang)" }
         guard let url = URL(string: raw) else { return nil }
-        guard let json = try? await fetchJSON(url) else { return nil }
+        guard let json = try? await fetchJSON(url, language: lang) else { return nil }
         guard let slot = parseSlot(json) else { return nil }
         if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
         return slot
@@ -305,10 +326,10 @@ actor LoroClient {
         )
     }
 
-    private func fetchJSON(_ url: URL) async throws -> [String: Any] {
+    private func fetchJSON(_ url: URL, language: String = "fr-CH") async throws -> [String: Any] {
         var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 8)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
-        req.setValue("fr-CH,fr;q=0.9", forHTTPHeaderField: "Accept-Language")
+        req.setValue(language, forHTTPHeaderField: "Accept-Language")
         req.setValue("https://jeux.loro.ch", forHTTPHeaderField: "Origin")
         req.setValue(source, forHTTPHeaderField: "Referer")
         req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")

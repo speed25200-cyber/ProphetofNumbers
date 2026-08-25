@@ -6,9 +6,23 @@ struct AnalyseView: View {
 
     var body: some View {
         if let oracle = store.oracle {
+            analyseBody(oracle: oracle)
+                .task(id: store.payload?.last?.drawNumber ?? 0) {
+                    await store.loadForensics()
+                }
+        } else {
+            ProgressView().tint(Palette.gold)
+        }
+    }
+
+    @ViewBuilder
+    private func analyseBody(oracle: OracleResult) -> some View {
             VStack(spacing: 16) {
                 BacktestCard(oracle: oracle)
                 SwarmCard(oracle: oracle)
+                if let report = store.forensics {
+                    ForensicsCard(report: report)
+                }
                 FieldCard(oracle: oracle, last: store.payload?.last)
                 GeoCard(oracle: oracle)
                 HotColdCard(oracle: oracle)
@@ -19,9 +33,66 @@ struct AnalyseView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
                     .padding(.horizontal, 4)
+        }
+    }
+}
+
+// Forensique du générateur : sept tests qui caractérisent la source à
+// partir des seuls tirages publiés.
+struct ForensicsCard: View {
+    var report: ForensicsReport
+
+    var body: some View {
+        Card(tint: report.flagged > 0 ? Palette.live : Palette.teal) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Overline(text: "FORENSIQUE DU GÉNÉRATEUR")
+                    Text(report.verdict)
+                        .font(Typeface.display(22))
+                        .foregroundStyle(Palette.fg)
+                }
+                Spacer()
+                Image(systemName: report.flagged > 0 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(report.flagged > 0 ? Palette.live : Palette.gain)
             }
-        } else {
-            ProgressView().tint(Palette.gold)
+            Text("Sept tests qui identifient la source — pas pour prédire un tirage, pour savoir à quel type de générateur on a affaire. \(report.sampleSize) tirages analysés.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+
+            VStack(spacing: 10) {
+                ForEach(report.tests) { t in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Image(systemName: t.flagged ? "xmark.octagon.fill" : "checkmark.circle")
+                                .font(.system(size: 10))
+                                .foregroundStyle(t.flagged ? Palette.live : Palette.gain.opacity(0.85))
+                            Text(t.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Palette.fg)
+                            Spacer()
+                            Text(t.statistic)
+                                .font(Typeface.mono(11))
+                                .foregroundStyle(Palette.muted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.65)
+                        }
+                        HStack(spacing: 6) {
+                            Text(t.catches)
+                                .font(.system(size: 10))
+                                .foregroundStyle(Palette.subtle)
+                            Spacer()
+                            Text(String(format: "%.1f σ", t.sigma))
+                                .font(Typeface.mono(10))
+                                .foregroundStyle(t.flagged ? Palette.live : Palette.subtle)
+                        }
+                    }
+                }
+            }
+
+            Text(report.detail)
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.subtle)
         }
     }
 }
