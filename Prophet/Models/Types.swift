@@ -124,6 +124,8 @@ struct OracleResult {
     var backtestMean: Double
     var uniformExpected: Double
     var backtestZ: Double
+    // Test séquentiel par pari : e-valeur anytime-valid, ≥ 20 ⇒ alerte à 5 %.
+    var eValue: Double
     // État courant du champ 1–80.
     var gaps: [Int]
     var freq16: [Double]

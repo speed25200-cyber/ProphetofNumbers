@@ -14,6 +14,7 @@ struct GridsView: View {
                 Text("Cote de base \(pack.oddsLabel) · modèle recalibré après chaque tirage")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
+                jackpotCard(oracle: oracle)
                 ledgerCard
                 ForEach(pack.grids) { grid in
                     GridCard(grid: grid, last: store.payload?.last)
@@ -51,6 +52,53 @@ struct GridsView: View {
         .padding(5)
         .background(Palette.surface, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+    }
+
+    // Retour espéré du seul jackpot, par franc misé, à la cote de base.
+    // Le seul levier de décision réel : plus le jackpot monte, moins la
+    // mise correspondante est défavorable.
+    @ViewBuilder
+    private func jackpotCard(oracle: OracleResult) -> some View {
+        let jacks = store.payload?.jackpots ?? []
+        let rows: [(stake: Int, francs: Double, ret: Double)] = jacks.compactMap { j in
+            guard let pack = oracle.stakes.first(where: { $0.stake == j.stake }),
+                  let p = pack.grids.first?.basePAllHit else { return nil }
+            let francs = j.amount >= 10_000 ? j.amount / 100 : j.amount
+            return (j.stake, francs, francs * p * 100)
+        }
+        if !rows.isEmpty {
+            let bestStake = rows.max { $0.ret < $1.ret }?.stake
+            Card {
+                Overline(text: "VALEUR DU JACKPOT")
+                VStack(spacing: 8) {
+                    ForEach(rows, id: \.stake) { row in
+                        HStack(spacing: 8) {
+                            Text("\(row.stake)/\(row.stake)")
+                                .font(Typeface.mono(13, weight: .semibold))
+                                .foregroundStyle(row.stake == bestStake ? Palette.goldSoft : Palette.fg)
+                                .frame(width: 52, alignment: .leading)
+                            Text("CHF \(Format.ch.string(from: NSNumber(value: row.francs.rounded())) ?? "—")")
+                                .font(Typeface.mono(12))
+                                .foregroundStyle(Palette.muted)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Spacer()
+                            if row.stake == bestStake {
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(Palette.gold)
+                            }
+                            Text(String(format: "%.2f ct/CHF", row.ret))
+                                .font(Typeface.mono(12, weight: .semibold))
+                                .foregroundStyle(row.stake == bestStake ? Palette.goldSoft : Palette.fg)
+                        }
+                    }
+                }
+                Text("Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment — l'espérance totale reste négative.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.subtle)
+            }
+        }
     }
 
     @ViewBuilder

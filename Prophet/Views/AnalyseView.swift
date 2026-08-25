@@ -83,7 +83,18 @@ struct BacktestCard: View {
                         value: String(format: "%+.2f", oracle.backtestZ),
                         accent: abs(oracle.backtestZ) < 2 ? Palette.fg : Palette.gold
                     )
+                    StatPill(
+                        label: "E-VALEUR",
+                        value: oracle.eValue < 100
+                            ? String(format: "%.2f", oracle.eValue)
+                            : String(format: "%.0f", oracle.eValue),
+                        accent: oracle.eValue >= 20 ? Palette.live : Palette.fg
+                    )
                 }
+
+                Text("E-valeur : test séquentiel par pari, valide à tout instant. Une richesse ≥ 20 signalerait un générateur biaisé (α = 5 %) — sous ce seuil, aucune anomalie.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.subtle)
 
                 Text(verdictText)
                     .font(.system(size: 12))

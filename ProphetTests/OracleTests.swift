@@ -67,6 +67,9 @@ final class OracleTests: XCTestCase {
         XCTAssertLessThanOrEqual(result.backtestMean, 20)
         // Sur un historique pseudo-aléatoire, la moyenne doit rester proche du hasard.
         XCTAssertEqual(result.backtestMean, 5.0, accuracy: 2.0)
+        // E-valeur : strictement positive, et pas d'alerte attendue sur du hasard.
+        XCTAssertGreaterThan(result.eValue, 0)
+        XCTAssertLessThan(result.eValue, 20)
     }
 
     func testSwarmIsDeterministic() {
@@ -76,6 +79,7 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(a.scores, b.scores)
         XCTAssertEqual(a.backtest, b.backtest)
         XCTAssertEqual(a.confidence, b.confidence)
+        XCTAssertEqual(a.eValue, b.eValue)
         XCTAssertEqual(a.swarm.generation, b.swarm.generation)
         XCTAssertEqual(a.methods.map(\.weight), b.methods.map(\.weight))
         for (ga, gb) in zip(a.stakes, b.stakes) {
@@ -109,6 +113,8 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.stakes[0].grids[0].numbers.count, 5)
         XCTAssertTrue(result.backtest.isEmpty)
         XCTAssertEqual(result.confidence, 50)
+        // Sans tirage, la martingale n'a pas parié : richesse neutre.
+        XCTAssertEqual(result.eValue, 1.0, accuracy: 0.0001)
         XCTAssertEqual(result.swarm.generation, 0)
         XCTAssertEqual(result.swarm.bestHeadName, "—")
     }

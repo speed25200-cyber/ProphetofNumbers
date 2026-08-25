@@ -76,7 +76,30 @@ le vainqueur après coup surestime toujours.
 Le « signal » affiché (50 = hasard pur) est dérivé de ce z-score et de
 rien d'autre.
 
-## 6. Ce que l'essaim ne peut pas faire
+## 5 bis. Le test séquentiel par pari (e-process)
+
+Au-delà du z-score, Prophet embarque l'état de l'art de l'inférence
+séquentielle : un **test par pari** (*testing by betting* — Shafer 2021,
+Ramdas et al. 2023). Sous H0 (tirage uniforme), le recouvrement du top-20
+figé suit une hypergéométrique connue ; à chaque tirage, une martingale
+« parie » via l'inclinaison exponentielle q(o) ∝ p0(o)·e^{±θo}. Sa
+richesse cumulée a une espérance de 1 sous H0, donc par l'inégalité de
+Ville : **P(richesse ≥ 20) ≤ 5 % à tout instant** — le test est valide en
+continu, sans correction de tests multiples ni p-hacking. Le mélange
+bilatéral (θ > 0 et θ < 0) détecte aussi bien une sur- qu'une
+sous-performance. Si le générateur de Loro était biaisé, c'est cet
+indicateur qui monterait — aussi vite que la théorie le permet.
+
+## 6. La couche décision : valeur du jackpot
+
+Les numéros ne sont pas prédictibles, mais la **mise** est un choix
+rationnel : l'app calcule le retour espéré du seul jackpot par franc misé
+(jackpot courant × probabilité hypergéométrique exacte du k/k) pour
+chaque mise, et marque la plus « rentable » du moment. L'espérance totale
+reste négative — l'app le dit — mais c'est le seul levier où les
+mathématiques ont réellement quelque chose à optimiser.
+
+## 7. Ce que l'essaim ne peut pas faire
 
 Le Loto Express est un générateur aléatoire certifié : les tirages sont
 indépendants et uniformes. **L'espérance de n'importe quel top-20 — y
@@ -96,5 +119,8 @@ de l'app le rappelle en continu, sur données réelles.
   Learning 1998.
 - Cesa-Bianchi, Lugosi — *Prediction, Learning, and Games*, 2006.
 - Oja — *Simplified neuron model as a principal component analyzer*, 1982.
+- Shafer — *Testing by betting*, JRSS-A 2021.
+- Ramdas, Grünwald, Vovk, Shafer — *Game-theoretic statistics and
+  safe anytime-valid inference*, Statistical Science 2023.
 - Hawkes — *Spectra of some self-exciting and mutually exciting point
   processes*, Biometrika 1971.

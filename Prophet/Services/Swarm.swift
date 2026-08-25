@@ -573,6 +573,27 @@ enum Swarm {
         let hedgeEta = 0.6
         let fixedShare = 0.02
 
+        // Test séquentiel par pari (e-process) : sous H0 (tirage uniforme),
+        // le recouvrement O du top-20 figé suit une hypergéométrique connue.
+        // On parie via l'inclinaison exponentielle q(o) ∝ p0(o)·e^{±θo} ;
+        // la richesse cumulée est une martingale d'espérance 1 sous H0,
+        // donc P(richesse ≥ 20) ≤ 5 % à TOUT instant (inégalité de Ville).
+        let thetaE = 0.15
+        var overlapPMF = [Double](repeating: 0, count: drawN + 1)
+        for o in 0...drawN {
+            overlapPMF[o] = comb(drawN, o) * comb(pool - drawN, drawN - o) / comb(pool, drawN)
+        }
+        var mUp = 0.0
+        var mDown = 0.0
+        for o in 0...drawN {
+            mUp += overlapPMF[o] * exp(thetaE * Double(o))
+            mDown += overlapPMF[o] * exp(-thetaE * Double(o))
+        }
+        let logMUp = log(mUp)
+        let logMDown = log(mDown)
+        var eLogUp = 0.0
+        var eLogDown = 0.0
+
         for t in 0..<n {
             let nums = ordered[t].numbers
             let drawn = Set(nums)
@@ -581,7 +602,10 @@ enum Swarm {
                 // Poids et états figés avant d'observer le tirage t : marche avant stricte.
                 let fields = heads.map { zscore($0.field()) }
                 let ens = blendWeighted(fields, weights)
-                ensembleOv.append(overlapCount(topIndices(ens, k: drawN), drawn))
+                let overlap = overlapCount(topIndices(ens, k: drawN), drawn)
+                ensembleOv.append(overlap)
+                eLogUp = min(80, eLogUp + thetaE * overlap - logMUp)
+                eLogDown = min(80, eLogDown - thetaE * overlap - logMDown)
 
                 for h in 0..<headCount {
                     let ovh = overlapCount(topIndices(fields[h], k: drawN), drawn)
@@ -740,6 +764,10 @@ enum Swarm {
         var confidence = Int(round(50 + 14 * btZ))
         confidence = max(5, min(95, confidence))
 
+        // Mélange bilatéral de martingales (sur- et sous-performance) :
+        // toujours une e-valeur valide, quel que soit le sens du biais.
+        let eValue = 0.5 * exp(min(60, eLogUp)) + 0.5 * exp(min(60, eLogDown))
+
         var freq16 = [Double](repeating: 0, count: pool)
         for drawNums in recent16 {
             for num in drawNums where (1...pool).contains(num) {
@@ -806,6 +834,7 @@ enum Swarm {
             backtestMean: btMean,
             uniformExpected: uniformExp,
             backtestZ: btZ,
+            eValue: eValue,
             gaps: gap,
             freq16: freq16,
             swarm: swarmStats
