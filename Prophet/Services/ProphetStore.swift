@@ -67,19 +67,21 @@ final class ProphetStore: ObservableObject {
             let live = try await LoroClient.shared.loadLive(force: force)
             let history = live.history
             let newestDraw = live.last?.drawNumber ?? -1
+
+            // Deux temps : le résultat s'affiche immédiatement, puis l'essaim
+            // digère le nouveau tirage hors du main thread et les grilles du
+            // prochain tirage se recalent juste derrière.
+            withAnimation(.smooth(duration: 0.4)) {
+                payload = live
+            }
             if oracle == nil || newestDraw != lastOracleDraw {
-                // L'essaim balaie ~200 tirages × 80 numéros × 26 têtes :
-                // hors du main thread, et seulement sur un nouveau tirage.
                 let result = await Task.detached(priority: .userInitiated) {
                     Swarm.run(history)
                 }.value
                 lastOracleDraw = newestDraw
                 withAnimation(.smooth(duration: 0.5)) {
-                    payload = live
                     oracle = result
                 }
-            } else {
-                payload = live
             }
             error = nil
             rememberTickets(live: live)
