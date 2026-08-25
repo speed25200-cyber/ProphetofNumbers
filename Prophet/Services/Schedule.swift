@@ -124,6 +124,19 @@ enum Schedule {
         return 12
     }
 
+    // Mode Turbo : cadence extrême, aussi vite que le réseau le permet
+    // autour du tirage (la garde anti-chevauchement fait le reste).
+    static func turboDelay(nextDrawAt: Date?, hole: Bool, now: Date = Date()) -> TimeInterval {
+        if hole { return 0.12 }
+        guard let nextDrawAt else { return 2 }
+        let ms = nextDrawAt.timeIntervalSince(now)
+        if ms < 8 { return 0.12 }
+        if ms < 20 { return 0.25 }
+        if ms < 45 { return 1 }
+        if ms < 360 { return 2 }
+        return 5
+    }
+
     static func cacheTtl(nextDrawAt: Date?, hole: Bool, now: Date = Date()) -> TimeInterval {
         if hole { return 0 }
         guard let nextDrawAt else { return 4 }

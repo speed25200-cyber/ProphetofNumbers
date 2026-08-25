@@ -237,6 +237,13 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.25)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.25)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: nil, hole: false, now: now), 8)
+        // Paliers du mode Turbo.
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(400), hole: false, now: now), 5)
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(300), hole: false, now: now), 2)
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(40), hole: false, now: now), 1)
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(15), hole: false, now: now), 0.25)
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(5), hole: false, now: now), 0.12)
+        XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.12)
     }
 
     func testCountdownIsCeiledAndAnchored() {

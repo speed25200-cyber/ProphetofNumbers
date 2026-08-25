@@ -11,6 +11,7 @@ final class ProphetStore: ObservableObject {
     @Published var stake: Int = 10
     @Published var tickets: [SavedTicket] = []
     @Published var notificationsOn = false
+    @Published var turbo = false
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -29,14 +30,16 @@ final class ProphetStore: ObservableObject {
     private let engine = SwarmEngine()
     private static let memoryKey = "prophet.tickets.v1"
     private static let notifKey = "prophet.notifs.v1"
+    private static let turboKey = "prophet.turbo.v1"
     private static let ticketRetentionDraws = 48
 
     init() {
         tickets = Self.readTickets()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
-        // Tick à 250 ms : la cadence réelle est décidée par Schedule.pollDelay
-        // (12 s loin du tirage → 250 ms pendant la fenêtre de publication).
-        poll = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
+        // Tick à 100 ms : la cadence réelle est décidée par Schedule
+        // (12 s loin du tirage → 250 ms en fenêtre chaude, 120 ms en Turbo).
+        poll = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { await self?.pollTick() }
         }
         Task { await refresh(force: true) }
@@ -51,13 +54,17 @@ final class ProphetStore: ObservableObject {
         // Cadence en temps serveur Loro ; le TTL du client se resserre de la
         // même façon près du tirage et pendant un « hole ».
         let serverNow = now.addingTimeInterval(payload?.clockOffset ?? 0)
-        let delay = Schedule.pollDelay(
-            nextDrawAt: payload?.nextDrawAt,
-            hole: payload?.hole ?? false,
-            now: serverNow
-        )
-        guard now.timeIntervalSince(lastFetchAt) >= delay - 0.1 else { return }
-        await refresh()
+        let delay = turbo
+            ? Schedule.turboDelay(nextDrawAt: payload?.nextDrawAt, hole: payload?.hole ?? false, now: serverNow)
+            : Schedule.pollDelay(nextDrawAt: payload?.nextDrawAt, hole: payload?.hole ?? false, now: serverNow)
+        guard now.timeIntervalSince(lastFetchAt) >= delay - 0.05 else { return }
+        // En Turbo rapproché, le cache client est court-circuité.
+        await refresh(force: turbo && delay < 0.5)
+    }
+
+    func toggleTurbo() {
+        turbo.toggle()
+        UserDefaults.standard.set(turbo, forKey: Self.turboKey)
     }
 
     func refresh(force: Bool = false) async {

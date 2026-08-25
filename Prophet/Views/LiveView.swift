@@ -60,6 +60,16 @@ struct LiveView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.gold)
             }
+            if store.turbo {
+                HStack(spacing: 5) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Palette.gold)
+                    Text("Turbo actif — jusqu’à ~8 rafraîchissements/s autour du tirage. Batterie sollicitée.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.subtle)
+                }
+            }
             if let jacks = payload?.jackpots, !jacks.isEmpty {
                 HStack(spacing: 6) {
                     ForEach(jacks) { j in

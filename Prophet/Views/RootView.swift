@@ -54,6 +54,24 @@ struct RootView: View {
             VStack(alignment: .trailing, spacing: 6) {
                 HStack(spacing: 8) {
                     Button {
+                        store.toggleTurbo()
+                    } label: {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(store.turbo ? Palette.accentFg : Palette.subtle)
+                            .frame(width: 30, height: 30)
+                            .background {
+                                if store.turbo {
+                                    Circle().fill(Palette.goldGradient)
+                                } else {
+                                    Circle().fill(.ultraThinMaterial)
+                                }
+                            }
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .sensoryFeedback(.impact(weight: .medium), trigger: store.turbo)
+                    Button {
                         store.toggleNotifications()
                     } label: {
                         Image(systemName: store.notificationsOn ? "bell.fill" : "bell.slash")
