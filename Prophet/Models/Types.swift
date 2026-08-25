@@ -126,6 +126,10 @@ struct OracleResult {
     var backtestZ: Double
     // Test séquentiel par pari : e-valeur anytime-valid, ≥ 20 ⇒ alerte à 5 %.
     var eValue: Double
+    // Géométrie du tableau officiel : paires adjacentes par tirage.
+    var adjacencyMean: Double
+    var adjacencyExpected: Double
+    var adjacencyZ: Double
     // État courant du champ 1–80.
     var gaps: [Int]
     var freq16: [Double]

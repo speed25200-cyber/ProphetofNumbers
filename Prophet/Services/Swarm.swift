@@ -1,6 +1,6 @@
 import Foundation
 
-// L'Essaim : 24 têtes de prédiction en compétition, pondérées en ligne par
+// L'Essaim : 26 têtes de prédiction en compétition, pondérées en ligne par
 // un Hedge à part fixe (Freund-Schapire / Herbster-Warmuth) payé sur les hits
 // réels, avec évolution des familles paramétriques par mutation du plus
 // faible vers le plus fort. Tout est évalué en marche avant : aucune tête ne
@@ -486,6 +486,79 @@ final class AntiHead: SwarmHead {
     func field() -> [Double] { base.field().map { -$0 } }
 }
 
+// MARK: - Famille Géo — géométrie du tableau officiel (colonnes = dizaines,
+// rangées = chiffre des unités). La disposition étant fixe, la géométrie ne
+// contient aucune information au-delà des numéros ; ces têtes testent
+// honnêtement l'hypothèse — et convergent vers le neutre si elle est fausse.
+
+final class AdjacencyHead: SwarmHead {
+    let family = "Géo"
+    let tag = HeadTag.structure
+    private var last: Set<Int> = []
+    private var attempts = [Double](repeating: 0, count: 5)
+    private var hits = [Double](repeating: 0, count: 5)
+
+    var id: String { "geo.adj" }
+    var name: String { "Voisinage tableau" }
+    var blurb: String { "P(sortie | k voisins du tableau sortis au tirage précédent), auto-calibrée." }
+
+    private func neighborCount(_ n: Int, in set: Set<Int>) -> Int {
+        var c = 0
+        let row = (n - 1) % 10
+        if row > 0, set.contains(n - 1) { c += 1 }
+        if row < 9, set.contains(n + 1) { c += 1 }
+        if n > 10, set.contains(n - 10) { c += 1 }
+        if n <= poolN - 10, set.contains(n + 10) { c += 1 }
+        return c
+    }
+
+    func absorb(_ drawn: Set<Int>) {
+        if !last.isEmpty {
+            for i in 1...poolN {
+                let k = neighborCount(i, in: last)
+                attempts[k] += 1
+                if drawn.contains(i) { hits[k] += 1 }
+            }
+        }
+        last = drawn
+    }
+
+    func field() -> [Double] {
+        var out = [Double](repeating: pBase, count: poolN)
+        guard !last.isEmpty else { return out }
+        for i in 1...poolN {
+            let k = neighborCount(i, in: last)
+            out[i - 1] = (hits[k] + 2) / (attempts[k] + 8)
+        }
+        return out
+    }
+}
+
+final class RowPressureHead: SwarmHead {
+    let family = "Géo"
+    let tag = HeadTag.reversion
+    private var rows = [Double](repeating: Double(drawK) / 10, count: 10)
+
+    var id: String { "geo.rangs" }
+    var name: String { "Rangs du tableau" }
+    var blurb: String { "Déficit récent des 10 rangées du tableau officiel." }
+
+    func absorb(_ drawn: Set<Int>) {
+        var count = [Double](repeating: 0, count: 10)
+        for n in drawn { count[(n - 1) % 10] += 1 }
+        for r in 0..<10 { rows[r] += 0.12 * (count[r] - rows[r]) }
+    }
+
+    func field() -> [Double] {
+        let expRow = Double(drawK) / 10
+        var out = [Double](repeating: 0, count: poolN)
+        for i in 0..<poolN {
+            out[i] = (expRow - rows[i % 10]) / expRow
+        }
+        return out
+    }
+}
+
 // MARK: - Famille Pression — déficit de zones
 
 final class PressureHead: SwarmHead {
@@ -543,7 +616,20 @@ enum Swarm {
             AntiHead(base: EwmaHead(memory: 25, variant: "b")),
             AntiHead(base: HawkesHead(memory: 3.9, variant: "b")),
             PressureHead(),
+            AdjacencyHead(), RowPressureHead(),
         ]
+    }
+
+    // Paires adjacentes du tirage sur le tableau officiel (chaque arête
+    // comptée une fois : vers le bas dans la colonne, vers la droite).
+    private static func adjacentPairs(_ drawn: Set<Int>) -> Double {
+        var c = 0.0
+        for n in drawn {
+            let row = (n - 1) % 10
+            if row < 9, drawn.contains(n + 1) { c += 1 }
+            if n <= pool - 10, drawn.contains(n + 10) { c += 1 }
+        }
+        return c
     }
 
     static func run(_ drawsNewestFirst: [Draw]) -> OracleResult {
@@ -567,6 +653,7 @@ enum Swarm {
         var co = [Double](repeating: 0, count: pool * pool)
         var gap = [Int](repeating: 0, count: pool)
         var recent16: [[Int]] = []
+        var adjSeries: [Double] = []
         var prevRanks: [Int]?
 
         let uniformExp = Double(drawN) * Double(drawN) / Double(pool)
@@ -643,6 +730,7 @@ enum Swarm {
             }
             recent16.append(nums)
             if recent16.count > 16 { recent16.removeFirst() }
+            adjSeries.append(adjacentPairs(drawn))
 
             if t >= 48, t % 24 == 0 {
                 if evolve(heads: heads, headOv: &headOv, weights: &weights, seed: &seed) {
@@ -768,6 +856,22 @@ enum Swarm {
         // toujours une e-valeur valide, quel que soit le sens du biais.
         let eValue = 0.5 * exp(min(60, eLogUp)) + 0.5 * exp(min(60, eLogDown))
 
+        // Géométrie du tableau : paires adjacentes observées vs hasard.
+        // Arêtes de la grille 8×10 : 9 par colonne + 7 par rangée de largeur 10.
+        let edges = Double(9 * (pool / 10) + 10 * (pool / 10 - 1))
+        let adjExpected = edges * Double(drawN * (drawN - 1)) / Double(pool * (pool - 1))
+        let recentAdj = Array(adjSeries.suffix(60))
+        let adjMean = recentAdj.isEmpty ? adjExpected : mean(recentAdj)
+        var adjVar = 0.0
+        for x in recentAdj {
+            let d = x - adjMean
+            adjVar += d * d
+        }
+        let adjSD = recentAdj.count > 1 ? sqrt(adjVar / Double(recentAdj.count - 1)) : 2.6
+        let adjZ: Double = recentAdj.count >= 12
+            ? (adjMean - adjExpected) / (max(0.3, adjSD) / sqrt(Double(recentAdj.count)))
+            : 0
+
         var freq16 = [Double](repeating: 0, count: pool)
         for drawNums in recent16 {
             for num in drawNums where (1...pool).contains(num) {
@@ -835,6 +939,9 @@ enum Swarm {
             uniformExpected: uniformExp,
             backtestZ: btZ,
             eValue: eValue,
+            adjacencyMean: adjMean,
+            adjacencyExpected: adjExpected,
+            adjacencyZ: adjZ,
             gaps: gap,
             freq16: freq16,
             swarm: swarmStats

@@ -5,7 +5,7 @@ compte à rebours, grilles Alpha / Omega / Nexus pour 5/5 → 10/10 avec bilan
 réel des grilles jouées, analyse 1–80, backtest walk-forward (« Vérité
 terrain »), séance du jour.
 
-Le moteur est un **essaim de 24 têtes** en compétition (Hedge à part fixe +
+Le moteur est un **essaim de 26 têtes** en compétition (Hedge à part fixe +
 évolution par mutation) — architecture détaillée dans
 [`docs/ESSAIM.md`](docs/ESSAIM.md).
 

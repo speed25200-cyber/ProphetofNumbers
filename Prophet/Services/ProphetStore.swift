@@ -67,7 +67,7 @@ final class ProphetStore: ObservableObject {
             let history = live.history
             let newestDraw = live.last?.drawNumber ?? -1
             if oracle == nil || newestDraw != lastOracleDraw {
-                // L'essaim balaie ~200 tirages × 80 numéros × 24 têtes :
+                // L'essaim balaie ~200 tirages × 80 numéros × 26 têtes :
                 // hors du main thread, et seulement sur un nouveau tirage.
                 let result = await Task.detached(priority: .userInitiated) {
                     Swarm.run(history)

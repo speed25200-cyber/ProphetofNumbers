@@ -10,11 +10,12 @@ struct AnalyseView: View {
                 BacktestCard(oracle: oracle)
                 SwarmCard(oracle: oracle)
                 FieldCard(oracle: oracle, last: store.payload?.last)
+                GeoCard(oracle: oracle)
                 HotColdCard(oracle: oracle)
                 if !oracle.movers.isEmpty {
                     MoversCard(movers: oracle.movers)
                 }
-                Text("Le Loto Express tire 20 boules parmi 80 toutes les 5 minutes, via un générateur certifié. Aucun modèle — pas même un essaim de 24 têtes — ne peut battre un RNG équitable sur la durée. Prophet mesure honnêtement son propre écart au hasard, et le backtest ci-dessus en est la preuve en continu.")
+                Text("Le Loto Express tire 20 boules parmi 80 toutes les 5 minutes, via un générateur certifié. Aucun modèle — pas même un essaim de 26 têtes — ne peut battre un RNG équitable sur la durée. Prophet mesure honnêtement son propre écart au hasard, et le backtest ci-dessus en est la preuve en continu.")
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
                     .padding(.horizontal, 4)
@@ -156,6 +157,16 @@ struct FieldCard: View {
     var oracle: OracleResult
     var last: Draw?
 
+    // Ordre du tableau officiel Loro : colonnes = dizaines, rangées =
+    // chiffre des unités (rendu rangée par rangée, 8 cases par ligne).
+    private static let boardOrder: [Int] = {
+        var out: [Int] = []
+        for row in 0..<10 {
+            for col in 0..<8 { out.append(col * 10 + row + 1) }
+        }
+        return out
+    }()
+
     var body: some View {
         let maxAbs = max(oracle.scores.map { abs($0) }.max() ?? 0.001, 0.001)
 
@@ -171,25 +182,75 @@ struct FieldCard: View {
                 Image(systemName: "waveform.path.ecg")
                     .foregroundStyle(Palette.subtle)
             }
-            Text("Plus doré = mieux classé pour le prochain tirage. Plein = sorti au dernier tirage.")
+            Text("Disposition officielle du tableau Loro (colonnes = dizaines). Plus doré = mieux classé. Plein = sorti au dernier tirage.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 10), spacing: 6) {
-                ForEach(1...ProphetConst.poolSize, id: \.self) { n in
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 8), spacing: 6) {
+                ForEach(Self.boardOrder, id: \.self) { n in
                     let score = oracle.scores[n - 1]
                     let t = (score + maxAbs) / (2 * maxAbs)
                     let hit = last?.numbers.contains(n) == true
                     Text("\(n)")
-                        .font(Typeface.mono(9, weight: .medium))
+                        .font(Typeface.mono(10, weight: .medium))
                         .foregroundStyle(hit ? Palette.accentFg : Palette.fg)
-                        .frame(height: 28)
+                        .frame(height: 30)
                         .frame(maxWidth: .infinity)
                         .background(hit ? Palette.gold : Palette.gold.opacity(0.06 + t * 0.42))
-                        .clipShape(Circle())
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
         }
+    }
+}
+
+struct GeoCard: View {
+    var oracle: OracleResult
+
+    var body: some View {
+        let geoWeight = oracle.swarm.families.first { $0.name == "Géo" }?.weight ?? 0
+
+        Card {
+            VStack(alignment: .leading, spacing: 4) {
+                Overline(text: "GÉOMÉTRIE DU TABLEAU")
+                Text("Paires adjacentes sur la grille")
+                    .font(Typeface.display(22))
+                    .foregroundStyle(Palette.fg)
+            }
+            Text("Les grappes que l’œil voit à l’écran sont mesurées : nombre de cases voisines (colonne/rangée) sorties ensemble, comparé au hasard exact.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+
+            HStack(spacing: 8) {
+                StatPill(
+                    label: "OBSERVÉ",
+                    value: String(format: "%.2f paires", oracle.adjacencyMean),
+                    accent: Palette.goldSoft
+                )
+                StatPill(label: "HASARD", value: String(format: "%.2f paires", oracle.adjacencyExpected))
+                StatPill(
+                    label: "ÉCART (Z)",
+                    value: String(format: "%+.2f", oracle.adjacencyZ),
+                    accent: abs(oracle.adjacencyZ) < 2 ? Palette.fg : Palette.gold
+                )
+            }
+
+            Text(verdict)
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+            Text("Deux têtes « Géo » (voisinage, rangées) concourent dans l’essaim — poids actuel \(String(format: "%.1f", geoWeight * 100)) %. Si la géométrie payait, le Hedge les ferait monter tout seul.")
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.subtle)
+        }
+    }
+
+    private var verdict: String {
+        if abs(oracle.adjacencyZ) < 2 {
+            return "Les grappes sont exactement au niveau du hasard : la paréidolie est mesurée, pas subie. La disposition du tableau étant fixe, la géométrie n’ajoute aucune information aux numéros."
+        }
+        return oracle.adjacencyZ > 0
+            ? "Sur-représentation récente des paires voisines — à surveiller via l’e-valeur avant d’y croire : régression vers le hasard attendue."
+            : "Sous-représentation récente des paires voisines — le miroir d’une série de grappes. Régression vers le hasard attendue."
     }
 }
 

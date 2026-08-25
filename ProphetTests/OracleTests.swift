@@ -70,6 +70,10 @@ final class OracleTests: XCTestCase {
         // E-valeur : strictement positive, et pas d'alerte attendue sur du hasard.
         XCTAssertGreaterThan(result.eValue, 0)
         XCTAssertLessThan(result.eValue, 20)
+        // Géométrie : 142 arêtes × 20·19/(80·79) ≈ 8,54 paires attendues.
+        XCTAssertEqual(result.adjacencyExpected, 8.538, accuracy: 0.01)
+        XCTAssertGreaterThanOrEqual(result.adjacencyMean, 0)
+        XCTAssertTrue(result.adjacencyZ.isFinite)
     }
 
     func testSwarmIsDeterministic() {

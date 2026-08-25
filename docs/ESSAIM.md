@@ -1,12 +1,12 @@
 # L'Essaim — architecture de prédiction de Prophet
 
 Prophet ne repose plus sur un ensemble figé de 6 têtes : le moteur
-(`Prophet/Services/Swarm.swift`) est un **essaim de 24 prédicteurs en
+(`Prophet/Services/Swarm.swift`) est un **essaim de 26 prédicteurs en
 compétition**, pondérés en ligne et capables d'évoluer. Ce document décrit
 l'architecture, les algorithmes et — surtout — ce que l'essaim peut et ne
 peut pas faire.
 
-## 1. Les 24 têtes, en 10 familles
+## 1. Les 26 têtes, en 11 familles
 
 | Famille | Têtes | Signal capté |
 |---|---|---|
@@ -20,6 +20,7 @@ peut pas faire.
 | **ACP** | Axes 1 et 2 (règle d'Oja) | Structure résiduelle de covariance, extraite en ligne |
 | **Contra** | Anti-EWMA-25, Anti-Hawkes | Sondes contrariennes : si le momentum trompe systématiquement, l'essaim l'apprend |
 | **Pression** | Zones | Déficit récent des décades et de la parité |
+| **Géo** | Voisinage, Rangs | Géométrie du tableau officiel 8×10 : P(sortie \| k voisins sortis) auto-calibrée, déficit des rangées. La disposition étant fixe, la géométrie n'ajoute aucune information aux numéros — ces têtes testent l'hypothèse et convergent vers le neutre si elle est fausse. L'app affiche aussi le comptage des paires adjacentes vs le hasard exact (≈ 8,54 attendues) |
 
 Chaque tête est un automate incrémental : `absorb(tirage)` met à jour son
 état, `field()` rend un score par numéro (1–80). Les champs sont
