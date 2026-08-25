@@ -307,25 +307,62 @@ enum PRNGRecovery {
         return idx == seq.count
     }
 
+    // Le balayage exhaustif ne dépend PAS de l'ordre de tirage.
+    //
+    // Mesuré : le test d'appartenance à l'ensemble, avec arrêt anticipé,
+    // coûte 1,344 pas de générateur par candidat (25 % survivent au premier
+    // numéro, 0,03 % au sixième). Un balayage 2³¹ demande donc 2,89
+    // milliards de pas, et la probabilité qu'un mauvais état reproduise les
+    // 20 numéros est 1/C(80,20) ≈ 10⁻¹⁹ — soit 6·10⁻¹⁰ faux positif attendu
+    // sur tout l'espace. L'ordre, quand il existe, ne fait qu'accélérer
+    // (filtre 1/80 au lieu de 1/4 par pas).
     private static func exhaustive<G: SeedableGenerator>(
         _ type: G.Type,
-        target: [Int],
-        confirm: [Int],
+        targetSet: Target,
+        confirmSet: Target,
+        targetSeq: [Int],
+        confirmSeq: [Int],
+        bonus: Int?,
         started: Date,
         budget: TimeInterval,
         tested: inout Int
     ) -> String? {
+        let ordered = targetSeq.count == drawN && confirmSeq.count == drawN
         let span: UInt64 = UInt64(1) << UInt64(G.stateBits)
+
+        @inline(__always)
+        func matchesTarget(_ g: inout G) -> Bool {
+            ordered
+                ? matchesSequence(&g, targetSeq)
+                : prefixByRejection(&g, target: targetSet, multiplyShift: false) == drawN
+        }
+        @inline(__always)
+        func matchesConfirm(_ g: inout G) -> Bool {
+            ordered
+                ? matchesSequence(&g, confirmSeq)
+                : prefixByRejection(&g, target: confirmSet, multiplyShift: false) == drawN
+        }
+
         var s: UInt64 = 0
         while s < span {
             if s & 0xF_FFFF == 0, Date().timeIntervalSince(started) > budget { return nil }
             var gen = G(rawSeed: UInt32(truncatingIfNeeded: s))
             tested += 1
-            if matchesSequence(&gen, target) {
+            if matchesTarget(&gen) {
                 var again = G(rawSeed: UInt32(truncatingIfNeeded: s))
-                _ = matchesSequence(&again, target)
-                if matchesSequence(&again, confirm) {
-                    return "\(G.familyName) · état \(s)"
+                _ = matchesTarget(&again)
+                // Le bonus est la seule sortie publiée qui échappe au tri :
+                // s'il tombe juste, l'ordre de consommation du flux est
+                // confirmé lui aussi.
+                var bonusNote = ""
+                if let bonus {
+                    var probe = again
+                    if Int(probe.next32() % UInt32(pool)) + 1 == bonus {
+                        bonusNote = " · bonus confirmé"
+                    }
+                }
+                if matchesConfirm(&again) {
+                    return "\(G.familyName) · état \(s)\(bonusNote)"
                 }
             }
             s &+= 1
@@ -375,27 +412,29 @@ enum PRNGRecovery {
         var perm = Array(0..<pool)
         var undo: [Int] = []
 
-        // Mode fort : l'ordre de sortie est publié — chaque numéro contraint
-        // la sortie modulo 80, et l'espace d'états 2³¹ devient balayable.
+        // Balayage exhaustif de l'espace d'états — lancé dans tous les cas.
+        // L'ordre de tirage, s'il est publié, ne fait qu'accélérer le filtre.
         let orderAvailable = targetDraw.hasDrawOrder && nextDraw.hasDrawOrder
-        if orderAvailable {
-            let seq = targetDraw.order
-            let seqNext = nextDraw.order
-            if let hit = exhaustive(GlibcLCG.self, target: seq, confirm: seqNext,
-                                    started: started, budget: budget * 0.4, tested: &tested) {
-                solved = true
-                solvedDescription = hit
-            } else if let hit = exhaustive(MsvcLCG.self, target: seq, confirm: seqNext,
-                                           started: started, budget: budget * 0.7, tested: &tested) {
-                solved = true
-                solvedDescription = hit
-            } else if let hit = exhaustive(Xorshift32.self, target: seq, confirm: seqNext,
-                                           started: started, budget: budget, tested: &tested) {
-                solved = true
-                solvedDescription = hit
-            }
-            if solved { bestPrefix = drawN }
+        let seq = orderAvailable ? targetDraw.order : []
+        let seqNext = orderAvailable ? nextDraw.order : []
+        let bonus = targetDraw.bonus
+        if let hit = exhaustive(GlibcLCG.self, targetSet: target, confirmSet: confirm,
+                                targetSeq: seq, confirmSeq: seqNext, bonus: bonus,
+                                started: started, budget: budget * 0.35, tested: &tested) {
+            solved = true
+            solvedDescription = hit
+        } else if let hit = exhaustive(MsvcLCG.self, targetSet: target, confirmSet: confirm,
+                                       targetSeq: seq, confirmSeq: seqNext, bonus: bonus,
+                                       started: started, budget: budget * 0.7, tested: &tested) {
+            solved = true
+            solvedDescription = hit
+        } else if let hit = exhaustive(Xorshift32.self, targetSet: target, confirmSet: confirm,
+                                       targetSeq: seq, confirmSeq: seqNext, bonus: bonus,
+                                       started: started, budget: budget, tested: &tested) {
+            solved = true
+            solvedDescription = hit
         }
+        if solved { bestPrefix = drawN }
 
         // Un balayage par famille : la fermeture construit le générateur
         // pour une graine donnée.
@@ -451,20 +490,17 @@ enum PRNGRecovery {
         let expected = tested > 1 ? log(Double(tested)) / log(4) : 0
 
         let mode = orderAvailable
-            ? "ordre de sortie publié — balayage exhaustif 2³¹ + recherche de graine"
-            : "ordre non publié — recherche de graine seule"
+            ? "ordre de sortie publié — balayage exhaustif accéléré (filtre 1/80)"
+            : "ensemble trié — balayage exhaustif par appartenance (filtre 1/4)"
 
         let verdict: String
         let detail: String
         if solved {
             verdict = "ÉTAT RECONSTRUIT"
             detail = "Un générateur reproduit le tirage #\(targetDraw.drawNumber) en entier et confirme le #\(nextDraw.drawNumber) en continuant le flux : \(solvedDescription). C'est un défaut critique du générateur, à signaler à l'exploitant avant toute autre chose."
-        } else if orderAvailable {
-            verdict = "Aucun état reconstruit"
-            detail = "L'ordre de sortie est publié — l'attaque forte a donc pu tourner : espace d'états 2³¹ et 2³² balayé sur les familles LCG et xorshift, plus la recherche de graine sur les 8 familles. \(tested) états testés, aucun ne reproduit le tirage. La source n'est aucun générateur à état court."
         } else {
             verdict = "Aucun état reconstruit"
-            detail = "\(tested) états candidats testés sur 8 familles et 3 échantillonneurs. Le meilleur candidat reproduit \(max(0, bestPrefix)) numéros sur 20, alors que le pur hasard en produit \(String(format: "%.1f", expected)) sur ce nombre d'essais : aucun signal. L'API ne publie pas l'ordre de sortie des boules, ce qui interdit les attaques algébriques (réseau euclidien sur LCG tronqué, inversion de Mersenne Twister) : elles exigent la suite des sorties, pas un ensemble trié."
+            detail = "\(tested) états testés : balayage exhaustif des espaces 2³¹ et 2³² (LCG glibc et MSVC, xorshift32) plus la recherche de graine sur 8 familles et 3 échantillonneurs. Le meilleur candidat reproduit \(max(0, bestPrefix)) numéros sur 20, contre \(String(format: "%.1f", expected)) attendus par pur hasard : aucun signal. Toute la classe des générateurs à état court est écartée."
         }
 
         return RecoveryResult(

@@ -132,8 +132,8 @@ struct RecoveryCard: View {
                         .font(.system(size: 10))
                         .foregroundStyle(r.orderAvailable ? Palette.gold : Palette.subtle)
                     Text(r.orderAvailable
-                        ? "Ordre de sortie publié — attaque forte disponible."
-                        : "Ordre de sortie non publié : les numéros arrivent triés, ce qui interdit les attaques algébriques.")
+                        ? "Ordre de sortie publié — filtre 1/80 par pas, balayage accéléré."
+                        : "Numéros publiés triés : le balayage exhaustif tourne quand même (filtre 1/4, 1,34 pas par candidat).")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(r.orderAvailable ? Palette.goldSoft : Palette.subtle)
                 }

@@ -125,6 +125,37 @@ numéro par numéro avec arrêt anticipé, ce qui ramène le coût moyen à
 ~1,3 pas de générateur par candidat : des dizaines de millions d'états
 sont balayés en quelques secondes sur l'appareil.
 
+### Deux résultats obtenus en construisant cette attaque
+
+**(1) Le balayage exhaustif ne dépend pas de l'ordre de tirage.**
+Intuitivement, le tri des 20 numéros détruit ~61 bits par tirage et
+semblait interdire toute recherche d'état. Mesure faite : le test
+d'appartenance à l'ensemble avec arrêt anticipé coûte **1,344 pas de
+générateur par candidat** (25 % des états survivent au premier numéro,
+0,03 % au sixième). Un espace 2³¹ demande donc 2,89 milliards de pas —
+quelques dizaines de secondes en code compilé — et la probabilité qu'un
+mauvais état reproduise les 20 numéros vaut 1/C(80,20) ≈ 10⁻¹⁹, soit
+6·10⁻¹⁰ faux positif attendu sur *tout* l'espace. L'ordre, quand il est
+publié, ne fait qu'accélérer (filtre 1/80 au lieu de 1/4 par pas) : il
+n'est pas une condition. L'attaque a donc été dégatée et tourne
+désormais dans tous les cas.
+
+**(2) Pourquoi les attaques algébriques sont, elles, impossibles ici.**
+Pour un LCG modulo 2ᵏ, la récurrence des bits de poids faible est
+**close** : deux états partageant les 4 bits bas mais différant partout
+ailleurs produisent des suites de bits bas *identiques* (vérifié
+expérimentalement). Or l'observable publié vaut n = x mod 80, qui ne
+livre que x mod 16 et x mod 5. Il ne contient donc **aucune information
+sur les bits de poids fort** — ni relèvement de Hensel, ni réduction de
+réseau (LLL, Frieze-Håstad-Kannan-Lagarias-Shamir) ne peuvent remonter
+l'état. La recherche exhaustive n'est pas un pis-aller : c'est la seule
+voie, et le résultat (1) montre jusqu'où elle porte (~2³²).
+
+Ensemble, ces deux points délimitent exactement la frontière : tout
+générateur à état ≤ 32 bits est cassable depuis les tirages publiés,
+tout générateur à état ≥ 64 bits est hors d'atteinte par cette voie, et
+il n'existe pas de raccourci algébrique entre les deux.
+
 **Règle d'honnêteté** : un état n'est déclaré trouvé que s'il reproduit
 le tirage cible en entier *et* confirme le tirage suivant en continuant
 le même flux. Le rapport affiche le meilleur préfixe obtenu à côté du

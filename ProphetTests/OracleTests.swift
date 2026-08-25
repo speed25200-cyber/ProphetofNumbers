@@ -409,6 +409,33 @@ final class OracleTests: XCTestCase {
         XCTAssertTrue(result.solvedDescription.contains("4321"))
     }
 
+    func testExhaustiveStateSearchWorksWithoutDrawOrder() {
+        // Résultat clé : le balayage exhaustif ne dépend pas de l'ordre.
+        // L'appartenance à l'ensemble trié suffit (1,34 pas par candidat).
+        var gen = GlibcLCG(rawSeed: 2600)
+        func nextSorted() -> [Int] {
+            var out: [Int] = []
+            var seen = Set<Int>()
+            while out.count < 20 {
+                let n = Int(gen.next32() % 80) + 1
+                if seen.insert(n).inserted { out.append(n) }
+            }
+            return out.sorted()
+        }
+        let first = nextSorted()
+        let second = nextSorted()
+        let draws = [
+            Draw(drawNumber: 8002, drawDate: "2026-01-01T12:00:00+01:00",
+                 numbers: second, order: second, boost: nil, bonus: nil),
+            Draw(drawNumber: 8001, drawDate: "2026-01-01T12:00:00+01:00",
+                 numbers: first, order: first, boost: nil, bonus: nil),
+        ]
+        let result = PRNGRecovery.attack(draws, budget: 30)
+        XCTAssertFalse(result.orderAvailable, "ordre trié : aucune information d'ordre")
+        XCTAssertTrue(result.solved, "le balayage exhaustif doit aboutir sans l'ordre")
+        XCTAssertTrue(result.solvedDescription.contains("2600"))
+    }
+
     func testDrawWithoutOrderInfoIsFlaggedAsSuch() {
         let sorted = Array(1...20)
         let d = Draw(drawNumber: 1, drawDate: "2026-01-01T12:00:00+01:00",
