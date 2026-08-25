@@ -814,24 +814,6 @@ final class SwarmEngine {
         let ensemble = blendWeighted(zFields)
         let ranks = Self.ranksFromScores(ensemble)
 
-        func tagBlend(_ tag: HeadTag) -> [Double] {
-            let idx = (0..<headCount).filter { heads[$0].tag == tag }
-            guard !idx.isEmpty else { return ensemble }
-            var w = idx.map { weights[$0] }
-            let s = w.reduce(0, +)
-            if s > 0 {
-                for k in 0..<w.count { w[k] /= s }
-            } else {
-                w = [Double](repeating: 1 / Double(idx.count), count: idx.count)
-            }
-            var out = [Double](repeating: 0, count: Self.pool)
-            for (k, i) in idx.enumerated() {
-                let f = zFields[i]
-                for j in 0..<Self.pool { out[j] += w[k] * f[j] }
-            }
-            return out
-        }
-
         let methodScores: [MethodScore] = heads.enumerated().map { i, h in
             let xs = Array(headOv[i].suffix(40))
             return MethodScore(
@@ -859,61 +841,11 @@ final class SwarmEngine {
             movers.sort { abs($0.delta) > abs($1.delta) }
         }
 
-        let inclusionIdx = heads.firstIndex { $0.id == "bayes.b" } ?? 0
-        let inclusion = rawFields[inclusionIdx]
-
-        let alphaSource = tagBlend(.momentum)
-        let omegaSource = tagBlend(.reversion)
-        let kinds: [GridKind] = [.alpha, .omega, .nexus]
+        let sources = gridSourcesFrom(rawFields: rawFields, zFields: zFields, ensemble: ensemble)
         let stakes: [StakeGrids] = ProphetConst.stakes.map { stake in
-            var grids: [SuggestedGrid] = []
-            for kind in kinds {
-                let source: [Double]
-                switch kind {
-                case .alpha: source = alphaSource
-                case .omega: source = omegaSource
-                case .nexus: source = ensemble
-                }
-                // Variante I : sélection principale. Variante II : disjointe
-                // de la I — double la couverture. Variante Anti : le pari
-                // inverse — les numéros que la stratégie classe derniers
-                // (contre-épreuve vivante : sur un RNG équitable, elle fait
-                // jeu égal ; si le modèle se trompait systématiquement, elle
-                // gagnerait).
-                let first = greedyPick(k: stake, score: source, kind: kind, banned: [])
-                let second = greedyPick(k: stake, score: source, kind: kind, banned: Set(first))
-                let anti = greedyPick(k: stake, score: source.map { -$0 }, kind: kind, banned: [])
-                for (variant, numbers) in [(1, first), (2, second), (3, anti)] {
-                    let p = numbers.map { inclusion[$0 - 1] }
-                    let label: String
-                    let subtitle: String
-                    switch variant {
-                    case 1:
-                        label = kind.label
-                        subtitle = kind.subtitle
-                    case 2:
-                        label = "\(kind.label) II"
-                        subtitle = "Variante disjointe de \(kind.label) — double la couverture"
-                    default:
-                        label = "Anti-\(kind.label)"
-                        subtitle = "Le pari inverse — les numéros que \(kind.label) classe derniers"
-                    }
-                    grids.append(SuggestedGrid(
-                        kind: kind,
-                        variant: variant,
-                        label: label,
-                        subtitle: subtitle,
-                        numbers: numbers,
-                        expectedHits: p.reduce(0, +),
-                        baseExpected: Double(stake) * Self.baseP,
-                        pAllHit: Self.heterogeneousAllHit(p),
-                        basePAllHit: Self.hypergeometricPAll(stake)
-                    ))
-                }
-            }
-            return StakeGrids(
+            StakeGrids(
                 stake: stake,
-                grids: grids,
+                grids: makeGrids(stake: stake, sources: sources),
                 oddsLabel: Self.formatPlainOdds(Self.hypergeometricPAll(stake))
             )
         }
@@ -1032,6 +964,136 @@ final class SwarmEngine {
     }
 
     // MARK: Sélection des grilles
+
+    struct GridSources {
+        var inclusion: [Double]
+        var alpha: [Double]
+        var omega: [Double]
+        var nexus: [Double]
+    }
+
+    func gridSources() -> GridSources {
+        let rawFields = heads.map { $0.field() }
+        let zFields = rawFields.map(Self.zscore)
+        let ensemble = blendWeighted(zFields)
+        return gridSourcesFrom(rawFields: rawFields, zFields: zFields, ensemble: ensemble)
+    }
+
+    private func gridSourcesFrom(rawFields: [[Double]], zFields: [[Double]], ensemble: [Double]) -> GridSources {
+        func tagBlend(_ tag: HeadTag) -> [Double] {
+            let idx = (0..<headCount).filter { heads[$0].tag == tag }
+            guard !idx.isEmpty else { return ensemble }
+            var w = idx.map { weights[$0] }
+            let s = w.reduce(0, +)
+            if s > 0 {
+                for k in 0..<w.count { w[k] /= s }
+            } else {
+                w = [Double](repeating: 1 / Double(idx.count), count: idx.count)
+            }
+            var out = [Double](repeating: 0, count: Self.pool)
+            for (k, i) in idx.enumerated() {
+                let f = zFields[i]
+                for j in 0..<Self.pool { out[j] += w[k] * f[j] }
+            }
+            return out
+        }
+        let inclusionIdx = heads.firstIndex { $0.id == "bayes.b" } ?? 0
+        return GridSources(
+            inclusion: rawFields[inclusionIdx],
+            alpha: tagBlend(.momentum),
+            omega: tagBlend(.reversion),
+            nexus: ensemble
+        )
+    }
+
+    func makeGrids(stake: Int, sources: GridSources) -> [SuggestedGrid] {
+        var grids: [SuggestedGrid] = []
+        for kind in [GridKind.alpha, .omega, .nexus] {
+            let source: [Double]
+            switch kind {
+            case .alpha: source = sources.alpha
+            case .omega: source = sources.omega
+            case .nexus: source = sources.nexus
+            }
+            // Variante I : sélection principale. Variante II : disjointe de
+            // la I — double la couverture. Variante Anti : le pari inverse —
+            // les numéros que la stratégie classe derniers (contre-épreuve
+            // vivante : sur un RNG équitable, elle fait jeu égal ; si le
+            // modèle se trompait systématiquement, elle gagnerait).
+            let first = greedyPick(k: stake, score: source, kind: kind, banned: [])
+            let second = greedyPick(k: stake, score: source, kind: kind, banned: Set(first))
+            let anti = greedyPick(k: stake, score: source.map { -$0 }, kind: kind, banned: [])
+            for (variant, numbers) in [(1, first), (2, second), (3, anti)] {
+                let p = numbers.map { sources.inclusion[$0 - 1] }
+                let label: String
+                let subtitle: String
+                switch variant {
+                case 1:
+                    label = kind.label
+                    subtitle = kind.subtitle
+                case 2:
+                    label = "\(kind.label) II"
+                    subtitle = "Variante disjointe de \(kind.label) — double la couverture"
+                default:
+                    label = "Anti-\(kind.label)"
+                    subtitle = "Le pari inverse — les numéros que \(kind.label) classe derniers"
+                }
+                grids.append(SuggestedGrid(
+                    kind: kind,
+                    variant: variant,
+                    label: label,
+                    subtitle: subtitle,
+                    numbers: numbers,
+                    expectedHits: p.reduce(0, +),
+                    baseExpected: Double(stake) * Self.baseP,
+                    pAllHit: Self.heterogeneousAllHit(p),
+                    basePAllHit: Self.hypergeometricPAll(stake)
+                ))
+            }
+        }
+        return grids
+    }
+
+    // MARK: Journal du jour — rejeu en marche avant
+    //
+    // Pour chaque tirage de la journée, reconstruit ce que les 9 grilles
+    // auraient prédit avec l'état du modèle d'alors (jamais le tirage
+    // lui-même), puis les confronte au résultat réel. Déterministe : mêmes
+    // tirages ⇒ même journal, que l'app ait tourné ou non.
+    static func replayToday(_ drawsNewestFirst: [Draw], stake: Int) -> DayJournal {
+        let engine = SwarmEngine()
+        let ordered = drawsNewestFirst.sorted { $0.drawNumber < $1.drawNumber }
+        let dayKey: String = {
+            if let last = ordered.last, let d = Zurich.parseISO(last.drawDate) {
+                return Zurich.parts(d).dayKey
+            }
+            return Zurich.todayKey()
+        }()
+        var plays: [DayPlay] = []
+        for draw in ordered {
+            let date = Zurich.parseISO(draw.drawDate)
+            let isDay = date.map { Zurich.parts($0).dayKey == dayKey } ?? false
+            if isDay, engine.absorbed > 12 {
+                let grids = engine.makeGrids(stake: stake, sources: engine.gridSources())
+                let drawnSet = Set(draw.numbers)
+                plays.append(DayPlay(
+                    drawNumber: draw.drawNumber,
+                    time: date.map { Zurich.parts($0).time } ?? "—",
+                    draw: draw.numbers,
+                    plays: grids.map {
+                        GridPlay(
+                            kind: $0.kind,
+                            variant: $0.variant,
+                            numbers: $0.numbers,
+                            hits: $0.numbers.filter(drawnSet.contains).count
+                        )
+                    }
+                ))
+            }
+            engine.process([draw])
+        }
+        return DayJournal(dayKey: dayKey, stake: stake, plays: plays)
+    }
 
     private func greedyPick(k: Int, score: [Double], kind: GridKind, banned: Set<Int>) -> [Int] {
         var picked: [Int] = []

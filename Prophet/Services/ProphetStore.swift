@@ -12,6 +12,7 @@ final class ProphetStore: ObservableObject {
     @Published var tickets: [SavedTicket] = []
     @Published var notificationsOn = false
     @Published var turbo = false
+    @Published var journal: DayJournal?
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -112,6 +113,25 @@ final class ProphetStore: ObservableObject {
     private func reconcile(_ full: OracleResult, draw: Int) {
         guard lastOracleDraw == draw else { return }
         oracle = full
+    }
+
+    // Journal du jour : rejeu déterministe, recalculé uniquement quand un
+    // nouveau tirage arrive ou que la mise change.
+    private var journalKey = ""
+
+    func loadJournal() async {
+        guard let payload else { return }
+        let key = "\(payload.last?.drawNumber ?? 0)-\(stake)"
+        if journalKey == key, journal != nil { return }
+        let history = payload.history
+        let stakeNow = stake
+        let result = await Task.detached(priority: .userInitiated) {
+            SwarmEngine.replayToday(history, stake: stakeNow)
+        }.value
+        journalKey = key
+        withAnimation(.smooth(duration: 0.4)) {
+            journal = result
+        }
     }
 
     func toggleNotifications() {

@@ -251,6 +251,28 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(Schedule.turboDelay(nextDrawAt: now.addingTimeInterval(400), hole: true, now: now), 0.12)
     }
 
+    func testDayReplayJournalsEveryEvaluableDraw() {
+        let history = syntheticHistory()
+        let journal = SwarmEngine.replayToday(history, stake: 10)
+        XCTAssertEqual(journal.stake, 10)
+        // Tous les tirages du jour dès que le modèle a 13 tirages d'amorce.
+        XCTAssertEqual(journal.plays.count, 67)
+        for play in journal.plays {
+            XCTAssertEqual(play.plays.count, 9)
+            XCTAssertEqual(play.draw.count, 20)
+            for gp in play.plays {
+                XCTAssertEqual(gp.numbers.count, 10)
+                XCTAssertTrue((0...10).contains(gp.hits))
+                // Le hit est bien le recouvrement réel grille/tirage.
+                XCTAssertEqual(gp.hits, gp.numbers.filter(Set(play.draw).contains).count)
+            }
+        }
+        // Chronologique, et déterministe.
+        XCTAssertEqual(journal.plays.map(\.drawNumber), journal.plays.map(\.drawNumber).sorted())
+        let again = SwarmEngine.replayToday(history, stake: 10)
+        XCTAssertEqual(again.plays, journal.plays)
+    }
+
     func testCountdownIsCeiledAndAnchored() {
         let target = Date(timeIntervalSince1970: 1_000_000)
         // 4,2 s restantes → afficher 05, pas 04.

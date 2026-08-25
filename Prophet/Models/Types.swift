@@ -169,6 +169,32 @@ struct SavedTicket: Codable, Identifiable, Hashable {
     var id: String { "\(targetDraw)-\(stake)-\(kind.rawValue)-\(variant)" }
 }
 
+// Journal du jour : ce que chaque grille aurait prédit, tirage par tirage.
+struct GridPlay: Identifiable, Hashable {
+    var kind: GridKind
+    var variant: Int
+    var numbers: [Int]
+    var hits: Int
+    var id: String { "\(kind.rawValue).\(variant)" }
+    var label: String {
+        variant == 3 ? "Anti-\(kind.label)" : kind.label + (variant == 2 ? " II" : "")
+    }
+}
+
+struct DayPlay: Identifiable, Hashable {
+    var drawNumber: Int
+    var time: String
+    var draw: [Int]
+    var plays: [GridPlay]
+    var id: Int { drawNumber }
+}
+
+struct DayJournal {
+    var dayKey: String
+    var stake: Int
+    var plays: [DayPlay]
+}
+
 enum Zurich {
     static let tz = TimeZone(identifier: "Europe/Zurich")!
 
