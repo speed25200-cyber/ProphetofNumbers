@@ -436,9 +436,11 @@ enum PRNGRecovery {
         }
         if solved { bestPrefix = drawN }
 
-        // Un balayage par famille : la fermeture construit le générateur
-        // pour une graine donnée.
-        func sweep(_ family: String, heavy: Bool, _ make: (UInt64) -> any StreamGenerator) {
+        // Un balayage par famille. Générique sur le type concret du
+        // générateur : Swift n'ouvre pas implicitement un existentiel passé
+        // en inout (SE-0352), et la spécialisation évite en prime la
+        // répartition dynamique dans la boucle chaude.
+        func sweep<G: StreamGenerator>(_ family: String, heavy: Bool, _ make: (UInt64) -> G) {
             if solved { return }
             for sampler in Sampler.allCases {
                 for range in ranges {
