@@ -273,3 +273,62 @@ certifiée tourne sur `java.util.Random` est infime — mais elle n'est plus
 Au-delà de 2⁴⁸, la barrière redevient absolue : 2⁶⁴ coûterait 65 536 fois
 plus (des siècles sur GPU), et 2¹²⁸ dépasse le nombre d'opérations
 réalisables dans l'univers observable.
+
+---
+
+## 8. Attaque ciblée : ré-amorçage au démarrage de session
+
+Dernier angle opérationnel non testé. Un service de tirage s'arrête la
+nuit et redémarre le matin ; s'il ré-amorce son générateur au lancement de
+la séance — motif classique d'un démon relancé par `cron` — la graine du
+**premier tirage de la journée** est dérivable de l'instant de reprise.
+
+### Structure temporelle de l'archive
+
+```
+ruptures de session (gap > 600 s) : 345
+gap de session : min 21 900 s · médian 25 500 s · max 29 100 s
+intervalles : 70 190 x 300 s exactement, 343 x 25 500 s exactement
+```
+
+La cadence est d'une régularité mécanique : **343 des 345 interruptions
+durent exactement 25 500 s** (7 h 05). Les 345 reprises de séance sont
+donc horodatées à la seconde près, et constituent 345 cibles de graine
+parfaitement localisées — la configuration la plus favorable qu'un
+attaquant puisse espérer.
+
+### Résultat
+
+| | |
+|---|---|
+| Sessions attaquées | 345 |
+| Familles par session | 6 (glibc, MSVC, java.util.Random, xorshift32, splitmix64, PCG32) |
+| Graines par session | 7 201 (secondes ±1 h) + 20 001 (millisecondes ±10 s) |
+| **Total testé** | **56 308 140 graines** |
+| Profondeur maximale | **10/20** — le niveau du bruit |
+| **États reconstruits** | **0** |
+
+Le ré-amorçage horaire au démarrage de séance est donc écarté, sur les
+345 occasions où il aurait pu se produire.
+
+---
+
+## 9. Bilan des voies explorées
+
+| Voie | Portée atteinte | Résultat |
+|---|---|---|
+| Épuisement ≤ 2³² | 10,7 milliards d'états, données réelles | 0 |
+| Graines horloge / n° de tirage | 8 familles × 3 échantillonneurs | 0 |
+| **Ré-amorçage de session** | **345 sessions × 6 familles, 56,3 M graines** | **0** |
+| Espace 48 bits, graines praticables | 172,8 M graines (±24 h en ms) | 0 |
+| Espace 48 bits complet | rendu accessible : ~2 h sur A100 | outil livré |
+| F₂-linéaire ≤ 1,4 Mbit | Berlekamp-Massey sur 2,8 M bits | 0 |
+| Algébrique (Hensel, réseau) | démontré impossible pour observable en bits bas | — |
+| Rejeu de séquence | 2,489 milliards de paires | 0 |
+| Biais statistique | 15 tests, nulls simulés, Bonferroni | 0 |
+
+Toutes les voies connues ont été parcourues jusqu'à leur limite
+calculatoire ou démontrées closes. Ce qui reste — générateur non linéaire
+à état ≥ 64 bits, ou source quantique — n'est pas hors d'atteinte par
+manque de méthode : l'information nécessaire à toute reconstruction
+**n'est pas contenue** dans les sorties publiées.
