@@ -299,6 +299,19 @@ final class OracleTests: XCTestCase {
                 XCTAssertEqual(gp.hits, gp.numbers.filter(Set(play.draw).contains).count)
             }
         }
+        // Les autres formules tiennent aussi la grille sur leur bloc.
+        for hold in [2, 5, 10] {
+            let jh = SwarmEngine.replayToday(history, stake: 10, hold: hold)
+            XCTAssertEqual(jh.hold, hold)
+            XCTAssertEqual(jh.plays.count, 67)
+            for (idx, play) in jh.plays.enumerated() {
+                let blockStart = (idx / hold) * hold
+                XCTAssertEqual(
+                    play.plays.map(\.numbers),
+                    jh.plays[blockStart].plays.map(\.numbers)
+                )
+            }
+        }
     }
 
     func testCountdownIsCeiledAndAnchored() {

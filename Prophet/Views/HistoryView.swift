@@ -193,37 +193,36 @@ struct JournalCard: View {
         let jackpot = jackpotResult
 
         Card(tint: Palette.gold) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Overline(text: "JOURNAL DU JOUR · MISE \(journal.stake)")
-                    Text("\(journal.plays.count) tirages rejoués")
-                        .font(Typeface.display(22))
-                        .foregroundStyle(Palette.fg)
-                }
-                Spacer()
-                // Une prédiction jouée sur 1 ou 3 tirages consécutifs.
-                HStack(spacing: 0) {
-                    ForEach([1, 3], id: \.self) { h in
-                        Button {
-                            store.setJournalHold(h)
-                        } label: {
-                            Text("×\(h)")
-                                .font(Typeface.mono(12, weight: .semibold))
-                                .foregroundStyle(store.journalHold == h ? Palette.accentFg : Palette.muted)
-                                .frame(width: 40, height: 28)
-                                .contentShape(Rectangle())
-                                .background {
-                                    if store.journalHold == h {
-                                        Capsule().fill(Palette.goldGradient)
-                                    }
-                                }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(3)
-                .background(Palette.elevated, in: Capsule())
+            VStack(alignment: .leading, spacing: 4) {
+                Overline(text: "JOURNAL DU JOUR · MISE \(journal.stake)")
+                Text("\(journal.plays.count) tirages rejoués")
+                    .font(Typeface.display(22))
+                    .foregroundStyle(Palette.fg)
             }
+            // Formule multi-tirages : une prédiction tenue sur N tirages
+            // consécutifs, comme les bulletins du jeu réel.
+            HStack(spacing: 0) {
+                ForEach([1, 2, 3, 5, 10], id: \.self) { h in
+                    Button {
+                        store.setJournalHold(h)
+                    } label: {
+                        Text("×\(h)")
+                            .font(Typeface.mono(12, weight: .semibold))
+                            .foregroundStyle(store.journalHold == h ? Palette.accentFg : Palette.muted)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 30)
+                            .contentShape(Rectangle())
+                            .background {
+                                if store.journalHold == h {
+                                    Capsule().fill(Palette.goldGradient)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(3)
+            .background(Palette.elevated, in: Capsule())
             Text(journal.hold > 1
                 ? "Chaque prédiction est jouée telle quelle sur \(journal.hold) tirages consécutifs avant d’être régénérée — le mode multi-tirages du jeu réel. Le modèle, lui, continue d’apprendre à chaque tirage."
                 : "Pour chaque tirage de la journée, l’app reconstruit ce que ses 9 grilles auraient prédit avec l’état du modèle d’alors — jamais avec le tirage lui-même — puis les confronte au résultat.")
@@ -302,17 +301,23 @@ struct JournalCard: View {
 struct PlayRegisterCard: View {
     var journal: DayJournal
 
+    // Un bloc = une prédiction tenue (mode ×N) ; par 3 en mode ×1 pour la
+    // lisibilité.
+    private var blockSize: Int {
+        journal.hold > 1 ? journal.hold : 3
+    }
+
     private var blocks: [[DayPlay]] {
-        stride(from: 0, to: journal.plays.count, by: 3).map {
-            Array(journal.plays[$0..<min($0 + 3, journal.plays.count)])
+        stride(from: 0, to: journal.plays.count, by: blockSize).map {
+            Array(journal.plays[$0..<min($0 + blockSize, journal.plays.count)])
         }
     }
 
     var body: some View {
         Card {
-            Overline(text: "REGISTRE DES JEUX · PAR 3 TIRAGES")
+            Overline(text: "REGISTRE DES JEUX · PAR \(blockSize) TIRAGES")
             Text(journal.hold > 1
-                ? "Chaque bloc de 3 tirages correspond à une prédiction tenue (mode ×\(journal.hold)). Déplie pour voir les numéros joués et leurs hits."
+                ? "Chaque bloc de \(journal.hold) tirages correspond à une prédiction tenue (formule ×\(journal.hold)). Déplie pour voir les numéros joués et leurs hits."
                 : "Les tirages du jour, groupés par 3. Déplie un bloc pour voir les numéros joués par chaque grille et leurs hits.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
