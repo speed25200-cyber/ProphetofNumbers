@@ -18,9 +18,10 @@ actor LoroClient {
     static let shared = LoroClient()
 
     private let gameURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress")!
+    private let resultsURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress/results")!
     private let drawsURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws")!
     private let source = "https://jeux.loro.ch/games/lotoexpress/results"
-    private let historyWindow = 199
+    private let historyWindow = 399
     private let pageSize = 100
 
     private var cache: [Int: Draw] = [:]
@@ -45,49 +46,42 @@ actor LoroClient {
             return live
         }
 
-        // Le bord de la liste /draws en parallèle du endpoint jeu.
-        async let edgeTask = fetchEdge()
+        // La page résultats Loro suit deux flux : status=OPEN (le tirage
+        // jouable, saute celui en cours) et RESULTS_AVAILABLE du jour ; le
+        // endpoint /results sert de secours au endpoint jeu.
+        let day = Zurich.todayKey()
+        async let openTask = fetchOpen()
+        async let publishedTask = fetchPublished(day: day)
+        async let resultsTask = fetchJSONOptional(resultsURL)
         let json = try await fetchJSON(gameURL)
-        var slots = await edgeTask
+        let openSlots = await openTask
+        let published = await publishedTask
+        let resultsJson = await resultsTask
+        var slots = published + openSlots
 
         let details = dict(json["details"])
-        let results = dict(details["results"])
-        let raw = dict(results["raw"])
-
-        var rawDraw: [String: Any] = [
-            "drawNumber": raw["drawNumber"] as Any,
-            "drawDate": (raw["drawDate"] ?? results["drawDate"]) as Any,
-            "phase": raw["phase"] as Any,
-            "wagerEndDate": raw["wagerEndDate"] as Any,
-        ]
-        if let result = raw["result"] {
-            rawDraw["drawResult"] = result
-        } else {
-            rawDraw["drawResult"] = [
-                "matrix1": [
-                    "main": results["primarySelection"] as Any,
-                    "boost": results["secondarySelection"] as Any,
-                    "bonus": results["tertiarySelection"] as Any,
-                ]
-            ]
-        }
-        let gameSlot = parseSlot(rawDraw)
+        let resultsDetails = dict(resultsJson?["details"])
+        let gameSlot = slotFromDetails(details) ?? slotFromDetails(resultsDetails)
         if let draw = gameSlot?.asDraw() {
             cache[draw.drawNumber] = draw
         }
 
-        // Le endpoint jeu retarde d'un tirage, et la liste saute le dernier
-        // résultat pendant ~1 min ; GET /draws/{id} l'a immédiatement — même
-        // source que la page résultats Loro.
+        // Les listes sautent le dernier résultat pendant ~1 min ;
+        // GET /draws/{id} autour du bord l'a immédiatement.
         let hint = max(
             gameSlot?.asDraw()?.drawNumber ?? 0,
-            slots.filter(\.isComplete).map(\.drawNumber).max() ?? 0
+            published.filter(\.isComplete).map(\.drawNumber).max() ?? 0
         )
-        let pending = await fetchDraws(ids: [hint + 1, hint + 2])
+        let minOpen = openSlots.filter { !$0.isComplete }.map(\.drawNumber).min()
+        var ids = [hint + 1, hint + 2, hint + 3]
+        if let minOpen {
+            ids.append(contentsOf: [minOpen - 1, minOpen, minOpen + 1])
+        }
+        let pending = await fetchDraws(ids: Array(Set(ids.filter { $0 > 0 })).sorted())
         slots.append(contentsOf: pending)
         if let gameSlot { slots.append(gameSlot) }
 
-        let fallbackNextRaw = details["drawDate"] as? String
+        let fallbackNextRaw = (details["drawDate"] as? String) ?? (resultsDetails["drawDate"] as? String)
         let fallbackNext = fallbackNextRaw.flatMap(Zurich.parseISO)
         var clock = Schedule.resolve(
             slots: slots,
@@ -165,9 +159,41 @@ actor LoroClient {
         return await parseSlotList(url)
     }
 
-    private func fetchEdge() async -> [Schedule.Slot] {
-        let url = URL(string: "\(drawsURL.absoluteString)?pageSize=20")!
+    private func slotFromDetails(_ details: [String: Any]) -> Schedule.Slot? {
+        let results = dict(details["results"])
+        let raw = dict(results["raw"])
+        var rawDraw: [String: Any] = [
+            "drawNumber": raw["drawNumber"] as Any,
+            "drawDate": (raw["drawDate"] ?? results["drawDate"]) as Any,
+            "phase": raw["phase"] as Any,
+            "wagerEndDate": raw["wagerEndDate"] as Any,
+        ]
+        if let result = raw["result"] {
+            rawDraw["drawResult"] = result
+        } else {
+            rawDraw["drawResult"] = [
+                "matrix1": [
+                    "main": results["primarySelection"] as Any,
+                    "boost": results["secondarySelection"] as Any,
+                    "bonus": results["tertiarySelection"] as Any,
+                ]
+            ]
+        }
+        return parseSlot(rawDraw)
+    }
+
+    private func fetchOpen() async -> [Schedule.Slot] {
+        let url = URL(string: "\(drawsURL.absoluteString)?status=OPEN&size=8")!
         return await parseSlotList(url)
+    }
+
+    private func fetchPublished(day: String) async -> [Schedule.Slot] {
+        let url = URL(string: "\(drawsURL.absoluteString)?page=1&size=40&status=RESULTS_AVAILABLE&startDate=\(day)&endDate=\(day)")!
+        return await parseSlotList(url)
+    }
+
+    private func fetchJSONOptional(_ url: URL) async -> [String: Any]? {
+        try? await fetchJSON(url)
     }
 
     private func fetchDraw(_ id: Int) async -> Schedule.Slot? {
@@ -218,6 +244,7 @@ actor LoroClient {
     private func fetchJSON(_ url: URL) async throws -> [String: Any] {
         var req = URLRequest(url: url, timeoutInterval: 12)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("fr-CH,fr;q=0.9", forHTTPHeaderField: "Accept-Language")
         req.setValue("https://jeux.loro.ch", forHTTPHeaderField: "Origin")
         req.setValue(source, forHTTPHeaderField: "Referer")
         req.setValue(

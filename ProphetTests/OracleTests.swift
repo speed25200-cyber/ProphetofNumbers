@@ -172,6 +172,35 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(clock.pendingDrawNumber, 101)
     }
 
+    func testScheduleLocksOntoFollowingDrawNearClose() {
+        // À 10 s du tirage (≤ lockAhead), la cible jouable saute au suivant.
+        let now = Zurich.parseISO("2026-08-25T12:04:50+02:00")!
+        let slots = [
+            Schedule.Slot(
+                drawNumber: 100, drawDate: "2026-08-25T12:00:00+02:00",
+                numbers: Array(1...20), boost: nil, bonus: nil,
+                phase: "RESULTS_AVAILABLE", wagerEndDate: nil
+            ),
+            Schedule.Slot(
+                drawNumber: 101, drawDate: "2026-08-25T12:05:00+02:00",
+                numbers: [], boost: nil, bonus: nil,
+                phase: "OPEN", wagerEndDate: nil
+            ),
+            Schedule.Slot(
+                drawNumber: 102, drawDate: "2026-08-25T12:10:00+02:00",
+                numbers: [], boost: nil, bonus: nil,
+                phase: "OPEN", wagerEndDate: "2026-08-25T12:09:30+02:00"
+            ),
+        ]
+        let clock = Schedule.resolve(
+            slots: slots, fallbackNext: nil, fallbackNextRaw: nil, fallbackLast: nil, now: now
+        )
+        XCTAssertEqual(clock.nextDrawNumber, 102)
+        XCTAssertEqual(clock.nextDrawAt, Zurich.parseISO("2026-08-25T12:10:00+02:00"))
+        XCTAssertTrue(clock.hole)
+        XCTAssertEqual(clock.pendingDrawNumber, 101)
+    }
+
     func testSchedulePollDelayTiers() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         XCTAssertEqual(Schedule.pollDelay(nextDrawAt: now.addingTimeInterval(400), hole: false, now: now), 12)

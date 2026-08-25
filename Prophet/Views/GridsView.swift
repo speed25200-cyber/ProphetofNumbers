@@ -24,7 +24,7 @@ struct GridsView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
                 if let pending = store.payload?.pendingDrawNumber, store.payload?.hole == true {
-                    Text("Résultat #\(pending) pas encore publié — grilles provisoires, recalage automatique.")
+                    Text("Résultat #\(pending) pas encore publié — grilles déjà calées pour le tour suivant.")
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.gold)
                 }

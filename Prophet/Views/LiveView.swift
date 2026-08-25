@@ -56,7 +56,7 @@ struct LiveView: View {
                 }
             }
             if let pending = payload?.pendingDrawNumber, payload?.hole == true {
-                Text("En attente du résultat #\(pending) — les grilles se recaleront dès sa publication.")
+                Text("En attente du résultat #\(pending) — les grilles visent déjà le tour suivant.")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.gold)
             }

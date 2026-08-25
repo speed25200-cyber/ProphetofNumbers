@@ -135,6 +135,10 @@ struct RootView: View {
                 )
             }
             .scrollIndicators(.hidden)
+            .refreshable {
+                await store.refresh(force: true)
+            }
+            .tint(Palette.gold)
         }
     }
 
