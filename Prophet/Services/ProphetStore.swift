@@ -20,13 +20,18 @@ final class ProphetStore: ObservableObject {
     }
 
     private var poll: Timer?
+    private var lastFetchAt = Date.distantPast
+    private var refreshing = false
+    private var lastOracleDraw = Int.min
     private static let memoryKey = "prophet.tickets.v1"
     private static let ticketRetentionDraws = 48
 
     init() {
         tickets = Self.readTickets()
-        poll = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { [weak self] _ in
-            Task { await self?.refresh() }
+        // Tick rapide : la cadence réelle est décidée dans pollTick —
+        // 2 s forcées autour du tirage, 8 s en croisière.
+        poll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            Task { await self?.pollTick() }
         }
         Task { await refresh(force: true) }
     }
@@ -35,18 +40,45 @@ final class ProphetStore: ObservableObject {
         // Le timer ne tient qu'une référence faible ; il est invalidé via RunLoop.
     }
 
+    private func pollTick() async {
+        let now = Date()
+        let hot = inDrawWindow(now)
+        let interval: TimeInterval = hot ? 2 : 8
+        guard now.timeIntervalSince(lastFetchAt) >= interval - 0.1 else { return }
+        await refresh(force: hot)
+    }
+
+    // Fenêtre chaude : de 5 s avant le tirage annoncé jusqu'à ce que l'API
+    // publie le nouveau numéro (nextDrawAt repasse alors dans le futur).
+    private func inDrawWindow(_ now: Date) -> Bool {
+        guard let payload else { return true }
+        guard let next = payload.nextDrawAt else { return false }
+        return now >= next.addingTimeInterval(-5)
+    }
+
     func refresh(force: Bool = false) async {
+        if refreshing { return }
+        refreshing = true
+        defer { refreshing = false }
+        lastFetchAt = Date()
         if payload == nil { loading = true }
         do {
             let live = try await LoroClient.shared.loadLive(force: force)
             let history = live.history
-            // L'essaim balaie ~200 tirages × 80 numéros × 24 têtes : hors du main thread.
-            let result = await Task.detached(priority: .userInitiated) {
-                Swarm.run(history)
-            }.value
-            withAnimation(.smooth(duration: 0.5)) {
+            let newestDraw = live.last?.drawNumber ?? -1
+            if oracle == nil || newestDraw != lastOracleDraw {
+                // L'essaim balaie ~200 tirages × 80 numéros × 24 têtes :
+                // hors du main thread, et seulement sur un nouveau tirage.
+                let result = await Task.detached(priority: .userInitiated) {
+                    Swarm.run(history)
+                }.value
+                lastOracleDraw = newestDraw
+                withAnimation(.smooth(duration: 0.5)) {
+                    payload = live
+                    oracle = result
+                }
+            } else {
                 payload = live
-                oracle = result
             }
             error = nil
             rememberTickets(live: live)

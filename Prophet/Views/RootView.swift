@@ -51,12 +51,15 @@ struct RootView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
-                LiveBadge(active: store.payload != nil)
-                if let last = store.payload?.last {
-                    Text("#\(last.drawNumber)")
-                        .font(Typeface.mono(11))
-                        .foregroundStyle(Palette.subtle)
-                        .contentTransition(.numericText())
+                LiveBadge(fetchedAt: store.payload?.fetchedAt)
+                if let payload = store.payload, let last = payload.last {
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        let age = Int(max(0, ctx.date.timeIntervalSince(payload.fetchedAt)))
+                        Text("#\(last.drawNumber) · sync \(age) s")
+                            .font(Typeface.mono(11))
+                            .foregroundStyle(Palette.subtle)
+                            .contentTransition(.numericText())
+                    }
                 }
             }
         }

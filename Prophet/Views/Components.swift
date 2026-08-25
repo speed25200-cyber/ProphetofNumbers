@@ -185,30 +185,38 @@ struct CountdownRing: View {
     }
 }
 
+// Témoin de synchronisation : vert = flux frais (< 30 s), rouge = retard.
 struct LiveBadge: View {
-    var active: Bool
+    var fetchedAt: Date?
     @State private var pulse = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(active ? Palette.gain : Palette.subtle)
-                .frame(width: 6, height: 6)
-                .overlay(
-                    Circle()
-                        .stroke((active ? Palette.gain : Palette.subtle).opacity(0.6), lineWidth: 1)
-                        .scaleEffect(pulse ? 2.8 : 1)
-                        .opacity(pulse ? 0 : 0.8)
-                )
-            Text("LIVE")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.6)
-                .foregroundStyle(Palette.muted)
+        TimelineView(.periodic(from: .now, by: 2)) { ctx in
+            let age = fetchedAt.map { ctx.date.timeIntervalSince($0) }
+            let (color, label): (Color, String) = {
+                guard let age else { return (Palette.subtle, "SYNC…") }
+                return age < 30 ? (Palette.gain, "LIVE") : (Palette.live, "RETARD")
+            }()
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 6, height: 6)
+                    .overlay(
+                        Circle()
+                            .stroke(color.opacity(0.6), lineWidth: 1)
+                            .scaleEffect(pulse ? 2.8 : 1)
+                            .opacity(pulse ? 0 : 0.8)
+                    )
+                Text(label)
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(Palette.muted)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
         .onAppear {
             withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) {
                 pulse = true
