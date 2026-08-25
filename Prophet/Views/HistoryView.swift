@@ -6,7 +6,7 @@ struct HistoryView: View {
     var body: some View {
         if let payload = store.payload {
             historyBody(payload: payload)
-                .task(id: "\(payload.last?.drawNumber ?? 0)-\(store.stake)") {
+                .task(id: "\(payload.last?.drawNumber ?? 0)-\(store.stake)-\(store.journalHold)") {
                     await store.loadJournal()
                 }
         } else {
@@ -119,6 +119,7 @@ struct HistoryView: View {
 struct JournalCard: View {
     var journal: DayJournal
     var jackpots: [Jackpot]
+    @EnvironmentObject var store: ProphetStore
 
     private struct Line: Identifiable {
         var label: String
@@ -191,13 +192,40 @@ struct JournalCard: View {
         let jackpot = jackpotResult
 
         Card(tint: Palette.gold) {
-            VStack(alignment: .leading, spacing: 4) {
-                Overline(text: "JOURNAL DU JOUR · MISE \(journal.stake)")
-                Text("\(journal.plays.count) tirages rejoués")
-                    .font(Typeface.display(22))
-                    .foregroundStyle(Palette.fg)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Overline(text: "JOURNAL DU JOUR · MISE \(journal.stake)")
+                    Text("\(journal.plays.count) tirages rejoués")
+                        .font(Typeface.display(22))
+                        .foregroundStyle(Palette.fg)
+                }
+                Spacer()
+                // Une prédiction jouée sur 1 ou 3 tirages consécutifs.
+                HStack(spacing: 0) {
+                    ForEach([1, 3], id: \.self) { h in
+                        Button {
+                            store.setJournalHold(h)
+                        } label: {
+                            Text("×\(h)")
+                                .font(Typeface.mono(12, weight: .semibold))
+                                .foregroundStyle(store.journalHold == h ? Palette.accentFg : Palette.muted)
+                                .frame(width: 40, height: 28)
+                                .contentShape(Rectangle())
+                                .background {
+                                    if store.journalHold == h {
+                                        Capsule().fill(Palette.goldGradient)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(3)
+                .background(Palette.elevated, in: Capsule())
             }
-            Text("Pour chaque tirage de la journée, l’app reconstruit ce que ses 9 grilles auraient prédit avec l’état du modèle d’alors — jamais avec le tirage lui-même — puis les confronte au résultat.")
+            Text(journal.hold > 1
+                ? "Chaque prédiction est jouée telle quelle sur \(journal.hold) tirages consécutifs avant d’être régénérée — le mode multi-tirages du jeu réel. Le modèle, lui, continue d’apprendre à chaque tirage."
+                : "Pour chaque tirage de la journée, l’app reconstruit ce que ses 9 grilles auraient prédit avec l’état du modèle d’alors — jamais avec le tirage lui-même — puis les confronte au résultat.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
 

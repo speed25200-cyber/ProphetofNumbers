@@ -13,6 +13,7 @@ final class ProphetStore: ObservableObject {
     @Published var notificationsOn = false
     @Published var turbo = false
     @Published var journal: DayJournal?
+    @Published var journalHold = 1
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -32,12 +33,15 @@ final class ProphetStore: ObservableObject {
     private static let memoryKey = "prophet.tickets.v1"
     private static let notifKey = "prophet.notifs.v1"
     private static let turboKey = "prophet.turbo.v1"
+    private static let holdKey = "prophet.journal.hold.v1"
     private static let ticketRetentionDraws = 48
 
     init() {
         tickets = Self.readTickets()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
         turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
+        let storedHold = UserDefaults.standard.integer(forKey: Self.holdKey)
+        journalHold = storedHold > 0 ? storedHold : 1
         // Tick à 100 ms : la cadence réelle est décidée par Schedule
         // (12 s loin du tirage → 250 ms en fenêtre chaude, 120 ms en Turbo).
         poll = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -119,14 +123,20 @@ final class ProphetStore: ObservableObject {
     // nouveau tirage arrive ou que la mise change.
     private var journalKey = ""
 
+    func setJournalHold(_ hold: Int) {
+        journalHold = max(1, hold)
+        UserDefaults.standard.set(journalHold, forKey: Self.holdKey)
+    }
+
     func loadJournal() async {
         guard let payload else { return }
-        let key = "\(payload.last?.drawNumber ?? 0)-\(stake)"
+        let key = "\(payload.last?.drawNumber ?? 0)-\(stake)-\(journalHold)"
         if journalKey == key, journal != nil { return }
         let history = payload.history
         let stakeNow = stake
+        let holdNow = journalHold
         let result = await Task.detached(priority: .userInitiated) {
-            SwarmEngine.replayToday(history, stake: stakeNow)
+            SwarmEngine.replayToday(history, stake: stakeNow, hold: holdNow)
         }.value
         journalKey = key
         withAnimation(.smooth(duration: 0.4)) {

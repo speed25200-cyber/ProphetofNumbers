@@ -273,6 +273,27 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(again.plays, journal.plays)
     }
 
+    func testDayReplayHoldsPredictionAcrossThreeDraws() {
+        let history = syntheticHistory()
+        let journal = SwarmEngine.replayToday(history, stake: 10, hold: 3)
+        XCTAssertEqual(journal.hold, 3)
+        XCTAssertEqual(journal.plays.count, 67)
+        // La même grille est tenue sur des blocs de 3 tirages consécutifs.
+        for (idx, play) in journal.plays.enumerated() {
+            let blockStart = (idx / 3) * 3
+            XCTAssertEqual(
+                play.plays.map(\.numbers),
+                journal.plays[blockStart].plays.map(\.numbers)
+            )
+        }
+        // Les hits restent le vrai recouvrement grille/tirage.
+        for play in journal.plays {
+            for gp in play.plays {
+                XCTAssertEqual(gp.hits, gp.numbers.filter(Set(play.draw).contains).count)
+            }
+        }
+    }
+
     func testCountdownIsCeiledAndAnchored() {
         let target = Date(timeIntervalSince1970: 1_000_000)
         // 4,2 s restantes → afficher 05, pas 04.

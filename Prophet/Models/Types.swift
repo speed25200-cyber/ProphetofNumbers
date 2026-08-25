@@ -192,6 +192,9 @@ struct DayPlay: Identifiable, Hashable {
 struct DayJournal {
     var dayKey: String
     var stake: Int
+    // Chaque prédiction est jouée sur `hold` tirages consécutifs avant
+    // d'être régénérée (le mode multi-tirages du jeu réel).
+    var hold: Int = 1
     var plays: [DayPlay]
 }
 

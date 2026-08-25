@@ -1060,7 +1060,8 @@ final class SwarmEngine {
     // auraient prédit avec l'état du modèle d'alors (jamais le tirage
     // lui-même), puis les confronte au résultat réel. Déterministe : mêmes
     // tirages ⇒ même journal, que l'app ait tourné ou non.
-    static func replayToday(_ drawsNewestFirst: [Draw], stake: Int) -> DayJournal {
+    static func replayToday(_ drawsNewestFirst: [Draw], stake: Int, hold: Int = 1) -> DayJournal {
+        let holdN = max(1, hold)
         let engine = SwarmEngine()
         let ordered = drawsNewestFirst.sorted { $0.drawNumber < $1.drawNumber }
         let dayKey: String = {
@@ -1070,17 +1071,25 @@ final class SwarmEngine {
             return Zurich.todayKey()
         }()
         var plays: [DayPlay] = []
+        // Mode multi-tirages : la même prédiction est jouée sur holdN tirages
+        // consécutifs avant d'être régénérée. Le modèle, lui, continue
+        // d'apprendre à chaque tirage.
+        var currentGrids: [SuggestedGrid] = []
+        var playedWithCurrent = holdN
         for draw in ordered {
             let date = Zurich.parseISO(draw.drawDate)
             let isDay = date.map { Zurich.parts($0).dayKey == dayKey } ?? false
             if isDay, engine.absorbed > 12 {
-                let grids = engine.makeGrids(stake: stake, sources: engine.gridSources())
+                if playedWithCurrent >= holdN {
+                    currentGrids = engine.makeGrids(stake: stake, sources: engine.gridSources())
+                    playedWithCurrent = 0
+                }
                 let drawnSet = Set(draw.numbers)
                 plays.append(DayPlay(
                     drawNumber: draw.drawNumber,
                     time: date.map { Zurich.parts($0).time } ?? "—",
                     draw: draw.numbers,
-                    plays: grids.map {
+                    plays: currentGrids.map {
                         GridPlay(
                             kind: $0.kind,
                             variant: $0.variant,
@@ -1089,10 +1098,11 @@ final class SwarmEngine {
                         )
                     }
                 ))
+                playedWithCurrent += 1
             }
             engine.process([draw])
         }
-        return DayJournal(dayKey: dayKey, stake: stake, plays: plays)
+        return DayJournal(dayKey: dayKey, stake: stake, hold: holdN, plays: plays)
     }
 
     private func greedyPick(k: Int, score: [Double], kind: GridKind, banned: Set<Int>) -> [Int] {
