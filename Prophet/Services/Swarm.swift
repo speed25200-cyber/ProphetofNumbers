@@ -610,7 +610,6 @@ final class SwarmEngine {
     private static let pool = ProphetConst.poolSize
     private static let drawN = ProphetConst.drawSize
     private static let baseP = ProphetConst.baseP
-    private static let thetaE = 0.15
     private static let uniformExp = Double(ProphetConst.drawSize * ProphetConst.drawSize) / Double(ProphetConst.poolSize)
 
     private var heads: [SwarmHead] = []
@@ -618,8 +617,16 @@ final class SwarmEngine {
     private var weights: [Double] = []
     private var headOv: [[Double]] = []
     private var ensembleOv: [Double] = []
-    private var eLogUp = 0.0
-    private var eLogDown = 0.0
+    // AdaHedge (de Rooij-Grünwald-Koolen 2014) : taux d'apprentissage
+    // auto-réglé par l'écart de mixabilité cumulé — zéro paramètre.
+    private var cumLoss: [Double] = []
+    private var hedgeCumLoss = 0.0
+    private var adaGap = 1e-3
+    // E-process en mélange de martingales : grille de tailles d'effet ±θ.
+    private var eLogs: [Double] = []
+    // Anti-rejeu (bug Corriveau) : recouvrement max entre deux tirages.
+    private var drawArchive: [(number: Int, set: Set<Int>)] = []
+    private var dupMax = 0
     private var generation = 0
     private var seed: UInt64 = 0
     private var counts: [Double] = []
@@ -631,24 +638,25 @@ final class SwarmEngine {
     private var lastDrawNumber = Int.min
     private var absorbed = 0
     private var prevRanks: [Int]?
-    private let logMUp: Double
-    private let logMDown: Double
+    private static let thetaGrid: [Double] = [0.05, 0.10, 0.20, 0.40, -0.05, -0.10, -0.20, -0.40]
+    private let overlapPMF: [Double]
+    private let logMs: [Double]
 
     init() {
-        var overlapPMF = [Double](repeating: 0, count: Self.drawN + 1)
+        var pmf = [Double](repeating: 0, count: Self.drawN + 1)
         for o in 0...Self.drawN {
-            overlapPMF[o] = Self.comb(Self.drawN, o)
+            pmf[o] = Self.comb(Self.drawN, o)
                 * Self.comb(Self.pool - Self.drawN, Self.drawN - o)
                 / Self.comb(Self.pool, Self.drawN)
         }
-        var mUp = 0.0
-        var mDown = 0.0
-        for o in 0...Self.drawN {
-            mUp += overlapPMF[o] * exp(Self.thetaE * Double(o))
-            mDown += overlapPMF[o] * exp(-Self.thetaE * Double(o))
+        overlapPMF = pmf
+        logMs = Self.thetaGrid.map { theta in
+            var m = 0.0
+            for o in 0...Self.drawN {
+                m += pmf[o] * exp(theta * Double(o))
+            }
+            return log(m)
         }
-        logMUp = log(mUp)
-        logMDown = log(mDown)
         resetState()
     }
 
@@ -658,8 +666,12 @@ final class SwarmEngine {
         weights = [Double](repeating: 1 / Double(headCount), count: headCount)
         headOv = Array(repeating: [], count: headCount)
         ensembleOv = []
-        eLogUp = 0
-        eLogDown = 0
+        cumLoss = [Double](repeating: 0, count: headCount)
+        hedgeCumLoss = 0
+        adaGap = 1e-3
+        eLogs = [Double](repeating: 0, count: Self.thetaGrid.count)
+        drawArchive = []
+        dupMax = 0
         generation = 0
         seed = 0x9E37_79B9_7F4A_7C15
         counts = [Double](repeating: 0, count: Self.pool)
@@ -726,6 +738,16 @@ final class SwarmEngine {
             adjSeries.append(Self.adjacentPairs(drawn))
             if adjSeries.count > 480 { adjSeries.removeFirst() }
 
+            // Anti-rejeu : un recouvrement anormal entre deux tirages est la
+            // signature d'une graine réutilisée (bug Corriveau, Keno 1994).
+            for prev in drawArchive {
+                var o = 0
+                for n in prev.set where drawn.contains(n) { o += 1 }
+                if o > dupMax { dupMax = o }
+            }
+            drawArchive.append((draw.drawNumber, drawn))
+            if drawArchive.count > 480 { drawArchive.removeFirst() }
+
             if absorbed >= 48, absorbed % 24 == 0 {
                 if evolve() { generation += 1 }
             }
@@ -743,24 +765,49 @@ final class SwarmEngine {
         let overlap = Self.overlapCount(Self.topIndices(ens, k: Self.drawN), drawn)
         ensembleOv.append(overlap)
         if ensembleOv.count > 480 { ensembleOv.removeFirst() }
-        eLogUp = min(80, eLogUp + Self.thetaE * overlap - logMUp)
-        eLogDown = min(80, eLogDown - Self.thetaE * overlap - logMDown)
+        // Mélange de martingales : chaque θ de la grille vise une taille de
+        // biais différente ; la moyenne reste une e-valeur valide.
+        for j in 0..<Self.thetaGrid.count {
+            eLogs[j] = min(80, eLogs[j] + Self.thetaGrid[j] * overlap - logMs[j])
+        }
 
-        let hedgeEta = 0.6
-        let fixedShare = 0.02
+        // AdaHedge : pertes ∈ [0,1], η = ln(N)/Δ où Δ est l'écart de
+        // mixabilité cumulé — auto-réglé, regret optimal sans paramètre.
+        var losses = [Double](repeating: 0, count: headCount)
         for h in 0..<headCount {
             let ovh = Self.overlapCount(Self.topIndices(fields[h], k: Self.drawN), drawn)
             headOv[h].append(ovh)
             if headOv[h].count > 80 { headOv[h].removeFirst() }
-            weights[h] *= exp(hedgeEta * (ovh - Self.uniformExp) / Double(Self.drawN))
+            losses[h] = 1 - ovh / Double(Self.drawN)
         }
-        let sum = weights.reduce(0, +)
-        if !sum.isFinite || sum <= 0 {
-            weights = [Double](repeating: 1 / Double(headCount), count: headCount)
+        let eta = log(Double(headCount)) / adaGap
+        var hLoss = 0.0
+        for h in 0..<headCount { hLoss += weights[h] * losses[h] }
+        let lmin = losses.min() ?? 0
+        var accum = 0.0
+        for h in 0..<headCount { accum += weights[h] * exp(-eta * (losses[h] - lmin)) }
+        let mixLoss = lmin - log(max(accum, 1e-300)) / eta
+        adaGap += max(0, hLoss - mixLoss)
+        hedgeCumLoss += hLoss
+        for h in 0..<headCount { cumLoss[h] += losses[h] }
+        recomputeWeights()
+    }
+
+    // Poids dérivés des pertes cumulées (AdaHedge) + part fixe de 2 % pour
+    // la réactivité aux changements de régime.
+    private func recomputeWeights() {
+        let eta = log(Double(headCount)) / adaGap
+        let minL = cumLoss.min() ?? 0
+        var w = cumLoss.map { exp(-eta * ($0 - minL)) }
+        let s = w.reduce(0, +)
+        if s <= 0 || !s.isFinite {
+            w = [Double](repeating: 1 / Double(headCount), count: headCount)
         } else {
-            for h in 0..<headCount {
-                weights[h] = (1 - fixedShare) * (weights[h] / sum) + fixedShare / Double(headCount)
-            }
+            for i in 0..<w.count { w[i] /= s }
+        }
+        let share = 0.02
+        for i in 0..<headCount {
+            weights[i] = (1 - share) * w[i] + share / Double(headCount)
         }
     }
 
@@ -789,13 +836,12 @@ final class SwarmEngine {
             let jitter = 0.7 + 0.6 * Double((seed >> 33) & 0xFFFF) / 65535
             worstHead.memory = min(400, max(1, bestHead.memory * jitter))
             headOv[worst.index].removeAll()
-            weights[worst.index] = 1 / Double(headCount)
-            let s = weights.reduce(0, +)
-            if s > 0 {
-                for i in 0..<weights.count { weights[i] /= s }
-            }
+            // Redémarrage neutre : la tête mutée repart de la perte cumulée
+            // du Hedge lui-même.
+            cumLoss[worst.index] = hedgeCumLoss
             mutated = true
         }
+        if mutated { recomputeWeights() }
         return mutated
     }
 
@@ -871,7 +917,18 @@ final class SwarmEngine {
         var confidence = Int(round(50 + 14 * btZ))
         confidence = max(5, min(95, confidence))
 
-        let eValue = 0.5 * exp(min(60, eLogUp)) + 0.5 * exp(min(60, eLogDown))
+        var eSum = 0.0
+        for logW in eLogs { eSum += exp(min(60, logW)) }
+        let eValue = eLogs.isEmpty ? 1 : eSum / Double(eLogs.count)
+
+        // Anti-rejeu : borne d'union sur toutes les paires de l'archive.
+        let mm = Double(drawArchive.count)
+        let pairCount = mm * (mm - 1) / 2
+        var dupTail = 0.0
+        if dupMax <= Self.drawN {
+            for o in dupMax...Self.drawN { dupTail += overlapPMF[o] }
+        }
+        let duplicateAlert = dupMax >= Self.drawN || (pairCount > 0 && pairCount * dupTail < 0.01)
 
         // Géométrie du tableau : paires adjacentes observées vs hasard.
         let edges = Double(9 * (Self.pool / 10) + 10 * (Self.pool / 10 - 1))
@@ -957,6 +1014,8 @@ final class SwarmEngine {
             adjacencyMean: adjMean,
             adjacencyExpected: adjExpected,
             adjacencyZ: adjZ,
+            duplicateMax: dupMax,
+            duplicateAlert: duplicateAlert,
             gaps: gap,
             freq16: freq16,
             swarm: swarmStats

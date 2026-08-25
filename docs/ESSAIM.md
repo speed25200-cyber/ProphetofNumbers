@@ -26,22 +26,25 @@ Chaque tête est un automate incrémental : `absorb(tirage)` met à jour son
 état, `field()` rend un score par numéro (1–80). Les champs sont
 normalisés en z-score avant combinaison, donc comparables entre familles.
 
-## 2. Le méta-apprentissage : Hedge à part fixe
+## 2. Le méta-apprentissage : AdaHedge à part fixe
 
-Les poids de l'essaim ne sont pas fixés à la main. À chaque tirage
-historique `t` :
+Les poids de l'essaim ne sont pas fixés à la main — et le taux
+d'apprentissage non plus. À chaque tirage historique `t` :
 
 1. les champs et les poids sont **figés avant d'observer le tirage** ;
-2. le top-20 de chaque tête est comparé au tirage réel → récompense
-   `r = (hits − 5) / 20` ;
-3. mise à jour multiplicative `w ← w · exp(η·r)` (Hedge, Freund &
-   Schapire 1997), puis normalisation ;
+2. le top-20 de chaque tête est comparé au tirage réel → perte
+   `ℓ = 1 − hits/20 ∈ [0,1]` ;
+3. poids exponentiels sur les pertes cumulées, avec un taux
+   d'apprentissage **auto-réglé** `η = ln(N)/Δ` où Δ est l'écart de
+   mixabilité cumulé — c'est **AdaHedge** (de Rooij, Grünwald, Koolen
+   2014), l'algorithme sans paramètre au regret optimal ;
 4. **part fixe** de 2 % redistribuée uniformément (Fixed-Share, Herbster &
    Warmuth 1998) : aucune tête ne meurt jamais, et l'essaim se réadapte
    vite si le « régime » change.
 
-C'est la version en ligne, avec garanties de regret, de ce que faisait
-l'ancien softmax sur recouvrement moyen — en plus réactif et plus robuste.
+AdaHedge s'adapte tout seul à la difficulté réelle du flux : agressif
+quand une tête domine, prudent quand tout se vaut — sans aucun η choisi
+à la main.
 
 ## 3. L'évolution : mutation du plus faible vers le plus fort
 
@@ -92,10 +95,18 @@ figé suit une hypergéométrique connue ; à chaque tirage, une martingale
 « parie » via l'inclinaison exponentielle q(o) ∝ p0(o)·e^{±θo}. Sa
 richesse cumulée a une espérance de 1 sous H0, donc par l'inégalité de
 Ville : **P(richesse ≥ 20) ≤ 5 % à tout instant** — le test est valide en
-continu, sans correction de tests multiples ni p-hacking. Le mélange
-bilatéral (θ > 0 et θ < 0) détecte aussi bien une sur- qu'une
-sous-performance. Si le générateur de Loro était biaisé, c'est cet
-indicateur qui monterait — aussi vite que la théorie le permet.
+continu, sans correction de tests multiples ni p-hacking. Le pari est un
+**mélange de martingales** sur une grille de tailles d'effet
+(θ ∈ ±{0,05 ; 0,1 ; 0,2 ; 0,4}) : les petits biais comme les grands sont
+détectés à vitesse quasi optimale (méthode des mélanges), dans les deux
+sens. Si le générateur de Loro était biaisé, c'est cet indicateur qui
+monterait — aussi vite que la théorie le permet.
+
+S'y ajoute le **détecteur anti-rejeu** : le recouvrement maximal entre
+deux tirages de l'historique, comparé à sa loi exacte (borne d'union sur
+toutes les paires). C'est la signature du seul mode de défaillance
+historiquement documenté d'un keno électronique — la graine réutilisée
+(Corriveau, Montréal 1994, séquences rejouées à l'identique).
 
 ## 6. La couche décision : valeur du jackpot
 
@@ -124,6 +135,8 @@ de l'app le rappelle en continu, sur données réelles.
   learning* (Hedge), JCSS 1997.
 - Herbster, Warmuth — *Tracking the best expert* (Fixed-Share), Machine
   Learning 1998.
+- de Rooij, van Erven, Grünwald, Koolen — *Follow the Leader If You Can,
+  Hedge If You Must* (AdaHedge), JMLR 2014.
 - Cesa-Bianchi, Lugosi — *Prediction, Learning, and Games*, 2006.
 - Oja — *Simplified neuron model as a principal component analyzer*, 1982.
 - Shafer — *Testing by betting*, JRSS-A 2021.

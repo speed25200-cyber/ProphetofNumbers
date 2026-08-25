@@ -241,6 +241,17 @@ struct GeoCard: View {
             Text("Deux têtes « Géo » (voisinage, rangées) concourent dans l’essaim — poids actuel \(String(format: "%.1f", geoWeight * 100)) %. Si la géométrie payait, le Hedge les ferait monter tout seul.")
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.subtle)
+
+            HStack(spacing: 5) {
+                Image(systemName: oracle.duplicateAlert ? "exclamationmark.triangle.fill" : "checkmark.shield")
+                    .font(.system(size: 10))
+                    .foregroundStyle(oracle.duplicateAlert ? Palette.live : Palette.gain)
+                Text(oracle.duplicateAlert
+                    ? "Recouvrement anormal entre deux tirages (\(oracle.duplicateMax)/20) — signature d’un rejeu de séquence (bug type Corriveau 1994)."
+                    : "Anti-rejeu : recouvrement max entre deux tirages \(oracle.duplicateMax)/20 — aucun rejeu de séquence suspect.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(oracle.duplicateAlert ? Palette.live : Palette.subtle)
+            }
         }
     }
 

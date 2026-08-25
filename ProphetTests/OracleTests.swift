@@ -74,6 +74,10 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.adjacencyExpected, 8.538, accuracy: 0.01)
         XCTAssertGreaterThanOrEqual(result.adjacencyMean, 0)
         XCTAssertTrue(result.adjacencyZ.isFinite)
+        // Anti-rejeu : recouvrement plausible sur du hasard, aucune alerte.
+        XCTAssertTrue((0...20).contains(result.duplicateMax))
+        XCTAssertGreaterThanOrEqual(result.duplicateMax, 5)
+        XCTAssertFalse(result.duplicateAlert)
     }
 
     func testSwarmIsDeterministic() {
@@ -128,6 +132,7 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(incremental.backtest, full.backtest)
         XCTAssertEqual(incremental.confidence, full.confidence)
         XCTAssertEqual(incremental.eValue, full.eValue)
+        XCTAssertEqual(incremental.duplicateMax, full.duplicateMax)
         XCTAssertEqual(incremental.swarm.generation, full.swarm.generation)
         XCTAssertEqual(incremental.methods.map(\.weight), full.methods.map(\.weight))
         for (ga, gb) in zip(incremental.stakes, full.stakes) {
@@ -151,6 +156,8 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.confidence, 50)
         // Sans tirage, la martingale n'a pas parié : richesse neutre.
         XCTAssertEqual(result.eValue, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(result.duplicateMax, 0)
+        XCTAssertFalse(result.duplicateAlert)
         XCTAssertEqual(result.swarm.generation, 0)
         XCTAssertEqual(result.swarm.bestHeadName, "—")
     }

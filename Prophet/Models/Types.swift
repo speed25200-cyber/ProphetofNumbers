@@ -132,6 +132,9 @@ struct OracleResult {
     var adjacencyMean: Double
     var adjacencyExpected: Double
     var adjacencyZ: Double
+    // Anti-rejeu : recouvrement max entre deux tirages de l'historique.
+    var duplicateMax: Int
+    var duplicateAlert: Bool
     // État courant du champ 1–80.
     var gaps: [Int]
     var freq16: [Double]
