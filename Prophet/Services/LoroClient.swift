@@ -19,7 +19,7 @@ actor LoroClient {
 
     private let gameURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress")!
     private let drawsURL = URL(string: "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws")!
-    private let source = "https://jeux.loro.ch/games/lotoexpress"
+    private let source = "https://jeux.loro.ch/games/lotoexpress/results"
     private let historyWindow = 199
     private let pageSize = 100
 
@@ -32,7 +32,9 @@ actor LoroClient {
         if !force, let live, Date().timeIntervalSince(liveAt) < ttl {
             return live
         }
+        async let edgeTask = fetchEdge()
         let json = try await fetchJSON(gameURL)
+        var slots = await edgeTask
         let details = dict(json["details"])
         let results = dict(details["results"])
         let raw = dict(results["raw"])
@@ -59,29 +61,31 @@ actor LoroClient {
             cache[draw.drawNumber] = draw
         }
 
-        let hint = gameSlot?.drawNumber
-            ?? cache.values.map(\.drawNumber).max()
-            ?? 0
-
-        var ahead: [Schedule.Slot] = []
-        if hint > 0 {
-            ahead = await fetchSlots(from: hint, to: hint + Schedule.ahead)
-        }
-        let openIds = ahead.filter { !$0.isComplete }.map(\.drawNumber)
-        let minOpen = openIds.min() ?? (hint + 2)
-        var holeSlots: [Schedule.Slot] = []
-        if hint > 0, minOpen > hint + 1 {
-            holeSlots = await fetchSlots(from: hint + 1, to: minOpen - 1)
-        }
+        let hint = max(
+            gameSlot?.asDraw()?.drawNumber ?? 0,
+            slots.filter(\.isComplete).map(\.drawNumber).max() ?? 0
+        )
+        let pending = await fetchDraws(ids: [hint + 1, hint + 2])
+        slots.append(contentsOf: pending)
+        if let gameSlot { slots.append(gameSlot) }
 
         let fallbackNextRaw = details["drawDate"] as? String
         let fallbackNext = fallbackNextRaw.flatMap(Zurich.parseISO)
-        let clock = Schedule.resolve(
-            slots: ahead + holeSlots,
+        var clock = Schedule.resolve(
+            slots: slots,
             fallbackNext: fallbackNext,
             fallbackNextRaw: fallbackNextRaw,
             fallbackLast: gameSlot?.asDraw()
         )
+        if let pendingId = clock.pendingDrawNumber, let extra = await fetchDraw(pendingId) {
+            slots.append(extra)
+            clock = Schedule.resolve(
+                slots: slots,
+                fallbackNext: fallbackNext,
+                fallbackNextRaw: fallbackNextRaw,
+                fallbackLast: gameSlot?.asDraw()
+            )
+        }
 
         let last = clock.last
         let latestId = last?.drawNumber ?? 0
@@ -137,6 +141,32 @@ actor LoroClient {
     private func fetchSlots(from: Int, to: Int) async -> [Schedule.Slot] {
         guard to >= from else { return [] }
         let url = URL(string: "\(drawsURL.absoluteString)?from=\(from)&to=\(to)&pageSize=\(pageSize)")!
+        return await parseSlotList(url)
+    }
+
+    private func fetchEdge() async -> [Schedule.Slot] {
+        let url = URL(string: "\(drawsURL.absoluteString)?pageSize=20")!
+        return await parseSlotList(url)
+    }
+
+    private func fetchDraw(_ id: Int) async -> Schedule.Slot? {
+        guard id > 0 else { return nil }
+        let url = URL(string: "\(drawsURL.absoluteString)/\(id)")!
+        guard let json = try? await fetchJSON(url) else { return nil }
+        guard let slot = parseSlot(json) else { return nil }
+        if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+        return slot
+    }
+
+    private func fetchDraws(ids: [Int]) async -> [Schedule.Slot] {
+        var out: [Schedule.Slot] = []
+        for id in ids {
+            if let slot = await fetchDraw(id) { out.append(slot) }
+        }
+        return out
+    }
+
+    private func parseSlotList(_ url: URL) async -> [Schedule.Slot] {
         guard let json = try? await fetchJSON(url) else { return [] }
         let rows = json["results"] as? [Any] ?? []
         var out: [Schedule.Slot] = []
@@ -168,7 +198,7 @@ actor LoroClient {
         var req = URLRequest(url: url, timeoutInterval: 12)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue("https://jeux.loro.ch", forHTTPHeaderField: "Origin")
-        req.setValue(source, forHTTPHeaderField: "Referer")
+        req.setValue("https://jeux.loro.ch/games/lotoexpress/results", forHTTPHeaderField: "Referer")
         req.setValue(
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
             forHTTPHeaderField: "User-Agent"
