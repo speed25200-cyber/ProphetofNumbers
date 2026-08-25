@@ -26,12 +26,11 @@ final class OracleTests: XCTestCase {
         return draws.reversed()
     }
 
-    func testOracleProducesFullField() {
-        let result = Oracle.run(syntheticHistory())
+    func testSwarmProducesFullField() {
+        let result = Swarm.run(syntheticHistory())
         XCTAssertEqual(result.scores.count, 80)
         XCTAssertEqual(result.ranks.count, 80)
         XCTAssertEqual(Set(result.ranks).count, 80)
-        XCTAssertEqual(result.methods.count, 6)
         XCTAssertEqual(result.stakes.count, 5)
         XCTAssertGreaterThanOrEqual(result.confidence, 5)
         XCTAssertLessThanOrEqual(result.confidence, 95)
@@ -40,8 +39,26 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.freq16.count, 80)
     }
 
+    func testSwarmHeadsAndWeights() {
+        let result = Swarm.run(syntheticHistory())
+        XCTAssertEqual(result.methods.count, result.swarm.headCount)
+        XCTAssertGreaterThanOrEqual(result.swarm.headCount, 20)
+        // Les identifiants des têtes restent uniques après évolution.
+        XCTAssertEqual(Set(result.methods.map(\.id)).count, result.methods.count)
+        // Les poids Hedge forment une distribution.
+        let total = result.methods.map(\.weight).reduce(0, +)
+        XCTAssertEqual(total, 1.0, accuracy: 0.001)
+        XCTAssertTrue(result.methods.allSatisfy { $0.weight > 0 })
+        // L'entropie des poids est bornée par la taille de l'essaim.
+        XCTAssertGreaterThanOrEqual(result.swarm.effectiveHeads, 1)
+        XCTAssertLessThanOrEqual(result.swarm.effectiveHeads, Double(result.swarm.headCount) + 0.001)
+        XCTAssertFalse(result.swarm.families.isEmpty)
+        let famHeads = result.swarm.families.map(\.heads).reduce(0, +)
+        XCTAssertEqual(famHeads, result.swarm.headCount)
+    }
+
     func testBacktestIsWalkForward() {
-        let result = Oracle.run(syntheticHistory())
+        let result = Swarm.run(syntheticHistory())
         // Évaluation à partir du 14e tirage : 80 - 13 points.
         XCTAssertEqual(result.backtest.count, 67)
         XCTAssertTrue(result.backtest.allSatisfy { (0...20).contains($0) })
@@ -52,8 +69,22 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.backtestMean, 5.0, accuracy: 2.0)
     }
 
+    func testSwarmIsDeterministic() {
+        let history = syntheticHistory()
+        let a = Swarm.run(history)
+        let b = Swarm.run(history)
+        XCTAssertEqual(a.scores, b.scores)
+        XCTAssertEqual(a.backtest, b.backtest)
+        XCTAssertEqual(a.confidence, b.confidence)
+        XCTAssertEqual(a.swarm.generation, b.swarm.generation)
+        XCTAssertEqual(a.methods.map(\.weight), b.methods.map(\.weight))
+        for (ga, gb) in zip(a.stakes, b.stakes) {
+            XCTAssertEqual(ga.grids.map(\.numbers), gb.grids.map(\.numbers))
+        }
+    }
+
     func testGridsHaveCorrectCardinality() {
-        let result = Oracle.run(syntheticHistory())
+        let result = Swarm.run(syntheticHistory())
         for pack in result.stakes {
             XCTAssertEqual(pack.grids.count, 3)
             for grid in pack.grids {
@@ -72,12 +103,14 @@ final class OracleTests: XCTestCase {
     }
 
     func testEmptyHistoryIsStable() {
-        let result = Oracle.run([])
+        let result = Swarm.run([])
         XCTAssertEqual(result.scores.count, 80)
         XCTAssertEqual(result.sampleSize, 0)
         XCTAssertEqual(result.stakes[0].grids[0].numbers.count, 5)
         XCTAssertTrue(result.backtest.isEmpty)
         XCTAssertEqual(result.confidence, 50)
+        XCTAssertEqual(result.swarm.generation, 0)
+        XCTAssertEqual(result.swarm.bestHeadName, "—")
     }
 
     func testZurichDayKey() {

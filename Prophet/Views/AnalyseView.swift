@@ -8,13 +8,13 @@ struct AnalyseView: View {
         if let oracle = store.oracle {
             VStack(spacing: 16) {
                 BacktestCard(oracle: oracle)
+                SwarmCard(oracle: oracle)
                 FieldCard(oracle: oracle, last: store.payload?.last)
                 HotColdCard(oracle: oracle)
-                MethodsCard(oracle: oracle)
                 if !oracle.movers.isEmpty {
                     MoversCard(movers: oracle.movers)
                 }
-                Text("Le Loto Express tire 20 boules parmi 80 toutes les 5 minutes, via un générateur certifié. Aucun modèle ne peut battre un RNG équitable sur la durée — Prophet mesure honnêtement son propre écart au hasard, et le backtest ci-dessus en est la preuve en continu.")
+                Text("Le Loto Express tire 20 boules parmi 80 toutes les 5 minutes, via un générateur certifié. Aucun modèle — pas même un essaim de 24 têtes — ne peut battre un RNG équitable sur la durée. Prophet mesure honnêtement son propre écart au hasard, et le backtest ci-dessus en est la preuve en continu.")
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
                     .padding(.horizontal, 4)
@@ -88,6 +88,12 @@ struct BacktestCard: View {
                 Text(verdictText)
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.muted)
+
+                if oracle.swarm.bestHeadName != "—" {
+                    Text("Meilleure tête a posteriori : \(oracle.swarm.bestHeadName) à \(String(format: "%.2f", oracle.swarm.bestHeadMean)) hits. Choisir le vainqueur après coup surestime toujours — l'essaim, lui, est jugé en marche avant.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.subtle)
+                }
             }
         }
     }
@@ -222,43 +228,78 @@ struct HotColdCard: View {
     }
 }
 
-struct MethodsCard: View {
+struct SwarmCard: View {
     var oracle: OracleResult
 
     var body: some View {
-        Card {
+        let swarm = oracle.swarm
+        let topHeads = Array(oracle.methods.sorted { $0.weight > $1.weight }.prefix(6))
+        let maxFam = max(0.0001, swarm.families.map(\.weight).max() ?? 1)
+
+        Card(tint: Palette.violet) {
             VStack(alignment: .leading, spacing: 4) {
-                Overline(text: "TÊTES DU MODÈLE")
-                Text("Pondération adaptative")
+                Overline(text: "L'ESSAIM")
+                Text("\(swarm.headCount) têtes en compétition")
                     .font(Typeface.display(22))
                     .foregroundStyle(Palette.fg)
             }
-            Text("Poids ajustés selon le recouvrement glissant des 20 meilleurs de chaque tête.")
+            Text("Hedge à part fixe : chaque tête est payée sur ses hits réels, en marche avant. Les familles paramétriques évoluent — la tête la plus faible mute vers la plus forte.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
-            VStack(spacing: 12) {
-                ForEach(oracle.methods) { m in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(m.name)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Palette.fg)
-                            Spacer()
-                            Text("\(Int(round(m.weight * 100)))% · \(String(format: "%.1f", m.overlap * 20))/20")
-                                .font(Typeface.mono(12))
-                                .foregroundStyle(Palette.muted)
-                        }
+
+            HStack(spacing: 8) {
+                StatPill(label: "TÊTES EFFECTIVES", value: String(format: "%.1f", swarm.effectiveHeads))
+                StatPill(label: "GÉNÉRATION", value: "\(swarm.generation)")
+                StatPill(label: "MEILLEURE TÊTE", value: swarm.bestHeadName, accent: Palette.goldSoft)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(swarm.families) { fam in
+                    HStack(spacing: 8) {
+                        Text(fam.name)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Palette.fg)
+                            .frame(width: 74, alignment: .leading)
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Palette.elevated)
                                 Capsule()
                                     .fill(Palette.goldGradient)
-                                    .frame(width: geo.size.width * CGFloat(max(0.05, m.weight)))
+                                    .frame(width: max(3, geo.size.width * CGFloat(fam.weight / maxFam)))
                             }
                         }
                         .frame(height: 5)
+                        Text("\(Int(round(fam.weight * 100)))% · \(fam.heads)t")
+                            .font(Typeface.mono(11))
+                            .foregroundStyle(Palette.muted)
+                            .frame(width: 66, alignment: .trailing)
+                    }
+                }
+            }
+
+            Divider().overlay(Color.white.opacity(0.07))
+
+            Overline(text: "TÊTES DE PROUE")
+            VStack(spacing: 10) {
+                ForEach(topHeads) { m in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 8) {
+                            Text(m.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Palette.fg)
+                            Text(m.family)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Palette.subtle)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Palette.elevated, in: Capsule())
+                            Spacer()
+                            Text("\(String(format: "%.1f", m.weight * 100))% · \(String(format: "%.1f", m.overlap * 20))/20")
+                                .font(Typeface.mono(11))
+                                .foregroundStyle(Palette.muted)
+                        }
                         Text(m.blurb)
-                            .font(.system(size: 11))
+                            .font(.system(size: 10))
                             .foregroundStyle(Palette.subtle)
                     }
                 }

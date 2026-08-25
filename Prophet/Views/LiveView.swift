@@ -110,7 +110,7 @@ struct SignalCard: View {
             .frame(height: 6)
             .animation(.smooth(duration: 0.5), value: oracle.confidence)
 
-            Text("\(oracle.sampleSize) tirages en mémoire · \(oracle.todayDraws) aujourd’hui")
+            Text("\(oracle.sampleSize) tirages · essaim de \(oracle.swarm.headCount) têtes · gén. \(oracle.swarm.generation) · \(oracle.todayDraws) aujourd’hui")
                 .font(Typeface.mono(11))
                 .foregroundStyle(Palette.muted)
             Text(oracle.regimeDetail)

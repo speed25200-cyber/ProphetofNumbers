@@ -45,9 +45,9 @@ enum GridKind: String, Codable, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .alpha: return "Momentum — Hawkes × EWMA"
-        case .omega: return "Retour à la moyenne — Weibull × spectral"
-        case .nexus: return "Ensemble CRF-9 + information mutuelle"
+        case .alpha: return "Momentum — têtes Hawkes · EWMA · Markov"
+        case .omega: return "Retour — écarts · spectre · pression"
+        case .nexus: return "Essaim complet + graphe de paires"
         }
     }
 }
@@ -75,9 +75,26 @@ struct MethodScore: Identifiable {
     var id: String
     var name: String
     var blurb: String
+    var family: String
     var weight: Double
     var overlap: Double
     var scores: [Double]
+}
+
+struct FamilyWeight: Identifiable {
+    var name: String
+    var weight: Double
+    var heads: Int
+    var id: String { name }
+}
+
+struct SwarmStats {
+    var headCount: Int
+    var effectiveHeads: Double
+    var generation: Int
+    var bestHeadName: String
+    var bestHeadMean: Double
+    var families: [FamilyWeight]
 }
 
 struct RankMove: Identifiable {
@@ -110,6 +127,8 @@ struct OracleResult {
     // État courant du champ 1–80.
     var gaps: [Int]
     var freq16: [Double]
+    // Diagnostics de l'essaim.
+    var swarm: SwarmStats
 }
 
 struct LivePayload {

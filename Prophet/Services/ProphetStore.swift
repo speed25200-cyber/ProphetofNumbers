@@ -40,9 +40,9 @@ final class ProphetStore: ObservableObject {
         do {
             let live = try await LoroClient.shared.loadLive(force: force)
             let history = live.history
-            // L'oracle balaie ~200 tirages × 80 numéros : hors du main thread.
+            // L'essaim balaie ~200 tirages × 80 numéros × 24 têtes : hors du main thread.
             let result = await Task.detached(priority: .userInitiated) {
-                Oracle.run(history)
+                Swarm.run(history)
             }.value
             withAnimation(.smooth(duration: 0.5)) {
                 payload = live

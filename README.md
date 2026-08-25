@@ -1,9 +1,13 @@
 # Prophet
 
 Oracle iOS pour **Loto Express** (Loterie Romande). Tirage live avec anneau de
-compte à rebours, grilles CRF-9 (Alpha / Omega / Nexus) pour 5/5 → 10/10 avec
-bilan réel des grilles jouées, analyse 1–80, backtest walk-forward de
-l'ensemble (« Vérité terrain »), séance du jour.
+compte à rebours, grilles Alpha / Omega / Nexus pour 5/5 → 10/10 avec bilan
+réel des grilles jouées, analyse 1–80, backtest walk-forward (« Vérité
+terrain »), séance du jour.
+
+Le moteur est un **essaim de 24 têtes** en compétition (Hedge à part fixe +
+évolution par mutation) — architecture détaillée dans
+[`docs/ESSAIM.md`](docs/ESSAIM.md).
 
 Design : obsidienne + or champagne, fond aurora animé, verre dépoli,
 haptiques, transitions spring. L'oracle est calculé hors du main thread.
@@ -29,5 +33,6 @@ Le fichier [`codemagic.yaml`](codemagic.yaml) définit trois flux, calqués sur 
 4. Team integrations : réutiliser **PetMind ASC API** (même clé que Limbator)
 5. Lancer **validate**, puis **testflight**
 
-Un RNG équitable reste imbattable au sens strict. CRF-9 est un ensemble
-statistique (Bayes, Hawkes, Weibull, résidu spectral, ACP en ligne).
+Un RNG équitable reste imbattable au sens strict. L'essaim (Bayes, EWMA,
+Hawkes, écarts, spectre, Markov, graphe de paires, ACP, contra, pression)
+mesure honnêtement son propre écart au hasard — il ne le crée pas.
