@@ -332,3 +332,65 @@ calculatoire ou démontrées closes. Ce qui reste — générateur non linéaire
 à état ≥ 64 bits, ou source quantique — n'est pas hors d'atteinte par
 manque de méthode : l'information nécessaire à toute reconstruction
 **n'est pas contenue** dans les sorties publiées.
+
+---
+
+## 10. Correction : la nature exacte du verrou
+
+Cet audit a répété, y compris dans ses conclusions, que « l'information
+nécessaire à la reconstruction n'est pas contenue dans les sorties ».
+**C'est faux, et il faut le corriger.**
+
+### L'information est présente
+
+Chaque tirage porte log₂ C(80,20) = **61,617 bits**. Un état de k bits est
+donc *déterminé* dès que d·61,617 > k, le nombre d'états parasites
+compatibles valant 2^(k − d·61,617) :
+
+| État k | Tirages nécessaires | États parasites attendus |
+|---|---|---|
+| 64 bits | 2 | 2⁻⁵⁹·² |
+| 128 bits (AES-CTR-DRBG) | **3** | 2⁻⁵⁶·⁸ |
+| 256 bits (SHA-DRBG) | **5** | 2⁻⁵²·¹ |
+| 19 937 bits (Mersenne Twister) | 327 | 2⁻²¹¹·⁶ |
+
+Trois tirages publiés déterminent donc **de façon unique** l'état d'un
+AES-CTR-DRBG à 128 bits. L'archive en contient 70 560 : elle sur-détermine
+l'état de n'importe quel générateur classique par un facteur de plusieurs
+milliers.
+
+### Le verrou est calculatoire, et il a un nom
+
+Le vrai obstacle n'est pas l'absence d'information mais l'**absence
+d'inverse efficace**. Reconstruire l'état revient à inverser la fonction
+état → tirage, c'est-à-dire à inverser la primitive sous-jacente. Pour un
+CSPRNG, cela s'appelle *casser AES* ou *casser SHA-2* : ce n'est pas une
+question ouverte de cryptanalyse des loteries, c'est l'hypothèse de
+sécurité sur laquelle repose le chiffrement bancaire mondial.
+
+Ces deux barrières sont de natures différentes et cet audit les avait
+confondues :
+
+| Cas | Nature de la barrière |
+|---|---|
+| LCG mod 2ᵏ, observable = bits bas | **informationnelle** — récurrence basse close, les bits hauts ne fuient pas (§2, démontré) |
+| CSPRNG / source quantique | **calculatoire** — l'information est là, l'inverse est hors d'atteinte |
+
+La distinction a une conséquence pratique nette : dans le premier cas,
+aucune quantité de tirages ni de calcul ne suffira jamais. Dans le second,
+un algorithme d'inversion d'AES rendrait l'attaque immédiate — et si un tel
+algorithme existait, le Loto Express serait la moindre des préoccupations.
+
+### Ce que cela clôt
+
+La question « existe-t-il une méthode inédite pour reconstruire cet
+état ? » a donc une réponse exacte : **elle est équivalente à la question
+de la sécurité de la primitive employée**. Ce n'est pas un problème
+ouvert propre aux loteries que de la persévérance pourrait dénouer ; c'est
+un problème central de la cryptographie, étudié depuis trente ans par la
+communauté entière, et dont l'état de l'art est public.
+
+Le seul angle qui reste spécifique à ce jeu — et il a été traité — est
+celui d'une primitive **faible** : c'est tout l'objet des §§ 3 à 8, et des
+outils de `tools/`. Neuf classes ont été fermées. La dixième ne relève
+plus de ce dossier.
