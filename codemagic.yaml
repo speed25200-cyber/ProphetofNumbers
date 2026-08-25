@@ -18,7 +18,7 @@ workflows:
       vars:
         XCODE_PROJECT: Prophet.xcodeproj
         XCODE_SCHEME: Prophet
-        BUNDLE_ID: com.prophetofnumbers.app
+        BUNDLE_ID: io.ProphetOfNumbers.Prophet
     triggering:
       events:
         - push
@@ -110,10 +110,10 @@ workflows:
       vars:
         XCODE_PROJECT: Prophet.xcodeproj
         XCODE_SCHEME: Prophet
-        BUNDLE_ID: com.prophetofnumbers.app
+        BUNDLE_ID: io.ProphetOfNumbers.Prophet
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.prophetofnumbers.app
+        bundle_identifier: io.ProphetOfNumbers.Prophet
     scripts:
       - name: Générer le projet Xcode (XcodeGen)
         script: |
@@ -164,10 +164,10 @@ workflows:
       vars:
         XCODE_PROJECT: Prophet.xcodeproj
         XCODE_SCHEME: Prophet
-        BUNDLE_ID: com.prophetofnumbers.app
+        BUNDLE_ID: io.ProphetOfNumbers.Prophet
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.prophetofnumbers.app
+        bundle_identifier: io.ProphetOfNumbers.Prophet
     triggering:
       events:
         - tag

@@ -12,7 +12,7 @@ Le moteur est un **essaim de 24 têtes** en compétition (Hedge à part fixe +
 Design : obsidienne + or champagne, fond aurora animé, verre dépoli,
 haptiques, transitions spring. L'oracle est calculé hors du main thread.
 
-Bundle ID : `com.prophetofnumbers.app`  
+Bundle ID : `io.ProphetOfNumbers.Prophet`  
 Équipe : `BTMRPS8F79`
 
 ## Codemagic

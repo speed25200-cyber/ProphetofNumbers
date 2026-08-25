@@ -4,7 +4,7 @@
 
 name: Prophet
 options:
-  bundleIdPrefix: com.prophetofnumbers
+  bundleIdPrefix: io.ProphetOfNumbers
   developmentLanguage: fr
   deploymentTarget:
     iOS: "17.0"
@@ -38,7 +38,7 @@ targets:
       - Prophet/Resources/PrivacyInfo.xcprivacy
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.prophetofnumbers.app
+        PRODUCT_BUNDLE_IDENTIFIER: io.ProphetOfNumbers.Prophet
         PRODUCT_NAME: Prophet
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
@@ -53,7 +53,7 @@ targets:
       - ProphetTests
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.prophetofnumbers.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: io.ProphetOfNumbers.ProphetTests
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
