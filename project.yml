@@ -40,7 +40,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.ProphetOfNumbers.Prophet
         PRODUCT_NAME: Prophet
-        TARGETED_DEVICE_FAMILY: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Prophet/Resources/Info.plist
@@ -54,7 +54,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.ProphetOfNumbers.ProphetTests
-        TARGETED_DEVICE_FAMILY: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: Prophet

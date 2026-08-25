@@ -47,8 +47,11 @@ struct HistoryView: View {
                         .foregroundStyle(Palette.muted)
                 }
             } else {
-                ForEach(rows) { d in
-                    row(d, previous: byNumber[d.drawNumber - 1])
+                // 1 colonne sur iPhone, 2 sur iPad.
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
+                    ForEach(rows) { d in
+                        row(d, previous: byNumber[d.drawNumber - 1])
+                    }
                 }
             }
         }

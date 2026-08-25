@@ -30,8 +30,11 @@ struct GridsView: View {
                 }
                 jackpotCard(oracle: oracle)
                 ledgerCard
-                ForEach(pack.grids) { grid in
-                    GridCard(grid: grid, last: store.payload?.last)
+                // 1 colonne sur iPhone, 2 sur iPad.
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
+                    ForEach(pack.grids) { grid in
+                        GridCard(grid: grid, last: store.payload?.last)
+                    }
                 }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: store.stake)

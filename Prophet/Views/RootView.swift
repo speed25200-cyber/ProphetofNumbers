@@ -84,6 +84,9 @@ struct RootView: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 14)
+        // iPad : colonne de lecture centrée, largeur bornée.
+        .frame(maxWidth: 700)
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -126,6 +129,8 @@ struct RootView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
                 .padding(.bottom, 20)
+                .frame(maxWidth: 700)
+                .frame(maxWidth: .infinity)
                 .id(tab)
                 .transition(
                     .asymmetric(
@@ -174,6 +179,9 @@ struct RootView: View {
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
         .shadow(color: .black.opacity(0.5), radius: 18, x: 0, y: 8)
+        // iPad : barre compacte centrée plutôt qu'étirée sur toute la largeur.
+        .frame(maxWidth: 460)
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.bottom, 4)
     }
