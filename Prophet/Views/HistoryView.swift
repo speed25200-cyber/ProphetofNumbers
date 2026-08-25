@@ -45,6 +45,7 @@ struct HistoryView: View {
 
             if let journal = store.journal, !journal.plays.isEmpty {
                 JournalCard(journal: journal, jackpots: payload.jackpots)
+                PlayRegisterCard(journal: journal)
             } else {
                 Card {
                     HStack(spacing: 10) {
@@ -293,6 +294,140 @@ struct JournalCard: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background((positive ? Palette.gain : Palette.live).opacity(0.13), in: Capsule())
+    }
+}
+
+// Registre des jeux : tous les numéros joués, tirage par tirage, consultables
+// par blocs de 3 tirages (en mode ×3, un bloc = une prédiction tenue).
+struct PlayRegisterCard: View {
+    var journal: DayJournal
+
+    private var blocks: [[DayPlay]] {
+        stride(from: 0, to: journal.plays.count, by: 3).map {
+            Array(journal.plays[$0..<min($0 + 3, journal.plays.count)])
+        }
+    }
+
+    var body: some View {
+        Card {
+            Overline(text: "REGISTRE DES JEUX · PAR 3 TIRAGES")
+            Text(journal.hold > 1
+                ? "Chaque bloc de 3 tirages correspond à une prédiction tenue (mode ×\(journal.hold)). Déplie pour voir les numéros joués et leurs hits."
+                : "Les tirages du jour, groupés par 3. Déplie un bloc pour voir les numéros joués par chaque grille et leurs hits.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+            LazyVStack(spacing: 8) {
+                ForEach(Array(blocks.enumerated().reversed()), id: \.offset) { _, block in
+                    PlayBlockView(block: block, stake: journal.stake)
+                }
+            }
+        }
+    }
+}
+
+struct PlayBlockView: View {
+    var block: [DayPlay]
+    var stake: Int
+    @State private var open = false
+
+    private var totalHits: Int {
+        block.reduce(0) { sum, day in
+            sum + day.plays.reduce(0) { $0 + $1.hits }
+        }
+    }
+
+    private var title: String {
+        guard let f = block.first, let l = block.last else { return "—" }
+        if f.drawNumber == l.drawNumber {
+            return "#\(f.drawNumber) · \(f.time)"
+        }
+        return "#\(f.drawNumber) → #\(l.drawNumber) · \(f.time)–\(l.time)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.25)) { open.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Palette.subtle)
+                        .rotationEffect(.degrees(open ? 90 : 0))
+                    Text(title)
+                        .font(Typeface.mono(12, weight: .medium))
+                        .foregroundStyle(Palette.fg)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Spacer()
+                    Text("\(totalHits) hits")
+                        .font(Typeface.mono(11))
+                        .foregroundStyle(Palette.muted)
+                }
+                .padding(.vertical, 9)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if open {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(block) { day in
+                        PlayDayDetail(day: day, stake: stake)
+                    }
+                }
+                .padding(.bottom, 10)
+            }
+        }
+        .padding(.horizontal, 12)
+        .background(Palette.elevated.opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct PlayDayDetail: View {
+    var day: DayPlay
+    var stake: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("#\(day.drawNumber) · \(day.time)")
+                .font(Typeface.mono(11, weight: .semibold))
+                .foregroundStyle(Palette.goldSoft)
+            Text("Tirage : " + day.draw.map(String.init).joined(separator: " "))
+                .font(Typeface.mono(10))
+                .foregroundStyle(Palette.subtle)
+            ForEach(day.plays) { gp in
+                HStack(alignment: .top, spacing: 6) {
+                    Text(gp.label)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Palette.muted)
+                        .frame(width: 82, alignment: .leading)
+                    numbersText(gp)
+                        .font(Typeface.mono(11))
+                    Spacer(minLength: 4)
+                    Text("\(gp.hits)/\(stake)")
+                        .font(Typeface.mono(11, weight: .semibold))
+                        .foregroundStyle(hitsColor(gp.hits))
+                }
+            }
+        }
+    }
+
+    // Numéros joués, les hits en doré.
+    private func numbersText(_ gp: GridPlay) -> Text {
+        let drawn = Set(day.draw)
+        var out = Text("")
+        for (i, n) in gp.numbers.enumerated() {
+            let piece = Text(i == gp.numbers.count - 1 ? "\(n)" : "\(n) ")
+                .foregroundColor(drawn.contains(n) ? Palette.goldSoft : Palette.fg.opacity(0.72))
+            out = out + piece
+        }
+        return out
+    }
+
+    private func hitsColor(_ hits: Int) -> Color {
+        if hits == stake { return Palette.gold }
+        return hits * 4 >= stake ? Palette.gain : Palette.muted
     }
 }
 
