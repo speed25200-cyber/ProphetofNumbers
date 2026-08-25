@@ -319,6 +319,7 @@ actor LoroClient {
             drawNumber: drawNumber,
             drawDate: drawDate,
             numbers: matrix.numbers,
+            order: matrix.order,
             boost: matrix.boost,
             bonus: matrix.bonus,
             phase: raw["phase"] as? String,
@@ -363,29 +364,38 @@ actor LoroClient {
         return obj
     }
 
-    private func parseMatrix(_ raw: Any) -> (numbers: [Int], boost: Int?, bonus: Int?) {
+    private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int], boost: Int?, bonus: Int?) {
         let obj = dict(raw)
         let matrix1 = dict(obj["matrix1"])
         let result = dict(obj["result"])
         let matrix = matrix1.isEmpty ? dict(result["matrix1"]) : matrix1
         let src = matrix.isEmpty ? obj : matrix
-        let numbers = parseNumbers(src["main"] ?? obj["primarySelection"])
+        // L'ordre de publication est conservé tel quel : s'il s'agit de
+        // l'ordre de sortie des boules, c'est l'information la plus
+        // précieuse du flux (cf. PRNGRecovery).
+        let order = parseNumbers(src["main"] ?? obj["primarySelection"])
         let boostArr = parseLoose(src["boost"])
         let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"])
-        return (numbers, boostArr.first, bonusArr.first)
+        return (order.sorted(), order, boostArr.first, bonusArr.first)
     }
 
+    // Dédoublonnage en conservant l'ordre de première apparition.
     private func parseNumbers(_ raw: Any?) -> [Int] {
         guard let arr = raw as? [Any] else { return [] }
         var out: [Int] = []
+        var seen = Set<Int>()
         for item in arr {
-            if let rec = item as? [String: Any], let n = asInt(rec["number"]), (1...80).contains(n) {
-                out.append(n)
-            } else if let n = asInt(item), (1...80).contains(n) {
+            var value: Int?
+            if let rec = item as? [String: Any] {
+                value = asInt(rec["number"]) ?? asInt(rec["value"])
+            } else {
+                value = asInt(item)
+            }
+            if let n = value, (1...80).contains(n), seen.insert(n).inserted {
                 out.append(n)
             }
         }
-        return Array(Set(out)).sorted()
+        return out
     }
 
     private func parseLoose(_ raw: Any?) -> [Int] {

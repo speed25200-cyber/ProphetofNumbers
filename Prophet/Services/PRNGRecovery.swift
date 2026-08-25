@@ -34,6 +34,9 @@ struct RecoveryResult {
     var solvedDescription: String
     var elapsed: Double
     var targetDraw: Int
+    // L'API publie-t-elle les numéros dans leur ordre de sortie ?
+    var orderAvailable: Bool
+    var mode: String
     var verdict: String
     var detail: String
 }
@@ -42,6 +45,14 @@ struct RecoveryResult {
 
 protocol StreamGenerator {
     mutating func next32() -> UInt32
+}
+
+// Générateur dont l'espace d'états tient dans 32 bits : quand l'ordre de
+// tirage est publié, il devient balayable exhaustivement.
+protocol SeedableGenerator: StreamGenerator {
+    init(rawSeed: UInt32)
+    static var stateBits: Int { get }
+    static var familyName: String { get }
 }
 
 struct GlibcLCG: StreamGenerator {
@@ -70,6 +81,18 @@ struct JavaRandom: StreamGenerator {
     }
 }
 
+extension GlibcLCG: SeedableGenerator {
+    init(rawSeed: UInt32) { self.init(s: rawSeed & 0x7FFF_FFFF) }
+    static var stateBits: Int { 31 }
+    static var familyName: String { "LCG glibc" }
+}
+
+extension MsvcLCG: SeedableGenerator {
+    init(rawSeed: UInt32) { self.init(s: rawSeed) }
+    static var stateBits: Int { 32 }
+    static var familyName: String { "LCG MSVC" }
+}
+
 struct Xorshift32: StreamGenerator {
     var s: UInt32
     mutating func next32() -> UInt32 {
@@ -80,6 +103,12 @@ struct Xorshift32: StreamGenerator {
         s = x
         return x
     }
+}
+
+extension Xorshift32: SeedableGenerator {
+    init(rawSeed: UInt32) { self.init(s: rawSeed) }
+    static var stateBits: Int { 32 }
+    static var familyName: String { "xorshift32" }
 }
 
 struct SplitMix64: StreamGenerator {
@@ -252,6 +281,58 @@ enum PRNGRecovery {
         }
     }
 
+    // MARK: Mode « ordre publié » — balayage exhaustif de l'espace d'états
+    //
+    // Quand les numéros sont publiés dans leur ordre de sortie, chaque
+    // numéro contraint la sortie du générateur modulo 80 : la probabilité
+    // qu'un mauvais état survive un pas tombe de 1/4 à 1/80, et l'espace
+    // 2³¹ devient balayable en quelques secondes.
+
+    @inline(__always)
+    private static func matchesSequence<G: StreamGenerator>(_ gen: inout G, _ seq: [Int]) -> Bool {
+        var lo: UInt64 = 0
+        var hi: UInt64 = 0
+        var idx = 0
+        var steps = 0
+        while idx < seq.count && steps < 400 {
+            steps += 1
+            let n = Int(gen.next32() % UInt32(pool)) + 1
+            let b = n - 1
+            let seen = b < 64 ? (lo >> UInt64(b)) & 1 : (hi >> UInt64(b - 64)) & 1
+            if seen == 1 { continue }
+            if b < 64 { lo |= UInt64(1) << UInt64(b) } else { hi |= UInt64(1) << UInt64(b - 64) }
+            if n != seq[idx] { return false }
+            idx += 1
+        }
+        return idx == seq.count
+    }
+
+    private static func exhaustive<G: SeedableGenerator>(
+        _ type: G.Type,
+        target: [Int],
+        confirm: [Int],
+        started: Date,
+        budget: TimeInterval,
+        tested: inout Int
+    ) -> String? {
+        let span: UInt64 = UInt64(1) << UInt64(G.stateBits)
+        var s: UInt64 = 0
+        while s < span {
+            if s & 0xF_FFFF == 0, Date().timeIntervalSince(started) > budget { return nil }
+            var gen = G(rawSeed: UInt32(truncatingIfNeeded: s))
+            tested += 1
+            if matchesSequence(&gen, target) {
+                var again = G(rawSeed: UInt32(truncatingIfNeeded: s))
+                _ = matchesSequence(&again, target)
+                if matchesSequence(&again, confirm) {
+                    return "\(G.familyName) · état \(s)"
+                }
+            }
+            s &+= 1
+        }
+        return nil
+    }
+
     private struct SeedRange {
         var label: String
         var from: UInt64
@@ -294,15 +375,38 @@ enum PRNGRecovery {
         var perm = Array(0..<pool)
         var undo: [Int] = []
 
+        // Mode fort : l'ordre de sortie est publié — chaque numéro contraint
+        // la sortie modulo 80, et l'espace d'états 2³¹ devient balayable.
+        let orderAvailable = targetDraw.hasDrawOrder && nextDraw.hasDrawOrder
+        if orderAvailable {
+            let seq = targetDraw.order
+            let seqNext = nextDraw.order
+            if let hit = exhaustive(GlibcLCG.self, target: seq, confirm: seqNext,
+                                    started: started, budget: budget * 0.4, tested: &tested) {
+                solved = true
+                solvedDescription = hit
+            } else if let hit = exhaustive(MsvcLCG.self, target: seq, confirm: seqNext,
+                                           started: started, budget: budget * 0.7, tested: &tested) {
+                solved = true
+                solvedDescription = hit
+            } else if let hit = exhaustive(Xorshift32.self, target: seq, confirm: seqNext,
+                                           started: started, budget: budget, tested: &tested) {
+                solved = true
+                solvedDescription = hit
+            }
+            if solved { bestPrefix = drawN }
+        }
+
         // Un balayage par famille : la fermeture construit le générateur
         // pour une graine donnée.
         func sweep(_ family: String, heavy: Bool, _ make: (UInt64) -> any StreamGenerator) {
+            if solved { return }
             for sampler in Sampler.allCases {
                 for range in ranges {
                     if heavy && !range.heavyOK { continue }
                     for k in 0..<range.count {
                         if solved { return }
-                        if tested & 0xFFFF == 0, Date().timeIntervalSince(started) > budget { return }
+                        if tested & 0xFFFF == 0, Date().timeIntervalSince(started) > budget + 8 { return }
                         let seed = range.from &+ UInt64(k)
                         var gen = make(seed)
                         tested += 1
@@ -346,14 +450,21 @@ enum PRNGRecovery {
         // dans la cible avec p ≈ 1/4, donc max ≈ log₄(candidats).
         let expected = tested > 1 ? log(Double(tested)) / log(4) : 0
 
+        let mode = orderAvailable
+            ? "ordre de sortie publié — balayage exhaustif 2³¹ + recherche de graine"
+            : "ordre non publié — recherche de graine seule"
+
         let verdict: String
         let detail: String
         if solved {
             verdict = "ÉTAT RECONSTRUIT"
-            detail = "Un générateur reproduit le tirage #\(targetDraw.drawNumber) en entier et confirme le #\(nextDraw.drawNumber) en continuant le flux : \(solvedDescription). C'est un défaut critique du générateur, à signaler à l'exploitant."
+            detail = "Un générateur reproduit le tirage #\(targetDraw.drawNumber) en entier et confirme le #\(nextDraw.drawNumber) en continuant le flux : \(solvedDescription). C'est un défaut critique du générateur, à signaler à l'exploitant avant toute autre chose."
+        } else if orderAvailable {
+            verdict = "Aucun état reconstruit"
+            detail = "L'ordre de sortie est publié — l'attaque forte a donc pu tourner : espace d'états 2³¹ et 2³² balayé sur les familles LCG et xorshift, plus la recherche de graine sur les 8 familles. \(tested) états testés, aucun ne reproduit le tirage. La source n'est aucun générateur à état court."
         } else {
             verdict = "Aucun état reconstruit"
-            detail = "\(tested) états candidats testés sur 8 familles et 3 échantillonneurs. Le meilleur candidat reproduit \(max(0, bestPrefix)) numéros sur 20, alors que le pur hasard en produit \(String(format: "%.1f", expected)) sur ce nombre d'essais : aucun signal. La source ne se comporte comme aucun générateur pseudo-aléatoire à état court — elle est compatible avec un CSPRNG ou un générateur quantique, dont l'état n'est pas reconstructible depuis les sorties."
+            detail = "\(tested) états candidats testés sur 8 familles et 3 échantillonneurs. Le meilleur candidat reproduit \(max(0, bestPrefix)) numéros sur 20, alors que le pur hasard en produit \(String(format: "%.1f", expected)) sur ce nombre d'essais : aucun signal. L'API ne publie pas l'ordre de sortie des boules, ce qui interdit les attaques algébriques (réseau euclidien sur LCG tronqué, inversion de Mersenne Twister) : elles exigent la suite des sorties, pas un ensemble trié."
         }
 
         return RecoveryResult(
@@ -369,6 +480,8 @@ enum PRNGRecovery {
             solvedDescription: solvedDescription,
             elapsed: elapsed,
             targetDraw: targetDraw.drawNumber,
+            orderAvailable: orderAvailable,
+            mode: mode,
             verdict: verdict,
             detail: detail
         )
@@ -379,7 +492,8 @@ enum PRNGRecovery {
             candidatesTested: 0, familiesTested: 0, samplersTested: 0,
             bestPrefix: 0, bestFamily: "—", bestSampler: "—", bestSeedLabel: "—",
             expectedPrefix: 0, solved: false, solvedDescription: "",
-            elapsed: 0, targetDraw: 0, verdict: verdict, detail: detail
+            elapsed: 0, targetDraw: 0, orderAvailable: false, mode: "—",
+            verdict: verdict, detail: detail
         )
     }
 }

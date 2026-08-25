@@ -11,10 +11,19 @@ struct Draw: Identifiable, Hashable, Codable {
     var drawNumber: Int
     var drawDate: String
     var numbers: [Int]
+    // Numéros dans l'ordre publié par l'API. S'il diffère de l'ordre trié,
+    // c'est l'ordre de sortie des boules — et la suite des sorties du
+    // générateur devient observable (cf. PRNGRecovery).
+    var order: [Int] = []
     var boost: Int?
     var bonus: Int?
 
     var id: Int { drawNumber }
+
+    // L'ordre publié porte-t-il de l'information ?
+    var hasDrawOrder: Bool {
+        order.count == numbers.count && !order.isEmpty && order != numbers
+    }
 }
 
 struct Jackpot: Identifiable, Hashable {

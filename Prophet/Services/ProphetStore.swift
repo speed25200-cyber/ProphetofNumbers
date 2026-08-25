@@ -150,7 +150,7 @@ final class ProphetStore: ObservableObject {
         recoveryRunning = true
         let history = payload.history
         let result = await Task.detached(priority: .userInitiated) {
-            PRNGRecovery.attack(history)
+            PRNGRecovery.attack(history, budget: 25)
         }.value
         withAnimation(.smooth(duration: 0.4)) {
             recovery = result

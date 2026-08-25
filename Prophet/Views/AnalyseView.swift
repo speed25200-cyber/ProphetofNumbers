@@ -127,6 +127,16 @@ struct RecoveryCard: View {
                 .foregroundStyle(Palette.muted)
 
             if let r = store.recovery {
+                HStack(spacing: 5) {
+                    Image(systemName: r.orderAvailable ? "list.number" : "arrow.up.arrow.down.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(r.orderAvailable ? Palette.gold : Palette.subtle)
+                    Text(r.orderAvailable
+                        ? "Ordre de sortie publié — attaque forte disponible."
+                        : "Ordre de sortie non publié : les numéros arrivent triés, ce qui interdit les attaques algébriques.")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(r.orderAvailable ? Palette.goldSoft : Palette.subtle)
+                }
                 HStack(spacing: 8) {
                     StatPill(label: "CANDIDATS", value: Format.ch.string(from: NSNumber(value: r.candidatesTested)) ?? "\(r.candidatesTested)")
                     StatPill(

@@ -381,6 +381,41 @@ final class OracleTests: XCTestCase {
         XCTAssertGreaterThan(result.candidatesTested, 0)
     }
 
+    func testRecoveryBreaksAnOrderedStreamByStateSearch() {
+        // Quand l'ordre de sortie est publié, l'espace d'états devient
+        // balayable : la graine n'a plus besoin d'être devinable.
+        var gen = GlibcLCG(rawSeed: 4321)
+        func nextOrdered() -> [Int] {
+            var out: [Int] = []
+            var seen = Set<Int>()
+            while out.count < 20 {
+                let n = Int(gen.next32() % 80) + 1
+                if seen.insert(n).inserted { out.append(n) }
+            }
+            return out
+        }
+        let first = nextOrdered()
+        let second = nextOrdered()
+        let draws = [
+            Draw(drawNumber: 7002, drawDate: "2026-01-01T12:00:00+01:00",
+                 numbers: second.sorted(), order: second, boost: nil, bonus: nil),
+            Draw(drawNumber: 7001, drawDate: "2026-01-01T12:00:00+01:00",
+                 numbers: first.sorted(), order: first, boost: nil, bonus: nil),
+        ]
+        XCTAssertTrue(draws[1].hasDrawOrder)
+        let result = PRNGRecovery.attack(draws, budget: 30)
+        XCTAssertTrue(result.orderAvailable)
+        XCTAssertTrue(result.solved)
+        XCTAssertTrue(result.solvedDescription.contains("4321"))
+    }
+
+    func testDrawWithoutOrderInfoIsFlaggedAsSuch() {
+        let sorted = Array(1...20)
+        let d = Draw(drawNumber: 1, drawDate: "2026-01-01T12:00:00+01:00",
+                     numbers: sorted, order: sorted, boost: nil, bonus: nil)
+        XCTAssertFalse(d.hasDrawOrder)
+    }
+
     func testRecoveryNeedsTwoDraws() {
         let result = PRNGRecovery.attack([])
         XCTAssertFalse(result.solved)
