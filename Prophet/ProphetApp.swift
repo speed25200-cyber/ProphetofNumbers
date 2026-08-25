@@ -12,9 +12,16 @@ struct ProphetApp: App {
                 .preferredColorScheme(.dark)
         }
         .onChange(of: scenePhase) { _, phase in
-            // Retour au premier plan : resynchronisation immédiate, cache ignoré.
-            if phase == .active {
+            switch phase {
+            case .active:
+                // Retour au premier plan : resynchronisation immédiate (cache
+                // ignoré), et le live remplace les notifications programmées.
+                store.disarmBackgroundNotifications()
                 Task { await store.refresh(force: true) }
+            case .background:
+                store.armBackgroundNotifications()
+            default:
+                break
             }
         }
     }

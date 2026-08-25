@@ -52,7 +52,21 @@ struct RootView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
-                LiveBadge(fetchedAt: store.payload?.fetchedAt)
+                HStack(spacing: 8) {
+                    Button {
+                        store.toggleNotifications()
+                    } label: {
+                        Image(systemName: store.notificationsOn ? "bell.fill" : "bell.slash")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(store.notificationsOn ? Palette.gold : Palette.subtle)
+                            .frame(width: 30, height: 30)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .buttonStyle(.plain)
+                    LiveBadge(fetchedAt: store.payload?.fetchedAt)
+                }
                 if let payload = store.payload, let last = payload.last {
                     TimelineView(.periodic(from: .now, by: 1)) { ctx in
                         let age = Int(max(0, ctx.date.timeIntervalSince(payload.fetchedAt)))

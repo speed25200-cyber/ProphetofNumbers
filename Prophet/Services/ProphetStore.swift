@@ -10,6 +10,7 @@ final class ProphetStore: ObservableObject {
     @Published var loading = false
     @Published var stake: Int = 10
     @Published var tickets: [SavedTicket] = []
+    @Published var notificationsOn = false
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -24,10 +25,12 @@ final class ProphetStore: ObservableObject {
     private var refreshing = false
     private var lastOracleDraw = Int.min
     private static let memoryKey = "prophet.tickets.v1"
+    private static let notifKey = "prophet.notifs.v1"
     private static let ticketRetentionDraws = 48
 
     init() {
         tickets = Self.readTickets()
+        notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
         // Tick rapide : la cadence réelle est décidée dans pollTick —
         // 2 s forcées autour du tirage, 8 s en croisière.
         poll = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -86,6 +89,44 @@ final class ProphetStore: ObservableObject {
             self.error = error.localizedDescription
         }
         loading = false
+    }
+
+    func toggleNotifications() {
+        if notificationsOn {
+            notificationsOn = false
+            UserDefaults.standard.set(false, forKey: Self.notifKey)
+            Notifier.cancelDrawNotifications()
+        } else {
+            Task { @MainActor in
+                let granted = await Notifier.requestAuthorization()
+                notificationsOn = granted
+                UserDefaults.standard.set(granted, forKey: Self.notifKey)
+            }
+        }
+    }
+
+    // En arrière-plan : programme les prochaines fins de tirage avec la
+    // dernière prédiction Nexus. Au retour au premier plan, tout est annulé —
+    // le live prend le relais.
+    func armBackgroundNotifications() {
+        guard notificationsOn,
+              let payload,
+              let next = payload.nextDrawAt,
+              let last = payload.last else { return }
+        let prediction = oracle?.stakes
+            .first { $0.stake == stake }?
+            .grids.first { $0.kind == .nexus }?
+            .numbers ?? []
+        Notifier.scheduleDrawNotifications(
+            nextDrawAt: next,
+            nextDrawNumber: last.drawNumber + 1,
+            prediction: prediction,
+            stake: stake
+        )
+    }
+
+    func disarmBackgroundNotifications() {
+        Notifier.cancelDrawNotifications()
     }
 
     // Bilan honnête : chaque grille proposée est mémorisée pour le tirage suivant,
