@@ -65,6 +65,12 @@ optimisation hors ligne ni fuite d'information.
 - **Nexus** = essaim complet + bonus d'information mutuelle (PMI) dans la
   sélection gloutonne, avec caps par décade et équilibre pair/impair.
 
+Chaque stratégie décline trois variantes : **I** (sélection principale),
+**II** (disjointe de la I — double la couverture du champ) et **Anti**
+(le pari inverse : les numéros classés derniers). L'Anti est la
+contre-épreuve vivante du modèle — sur un RNG équitable elle fait jeu
+égal avec la principale, et le bilan de l'app le mesure en continu.
+
 ## 5. La mesure honnête : backtest en marche avant
 
 Tout est jugé par le **backtest walk-forward** : à chaque tirage

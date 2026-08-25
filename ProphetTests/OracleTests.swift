@@ -94,21 +94,26 @@ final class OracleTests: XCTestCase {
     func testGridsHaveCorrectCardinality() {
         let result = Swarm.run(syntheticHistory())
         for pack in result.stakes {
-            XCTAssertEqual(pack.grids.count, 6)
+            XCTAssertEqual(pack.grids.count, 9)
             for grid in pack.grids {
                 XCTAssertEqual(grid.numbers.count, pack.stake)
                 XCTAssertEqual(Set(grid.numbers).count, pack.stake)
                 XCTAssertTrue(grid.numbers.allSatisfy { (1...80).contains($0) })
                 XCTAssertEqual(grid.numbers, grid.numbers.sorted())
             }
-            // Les variantes I et II d'une même stratégie sont disjointes.
             for kind in GridKind.allCases {
-                let pair = pack.grids.filter { $0.kind == kind }
-                XCTAssertEqual(pair.count, 2)
-                XCTAssertTrue(Set(pair[0].numbers).isDisjoint(with: Set(pair[1].numbers)))
+                let variants = pack.grids.filter { $0.kind == kind }
+                XCTAssertEqual(variants.count, 3)
+                // I et II sont disjointes ; l'Anti joue le bas du classement,
+                // donc ne recoupe pas la sélection principale.
+                let one = variants.first { $0.variant == 1 }!
+                let two = variants.first { $0.variant == 2 }!
+                let anti = variants.first { $0.variant == 3 }!
+                XCTAssertTrue(Set(one.numbers).isDisjoint(with: Set(two.numbers)))
+                XCTAssertTrue(Set(one.numbers).isDisjoint(with: Set(anti.numbers)))
             }
-            // Identifiants uniques (I et II ne se confondent pas).
-            XCTAssertEqual(Set(pack.grids.map(\.id)).count, 6)
+            // Identifiants uniques (I, II et Anti ne se confondent pas).
+            XCTAssertEqual(Set(pack.grids.map(\.id)).count, 9)
         }
     }
 

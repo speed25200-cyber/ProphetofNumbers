@@ -87,7 +87,7 @@ struct GridsView: View {
                                 Circle()
                                     .fill(Palette.kindColor(t.kind))
                                     .frame(width: 6, height: 6)
-                                Text(t.kind.label + (t.variant == 2 ? " II" : ""))
+                                Text(t.variant == 3 ? "Anti-\(t.kind.label)" : t.kind.label + (t.variant == 2 ? " II" : ""))
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(Palette.fg)
                                 Spacer()
@@ -201,9 +201,13 @@ struct GridCard: View {
     var targetDraw: Int?
     @State private var copied = false
 
-    private var kindColor: Color { Palette.kindColor(grid.kind) }
+    // Les grilles Anti (variante 3) portent la teinte froide : le pari inverse.
+    private var kindColor: Color {
+        grid.variant == 3 ? Palette.cold : Palette.kindColor(grid.kind)
+    }
 
     private var icon: String {
+        if grid.variant == 3 { return "arrow.uturn.down" }
         switch grid.kind {
         case .alpha: return "flame.fill"
         case .omega: return "arrow.uturn.backward"

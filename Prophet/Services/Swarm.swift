@@ -875,18 +875,34 @@ final class SwarmEngine {
                 case .nexus: source = ensemble
                 }
                 // Variante I : sélection principale. Variante II : disjointe
-                // de la I — double la couverture du champ.
+                // de la I — double la couverture. Variante Anti : le pari
+                // inverse — les numéros que la stratégie classe derniers
+                // (contre-épreuve vivante : sur un RNG équitable, elle fait
+                // jeu égal ; si le modèle se trompait systématiquement, elle
+                // gagnerait).
                 let first = greedyPick(k: stake, score: source, kind: kind, banned: [])
                 let second = greedyPick(k: stake, score: source, kind: kind, banned: Set(first))
-                for (variant, numbers) in [(1, first), (2, second)] {
+                let anti = greedyPick(k: stake, score: source.map { -$0 }, kind: kind, banned: [])
+                for (variant, numbers) in [(1, first), (2, second), (3, anti)] {
                     let p = numbers.map { inclusion[$0 - 1] }
+                    let label: String
+                    let subtitle: String
+                    switch variant {
+                    case 1:
+                        label = kind.label
+                        subtitle = kind.subtitle
+                    case 2:
+                        label = "\(kind.label) II"
+                        subtitle = "Variante disjointe de \(kind.label) — double la couverture"
+                    default:
+                        label = "Anti-\(kind.label)"
+                        subtitle = "Le pari inverse — les numéros que \(kind.label) classe derniers"
+                    }
                     grids.append(SuggestedGrid(
                         kind: kind,
                         variant: variant,
-                        label: variant == 1 ? kind.label : "\(kind.label) II",
-                        subtitle: variant == 1
-                            ? kind.subtitle
-                            : "Variante disjointe de \(kind.label) — double la couverture",
+                        label: label,
+                        subtitle: subtitle,
                         numbers: numbers,
                         expectedHits: p.reduce(0, +),
                         baseExpected: Double(stake) * Self.baseP,
