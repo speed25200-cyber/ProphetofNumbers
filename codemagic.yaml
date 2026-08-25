@@ -2,7 +2,7 @@
 #
 # Trois flux :
 #   validate   : compilation + tests simulateur, sans signature.
-#   testflight : IPA signée → TestFlight (intégration App Store Connect).
+#   testflight : IPA signée → TestFlight (manuel, ou étiquette tf-*).
 #   release    : publication App Store, déclenchée par une étiquette v*.
 #
 # Même équipe, même intégration ASC que Limbator / PetMind.
@@ -46,17 +46,7 @@ workflows:
         script: |
           set -o pipefail
           FORMAT=$(command -v xcbeautify || echo cat)
-          DEST=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $1 "|" $2; exit}')
-          echo "Destination brute: $DEST"
           xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,name=iPhone 16 Pro,OS=latest" \
-            CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=YES \
-            build 2>&1 | "$FORMAT" \
-          || xcodebuild \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Debug \
@@ -69,19 +59,25 @@ workflows:
         script: |
           set -o pipefail
           FORMAT=$(command -v xcbeautify || echo cat)
+          rm -rf "$CM_BUILD_DIR/TestResults.xcresult"
+
+          # Simulateur concret par UDID : premier iPhone dispo, sinon on en
+          # crée un sur le dernier runtime iOS du runner.
+          UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}" || true)
+          if [ -z "$UDID" ]; then
+            RUNTIME=$(xcrun simctl list runtimes | grep "^iOS" | tail -1 | grep -oE "com\.apple\.CoreSimulator\.SimRuntime\.iOS[-0-9]+")
+            DEVTYPE=$(xcrun simctl list devicetypes | grep "iPhone" | tail -1 | grep -oE "com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+")
+            echo "Création d'un simulateur ($DEVTYPE / $RUNTIME)"
+            UDID=$(xcrun simctl create "ci-iphone" "$DEVTYPE" "$RUNTIME")
+          fi
+          echo "Simulateur de test : $UDID"
+          xcrun simctl boot "$UDID" || true
+
           xcodebuild \
             -project "$XCODE_PROJECT" \
             -scheme "$XCODE_SCHEME" \
             -configuration Debug \
-            -destination "platform=iOS Simulator,name=iPhone 16 Pro,OS=latest" \
-            CODE_SIGNING_ALLOWED=NO \
-            -resultBundlePath "$CM_BUILD_DIR/TestResults.xcresult" \
-            test 2>&1 | "$FORMAT" \
-          || xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Debug \
-            -destination "generic/platform=iOS Simulator" \
+            -destination "platform=iOS Simulator,id=$UDID" \
             CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath "$CM_BUILD_DIR/TestResults.xcresult" \
             test 2>&1 | "$FORMAT"
@@ -99,6 +95,14 @@ workflows:
     name: Distribution TestFlight
     instance_type: mac_mini_m2
     max_build_duration: 60
+    # Déclenchement : manuel depuis Codemagic, ou en poussant un tag tf-*
+    # (ex. `git tag tf-1 && git push origin tf-1`).
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "tf-*"
+          include: true
     integrations:
       app_store_connect: PetMind ASC API
     environment:
