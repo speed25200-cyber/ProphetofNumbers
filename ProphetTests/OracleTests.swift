@@ -123,6 +123,22 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.swarm.bestHeadName, "—")
     }
 
+    func testCountdownIsCeiledAndAnchored() {
+        let target = Date(timeIntervalSince1970: 1_000_000)
+        // 4,2 s restantes → afficher 05, pas 04.
+        let a = Format.countdown(to: target, now: target.addingTimeInterval(-4.2))
+        XCTAssertEqual(a.label, "00:05")
+        XCTAssertTrue(a.urgent)
+        // Pile 60 s → 01:00.
+        let b = Format.countdown(to: target, now: target.addingTimeInterval(-60))
+        XCTAssertEqual(b.label, "01:00")
+        XCTAssertFalse(b.urgent)
+        // Échu → tirage en cours.
+        let c = Format.countdown(to: target, now: target.addingTimeInterval(1))
+        XCTAssertEqual(c.label, "Tirage en cours")
+        XCTAssertTrue(c.urgent)
+    }
+
     func testZurichDayKey() {
         let date = Zurich.parseISO("2026-08-24T23:30:00+02:00")
         XCTAssertNotNil(date)

@@ -26,6 +26,17 @@ actor LoroClient {
     private var cache: [Int: Draw] = [:]
     private var live: LivePayload?
     private var liveAt: Date = .distantPast
+    // Décalage horloge serveur Loro − horloge appareil, lissé (EMA).
+    private var clockOffset: TimeInterval = 0
+    private var clockSamples = 0
+
+    private static let httpDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "GMT")
+        f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        return f
+    }()
 
     func loadLive(force: Bool = false) async throws -> LivePayload {
         if !force, let live, Date().timeIntervalSince(liveAt) < 4 {
@@ -78,7 +89,8 @@ actor LoroClient {
             today: today,
             history: history,
             fetchedAt: Date(),
-            source: source
+            source: source,
+            clockOffset: clockOffset
         )
         live = payload
         liveAt = Date()
@@ -124,9 +136,24 @@ actor LoroClient {
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
             forHTTPHeaderField: "User-Agent"
         )
+        let t0 = Date()
         let (data, resp) = try await URLSession.shared.data(for: req)
-        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
-            throw LoroError.http(http.statusCode)
+        let t1 = Date()
+        if let http = resp as? HTTPURLResponse {
+            if !(200...299).contains(http.statusCode) {
+                throw LoroError.http(http.statusCode)
+            }
+            // Offset d'horloge : Date serveur (tronquée à la seconde, donc
+            // +0,5 s en moyenne) + moitié de l'aller-retour, vs réception.
+            if let raw = http.value(forHTTPHeaderField: "Date"),
+               let server = Self.httpDateFormatter.date(from: raw) {
+                let rtt = t1.timeIntervalSince(t0)
+                let sample = server.addingTimeInterval(0.5 + rtt / 2).timeIntervalSince(t1)
+                if abs(sample) < 120 {
+                    clockOffset = clockSamples == 0 ? sample : 0.8 * clockOffset + 0.2 * sample
+                    clockSamples += 1
+                }
+            }
         }
         guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LoroError.decode

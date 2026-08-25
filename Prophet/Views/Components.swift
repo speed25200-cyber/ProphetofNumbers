@@ -158,11 +158,12 @@ struct StatPill: View {
 // Anneau de progression sur le cycle de 5 minutes du Loto Express.
 struct CountdownRing: View {
     var target: Date
+    var clockOffset: TimeInterval = 0
     var cycle: Double = 300
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { ctx in
-            let remaining = max(0, target.timeIntervalSince(ctx.date))
+            let remaining = max(0, target.timeIntervalSince(ctx.date.addingTimeInterval(clockOffset)))
             let progress = 1 - min(1, remaining / cycle)
             ZStack {
                 Circle()

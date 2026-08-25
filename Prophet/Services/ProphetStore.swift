@@ -53,10 +53,11 @@ final class ProphetStore: ObservableObject {
 
     // Fenêtre chaude : de 5 s avant le tirage annoncé jusqu'à ce que l'API
     // publie le nouveau numéro (nextDrawAt repasse alors dans le futur).
+    // Comparaison en temps serveur Loro, pas en horloge locale.
     private func inDrawWindow(_ now: Date) -> Bool {
         guard let payload else { return true }
         guard let next = payload.nextDrawAt else { return false }
-        return now >= next.addingTimeInterval(-5)
+        return now.addingTimeInterval(payload.clockOffset) >= next.addingTimeInterval(-5)
     }
 
     func refresh(force: Bool = false) async {
@@ -117,8 +118,10 @@ final class ProphetStore: ObservableObject {
             .first { $0.stake == stake }?
             .grids.first { $0.kind == .nexus }?
             .numbers ?? []
+        // nextDrawAt est en temps serveur : reconverti en horloge appareil
+        // pour que la notification parte au bon instant local.
         Notifier.scheduleDrawNotifications(
-            nextDrawAt: next,
+            nextDrawAt: next.addingTimeInterval(-payload.clockOffset),
             nextDrawNumber: last.drawNumber + 1,
             prediction: prediction,
             stake: stake

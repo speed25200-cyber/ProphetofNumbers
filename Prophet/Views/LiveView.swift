@@ -18,15 +18,18 @@ struct LiveView: View {
 
     private func heroCard(_ payload: LivePayload?) -> some View {
         Card(tint: Palette.gold) {
+            let offset = payload?.clockOffset ?? 0
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
                     Overline(text: "PROCHAIN TIRAGE")
                     if let at = payload?.nextDrawAt {
                         TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                            let cd = Format.countdown(to: at, now: ctx.date)
+                            let cd = Format.countdown(to: at, now: ctx.date.addingTimeInterval(offset))
                             Text(cd.label)
                                 .font(Typeface.mono(50, weight: .semibold))
                                 .foregroundStyle(cd.urgent ? Palette.live : Palette.fg)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.4)
                                 .contentTransition(.numericText(countsDown: true))
                                 .animation(.snappy(duration: 0.3), value: cd.label)
                         }
@@ -41,7 +44,7 @@ struct LiveView: View {
                 }
                 Spacer()
                 if let at = payload?.nextDrawAt {
-                    CountdownRing(target: at)
+                    CountdownRing(target: at, clockOffset: offset)
                 }
             }
             if let jacks = payload?.jackpots, !jacks.isEmpty {

@@ -146,6 +146,9 @@ struct LivePayload {
     var history: [Draw]
     var fetchedAt: Date
     var source: String
+    // Horloge serveur Loro − horloge appareil : à ajouter à l'heure locale
+    // pour se caler sur le flux réel.
+    var clockOffset: TimeInterval = 0
 }
 
 struct SavedTicket: Codable, Identifiable, Hashable {
@@ -236,8 +239,10 @@ enum Format {
 
     static func countdown(to date: Date, now: Date) -> (label: String, urgent: Bool) {
         let ms = date.timeIntervalSince(now)
-        if ms <= 0 { return ("Tirage…", true) }
-        let total = Int(ms)
+        if ms <= 0 { return ("Tirage en cours", true) }
+        // ceil : « 05 » tant qu'il reste plus de 4 s — la convention d'un
+        // compte à rebours calé sur l'instant réel du tirage.
+        let total = Int(ceil(ms))
         let h = total / 3600
         let m = (total % 3600) / 60
         let s = total % 60
