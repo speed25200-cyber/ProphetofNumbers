@@ -29,11 +29,12 @@ struct GridsView: View {
                         .foregroundStyle(Palette.gold)
                 }
                 jackpotCard(oracle: oracle)
+                lastReadCard
                 ledgerCard
                 // 1 colonne sur iPhone, 2 sur iPad.
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
                     ForEach(pack.grids) { grid in
-                        GridCard(grid: grid, last: store.payload?.last)
+                        GridCard(grid: grid, targetDraw: store.payload?.nextDrawNumber)
                     }
                 }
             }
@@ -69,6 +70,39 @@ struct GridsView: View {
         .padding(5)
         .background(Palette.surface, in: Capsule())
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+    }
+
+    // La comparaison au tirage sorti se fait ici — sur les grilles qui le
+    // visaient — jamais sur les grilles fraîches, qui visent le prochain.
+    @ViewBuilder
+    private var lastReadCard: some View {
+        if let last = store.payload?.last {
+            let scored = store.tickets.filter { $0.targetDraw == last.drawNumber && $0.stake == store.stake }
+            if !scored.isEmpty {
+                Card {
+                    Overline(text: "LECTURE DU #\(last.drawNumber)")
+                    VStack(spacing: 8) {
+                        ForEach(scored) { t in
+                            HStack(spacing: 6) {
+                                Circle()
+                                    .fill(Palette.kindColor(t.kind))
+                                    .frame(width: 6, height: 6)
+                                Text(t.kind.label)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Palette.fg)
+                                Spacer()
+                                Text("\(Hits.inDraw(t.numbers, last))/\(store.stake) hits")
+                                    .font(Typeface.mono(13, weight: .medium))
+                                    .foregroundStyle(Palette.fg)
+                            }
+                        }
+                    }
+                    Text("Grilles qui visaient ce tirage, jugées après coup.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.subtle)
+                }
+            }
+        }
     }
 
     // Retour espéré du seul jackpot, par franc misé, à la cote de base.
@@ -164,7 +198,7 @@ struct GridsView: View {
 
 struct GridCard: View {
     var grid: SuggestedGrid
-    var last: Draw?
+    var targetDraw: Int?
     @State private var copied = false
 
     private var kindColor: Color { Palette.kindColor(grid.kind) }
@@ -212,7 +246,7 @@ struct GridCard: View {
                 .buttonStyle(.plain)
             }
 
-            FlexibleBalls(numbers: grid.numbers, last: last)
+            FlexibleBalls(numbers: grid.numbers, last: nil)
 
             HStack(spacing: 8) {
                 StatPill(label: "ESPÉRANCE", value: String(format: "%.2f hits", grid.expectedHits))
@@ -220,10 +254,16 @@ struct GridCard: View {
                 StatPill(label: "COTE MAX", value: Format.odds(grid.basePAllHit))
             }
 
-            if let last {
-                Text("Recouvrement vs #\(last.drawNumber) : \(Hits.inDraw(grid.numbers, last))/\(grid.numbers.count)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.subtle)
+            if let targetDraw {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Palette.gold)
+                    Text("Prête pour le tirage #\(targetDraw)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Palette.goldSoft)
+                        .contentTransition(.numericText())
+                }
             }
         }
         .sensoryFeedback(.success, trigger: copied) { _, newValue in newValue }
