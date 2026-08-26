@@ -79,6 +79,7 @@ enum Forensics {
             periodicity(masks),
             clockSeed(ordered, masks),
             spectral(numbers),
+            analogue(masks),
         ]
         tests.sort { $0.sigma > $1.sigma }
         let flagged = tests.filter(\.flagged).count
@@ -87,7 +88,7 @@ enum Forensics {
         let detail: String
         if flagged == 0 {
             verdict = "Aucune signature de générateur faible"
-            detail = "Les sept tests sont conformes au hasard. Aucune période, aucune graine horaire, aucune structure de réseau, aucune mémoire résiduelle : la série est compatible avec une source cryptographique ou quantique — sans état reconstructible depuis les sorties."
+            detail = "Les huit tests sont conformes au hasard. Aucune période, aucune graine horaire, aucune structure de réseau, aucune mémoire résiduelle, et aucun analogue exploitable : la série est compatible avec une source cryptographique ou quantique — sans état reconstructible depuis les sorties."
         } else {
             verdict = "\(flagged) test\(flagged > 1 ? "s" : "") en anomalie"
             detail = "Un ou plusieurs tests s'écartent du hasard au-delà du seuil de 1 %. À confronter à l'e-valeur de la carte Vérité terrain avant toute conclusion : un test isolé peut dévier par malchance, une martingale qui monte durablement, non."
@@ -341,6 +342,83 @@ enum Forensics {
     }
 
     // MARK: Outils
+
+    // MARK: 8 — Reconstruction d'état par analogues
+
+    // Les sept tests précédents sont paramétriques : chacun vise une
+    // signature nommée (roue biaisée, période, graine horaire, réseau
+    // d'un LCG). Un générateur d'une famille non prévue leur échappe par
+    // construction.
+    //
+    // Celui-ci ne suppose aucune famille. Soit S_t l'état interne, g la
+    // transition et f la sortie : S_{t+1} = g(S_t), tirage_t = f(S_t).
+    // Si g est déterministe, alors S_i = S_j implique tirage_{i+1} =
+    // tirage_{j+1}. Le recouvrement entre deux tirages est donc un proxy
+    // observable de la proximité d'états. D'où le test : chercher dans le
+    // passé le meilleur analogue du dernier tirage, et jouer SON
+    // successeur. Sous H0 le score vaut 5,000 quel que soit l'analogue
+    // retenu — la méthode des analogues de Lorenz (1969), appliquée ici à
+    // un flux de générateur.
+    //
+    // Portée : un flux continu consomme ~23 sorties brutes par tirage.
+    // Une application déterministe sur n bits revisite un état après
+    // ~sqrt(pi/2 · 2^n) pas. Le test voit donc tout générateur dont
+    // l'état effectif tient sous 2·log2(23·m) − 0,65 bits, sans jamais
+    // nommer son algorithme. Sur la fenêtre de l'app (399 tirages) cela
+    // couvre ~25 bits ; sur l'historique public complet, ~40 bits.
+    private static func analogue(_ masks: [Mask]) -> ForensicTest {
+        let m = masks.count
+        let warm = 20
+        let name = "Reconstruction par analogues"
+        let catches = "État interne de petite taille, toute famille confondue"
+        guard m >= warm + 30 else { return short(name, catches) }
+
+        var scores: [Double] = []
+        scores.reserveCapacity(m - warm)
+        for t in warm..<m {
+            // Meilleur analogue du contexte courant, strictement antérieur.
+            var bestJ = 0
+            var bestOverlap = -1
+            for j in 0..<(t - 1) {
+                let o = masks[t - 1].overlap(masks[j])
+                if o > bestOverlap {
+                    bestOverlap = o
+                    bestJ = j
+                }
+            }
+            // On joue le successeur de l'analogue, et on note le recouvrement réel.
+            scores.append(Double(masks[bestJ + 1].overlap(masks[t])))
+        }
+
+        let n = Double(scores.count)
+        let mean = scores.reduce(0, +) / n
+        var variance = 0.0
+        for s in scores {
+            let d = s - mean
+            variance += d * d
+        }
+        let sd = sqrt(variance / max(n - 1, 1))
+        guard sd > 0 else {
+            // Écart-type nul : tous les analogues rendent le même score.
+            // C'est le cas dégénéré d'une source qui se répète à l'identique.
+            return ForensicTest(
+                name: name, catches: catches,
+                statistic: String(format: "score %.3f constant", mean),
+                sigma: mean > ovMean + 1 ? 12 : 0,
+                flagged: mean > ovMean + 1
+            )
+        }
+        let z = (mean - ovMean) / (sd / sqrt(n))
+        let p = 2 * (1 - normalCDF(abs(z)))
+        let reach = 2 * log2(23 * Double(m)) - 0.65
+        return ForensicTest(
+            name: name,
+            catches: catches,
+            statistic: String(format: "score %.3f vs 5,000 · portée %.0f bits", mean, reach),
+            sigma: sigma(p),
+            flagged: p < 0.01
+        )
+    }
 
     private static func short(_ name: String, _ catches: String) -> ForensicTest {
         ForensicTest(name: name, catches: catches, statistic: "échantillon court", sigma: 0, flagged: false)

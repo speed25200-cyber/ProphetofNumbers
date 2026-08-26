@@ -319,7 +319,7 @@ final class OracleTests: XCTestCase {
 
     func testForensicsReportIsWellFormed() {
         let report = Forensics.run(syntheticHistory(count: 200))
-        XCTAssertEqual(report.tests.count, 7)
+        XCTAssertEqual(report.tests.count, 8)
         XCTAssertEqual(report.sampleSize, 200)
         XCTAssertTrue(report.tests.allSatisfy { $0.sigma.isFinite && $0.sigma >= 0 })
         // Classé du plus suspect au moins suspect.
@@ -350,6 +350,64 @@ final class OracleTests: XCTestCase {
         XCTAssertGreaterThan(report.flagged, 0)
         XCTAssertTrue(report.tests.contains { $0.name == "Périodicité" && $0.flagged })
         XCTAssertTrue(report.tests.contains { $0.name == "Uniformité du champ" && $0.flagged })
+    }
+
+    func testAnalogueTestCatchesASmallStateSource() {
+        // Témoin positif du 8e test : un générateur dont l'état tient sur
+        // 12 bits revisite ses états dans la fenêtre observée, donc la
+        // méthode des analogues doit le voir — sans qu'on lui ait dit
+        // qu'il s'agissait d'un LCG.
+        var s = 1234
+        func nextDraw() -> [Int] {
+            var seen: [Int] = []
+            var guardCount = 0
+            while seen.count < 20 && guardCount < 100_000 {
+                s = (2045 * s + 1) % 4096
+                let v = (s >> 4) % 80 + 1
+                if !seen.contains(v) { seen.append(v) }
+                guardCount += 1
+            }
+            return seen.sorted()
+        }
+        var draws: [Draw] = []
+        for i in 1...400 {
+            draws.append(Draw(
+                drawNumber: 30_000 + i,
+                drawDate: "2026-08-24T12:00:00+02:00",
+                numbers: nextDraw(), boost: nil, bonus: nil
+            ))
+        }
+        let report = Forensics.run(draws.reversed())
+        let test = report.tests.first { $0.name == "Reconstruction par analogues" }
+        XCTAssertNotNil(test)
+        XCTAssertTrue(test!.flagged, "un état de 12 bits doit être vu par les analogues")
+        XCTAssertGreaterThan(test!.sigma, 5)
+    }
+
+    func testAnalogueTestStaysSilentOnAFairSource() {
+        // Témoin négatif : une source sans état revisitable ne doit pas
+        // déclencher le test, sinon il ne vaut rien.
+        var rngState: UInt64 = 0xDEAD_BEEF_CAFE_1234
+        func next() -> UInt64 {
+            rngState ^= rngState << 13
+            rngState ^= rngState >> 7
+            rngState ^= rngState << 17
+            return rngState
+        }
+        var draws: [Draw] = []
+        for i in 1...400 {
+            var set = Set<Int>()
+            while set.count < 20 { set.insert(Int((next() >> 33) % 80) + 1) }
+            draws.append(Draw(
+                drawNumber: 40_000 + i,
+                drawDate: "2026-08-24T12:00:00+02:00",
+                numbers: set.sorted(), boost: nil, bonus: nil
+            ))
+        }
+        let report = Forensics.run(draws.reversed())
+        let test = report.tests.first { $0.name == "Reconstruction par analogues" }
+        XCTAssertNotNil(test)
+        XCTAssertFalse(test!.flagged, "xorshift128 64 bits est hors de portée : aucun signal attendu")
     }
 
     func testRecoveryBreaksAClockSeededLCG() {

@@ -38,7 +38,7 @@ struct AnalyseView: View {
     }
 }
 
-// Forensique du générateur : sept tests qui caractérisent la source à
+// Forensique du générateur : huit tests qui caractérisent la source à
 // partir des seuls tirages publiés.
 struct ForensicsCard: View {
     var report: ForensicsReport
