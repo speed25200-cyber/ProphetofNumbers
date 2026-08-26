@@ -161,6 +161,37 @@ les écarts observés (+0,09 et +0,08) sont à +2,8 σ et +0,5 σ, et sur
 
 Six configurations, aucune au-delà de 1,2 σ, et le signe alterne.
 
+### Calibration : deux répliques nulles à taille réelle
+
+Les paires ne sont pas indépendantes — chaque tirage entre dans 70 559
+d'entre elles — donc l'écart-type de rho ne peut pas se calculer
+analytiquement. Il faut le simuler : deux flux SRS synthétiques de
+70 560 tirages, passés dans exactement la même chaîne.
+
+| Flux | rho | queue O≥12 | T2, pire des 6 configurations |
+|---|---:|---:|---:|
+| **Réel** | **−0,000009** | **5,0038** | **−1,14 σ** |
+| Nul, graine 1 | +0,000025 | 4,9971 | +1,15 σ |
+| Nul, graine 2 | −0,000003 | 4,9973 | **+2,33 σ** |
+
+Trois lectures :
+
+1. Le rho réel (−0,9 × 10⁻⁵) tombe **strictement entre** les deux nuls
+   (+2,5 × 10⁻⁵ et −0,3 × 10⁻⁵). Deux répliques ne donnent pas un
+   écart-type fiable, donc je ne cite pas de p-valeur ici — mais
+   l'encadrement suffit à écarter toute lecture d'anomalie.
+2. Sur la queue `O ≥ 12` (498 748 paires), l'écart-type
+   d'échantillonnage vaut 1,688/√n = 0,0024. Le réel est à +1,6 σ, les
+   deux nuls à −1,2 σ. Rien de significatif, et l'ordre de grandeur des
+   trois écarts est le même.
+3. La réplique nulle 2 produit une configuration à **+2,33 σ**
+   (p = 0,02) — plus bruyante que tout ce qu'on observe sur les données
+   réelles, dont le maximum est 1,14 σ. Autrement dit **le flux réel est
+   plus calme qu'un vrai tirage aléatoire ne l'est en moyenne**. C'est le
+   rappel utile : sur six configurations, un z de 2,3 arrive par hasard
+   environ une fois sur huit. Un écart isolé de cette taille, sur les
+   données réelles, n'aurait rien voulu dire non plus.
+
 ## 5. Ce que cela exclut, et ce que cela n'exclut pas
 
 La borne dépend du **régime d'amorçage**, et il faut les distinguer —
