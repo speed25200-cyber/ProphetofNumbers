@@ -330,6 +330,7 @@ Le ré-amorçage horaire au démarrage de séance est donc écarté, sur les
 | **Analogues (non paramétrique)** | **4,98 G paires + 6 prédicteurs, portée mesurée 40 bits** | **0** |
 | **Compressibilité (Maurer)** | **2,8 M bits, L=6..8 à puissance nominale** | **0** |
 | **Champs bonus/boost (recouvrement conditionné)** | **883 paires, nul calibré par simulation** | **0** |
+| **Localisation temporelle (BM+Maurer par fichier)** | **8 fenêtres de ~355 000 bits, Bonferroni** | **0** |
 
 Toutes les voies connues ont été parcourues jusqu'à leur limite
 calculatoire ou démontrées closes. Ce qui reste — générateur non linéaire
@@ -624,3 +625,56 @@ supplémentaire, c'est une question d'accès qu'aucune quantité de calcul
 sur 70 560 lignes de CSV ne remplace.
 
 Script : `claude/tools/bonus.py`.
+
+---
+
+## 15. Treizième voie : localisation temporelle — un défaut corrigé en cours de route se cacherait-il dans la moyenne ?
+
+Une faille méthodologique restait ouverte dans ce dossier : les §§ 5 et
+12 (Berlekamp-Massey, Maurer) n'ont tourné qu'**en agrégat**, sur les
+70 560 tirages regroupés en un seul flux. Seule la fréquence brute (§ 1)
+avait été testée fenêtre par fenêtre. Or un défaut d'implémentation
+corrigé en cours de route — une mise à jour serveur, un correctif de
+sécurité début 2026 par exemple — est exactement le type de structure
+qu'une moyenne sur 70 560 tirages **dilue jusqu'à la faire disparaître**,
+alors qu'elle serait franche sur le sous-ensemble concerné. Un audit qui
+ne teste que l'agrégat peut donc rater une fenêtre corrompue noyée dans
+un historique par ailleurs propre.
+
+BM et Maurer ont été relancés **fichier par fichier** (le découpage
+`draws-01.csv` … `draws-08.csv` existe déjà dans l'archive, ~9 000
+tirages chacun, ~355 000 bits de rang colex par fichier) :
+
+| Fichier | tirages | bits | BM χ² (df=6) | BM p | Maurer z (L=6) |
+|---|---:|---:|---:|---:|---:|
+| draws-01 | 9 000 | 355 996 | 13,03 | 0,0425 | +0,308 |
+| draws-02 | 9 000 | 357 887 | 7,93 | 0,2434 | +0,567 |
+| draws-03 | 9 000 | 354 959 | 8,68 | 0,1923 | −0,452 |
+| draws-04 | 9 000 | 360 937 | 8,59 | 0,1979 | +0,879 |
+| draws-05 | 9 000 | 355 752 | 6,52 | 0,3680 | +1,174 |
+| draws-06 | 9 000 | 357 887 | 8,70 | 0,1913 | +0,170 |
+| draws-07 | 9 000 | 353 617 | 4,01 | 0,6757 | +1,956 |
+| draws-08 | 7 560 | 301 157 | 1,54 | 0,9569 | +1,004 |
+
+Huit fenêtres, seuil de Bonferroni à p<0,00625 (8 tests) : **0 anomalie**.
+draws-01 est la valeur la plus basse (p=0,0425) mais reste sept fois
+au-dessus du seuil corrigé. Aucune fenêtre ne se détache des sept
+autres — le profil est plat dans le temps, pas seulement en moyenne.
+Nuance honnête : `K` par fichier est réduit (~59 000 contre 64 000
+recommandés pour Maurer L=6), donc chaque cellule individuelle est
+légèrement sous-alimentée — c'est pour cela qu'on regarde la cohérence
+d'ensemble des huit plutôt qu'une seule fenêtre isolée.
+
+En marge, la régularité de la coupure nocturne du § 8 a été vérifiée
+noir sur blanc plutôt que supposée : les 343 coupures de 25 500 s
+commencent entre 22 h et 23 h (heure locale) et se terminent entre 5 h
+et 6 h, sans exception, du 14 septembre 2025 au 24 août 2026. C'est une
+fenêtre de maintenance planifiée, pas un artefact — et cela confirme
+que le § 8 visait la bonne cible.
+
+**Conclusion : pas de fenêtre corrompue à trouver.** L'absence de
+structure n'est donc pas seulement une moyenne rassurante sur un an de
+données — elle tient fenêtre par fenêtre, y compris sur celles les plus
+proches de la mise en service.
+
+Script : `claude/tools/windowed.py`.
