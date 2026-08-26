@@ -17,6 +17,30 @@ final class ProphetStore: ObservableObject {
     @Published var forensics: ForensicsReport?
     @Published var recovery: RecoveryResult?
     @Published var recoveryRunning = false
+    // Collecte en direct : délai entre la clôture officielle des mises et
+    // le premier instant où l'app voit le résultat. Question que
+    // l'historique ne contient pas (cf. Types.PublicationLatency).
+    @Published var publicationLatencies: [PublicationLatency] = []
+
+    struct LatencyStats {
+        var count: Int
+        var mean: Double
+        var sd: Double
+        var min: Double
+        var max: Double
+    }
+
+    var publicationLatencyStats: LatencyStats? {
+        guard !publicationLatencies.isEmpty else { return nil }
+        let vals = publicationLatencies.map(\.latencySeconds)
+        let n = Double(vals.count)
+        let mean = vals.reduce(0, +) / n
+        let variance = n > 1 ? vals.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / (n - 1) : 0
+        return LatencyStats(
+            count: vals.count, mean: mean, sd: variance.squareRoot(),
+            min: vals.min() ?? 0, max: vals.max() ?? 0
+        )
+    }
 
     struct KindPerf: Identifiable {
         var kind: GridKind
@@ -34,6 +58,7 @@ final class ProphetStore: ObservableObject {
     // nouveau tirage coûte quelques millisecondes.
     private let engine = SwarmEngine()
     private static let memoryKey = "prophet.tickets.v1"
+    private static let latencyKey = "prophet.latency.v1"
     private static let notifKey = "prophet.notifs.v1"
     private static let turboKey = "prophet.turbo.v1"
     private static let holdKey = "prophet.journal.hold.v1"
@@ -41,6 +66,7 @@ final class ProphetStore: ObservableObject {
 
     init() {
         tickets = Self.readTickets()
+        publicationLatencies = Self.readLatencies()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
         turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
         let storedHold = UserDefaults.standard.integer(forKey: Self.holdKey)
@@ -85,6 +111,7 @@ final class ProphetStore: ObservableObject {
             let live = try await LoroClient.shared.loadLive(force: force)
             let history = live.history
             let newestDraw = live.last?.drawNumber ?? -1
+            let previous = payload
 
             // Deux temps : le résultat s'affiche immédiatement, puis l'essaim
             // digère le nouveau tirage hors du main thread et les grilles du
@@ -92,6 +119,7 @@ final class ProphetStore: ObservableObject {
             withAnimation(.smooth(duration: 0.4)) {
                 payload = live
             }
+            recordPublicationLatency(previous: previous, live: live)
             if oracle == nil || newestDraw != lastOracleDraw {
                 // Variante incrémentale : grilles disponibles dans la foulée
                 // du résultat.
@@ -262,6 +290,43 @@ final class ProphetStore: ObservableObject {
         if existing.count == fresh.count, Set(existing) == Set(fresh) { return }
         tickets = tickets.filter { $0.targetDraw != target && $0.targetDraw >= target - Self.ticketRetentionDraws } + fresh
         Self.writeTickets(tickets)
+    }
+
+    // Un nouveau résultat vient d'apparaître pour le tirage que le payload
+    // précédent annonçait comme prochain à clôturer : `wagerEndAt` de ce
+    // payload précédent est donc l'instant exact de fermeture des mises
+    // pour CE tirage. Le comparer à « maintenant » mesure le délai réel
+    // de publication, tirage après tirage, sans dépendre de l'archive.
+    private func recordPublicationLatency(previous: LivePayload?, live: LivePayload) {
+        guard let previous, let newLast = live.last,
+              previous.last?.drawNumber != newLast.drawNumber,
+              previous.nextDrawNumber == newLast.drawNumber,
+              let wagerEndAt = previous.wagerEndAt
+        else { return }
+        // wagerEndAt est en temps serveur ; reconverti en horloge appareil
+        // pour être comparable à Date(), comme pour les notifications.
+        let deviceWagerEndAt = wagerEndAt.addingTimeInterval(-previous.clockOffset)
+        let now = Date()
+        let entry = PublicationLatency(
+            drawNumber: newLast.drawNumber,
+            wagerEndAt: deviceWagerEndAt,
+            observedAt: now,
+            latencySeconds: now.timeIntervalSince(deviceWagerEndAt)
+        )
+        publicationLatencies.append(entry)
+        Self.writeLatencies(publicationLatencies)
+    }
+
+    private static func readLatencies() -> [PublicationLatency] {
+        guard let data = UserDefaults.standard.data(forKey: latencyKey) else { return [] }
+        return (try? JSONDecoder().decode([PublicationLatency].self, from: data)) ?? []
+    }
+
+    private static func writeLatencies(_ latencies: [PublicationLatency]) {
+        let clipped = Array(latencies.suffix(3000))
+        if let data = try? JSONEncoder().encode(clipped) {
+            UserDefaults.standard.set(data, forKey: latencyKey)
+        }
     }
 
     private static func readTickets() -> [SavedTicket] {

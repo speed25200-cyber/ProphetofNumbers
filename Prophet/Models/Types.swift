@@ -172,6 +172,21 @@ struct LivePayload {
     var clockOffset: TimeInterval = 0
 }
 
+// Question distincte du générateur lui-même, et que l'archive historique
+// ne peut pas trancher (wagerEndDate n'y est jamais consigné) : le
+// résultat devient-il lisible avant la fermeture officielle des mises ?
+// Une fuite de publication serait un défaut d'infrastructure, pas de
+// cryptographie — donc invisible à toute analyse rétrospective du flux
+// de numéros. Seule une collecte en direct, tirage après tirage, peut
+// répondre. `latencySeconds` négatif serait le signal à chercher.
+struct PublicationLatency: Codable, Identifiable {
+    var drawNumber: Int
+    var wagerEndAt: Date
+    var observedAt: Date
+    var latencySeconds: Double
+    var id: Int { drawNumber }
+}
+
 struct SavedTicket: Codable, Identifiable, Hashable {
     var targetDraw: Int
     var stake: Int

@@ -23,6 +23,9 @@ struct AnalyseView: View {
                 if let report = store.forensics {
                     ForensicsCard(report: report)
                 }
+                if let stats = store.publicationLatencyStats, stats.count >= 5 {
+                    PublicationLatencyCard(stats: stats)
+                }
                 RecoveryCard()
                 FieldCard(oracle: oracle, last: store.payload?.last)
                 GeoCard(oracle: oracle)
@@ -57,7 +60,7 @@ struct ForensicsCard: View {
                     .font(.system(size: 18))
                     .foregroundStyle(report.flagged > 0 ? Palette.live : Palette.gain)
             }
-            Text("Sept tests qui identifient la source — pas pour prédire un tirage, pour savoir à quel type de générateur on a affaire. \(report.sampleSize) tirages analysés.")
+            Text("Huit tests qui identifient la source — pas pour prédire un tirage, pour savoir à quel type de générateur on a affaire. \(report.sampleSize) tirages analysés.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
 
@@ -94,6 +97,41 @@ struct ForensicsCard: View {
             Text(report.detail)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.subtle)
+        }
+    }
+}
+
+// Question distincte de la forensique du générateur ci-dessus : pas
+// « le générateur est-il faible », mais « le résultat fuite-t-il avant
+// la clôture officielle des mises ». L'archive historique ne peut pas y
+// répondre (elle ne contient pas l'heure de clôture) — seule une
+// collecte tirage après tirage depuis l'app le peut.
+struct PublicationLatencyCard: View {
+    var stats: ProphetStore.LatencyStats
+
+    var body: some View {
+        Card(tint: stats.min < 0 ? Palette.live : Palette.teal) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Overline(text: "LATENCE DE PUBLICATION")
+                    Text(stats.min < 0 ? "Vu avant la clôture des mises" : "Toujours après la clôture")
+                        .font(Typeface.display(20))
+                        .foregroundStyle(Palette.fg)
+                }
+                Spacer()
+                Image(systemName: stats.min < 0 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(stats.min < 0 ? Palette.live : Palette.gain)
+            }
+            Text("Délai entre la fermeture officielle des mises et le premier instant où l'app voit le résultat, mesuré tirage après tirage depuis l'installation — \(stats.count) échantillons.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+            HStack(spacing: 16) {
+                StatPill(label: "MOYENNE", value: String(format: "%.1f s", stats.mean))
+                StatPill(label: "MIN", value: String(format: "%.1f s", stats.min),
+                         accent: stats.min < 0 ? Palette.live : Palette.fg)
+                StatPill(label: "MAX", value: String(format: "%.1f s", stats.max))
+            }
         }
     }
 }
