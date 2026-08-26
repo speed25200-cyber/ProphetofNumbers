@@ -329,6 +329,7 @@ Le ré-amorçage horaire au démarrage de séance est donc écarté, sur les
 | Biais statistique | 15 tests, nulls simulés, Bonferroni | 0 |
 | **Analogues (non paramétrique)** | **4,98 G paires + 6 prédicteurs, portée mesurée 40 bits** | **0** |
 | **Compressibilité (Maurer)** | **2,8 M bits, L=6..8 à puissance nominale** | **0** |
+| **Champs bonus/boost (recouvrement conditionné)** | **883 paires, nul calibré par simulation** | **0** |
 
 Toutes les voies connues ont été parcourues jusqu'à leur limite
 calculatoire ou démontrées closes. Ce qui reste — générateur non linéaire
@@ -542,3 +543,84 @@ accès au code, que la certification tient.
 Sources : [Loterie Romande — sélection de jeux RNG certifiés](https://loterieromande.fr/) ;
 [GLI — laboratoire d'audit RNG](https://www.gaminglabs.com/) ;
 [iTech Labs — certification RNG](https://itechlabs.com/).
+
+---
+
+## 14. Douzième voie : les champs jamais exploités (bonus, boost) — et une erreur corrigée en direct
+
+Un point légitime : la certification (§ 13) est une évidence, pas une
+preuve. Elle change le *a priori* — elle ne clôt pas la question. Deux
+choses restent hors de portée de toute analyse statistique externe, et
+il faut le dire clairement plutôt que de se cacher derrière un audit
+propre :
+
+- un **bug d'implémentation** passé les tests de certification (cas
+  réel : la fraude Hot Lotto de l'Iowa, 2005-2011, où l'employé chargé
+  d'auditer le générateur y avait lui-même inséré une porte dérobée
+  déclenchée trois jours par an) ;
+- un **accès privilégié** — code source, clé de graine, journal serveur.
+
+Aucune des deux n'est atteignable depuis les 70 560 sorties publiques.
+Ce que l'analyse externe peut faire, en revanche, c'est épuiser les
+champs **publics et jamais exploités**. Il en restait deux :
+`bonus` et `boost`.
+
+### bonus n'est pas un tirage indépendant
+
+`bonus` appartient aux 20 numéros du tirage dans **100 % des cas**
+(70 560/70 560), contre 25 % sous indépendance. Ce n'est donc pas une
+sortie séparée du générateur sur [1,80] — c'est la désignation d'un des
+20 numéros déjà sortis. Question naturelle : cette désignation
+encode-t-elle une position (la dernière boule tirée, par exemple),
+ce qui fuiterait de l'information d'ordre même quand l'API livre les
+numéros triés ? Rang du bonus dans le tirage trié, sur 19 degrés de
+liberté : **χ² = 27,46** (seuil p=0,05 → 30,14). Pas de biais de
+position démontrable.
+
+### boost n'a pas de mémoire
+
+`boost` (multiplicateur ∈ {1,2,3,4,5,10}, loi très asymétrique) :
+`boost(i)==boost(i+1)` observé à 34,46 %, contre 34,51 % attendu sous
+indépendance à partir de sa propre loi empirique (Σpₖ²). Écart nul.
+
+### Le test qui comptait — et l'erreur qu'il fallait attraper
+
+Reste la question composée : le recouvrement `overlap(i,i+1)`,
+conditionné à `bonus_i == bonus_{i+1}`, contient-il un signal ? Une
+première passe a comparé la moyenne conditionnelle observée (5,68 sur
+883 paires) à l'espérance **non conditionnelle** de 5,0 — et obtenu un
+**z = +11,98**. C'est faux, et il faut montrer pourquoi plutôt que de
+l'effacer silencieusement.
+
+`bonus_i` n'existe que parmi les numéros de `set_i` ; un match exige que
+le numéro soit présent dans **les deux** ensembles *et* désigné comme
+bonus dans les deux. Donc `P(match | overlap=k) = k/400` : conditionner
+sur « match » revient à sur-pondérer les tirages à fort recouvrement.
+Sous H₀ pur, `E[overlap | match] = E[K²]/E[K]`, où `K` suit
+l'hypergéométrique(80,20,20) : `E[K²] = Var(K) + E[K]² = 2,849 + 25 =
+27,849`, donc **5,5698** — pas 5,0. Une simulation directe (6 millions
+de paires SRS, 74 933 matches) confirme : **5,5699 ± 1,6346**. C'est un
+artefact de conditionnement, exactement le genre de biais de sélection
+qui produit de faux signaux quand on croit une intuition plutôt qu'un
+calibrage — la même discipline que les répliques nulles des §§ 11-12.
+
+Avec le nul correctement calibré : **z = +2,01 (p = 0,044)**. Isolé, sur
+un audit qui a désormais fait tourner plusieurs dizaines de
+configurations de test, un z de cet ordre est exactement la base rate
+attendue — la réplique nulle du § 11 en a produit un à +2,33, celle du
+§ 12 à +2,05, sur des données dont l'aléa était garanti par construction.
+Non significatif, et cohérent avec le reste de l'audit.
+
+### Ce que ça répond à la question posée
+
+Douze voies, deux d'entre elles portant spécifiquement sur des champs
+publics inexploités jusqu'ici. Toutes closes ou nulles. La certification
+n'a jamais été invoquée comme une preuve d'impossibilité — seulement
+comme un fait qui explique *pourquoi* on attend un résultat nul. Ce que
+ce dossier ne peut pas trancher — bug d'implémentation, accès privilégié
+— reste précisément ce qui échappe à toute analyse des sorties, quelle
+que soit sa profondeur : ce n'est pas une question de méthode
+supplémentaire, c'est une question d'accès qu'aucune quantité de calcul
+sur 70 560 lignes de CSV ne remplace.
+
+Script : `claude/tools/bonus.py`.
