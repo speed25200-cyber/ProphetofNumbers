@@ -199,6 +199,7 @@ C'est une classe que l'épuisement ne pourra jamais couvrir : 2¹⁹⁹³⁷ con
 | Graine dérivable (horloge, n° de tirage) | **Exclu** | Recherche de graine sur 8 familles |
 | **F₂-linéaire ≤ 1,4 Mbit (dont Mersenne Twister)** | **Exclu** | **Complexité linéaire (Berlekamp-Massey)** |
 | Rejeu de séquence (mode Corriveau) | **Exclu** | 2,489 milliards de paires, max 16/20 |
+| **État ≤ 40 bits en flux continu, famille quelconque** | **Exclu** | **Analogues — non paramétrique (§ 11)** |
 | Biais de fréquence ≥ 0,5 % / de paires ≥ 1,5 % | **Exclu** | χ² (null simulé) + 3 160 paires, Bonferroni |
 | Non linéaire à grand état (AES-DRBG, SHA-DRBG) | hors d'atteinte | aucune méthode connue depuis les sorties |
 | Quantique (type Quantis) | sans objet | pas d'état interne à reconstruire |
@@ -326,6 +327,7 @@ Le ré-amorçage horaire au démarrage de séance est donc écarté, sur les
 | Algébrique (Hensel, réseau) | démontré impossible pour observable en bits bas | — |
 | Rejeu de séquence | 2,489 milliards de paires | 0 |
 | Biais statistique | 15 tests, nulls simulés, Bonferroni | 0 |
+| **Analogues (non paramétrique)** | **4,98 G paires + 6 prédicteurs, portée mesurée 40 bits** | **0** |
 
 Toutes les voies connues ont été parcourues jusqu'à leur limite
 calculatoire ou démontrées closes. Ce qui reste — générateur non linéaire
@@ -394,3 +396,53 @@ Le seul angle qui reste spécifique à ce jeu — et il a été traité — est
 celui d'une primitive **faible** : c'est tout l'objet des §§ 3 à 8, et des
 outils de `tools/`. Neuf classes ont été fermées. La dixième ne relève
 plus de ce dossier.
+
+---
+
+## 11. Dixième voie : les analogues, et la mesure de ce qu'on aurait vu
+
+Les neuf voies du § 9 partagent un angle mort : **chacune nomme une
+famille d'algorithme**, ou une structure — la F₂-linéarité pour
+Berlekamp-Massey, la forme affine pour l'attaque algébrique. Un
+générateur hors des familles postulées y échappe par construction, aussi
+faible soit-il par ailleurs.
+
+Et aucune n'a mesuré sa propre puissance. Un résultat nul dont on ignore
+la sensibilité n'est pas un résultat : c'est une absence d'information.
+
+La dixième voie corrige les deux défauts à la fois. Elle ne suppose que
+le déterminisme de la transition d'état : si `S_{t+1} = g(S_t)` et
+`tirage_t = f(S_t)`, alors `S_i = S_j` implique `tirage_{i+1} =
+tirage_{j+1}` — sans qu'on ait besoin de connaître `g` ni `f`. Le
+recouvrement entre deux tirages devient un proxy observable de la
+proximité d'états, et l'on peut chercher dans le passé le meilleur
+analogue du tirage courant pour jouer son successeur. C'est la méthode
+des analogues de Lorenz (1969), appliquée à un flux de générateur.
+
+La puissance a été **mesurée** sur des fonctions aléatoires de 20 à
+44 bits — le modèle générique de toute application déterministe à `n`
+bits d'état, familles non publiées comprises. À `m = 70 560` tirages :
+détection franche à 40 bits (z = +231), extinction à 41. Le seuil
+théorique `2·log2(23m) − 0,65` vaut 40,4 : l'accord est exact. Les quatre
+témoins négatifs (LCG 48 bits, splitmix64, SHA-256 en compteur, SRS
+idéal) restent tous sous 2 σ.
+
+Sur les données réelles : `rho(O(i,j), O(i+1,j+1)) = −0,000009` sur
+4 978 431 364 paires, moyenne conditionnelle plate sur quatre décimales
+de k = 2 à k = 13, et six prédicteurs par analogue tous entre −1,2 σ et
++0,5 σ, de signe alternant.
+
+Ce résultat est nul, mais il est **quantifié** — c'est ce qui le
+distingue des neuf précédents. Il exclut, en régime de flux continu,
+toute famille d'état ≤ 40 bits, publiée ou non. En régime ré-amorcé à
+chaque tirage la borne est différente et plus basse : `m²/6 = 2^29,6`,
+par le paradoxe des anniversaires.
+
+Le test est passé en production comme huitième test de la batterie
+forensique de l'app, avec deux témoins déterministes en intégration
+continue — un état de 12 bits doit être vu, xorshift64 ne doit pas
+l'être. Sans témoin positif, un test qui ne déclenche jamais est
+indistinguable d'un test cassé.
+
+Méthode complète et tables : **`claude/ANALOGUES.md`**.
+Scripts : `claude/tools/analogue.py`, `power.py`, `power_full.py`.
