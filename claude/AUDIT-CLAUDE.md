@@ -678,3 +678,47 @@ données — elle tient fenêtre par fenêtre, y compris sur celles les plus
 proches de la mise en service.
 
 Script : `claude/tools/windowed.py`.
+
+---
+
+## 16. Quatorzième voie : celle que l'archive ne peut pas trancher — mise en instrumentation, pas en conclusion
+
+Treize voies statistiques sur les 70 560 tirages ont toutes convergé
+vers zéro (§ 9, mis à jour). Une remarque légitime, faite en cours de
+route : *certifié* ne veut pas dire *impossible*. C'est vrai, et il faut
+distinguer deux classes de défaillance très différentes plutôt que de
+répondre par une treizième statistique :
+
+- un défaut **cryptographique** du générateur lui-même — c'est ce que
+  les §§ 1 à 15 ont épuisé, sur toute la portée que 70 560 sorties
+  publiques permettent de couvrir ;
+- un défaut **d'infrastructure de publication** — le résultat devient-il
+  lisible avant la fermeture officielle des mises ? Ce n'est pas une
+  fuite de graine, c'est une fuite de timing, et sa nature est
+  complètement différente : elle ne dépend d'aucun algorithme
+  d'aléa, seulement d'une race condition ou d'un cache mal invalidé
+  côté serveur.
+
+La seconde classe est réelle — et **aucune analyse rétrospective du
+CSV ne peut y répondre**, pour une raison simple : l'archive ne contient
+pas l'heure de fermeture des mises (`wagerEndDate`), seulement le
+résultat final. La question n'est donc pas fermée par manque de
+persévérance ; elle est fermée par manque de la donnée nécessaire, que
+seule une collecte en direct peut produire.
+
+C'est ce qui a été construit plutôt qu'un nouveau test sur l'existant :
+`PublicationLatency` (`Prophet/Models/Types.swift`) enregistre, à chaque
+nouveau résultat détecté par l'app, le délai entre l'instant de clôture
+officiel annoncé par le payload précédent et l'instant où l'app voit
+effectivement le résultat. Persisté localement, agrégé dans
+`ProphetStore.publicationLatencyStats`, affiché dans une nouvelle carte
+dès 5 échantillons. Le signal à chercher serait un minimum négatif —
+un résultat vu *avant* la clôture. Sur la seule journée depuis
+l'installation, aucun échantillon n'existe encore en volume suffisant
+pour conclure quoi que ce soit ; c'est un instrument qui commence à
+tourner, pas une quatorzième ligne à zéro dans le tableau du § 9.
+
+**Cette voie reste donc ouverte** — au sens propre : elle continuera
+à accumuler des échantillons à chaque tirage, contrairement aux treize
+précédentes qui sont closes parce que leur portée calculatoire a été
+entièrement parcourue sur des données figées.
