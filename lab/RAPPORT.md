@@ -216,8 +216,23 @@ Deux choses à porter avec ce chiffre. D'abord, c'est encore une borne
 d'**omniscience** — et la pénalité d'identification du §3 bis y serait plus
 lourde qu'ailleurs, puisqu'il faudrait estimer une matrice de couplage et non
 dix numéros ; elle n'a pas été mesurée pour cette famille. Ensuite, la borne
-couvre le **premier ordre linéaire au lag 1** ; une structure non linéaire
-n'est pas bornée par ce calcul.
+couvre le **premier ordre linéaire au lag 1** ; étendre aux lags 1 à 100 ne
+la monterait que d'environ 5 % (correction de multiplicité), mais une
+dépendance **non linéaire** du tirage complet reste non bornée. C'est la
+limite que cette expérience lègue à la suivante.
+
+Détail de méthode qui n'en est pas un : l'écart-type du recouvrement moyen
+sur 70 559 paires **consécutives** vaut `0,00678` en simulation, contre
+`0,00635` si les paires étaient indépendantes — elles se chevauchent, et
+l'ignorer sous-estime la variance de 6,7 %. Une formule aurait donc produit
+un léger faux signal. C'est la quatrième fois dans ce dossier qu'un null
+tabulé aurait menti, après les trois du §1 de l'audit.
+
+Autre chose que le balayage a imposée contre l'intuition : l'adversaire
+optimal module **30 à 50 lignes**, soit deux fois plus que ce que le
+raisonnement naïf suggère. Son avantage sature à `min(chauds, 10)` — au-delà
+de dix numéros favorisés parmi les vingt du tirage précédent, la grille n'en
+profite plus, mais la détectabilité, elle, continue de se diluer.
 
 Le test matriciel n'existait pas avant cette expérience — il a donc été
 appliqué aux vraies données, pas seulement utilisé pour borner :
