@@ -43,13 +43,16 @@ Deux limites, à porter avec le résultat
    légèrement différent ne déplace guère la borne.
 
 2. La borne couvre les biais MARGINAUX — une déformation des fréquences
-   des 80 numéros. Un biais CONDITIONNEL (la loi du tirage dépendant du
-   précédent) a bien plus de paramètres et se détecte moins bien à
-   nombre de tirages égal : la borne y serait plus haute. Ce n'est pas
-   un angle mort du dossier pour autant — le test des analogues (§11 de
-   l'audit) couvre précisément la structure conditionnelle issue d'un
-   état déterministe, jusqu'à 40 bits, et rend zéro. Mais la borne
-   chiffrée ci-dessous ne vaut, elle, que pour le cas marginal.
+   des 80 numéros. Le cas CONDITIONNEL (la loi du tirage dépendant du
+   précédent) n'est pas couvert. On serait tenté de dire qu'il a plus de
+   paramètres, donc se détecte moins bien, donc que sa borne est plus
+   haute — mais c'est un raisonnement qui ne tient pas : sur la famille
+   la plus simple, le recouvrement moyen agrège 20 numéros à chaque pas
+   et devient très sensible, ce qui pourrait rendre la borne plus BASSE.
+   La question est traitée dans `c1_conditionnel.py` par le calcul, pas
+   ici par l'intuition. Indépendamment, le test des analogues (§11 de
+   l'audit) couvre déjà la structure conditionnelle issue d'un état
+   déterministe jusqu'à 40 bits, et rend zéro.
 """
 import os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

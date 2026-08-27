@@ -111,8 +111,18 @@ Deux limites déclarées : le seuil extrapole la queue du null par une
 gaussienne (300 réplicats ne donnent pas un quantile à 1,5 × 10⁻⁵), ce qui
 déplace le seuil sans déplacer l'ordre de grandeur puisque la puissance passe
 de 1 % à 44 % entre d = 0,002 et 0,003 ; et la borne couvre les biais
-**marginaux**, le cas conditionnel relevant du test des analogues (§11 de
-l'audit, nul jusqu'à 40 bits d'état).
+**marginaux**.
+
+Le cas **conditionnel** — une loi du tirage `t+1` qui dépend du tirage `t` —
+n'est pas couvert par ce calcul. L'intuition qu'il aurait une borne plus
+haute, ayant plus de paramètres, n'est pas fiable : sur la famille la plus
+simple (rémanence des 20 numéros du tirage précédent), le recouvrement moyen
+agrège les 20 numéros à chaque pas et devient une statistique très
+sensible — la borne pourrait donc être plus BASSE. La question est traitée
+séparément dans `c1_conditionnel.py` plutôt que tranchée ici par
+raisonnement. À noter que le test des analogues (§11 de l'audit) couvre déjà
+la structure conditionnelle issue d'un état déterministe ≤ 40 bits, et rend
+zéro.
 
 ## 4. Le boost — le seul endroit où le signe de l'espérance pourrait changer
 

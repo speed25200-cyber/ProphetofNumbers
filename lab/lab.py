@@ -242,6 +242,18 @@ class Past:
         """(80,) tirages écoulés depuis la dernière sortie de chaque numéro."""
         return self.t - 1 - self._arch.last[self.t - 1]
 
+    def counts_window(self, w: int) -> np.ndarray:
+        """(80,) sorties sur les `w` derniers tirages, en O(1).
+
+        Différence de deux préfixes du cumul. Comme `counts`, l'objet ne
+        lit jamais au-delà de `t-1`, et `leak_check` réécrit les cumuls
+        en même temps que les tirages — un décalage d'indice ici serait
+        donc attrapé, pas masqué par un cache périmé.
+        """
+        hi = self._arch.cum[self.t - 1]
+        lo = self.t - 1 - w
+        return hi if lo < 0 else hi - self._arch.cum[lo]
+
 
 def walk_forward(archive: Archive, predict, k: int = 10, warmup: int = 200,
                  stop: int | None = None) -> np.ndarray:
