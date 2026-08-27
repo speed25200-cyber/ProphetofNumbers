@@ -100,6 +100,35 @@ est plus dur, et il ne dispose pour cela que des mêmes données. Toute borne
 de piste A doit donc préciser laquelle des trois elle établit —
 `c2_apprentissage.py` mesure l'écart entre les deux dernières.
 
+## Vérifier du Swift sans compilateur Swift
+
+Aucune toolchain Swift n'est joignable depuis cet environnement
+(`download.swift.org` est bloqué par la politique réseau, et le paquet apt
+« swift » est le stockage OpenStack), et SwiftUI ne compile de toute façon
+que sur Apple. Compter les accolades ne prouve rien. Deux outils remplacent
+ce qu'ils peuvent remplacer, et disent ce qu'ils ne couvrent pas.
+
+```
+python3 lab/verif_swift.py [ref]     # syntaxe, par une vraie grammaire Swift
+python3 lab/verif_logique.py         # justesse numérique, par exécution
+```
+
+`verif_swift.py` parse avec `tree-sitter-swift` et signale les nœuds ERROR
+et MISSING. Il compare à une **référence git** plutôt que d'exiger zéro :
+la grammaire a des limites connues sur `x as? T ?? y` et sur un opérateur
+en tête de ligne de suite, deux constructions présentes dans du code qui
+tourne en production. Ce qui se contrôle utilement est le delta.
+
+`verif_logique.py` transcrit fidèlement les fonctions ajoutées — même
+formule, même ordre d'opérations — et vérifie que chaque assertion des tests
+Swift serait satisfaite, aux cinq mises.
+
+Ce que ces deux outils **ne** couvrent pas : le typage. Un désaccord de types
+resterait invisible. Le risque de typage le plus probable ici étant l'ordre
+des arguments d'un initialiseur par membre, il est contrôlé à part en
+extrayant l'ordre des champs de chaque `struct` et en le comparant à celui
+de son site de construction.
+
 ## Ce qui ne peut pas être tranché ici
 
 L'archive est **triée** : `n1..n20` est croissant sur les 70 560 lignes, donc
