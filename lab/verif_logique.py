@@ -125,6 +125,23 @@ def main():
           f"  {'ok' if worst < 1e-12 else 'ÉCHEC'}")
     ok &= worst < 1e-12
 
+    # 1 bis. overlapSD : la formule fermée du code contre la loi terme à terme.
+    # C'est testDisplayedSigmaUsesTheExactLawNotAnEstimate.
+    tot = exact_comb(80, 20)
+    mean = sum(o * exact_comb(20, o) * exact_comb(60, 20 - o) / tot for o in range(21))
+    square = sum(o * o * exact_comb(20, o) * exact_comb(60, 20 - o) / tot for o in range(21))
+    sd_loi = (square - mean * mean) ** 0.5
+    sd_code = (20 * 0.25 * (1 - 0.25) * (80 - 20) / (80 - 1)) ** 0.5
+    a = abs(mean - 5.0) < 1e-9
+    b = abs(sd_loi - sd_code) < 1e-9
+    c = abs(sd_code - 1.6876317) < 1e-6
+    print(f"\n1 bis. overlapSD : espérance {mean:.12f} (attendu 5)  "
+          f"{'ok' if a else 'ÉCHEC'}")
+    print(f"       loi terme à terme {sd_loi:.12f} contre formule fermée "
+          f"{sd_code:.12f}  {'ok' if b else 'ÉCHEC'}")
+    print(f"       valeur affichée dans le test 1,6876317  {'ok' if c else 'ÉCHEC'}")
+    ok &= a and b and c
+
     for stake in (5, 6, 7, 8, 10):
         tail = [hypergeometric_tail(stake, t) for t in range(stake + 1)]
         p_all = hypergeometric_p_all(stake)
