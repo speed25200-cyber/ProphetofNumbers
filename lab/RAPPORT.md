@@ -287,7 +287,72 @@ pourrait porter un canal — un générateur qui fait du rejet met plus longtemp
 valent 1 à 4 secondes. Il n'y a rien à mesurer. De même, l'ordre de sortie
 des boules est absent des **huit** fichiers (0 tirage non trié sur 70 560).
 
-**Registre entier : m = 3 304 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
+**23ᵉ voie — la VALEUR du bonus** (`d7_bonus.py`). Le bonus est un numéro
+publié à chaque tirage : 70 560 échantillons, et une **seconde sortie du
+générateur**. L'audit avait testé son *rang* dans le tirage trié et le
+recouvrement conditionné à une correspondance ; personne n'avait regardé sa
+*valeur*. Cinq statistiques, null simulé sur 300 archives complètes **avec**
+un bonus tiré uniformément parmi les 20 :
+
+```
+loi marginale sur les 80 numéros        z = +0,99   p = 0,349
+bonus_t -> bonus_{t+1} (matrice 80x80)  z = +1,92   p = 0,057
+bonus_t dans le tirage t+1              z = −2,58   p = 0,010
+rang du bonus, re-dérivé                z = +1,35   p = 0,160
+balayage 60 lags, max calibré           max |z| = 2,42 au lag 1, p = 0,638
+```
+
+**Et ici la table de l'audit était juste.** Son test de rang comparait
+χ²(19) = 27,46 à un seuil **tabulé** de 30,14, sans null simulé — la règle
+n° 1 du labo ne lui avait jamais été appliquée. Re-dérivé : le null simulé
+vaut `19,06 ± 6,23` contre la théorie `19,00 ± 6,16`. Après cinq occasions
+où une table a menti dans ce dossier, il faut dire quand elle ne ment pas.
+
+### Le résidu le plus cohérent du dossier — et ce qu'il vaut
+
+`V3` mérite un traitement à part (`d7b_chasse.py`). Contrairement à `S1`, il
+survit à **toutes** les vérifications que l'archive permet :
+
+- **Réplication** : même signe dans les deux moitiés (`z = −2,30` et
+  `−1,13`) et dans 7 huitièmes sur 8. `S1` changeait de camp.
+- **Spécificité de lag** : le lag 1 est singulier. Les lags 2 à 30 ont une
+  moyenne de `z` de `+0,011` (H₀ : 0 ± 0,186) et 13 négatifs sur 29 — du
+  bruit pur.
+- **Placebo** : en remplaçant le bonus par un des 20 numéros tiré nous-mêmes,
+  l'écart disparaît (cinq essais entre `−0,70` et `+1,45`). Il est spécifique
+  au champ bonus réel, pas au calcul ni aux tirages.
+- **Ce n'est pas une dérive du tirage** : le recouvrement global des mêmes
+  paires va en sens *opposé* (`+0,30`).
+
+Ce qu'il faudrait pour le trancher, s'il était réel et stable :
+
+| seuil visé | N total | à collecter | jours |
+|---|---|---|---|
+| p = 0,05 (test unique) | 46 166 | déjà atteint | — |
+| p = 0,001 | 130 037 | 59 477 | 292 |
+| seuil Holm du registre | 222 133 | 151 573 | **743** |
+
+**Mais la question qui décide n'est pas celle-là.** Les probabilités
+d'inclusion somment à 20 : si le bonus précédent tombe à `0,246049`, les
+79 autres montent à `0,250050`. Un joueur qui éviterait systématiquement le
+bonus du tirage précédent gagnerait donc :
+
+```
+grille de 5  :  1,25025 hits au lieu de 1,25000
+grille de 10 :  2,50050 hits au lieu de 2,50000        soit +0,02 %
+```
+
+**Une part sur cinq mille.** Même en supposant l'écart entièrement réel et
+stable, l'exploiter ne rapporte rien — un déficit sur *un* numéro parmi 80 se
+dilue sur les 79 autres, et une grille n'en coche que 5 à 10. À comparer au
+plafond de la piste A (+3,46 %), à ce que l'app affiche à tort (+18 à +34 %),
+et à l'avantage de la maison (−25 à −35 %).
+
+C'est la conclusion la plus utile de toute la recherche de biais : le plus
+beau résidu que 70 560 tirages puissent produire, à supposer qu'il soit réel,
+vaut deux centièmes de pourcent.
+
+**Registre entier : m = 3 306 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
 0 significatif.** Ce compte augmente à chaque expérience ; `lab.holm()` le
 recalcule depuis `ledger.jsonl` et fait foi sur toute valeur citée ici.
 
