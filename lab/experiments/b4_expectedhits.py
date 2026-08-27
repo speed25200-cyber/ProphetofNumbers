@@ -152,6 +152,57 @@ def correction():
     print("de sélection, et non une propriété des données.")
 
 
+def greedy_pick(score, k, cap):
+    """`greedyPick` (Swarm.swift:1194) réduit à ce qui compte ici.
+
+    C'est un top-k sous plafond par dizaine. Le plafond vaut `k` pour
+    alpha et omega — il ne mord donc jamais — et max(2, ceil(k/5)+1)
+    pour nexus. Les ajustements propres à nexus (boost PMI, équilibre
+    pair/impair) et à omega (pénalité d'adjacence) sont omis : ils
+    perturbent l'ordre à la marge sans découpler la sélection du score,
+    qui est le seul mécanisme en cause ici.
+    """
+    picked, dec = [], [0] * 8
+    for n in np.argsort(-score):
+        d = n // 10
+        if dec[d] >= cap:
+            continue
+        picked.append(n)
+        dec[d] += 1
+        if len(picked) == k:
+            break
+    return np.array(picked)
+
+
+def decade_cap():
+    """Le plafond par dizaine atténue-t-il l'artefact ? Non — mesuré.
+
+    On pourrait espérer que la contrainte de répartition décorrèle la
+    sélection du score et amortisse la malédiction du vainqueur. Elle ne
+    le fait pas : 8 dizaines à 3 numéros laissent 24 places pour 10
+    choix, la contrainte ne mord donc presque jamais. L'artefact vaut
+    pour les 12 grilles, pas seulement pour les 8 non contraintes.
+    """
+    import lab
+    rng = np.random.default_rng(7)
+    print("\n" + "=" * 74)
+    print("LE PLAFOND PAR DIZAINE ATTÉNUE-T-IL L'ARTEFACT ?")
+    print("=" * 74)
+    for stake in (5, 10):
+        base = stake * 0.25
+        print(f"\nmise {stake} — base honnête {base:.3f}")
+        for nom, cap in (("alpha / omega (plafond = k, jamais actif)", stake),
+                         ("nexus (plafond = max(2, ceil(k/5)+1))", max(2, -(-stake // 5) + 1))):
+            vals = []
+            for _ in range(1500):
+                incl, ew, hw = run_heads(lab.srs(400, rng))
+                score = (zscore(ew) + zscore(hw)) / 2      # tagBlend(.momentum)
+                vals.append(incl[greedy_pick(score, stake, cap)].sum())
+            v = np.array(vals)
+            print(f"  {nom:44s} {v.mean():.3f}  ({(v.mean()-base)/base:+.1%})")
+
+
 if __name__ == "__main__":
     main()
     correction()
+    decade_cap()

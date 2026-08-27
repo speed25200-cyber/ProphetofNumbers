@@ -597,9 +597,12 @@ def main():
               f"{sp}/concentré = {ratio(p_sp, p_conc):.2f}   "
               f"{sp}/identiques = {ratio(p_sp, p_id):.2f}")
         t_md = k - 1
-        p_sp_m = mc[sp]["p_max_ge"][t_md]
-        p_iid_m = mc["iid"]["p_max_ge"][t_md]
-        print(f"  P(>=1 grille à >={t_md}) MC   {sp}/iid = {ratio(p_sp_m, p_iid_m):.4f}")
+        p_sp_m = ex[sp]["p_max_ge"].get(t_md, mc[sp]["p_max_ge"][t_md])
+        p_iid_m = ex["iid"]["p_max_ge"][t_md]
+        print(f"  P(>=1 grille à >={t_md}) exact/IE2   {sp}/iid = {ratio(p_sp_m, p_iid_m):.4f}")
+        t_lo = k - 2
+        print(f"  P(>=1 grille à >={t_lo}) MC   {sp}/iid = "
+              f"{ratio(mc[sp]['p_max_ge'][t_lo], mc['iid']['p_max_ge'][t_lo]):.4f}")
         print(f"  Var(total hits) exacte    iid/{sp} = "
               f"{ex['iid']['var'] / ex[sp]['var']:.2f}   "
               f"concentré/{sp} = {ex['conc']['var'] / ex[sp]['var']:.2f}   "
