@@ -47,7 +47,7 @@ un biais ?**
 
 ## 2. Il n'y en a pas — et on sait désormais à quelle sensibilité
 
-`claude/AUDIT-CLAUDE.md` avait fermé quatorze voies. Le labo en ajoute trois,
+`claude/AUDIT-CLAUDE.md` avait fermé quatorze voies. Le labo en ajoute quatre,
 choisies pour leurs angles morts, et — c'est la différence — **mesure sa
 propre puissance** à chaque fois.
 
@@ -134,8 +134,59 @@ crête — 0,01 écart-type par tirage, un ordre de grandeur sous le plafond du
 puissance au seuil Holm est donc ≤ à celle affichée (même convention que la
 16ᵉ voie).
 
-**Registre entier : m = 3 290 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
-0 significatif.**
+**18ᵉ voie — la structure de troisième ordre : les 82 160 triplets**
+(`d1_triplets.py`). Le §2 de l'audit avait testé les 3 160 paires
+(|z|max = 3,68, conforme) ; les C(80,3) = 82 160 triplets — un espace 26
+fois plus grand, et le mode de défaillance classique des générateurs à
+faible discrépance (les hyperplans de Marsaglia portent précisément sur la
+dimension 3 et au-delà) — n'avaient jamais été comptés. Chaque triplet
+apparaît ~979 fois (sd 31) sur les 70 560 tirages : largement testable.
+Trois statistiques pré-enregistrées, une par régime de défaut : **max de
+|z|** sur les 82 160 comptes (anomalie localisée), **somme des z²**
+(structure diffuse), **max de |z| sur 5 agrégats structurés** — progressions
+arithmétiques (1 560 triplets), même dizaine (960), même reste mod 2, 5, 10
+(19 760, 2 800, 560) — le motif qu'un défaut de discrépance produirait.
+Les comptes ne sont pas indépendants (leur somme vaut exactement 1 140·N,
+et deux triplets partageant deux numéros sont corrélés) : l'écart-type
+simulé de l'agrégat mod 2 vaut 12 749 contre 4 354 si les cases étaient
+indépendantes, celui de la même-dizaine 1 768 contre 960 — une loi tabulée
+mentirait ici dans les deux sens selon la famille. Les trois nulls sont
+donc simulés sur 300 archives SRS complètes (mêmes réplicats partagés).
+
+**Nul partout.** Le max observé vaut **|z| = 4,75** (triplet {10, 15, 38},
+832 sorties au lieu de 979) — contre un seuil de test unique ce serait une
+anomalie à 4,7 σ ; contre la loi simulée du max sur 82 160 cases
+(4,48 ± 0,27), **p = 0,31**. C'est l'artefact de la 16ᵉ voie, réapparu à
+l'identique et neutralisé par le même protocole. Somme des z² : z = −0,34,
+p = 0,72. Motif : p = 1,00, le plus grand agrégat (mod 5) vaut z = −1,44.
+Les 50 triplets les plus déviants ne dessinent rien : 0 progression
+arithmétique, 0 même-dizaine, 0 consécutif (nulls simulés 1,0 / 0,6 /
+0,04) ; le seul écart nominal — 18/50 de même parité contre 11,7 attendu,
+P = 0,050 — est un diagnostic parmi six, et la base rate suffit.
+**Puissance** :
+
+| défaut injecté (amplitude connue par construction) | détecteur | puissance |
+|---|---|---|
+| 8 triplets sur-représentés de +18 % chacun (+174 occurrences/triplet) | max | 1,00 |
+| idem, +13 % | max | 0,53 |
+| idem, +9 % | max | 0,03 |
+| famille AP entière gonflée de +0,37 % (un AP forcé dans 8 % des tirages) | motif | 0,83 (max : 0,00) |
+| idem, +0,18 % | motif | 0,27 |
+| pool groupé : 40 numéros à +0,68 % marginal, 9 880 cases à ≈ +0,6 σ | sumsq | 0,53 (max : 0,00) |
+
+Une sur-représentation localisée devient donc invisible sous ≈ +15 % par
+triplet (~130 sorties en excès sur 979), un motif AP diffus sous ≈ +0,3 %
+d'excès agrégé — et les trois statistiques voient bien trois choses
+différentes : le max ne voit pas le diffus, le motif ne voit pas le
+localisé, sumsq seule voit le pool groupé (témoin qui serait de toute
+façon attrapé d'abord par le χ² marginal, voie fermée). Réplicats : null
+300, puissance 30/point au plancher empirique du null (p = 3,3 × 10⁻³) ;
+le seuil Holm final est plus strict, la puissance y est ≤ à celle
+affichée. Run complet ~12 min.
+
+**Registre entier : m = 3 296 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
+0 significatif.** Ce compte augmente à chaque expérience ; `lab.holm()` le
+recalcule depuis `ledger.jsonl` et fait foi sur toute valeur citée ici.
 
 ## 3. Le plafond : ce que l'ignorance résiduelle peut au maximum valoir
 
