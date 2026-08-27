@@ -47,7 +47,7 @@ un biais ?**
 
 ## 2. Il n'y en a pas — et on sait désormais à quelle sensibilité
 
-`claude/AUDIT-CLAUDE.md``claude/AUDIT-CLAUDE.md` avait fermé quatorze voies. Le labo en ajoute trois,
+`claude/AUDIT-CLAUDE.md` avait fermé quatorze voies. Le labo en ajoute trois,
 choisies pour leurs angles morts, et — c'est la différence — **mesure sa
 propre puissance** à chaque fois.
 
@@ -134,7 +134,7 @@ crête — 0,01 écart-type par tirage, un ordre de grandeur sous le plafond du
 puissance au seuil Holm est donc ≤ à celle affichée (même convention que la
 16ᵉ voie).
 
-**Registre entier : m = 3 287 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
+**Registre entier : m = 3 278 tests dépensés, seuil Holm p < 1,53 × 10⁻⁵,
 0 significatif.**
 
 ## 3. Le plafond : ce que l'ignorance résiduelle peut au maximum valoir
@@ -297,7 +297,7 @@ T2  somme des carrés de Ĉ   3,164e-03  z = −0,30   p = 0,787
 
 Rien. Recouvrement maximal observé sur 70 559 paires consécutives : 13.
 
-## 3 sexies. La question qu'aucun test individuel ne pose
+## 3 quinquies. La question qu'aucun test individuel ne pose
 
 Holm répond à « **un** de ces tests est-il significatif ? ». Ce n'est pas la
 seule question. Une source légèrement défaillante ne produirait pas un test

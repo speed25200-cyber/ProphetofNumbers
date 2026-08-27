@@ -379,7 +379,7 @@
     <div class="kicker">
       <span>Loto Express · Loterie Romande</span>
       <span>70 560 tirages</span>
-      <span>13 expériences · 3 266 tests dépensés</span>
+      <span>14 expériences · 3 287 tests dépensés</span>
     </div>
     <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
     <p class="standfirst">
@@ -512,8 +512,8 @@
         attente — moins de variation que le hasard, pas plus.
       </p>
       <p>
-        <strong>Registre entier&nbsp;: 3 266 tests dépensés, seuil corrigé
-        <code>p &lt; 1,53 × 10⁻⁵</code>, zéro significatif.</strong>
+        <strong>Registre entier&nbsp;: 3 287 tests dépensés, seuil corrigé
+        <code>p &lt; 1,52 × 10⁻⁵</code>, zéro significatif.</strong>
       </p>
     </div>
   </section>
@@ -654,6 +654,69 @@
   </section>
 
   <section>
+    <h2>La question qu'aucun test individuel ne pose</h2>
+    <div class="col">
+      <p>
+        La correction de multiplicité répond à «&nbsp;<em>un</em> de ces tests est-il
+        significatif&nbsp;?&nbsp;». Ce n'est pas la seule question. Une source légèrement
+        défaillante ne produirait pas un test franc — elle produirait un <strong>léger excès
+        diffus</strong> réparti sur beaucoup de tests, dont aucun ne franchirait son seuil.
+        C'est exactement ce qu'une correction conçue pour être conservatrice ne peut pas voir.
+      </p>
+      <p>
+        Sous équité, les p-values de tests indépendants sont uniformes. Testé sur les
+        <strong>52 valeurs défendables</strong> du registre, avec un null simulé qui rejoue la
+        structure de dépendance — car un Fisher tabulé sur des p corrélées fabrique des
+        découvertes.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Quatre combinaisons, quatre sensibilités différentes</caption>
+        <thead>
+          <tr><th>combinaison</th><th>ce qu'elle voit</th><th>observé</th><th>p</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Fisher</td><td>les petites p</td><td>114,53</td><td>0,193</td></tr>
+          <tr><td>Stouffer</td><td>un décalage cohérent</td><td>0,766</td><td>0,302</td></tr>
+          <tr><td>Kolmogorov-Smirnov</td><td>la distribution entière</td><td>0,117</td><td>0,454</td></tr>
+          <tr><td>Anderson-Darling</td><td>les queues</td><td>0,559</td><td>0,741</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Conforme partout. <strong>Puissance mesurée</strong> sur une dérive diffuse&nbsp;: une dérive
+        forte serait vue à 100 %, une dérive faible à 13 %. Elle resterait donc invisible — dit
+        franchement plutôt que caché derrière un «&nbsp;conforme&nbsp;».
+      </p>
+
+      <h3>Le dernier signal résiduel de l'audit ne survit pas</h3>
+      <p>
+        L'audit gardait un <code>p = 0,041</code>, son plus petit — un test de compressibilité à
+        <code>L = 14</code>. Ce chiffre était <strong>tabulé</strong>, avec un échantillon 450 fois
+        sous la recommandation de la norme. La règle du null simulé ne lui avait jamais été
+        appliquée.
+      </p>
+      <p>
+        Re-dérivé sur le pipeline complet contre un null simulé, il passe à <code>0,047</code>. Et
+        surtout&nbsp;: l'écart était dans le sens <strong>«&nbsp;trop aléatoire&nbsp;»</strong> —
+        flux <em>moins</em> compressible qu'attendu, ce qui est incompatible avec une source
+        défaillante dès le départ. Affaibli, et de toute façon orienté du mauvais côté pour
+        signifier quoi que ce soit.
+      </p>
+    </div>
+
+    <div class="pull">
+      Un biais réel, réglé pour produire exactement le χ² observé, serait presque indistinguable
+      d'une fluctuation à cette taille d'échantillon. L'archive seule ne peut pas répliquer ce
+      signal — seules des données nouvelles le pourraient.
+    </div>
+  </section>
+
+  <section>
     <h2>Ce que l'app affiche — le seul vrai problème du dossier</h2>
     <div class="col">
       <p>
@@ -769,7 +832,7 @@
   </section>
 
   <footer>
-    <span>Treize expériences · registre pré-enregistré · nulls simulés</span>
+    <span>Quatorze expériences · registre pré-enregistré · nulls simulés</span>
     <span>Puissance mesurée à chaque voie</span>
     <span>Zéro significatif après correction de multiplicité</span>
   </footer>
