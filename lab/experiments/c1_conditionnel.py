@@ -278,7 +278,7 @@ def main():
     print(f"{'d':>9} {'puissance T1':>13}")
     env_diag = None
     diag_id = np.arange(lab.POOL)
-    for i, d in enumerate((0.0007, 0.0010, 0.0014, 0.0019, 0.0026)):
+    for i, d in enumerate((0.0009, 0.0011, 0.0013, 0.0016, 0.0020)):
         pw = lab.power(t1_overlap,
                        lambda mask, rg, d=d: gen_conditional(len(mask), diag_id, diag_id, d, rg),
                        N, null1, reps=REPS_POWER, seed=300 + i, alpha_z=z_crit)
@@ -299,7 +299,7 @@ def main():
     print(f"{'d':>9} {'puissance T2':>13}")
     d_ref = best[1]
     env_pair = None
-    for i, f in enumerate((0.55, 0.75, 1.0, 1.35, 1.8)):
+    for i, f in enumerate((0.65, 0.8, 0.9, 1.0, 1.15)):
         d = round(f * d_ref, 4)
 
         def contaminate(mask, rg, d=d):
