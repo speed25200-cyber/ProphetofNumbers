@@ -2,17 +2,31 @@ import XCTest
 @testable import Prophet
 
 final class OracleTests: XCTestCase {
-    // Graine par défaut : 20260824 déclenchait `duplicateAlert` à 80
-    // tirages (dupMax=14/3160 paires, cf. testDuplicateAlertIsCalibrated
-    // ci-dessous — la formule anti-rejeu est correcte, à 1% de seuil elle
-    // se déclenche par hasard sur une fraction des graines, et celle-ci
-    // en faisait partie). 2026 a une marge confortable (dupMax=11).
-    func syntheticHistory(count: Int = 80, seed initialSeed: UInt64 = 2026) -> [Draw] {
+    // Source « équitable » de référence des tests : tout ce qui suit
+    // suppose que cet historique est indiscernable du hasard.
+    //
+    // Les bits de POIDS FORT du LCG, jamais `seed % 80`. Dans un LCG
+    // modulo 2^64, le bit k a une période de 2^(k+1) : le quartet de
+    // poids faible se répète toutes les 16 valeurs. Comme 80 = 16 × 5,
+    // `seed % 80` hérite directement de ce cycle de 16 et l'historique
+    // « aléatoire » porte alors une structure réelle. Elle est invisible
+    // sur les moyennes (recouvrement moyen entre tirages : 4,996 contre
+    // 5,000 en théorie) mais gonfle la queue haute, précisément ce que
+    // regarde l'anti-rejeu : sur 1 000 graines, dupMax montait à 14-15 et
+    // `duplicateAlert` se déclenchait sur 1,7 % d'entre elles — dont
+    // 20260824, la graine par défaut, d'où l'échec CI de
+    // testBacktestIsWalkForward. Le détecteur avait raison ; c'est le
+    // montage de test qui n'était pas aléatoire.
+    //
+    // Avec `>> 33`, sur les mêmes 1 000 graines : dupMax plafonne à 13 et
+    // le taux d'alerte tombe à 0 %. Même convention que la source
+    // équitable de testAnalogueTestStaysSilentOnAFairSource.
+    func syntheticHistory(count: Int = 80, seed initialSeed: UInt64 = 20260824) -> [Draw] {
         var draws: [Draw] = []
         var seed: UInt64 = initialSeed
         func next() -> UInt64 {
             seed = seed &* 6364136223846793005 &+ 1
-            return seed
+            return seed >> 33
         }
         for i in 1...count {
             var set = Set<Int>()
@@ -80,6 +94,8 @@ final class OracleTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(result.adjacencyMean, 0)
         XCTAssertTrue(result.adjacencyZ.isFinite)
         // Anti-rejeu : recouvrement plausible sur du hasard, aucune alerte.
+        // Le taux, plutôt que cette seule graine, est vérifié par
+        // testDuplicateAlertIsCalibrated.
         XCTAssertTrue((0...20).contains(result.duplicateMax))
         XCTAssertGreaterThanOrEqual(result.duplicateMax, 5)
         XCTAssertFalse(result.duplicateAlert)
@@ -416,15 +432,19 @@ final class OracleTests: XCTestCase {
     }
 
     func testDuplicateAlertIsCalibrated() {
-        // Régression CI : la graine par défaut 20260824 déclenchait
-        // `duplicateAlert` sur 80 tirages (dupMax=14/3160 paires,
-        // pairCount*dupTail=0,0018 < 0,01). Vérifié en Python : ce n'est
-        // pas un bug de la formule anti-rejeu — c'est un seuil à 1%
-        // qui, par construction, se déclenche sur environ 1 à 2% des
-        // graines. Un test qui exige `XCTAssertFalse` sur UNE graine
-        // fixe est donc fragile par nature ; celui-ci vérifie plutôt le
-        // TAUX sur plusieurs graines, la bonne façon de tester un seuil
-        // statistique calibré.
+        // Garde-fou de la régression CI qui faisait tomber
+        // testBacktestIsWalkForward : `duplicateAlert` se déclenchait sur
+        // la graine par défaut parce que syntheticHistory tirait les bits
+        // de poids faible du LCG (cf. son commentaire). Un XCTAssertFalse
+        // sur UNE graine fixe ne distingue pas « le détecteur est calibré »
+        // de « cette graine a de la chance » ; le taux sur plusieurs
+        // graines, si.
+        //
+        // La formule est une borne d'union à 1 % : sur une source vraiment
+        // équitable elle plafonne donc à ~1 % par construction. Mesuré sur
+        // 1 000 graines du générateur corrigé : 0 alerte. Si ce test
+        // repasse au rouge, c'est soit le détecteur soit le montage qui a
+        // cessé d'être aléatoire — les deux valent qu'on regarde.
         var alerts = 0
         let seeds: [UInt64] = Array(1...60)
         for seed in seeds {
@@ -432,8 +452,8 @@ final class OracleTests: XCTestCase {
             if result.duplicateAlert { alerts += 1 }
         }
         XCTAssertLessThanOrEqual(
-            Double(alerts) / Double(seeds.count), 0.15,
-            "Taux d'alerte anti-rejeu anormalement élevé sur du hasard (attendu ~1-2%)"
+            Double(alerts) / Double(seeds.count), 0.05,
+            "Taux d'alerte anti-rejeu anormalement élevé sur du hasard (attendu 0, borne théorique 1 %)"
         )
     }
 
