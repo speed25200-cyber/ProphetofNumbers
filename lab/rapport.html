@@ -1,0 +1,717 @@
+<title>De combien peut-on améliorer les prédictions ?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #F0F1EE;
+    --surface:    #FFFFFF;
+    --ink:        #191C1F;
+    --muted:      #6E756F;
+    --faint:      #8E948E;
+    --rule:       #D3D6D0;
+    --rule-soft:  #E3E5E0;
+    --null:       #40596B;
+    --null-soft:  #E2E8EC;
+    --flag:       #A63D28;
+    --flag-soft:  #F4E4DF;
+    --measure:    68ch;
+
+    --s1: 0.35rem; --s2: 0.7rem;  --s3: 1.1rem; --s4: 1.75rem;
+    --s5: 2.75rem; --s6: 4.25rem; --s7: 6.5rem;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body:    "Newsreader", Georgia, "Times New Roman", serif;
+    --data:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #14161A;
+      --surface:   #1B1E23;
+      --ink:       #E7E9E4;
+      --muted:     #9AA19B;
+      --faint:     #767C77;
+      --rule:      #2E333A;
+      --rule-soft: #23272D;
+      --null:      #8FB0C4;
+      --null-soft: #1F2A33;
+      --flag:      #E0836A;
+      --flag-soft: #33211C;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #14161A;
+    --surface:   #1B1E23;
+    --ink:       #E7E9E4;
+    --muted:     #9AA19B;
+    --faint:     #767C77;
+    --rule:      #2E333A;
+    --rule-soft: #23272D;
+    --null:      #8FB0C4;
+    --null-soft: #1F2A33;
+    --flag:      #E0836A;
+    --flag-soft: #33211C;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.0625rem;
+    line-height: 1.62;
+    margin: 0;
+    padding: var(--s5) var(--s3) var(--s7);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 78rem; margin: 0 auto; }
+  .col  { max-width: var(--measure); }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { border-top: 2px solid var(--ink); padding-top: var(--s3); }
+
+  .kicker {
+    font-family: var(--data);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s3);
+    margin-bottom: var(--s4);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 6vw, 3.9rem);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 0 0 var(--s3);
+    max-width: 20ch;
+  }
+
+  .standfirst {
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 52ch;
+    margin: 0 0 var(--s5);
+  }
+  .standfirst em { color: var(--ink); font-style: italic; }
+
+  /* ---------- the four measurements ---------- */
+
+  .readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-bottom: var(--s3);
+  }
+
+  .cell {
+    background: var(--surface);
+    padding: var(--s3) var(--s3) var(--s4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+  }
+  .cell.is-flagged { background: var(--flag-soft); }
+
+  .cell-label {
+    font-family: var(--display);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--muted);
+    min-height: 3.6em;
+  }
+  .cell.is-flagged .cell-label { color: var(--flag); }
+
+  .cell-value {
+    font-family: var(--data);
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(1.7rem, 4vw, 2.5rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--null);
+  }
+  .cell.is-flagged .cell-value { color: var(--flag); }
+
+  .cell-note {
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--faint);
+  }
+
+  .readout-caption {
+    font-family: var(--data);
+    font-size: 0.75rem;
+    color: var(--faint);
+    margin-bottom: var(--s6);
+  }
+
+  /* ---------- sections ---------- */
+
+  section { margin-bottom: var(--s6); }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    letter-spacing: -0.018em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0 0 var(--s3);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--rule);
+    max-width: 34ch;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: -0.005em;
+    margin: var(--s4) 0 var(--s2);
+  }
+
+  p { margin: 0 0 var(--s3); }
+  .col p:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 500; color: var(--ink); }
+  em { font-style: italic; }
+
+  code, .num {
+    font-family: var(--data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9em;
+  }
+  code { color: var(--null); }
+
+  .flag { color: var(--flag); font-weight: 500; }
+
+  /* ---------- data blocks ---------- */
+
+  .scroller { overflow-x: auto; margin: var(--s4) 0; }
+
+  table {
+    border-collapse: collapse;
+    font-family: var(--data);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    width: 100%;
+    min-width: 30rem;
+  }
+  caption {
+    font-family: var(--display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding-bottom: var(--s2);
+  }
+  th, td {
+    text-align: right;
+    padding: 0.44rem 0.9rem 0.44rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; padding-left: 0; }
+  thead th {
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.75rem;
+  }
+  tbody tr.is-key td { background: var(--null-soft); font-weight: 600; }
+  tbody tr.is-flagged td { background: var(--flag-soft); color: var(--flag); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- the null line ---------- */
+
+  .nullline {
+    margin: var(--s5) 0;
+    padding: var(--s4) 0 var(--s3);
+    border-top: 1px solid var(--rule);
+  }
+  .nullline-head {
+    font-family: var(--data);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: var(--s3);
+  }
+  .bars { display: flex; flex-direction: column; gap: 0.55rem; }
+  .bar {
+    display: grid;
+    grid-template-columns: minmax(9rem, 13rem) 1fr minmax(4.5rem, auto);
+    align-items: center;
+    gap: var(--s3);
+    font-family: var(--data);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .bar-name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track {
+    position: relative;
+    height: 1.4rem;
+    background: var(--rule-soft);
+    border-left: 2px solid var(--null);
+  }
+  .bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--null);
+    opacity: 0.45;
+  }
+  .bar.is-flagged .bar-track { border-left-color: var(--flag); }
+  .bar.is-flagged .bar-fill { background: var(--flag); opacity: 0.75; }
+  .bar-val { text-align: right; color: var(--ink); }
+  .bar.is-flagged .bar-val { color: var(--flag); font-weight: 600; }
+
+  /* ---------- the field of 80 ---------- */
+
+  .field {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 3px;
+    max-width: 15rem;
+    margin: var(--s3) 0 var(--s2);
+  }
+  .field span {
+    aspect-ratio: 1;
+    background: var(--rule-soft);
+    border-radius: 1px;
+  }
+  .field span.on { background: var(--null); }
+
+  /* ---------- pull quote ---------- */
+
+  .pull {
+    border-left: 3px solid var(--null);
+    padding: var(--s2) 0 var(--s2) var(--s3);
+    margin: var(--s4) 0;
+    font-size: 1.1rem;
+    line-height: 1.45;
+    color: var(--ink);
+    max-width: 46ch;
+  }
+  .pull.is-flagged { border-left-color: var(--flag); }
+
+  /* ---------- decisions ---------- */
+
+  ol.decisions { list-style: none; counter-reset: d; padding: 0; margin: var(--s4) 0 0; }
+  ol.decisions > li {
+    counter-increment: d;
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: var(--s3);
+    padding: var(--s3) 0;
+    border-top: 1px solid var(--rule-soft);
+    max-width: 62ch;
+  }
+  ol.decisions > li::before {
+    content: counter(d);
+    font-family: var(--data);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--null);
+    padding-top: 0.32em;
+  }
+  ol.decisions .d-head {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: var(--s1);
+  }
+  ol.decisions p { font-size: 0.9375rem; color: var(--muted); margin: 0; }
+
+  /* ---------- limits ---------- */
+
+  ul.limits { list-style: none; padding: 0; margin: var(--s3) 0 0; max-width: 62ch; }
+  ul.limits li {
+    padding: var(--s2) 0 var(--s2) var(--s3);
+    border-left: 1px solid var(--rule);
+    margin-bottom: var(--s2);
+    font-size: 0.9375rem;
+    color: var(--muted);
+  }
+  ul.limits strong { color: var(--ink); }
+
+  footer {
+    border-top: 2px solid var(--ink);
+    padding-top: var(--s3);
+    margin-top: var(--s6);
+    font-family: var(--data);
+    font-size: 0.75rem;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s3);
+  }
+
+  @media (max-width: 34rem) {
+    .bar { grid-template-columns: 1fr; gap: var(--s1); }
+    .bar-track { height: 1rem; }
+    .cell-label { min-height: 0; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="kicker">
+      <span>Loto Express · Loterie Romande</span>
+      <span>70 560 tirages</span>
+      <span>11 expériences · 3 251 tests dépensés</span>
+    </div>
+    <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
+    <p class="standfirst">
+      Le seul écart substantiel trouvé dans tout le dossier n'est pas dans le générateur.
+      Il est dans <em>ce que l'app affiche à son utilisateur</em>.
+    </p>
+  </header>
+
+  <div class="readout">
+    <div class="cell">
+      <div class="cell-label">Amélioration par une meilleure prédiction</div>
+      <div class="cell-value">0 %</div>
+      <div class="cell-note">Théorème, pas résultat empirique</div>
+    </div>
+    <div class="cell">
+      <div class="cell-label">Plafond d'un biais non détecté, pour qui connaîtrait la règle</div>
+      <div class="cell-value">+1,33 %</div>
+      <div class="cell-note">Borne d'omniscience</div>
+    </div>
+    <div class="cell">
+      <div class="cell-label">Ce qu'un joueur pourrait réellement en tirer</div>
+      <div class="cell-value">≈ +1,0 %</div>
+      <div class="cell-note">Il doit d'abord identifier le biais</div>
+    </div>
+    <div class="cell is-flagged">
+      <div class="cell-label">Avantage que l'app affiche sur des données équitables</div>
+      <div class="cell-value">+18 à 34 %</div>
+      <div class="cell-note">Entièrement artefactuel</div>
+    </div>
+  </div>
+  <p class="readout-caption">Rendement, en hits par grille de 10 numéros, rapporté à la base 2,50.</p>
+
+  <section>
+    <h2>La prédiction est plafonnée à zéro, pas «&nbsp;difficile&nbsp;»</h2>
+    <div class="col">
+      <p>
+        Sous l'hypothèse d'équité, les hits d'une grille de <code>k</code> numéros suivent une
+        hypergéométrique (80, 20, k), d'espérance <code>k/4</code> — <strong>quel que soit le choix
+        des numéros</strong>. L'espérance d'une hypergéométrique ne dépend pas de <em>quels</em>
+        numéros on coche, seulement de combien.
+      </p>
+      <p>
+        Ce n'est pas une observation qu'un meilleur modèle pourrait démentir&nbsp;: c'est une
+        identité. Chauds, froids, retards, essaim de 26 têtes, régression sur 14 traits — tout
+        donne <code>k/4</code>.
+      </p>
+    </div>
+
+    <div class="nullline">
+      <div class="nullline-head">Sept stratégies · marche avant sur 70 060 tirages · base 2,5000</div>
+      <div class="bars">
+        <div class="bar"><span class="bar-name">les plus chauds</span><span class="bar-track"><span class="bar-fill" style="width:30.6%"></span></span><span class="bar-val">2,5074</span></div>
+        <div class="bar"><span class="bar-name">les plus froids</span><span class="bar-track"><span class="bar-fill" style="width:20.8%"></span></span><span class="bar-val">2,5051</span></div>
+        <div class="bar"><span class="bar-name">chauds sur 200</span><span class="bar-track"><span class="bar-fill" style="width:20.4%"></span></span><span class="bar-val">2,5050</span></div>
+        <div class="bar"><span class="bar-name">plus gros retard</span><span class="bar-track"><span class="bar-fill" style="width:12.2%"></span></span><span class="bar-val">2,5030</span></div>
+        <div class="bar"><span class="bar-name">modèle appris, 14 traits</span><span class="bar-track"><span class="bar-fill" style="width:8.2%"></span></span><span class="bar-val">2,5023</span></div>
+        <div class="bar"><span class="bar-name">chauds sur 20</span><span class="bar-track"><span class="bar-fill" style="width:5.0%"></span></span><span class="bar-val">2,4988</span></div>
+        <div class="bar"><span class="bar-name">fixe 1..10 (témoin)</span><span class="bar-track"><span class="bar-fill" style="width:12.0%"></span></span><span class="bar-val">2,4971</span></div>
+      </div>
+      <p class="readout-caption" style="margin-top:var(--s3)">
+        Barres&nbsp;: écart absolu à 2,5000, en écarts-types de la moyenne (0,0049). Aucune ne
+        dépasse 1,6&nbsp;σ. Les sept prédicteurs ont passé le contrôle de fuite.
+      </p>
+    </div>
+
+    <div class="col">
+      <p>
+        Toute la question «&nbsp;peut-on mieux prédire&nbsp;» se réduit donc à une seule&nbsp;:
+        <strong>existe-t-il un biais&nbsp;?</strong>
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Il n'y en a pas — et on sait désormais à quelle sensibilité</h2>
+    <div class="col">
+      <p>
+        Un audit antérieur avait fermé quatorze voies. Le labo en ajoute deux, choisies pour leurs
+        angles morts, et — c'est la différence — <strong>mesure sa propre puissance</strong> à
+        chaque fois. Un résultat nul dont on ignore la sensibilité n'est pas un résultat&nbsp;:
+        c'est une absence d'information.
+      </p>
+      <h3>15ᵉ voie — démarrage à froid aux 345 reprises de session</h3>
+      <p>
+        L'audit n'attaquait ces reprises qu'en postulant une famille d'algorithme. La question
+        statistique non paramétrique n'avait jamais été posée. Huit tests pré-enregistrés, nulls
+        simulés à la taille de cohorte. Nul&nbsp;: ni champ déformé, ni rémanence d'état — le
+        recouvrement avec le dernier tirage d'avant la coupure vaut <code>4,870</code>, <em>sous</em>
+        5 et non au-dessus.
+      </p>
+      <h3>16ᵉ voie — rupture à résolution libre</h3>
+      <p>
+        Balayage à pas fin, 4 statistiques, fenêtres de 200 à 9 000 tirages. Le maximum observé
+        vaut <code>|z| = 5,24</code> — contre un seuil de test unique, cela annoncerait une rupture
+        à 5&nbsp;σ. Calibré contre la loi du maximum <em>du même balayage</em> sur 300 archives
+        simulées&nbsp;: <code>p = 0,066</code>.
+      </p>
+    </div>
+
+    <div class="pull">
+      C'est l'artefact que tout le protocole existe pour neutraliser, et il apparaît ici sur les
+      vraies données.
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Ce qui aurait pu passer inaperçu — puissance du balayage</caption>
+        <thead>
+          <tr><th>fenêtre corrompue</th><th>+5 %</th><th>+10 %</th><th>+20 %</th><th>+40 %</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>200 tirages (≈ 1 jour)</td><td>0,00</td><td>0,00</td><td>0,00</td><td>0,58</td></tr>
+          <tr><td>500 tirages</td><td>0,00</td><td>0,00</td><td>0,28</td><td>1,00</td></tr>
+          <tr><td>2 000 tirages (≈ 10 jours)</td><td>0,00</td><td>0,10</td><td>1,00</td><td>1,00</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        <strong>Registre entier&nbsp;: 3 251 tests dépensés, seuil corrigé
+        <code>p &lt; 1,54 × 10⁻⁵</code>, zéro significatif.</strong>
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Détecter n'est pas identifier</h2>
+    <div class="col">
+      <p>
+        Le <code>+1,33 %</code> est une borne d'<em>omniscience</em>&nbsp;: il suppose la règle
+        connue. Un vrai joueur ne l'a pas. Il doit deviner <em>quels</em> numéros sont biaisés, à
+        partir des mêmes données — et cette seconde étape est plus dure que la détection. Le χ² met
+        en commun l'écart des 80 numéros pour dire «&nbsp;quelque chose cloche&nbsp;»&nbsp;; il ne
+        dit pas quoi.
+      </p>
+      <div class="field" aria-hidden="true">
+        <span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span>
+        <span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="readout-caption">
+        Le champ de 80. L'adversaire optimal biaise exactement autant de numéros que la grille en
+        coche — dix, vérifié par balayage.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Oracle contre meilleur identificateur possible</caption>
+        <thead>
+          <tr><th>biais d</th><th>χ²</th><th>détecté&nbsp;?</th><th>oracle</th><th>identifié</th><th>part captée</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>0,002</td><td>58</td><td>non</td><td>2,5168</td><td>2,4967</td><td>−20 %</td></tr>
+          <tr class="is-key"><td>0,003</td><td>112</td><td>oui</td><td>2,5387</td><td>2,5248</td><td>64 %</td></tr>
+          <tr><td>0,005</td><td>166</td><td>oui</td><td>2,5545</td><td>2,5440</td><td>81 %</td></tr>
+          <tr><td>0,008</td><td>397</td><td>oui</td><td>2,6000</td><td>2,5982</td><td>98 %</td></tr>
+          <tr><td>0,020</td><td>1 916</td><td>oui</td><td>2,7399</td><td>2,7399</td><td>100 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        À la frontière de détection, l'identification n'en capte que <strong>64 %</strong>&nbsp;: le
+        plafond réalisable tombe à <code>+0,99 %</code>. En dessous du seuil, la part captée devient
+        <em>négative</em> — le joueur suit du bruit et perd le peu qu'il y avait.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Enrichir un modèle le dégrade quand il n'y a rien à trouver</h2>
+    <div class="col">
+      <p>
+        L'objection qui restait&nbsp;: les stratégies naïves sont naïves. On a donc donné à une
+        régression logistique <em>tous</em> les champs — fréquences sur quatre fenêtres, fréquence
+        longue, retard, présence aux trois derniers tirages, co-occurrence, heure locale cyclique,
+        boost et bonus du tirage précédent — réajustée en marche avant.
+      </p>
+      <p>
+        Sur les vraies données&nbsp;: <code>2,5023</code> hits, <code>z = +0,41</code>. Rien. Mais
+        un témoin positif a <strong>échoué</strong>, et c'est le résultat le plus instructif du
+        labo&nbsp;: le modèle ne voit pas un biais marginal sous <code>d = 0,020</code>, alors que
+        le χ² le détecte dès <code>0,005</code>.
+      </p>
+      <p>
+        Vérification que la contamination n'était pas en cause, puis mécanisme isolé&nbsp;: à
+        <code>d = 0,003</code>, le poids appris sur le seul trait informatif vaut
+        <code>+0,0014</code> — zéro — pendant qu'un poids parasite de <code>−0,53</code> sur la
+        co-occurrence domine le classement.
+      </p>
+    </div>
+
+    <div class="nullline">
+      <div class="nullline-head">Numéros biaisés effectivement retenus, sur les dix</div>
+      <div class="bars">
+        <div class="bar"><span class="bar-name">modèle, 14 traits</span><span class="bar-track"><span class="bar-fill" style="width:0%"></span></span><span class="bar-val">0 / 10</span></div>
+        <div class="bar"><span class="bar-name">« fréquence longue » seule</span><span class="bar-track"><span class="bar-fill" style="width:60%"></span></span><span class="bar-val">6 / 10</span></div>
+      </div>
+      <p class="readout-caption" style="margin-top:var(--s3)">
+        Le seuil n'est donc pas celui du signal, c'est celui de l'apprentissage du poids. Ajouter
+        des données le déplacerait&nbsp;; ajouter des traits non.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce que l'app affiche — le seul vrai problème du dossier</h2>
+    <div class="col">
+      <p>
+        Sur <em>chaque</em> grille, l'app met côte à côte «&nbsp;<span class="num">ESPÉRANCE 3,35
+        hits</span>&nbsp;» et «&nbsp;<span class="num">HASARD 2,50 hits</span>&nbsp;». Cette
+        espérance est la somme d'un posterior Beta à mémoire 33 sur les numéros
+        <strong>sélectionnés</strong> par un score corrélé à ce même posterior.
+      </p>
+      <p>
+        On affiche donc la moyenne d'un estimateur bruité aux points où ce bruit est maximal. C'est
+        la malédiction du vainqueur&nbsp;: elle est positive à chaque tirage, sur chaque grille, et
+        ne se compense pas.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Mesuré sur données équitables par construction — mise de 10</caption>
+        <thead>
+          <tr><th>sélection</th><th>affiché</th><th>réel</th><th>surestimation</th></tr>
+        </thead>
+        <tbody>
+          <tr class="is-flagged"><td>mélange z (ce que fait l'app)</td><td>3,354</td><td>2,500</td><td>+34 %</td></tr>
+          <tr class="is-flagged"><td>mini-essaim 14 têtes (émulation indépendante)</td><td>2,960</td><td>2,500</td><td>+18 %</td></tr>
+          <tr class="is-key"><td>aléatoire (témoin)</td><td>2,499</td><td>2,500</td><td>+0,0 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Le témoin aléatoire tombe pile sur la base&nbsp;: l'écart des autres lignes vient bien de la
+        sélection, et non d'un biais de l'estimateur ou d'un bug du simulateur.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      L'app connaît déjà cette erreur — ailleurs. Un autre écran avertit&nbsp;: «&nbsp;Choisir le
+      vainqueur après coup surestime toujours.&nbsp;» C'est exactement le mécanisme en cause, énoncé
+      correctement pour la meilleure tête et commis sans avertissement sur les douze grilles.
+    </div>
+
+    <div class="col">
+      <p>
+        La correction est vérifiée, pas seulement proposée. Estimer sur une fenêtre <em>disjointe</em>
+        de celle qui sélectionne ramène l'affichage sur la base&nbsp;: <code>2,501</code> contre
+        <code>2,500</code>. Ce qui est aussi la réponse de fond — sous équité, il n'y a
+        <strong>aucun avantage à afficher</strong>, et une estimation honnête le dit toute seule.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce qu'il faudrait faire, par ordre de valeur réelle</h2>
+    <ol class="decisions">
+      <li>
+        <div>
+          <div class="d-head">Corriger l'espérance affichée sur les grilles</div>
+          <p>La seule affirmation fausse que voit l'utilisateur. Correction d'une ligne&nbsp;: afficher <code>k/4</code>, exact et sans estimation.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="d-head">Renommer la confiance</div>
+          <p>Elle est honnête — centrée à 49,9 sous équité — mais son nom promet une probabilité qu'elle n'est pas. Quand l'app affiche 70, l'événement se produit 37,4 % du temps, exactement comme quand elle affiche 50.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="d-head">Instrumenter le boost avant clôture</div>
+          <p>Seul point du dossier capable de changer le <em>signe</em> de l'espérance. A priori négatif, mais non tranché&nbsp;: l'archive ne contient pas l'heure de clôture.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="d-head">Revoir la géométrie des douze grilles</div>
+          <p>Variance divisée par 3,75 à 5,25 et risque de tout perdre ramené à zéro — mais la probabilité de grille pleine reste inchangée à 1 % près. À présenter comme un lissage du risque, jamais comme de la prédiction.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="d-head">Supprimer un champ mort et faux</div>
+          <p>La probabilité de grille pleine calculée sur les mêmes valeurs gonflées est fausse d'un facteur 22 — mais n'est jamais lue. Bug latent, pas mensonge à l'écran.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="d-head">Mettre au conditionnel l'argument «&nbsp;Furtif&nbsp;»</div>
+          <p>Éviter les numéros populaires ne rapporte que si les gains sont partagés entre gagnants — ce que rien dans le dossier n'établit. Et le modèle de popularité est une heuristique écrite à la main.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Ce que ce labo ne peut pas trancher</h2>
+    <ul class="limits">
+      <li>
+        <strong>L'ordre de sortie des boules.</strong> L'archive est triée. Un tirage ordonné
+        porterait ≈ 124 bits contre 61,6 pour l'ensemble trié — le plus gros gain d'information
+        disponible. L'app teste déjà la question à chaque tirage, et jette la réponse.
+      </li>
+      <li>
+        <strong>Le flux en direct.</strong> Réseau fermé depuis l'environnement d'analyse. Le boost
+        avant clôture et la latence de publication demandent l'app sur un téléphone.
+      </li>
+      <li>
+        <strong>Un défaut d'implémentation ou un accès privilégié.</strong> Hors de portée de toute
+        analyse de sorties publiques, quelle qu'en soit la profondeur. Ce n'est pas une question de
+        méthode, mais d'accès.
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Onze expériences · registre pré-enregistré · nulls simulés</span>
+    <span>Puissance mesurée à chaque voie</span>
+    <span>Zéro significatif après correction de multiplicité</span>
+  </footer>
+
+</div>
