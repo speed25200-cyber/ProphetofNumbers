@@ -142,6 +142,53 @@ def main():
     print(f"       valeur affichée dans le test 1,6876317  {'ok' if c else 'ÉCHEC'}")
     ok &= a and b and c
 
+    # 1 ter. testRestartMixtureSeesALateDefectThatACumulativeBetCannot :
+    # même arithmétique, même graine, même LCG que le test Swift.
+    import math as _m
+
+    def _lope(x):
+        if x == -_m.inf:
+            return 0.0
+        return x + _m.log1p(_m.exp(-x)) if x > 0 else _m.log1p(_m.exp(x))
+
+    def _traj(defect_first):
+        seed = 20260827
+        m64 = (1 << 64) - 1
+
+        def bern(q):
+            nonlocal seed
+            seed = (seed * 6364136223846793005 + 1442695040888963407) & m64
+            return 1.0 if (seed >> 33) / 2147483648.0 < q else 0.0
+
+        theta, pb = 0.40, 0.25
+        log_m = _m.log(pb * _m.exp(theta) + (1 - pb))
+        quiet, loud = 20000, 400
+        cum, sr, mc, ms = 0.0, -_m.inf, 0.0, -_m.inf
+        for t in range(quiet + loud):
+            biased = t < loud if defect_first else t >= quiet
+            x = 1.0 if biased else bern(pb)
+            lf = theta * x - log_m
+            cum += lf
+            sr = _lope(sr) + lf
+            mc = max(mc, cum)
+            ms = max(ms, sr - _m.log(t + 1))
+        return _m.exp(cum), _m.exp(mc), _m.exp(sr - _m.log(quiet + loud)), _m.exp(ms)
+
+    lc_f, lc_s, ls_f, _ = _traj(False)
+    ec_f, ec_s, _, es_s = _traj(True)
+    checks = [
+        ("valeur finale du pari cumule identique tot/tard",
+         abs(lc_f - ec_f) <= 1e-12 * max(1.0, ec_f), f"{lc_f:.3e} contre {ec_f:.3e}"),
+        ("defaut TARDIF : sup du pari cumule sous 20", lc_s < 20, f"{lc_s:.3f}"),
+        ("defaut TARDIF : redemarrages au-dessus de 1e20", ls_f > 1e20, f"{ls_f:.3e}"),
+        ("temoin, defaut TOT : sup du pari cumule au-dessus de 20", ec_s > 20, f"{ec_s:.3e}"),
+        ("temoin, defaut TOT : redemarrages au-dessus de 1e20", es_s > 1e20, f"{es_s:.3e}"),
+    ]
+    print("\n1 ter. melange de redemarrages (Shiryaev-Roberts) :")
+    for label, good, val in checks:
+        print(f"       {label:<52} {val:>12}   {'ok' if good else 'ÉCHEC'}")
+        ok &= good
+
     for stake in (5, 6, 7, 8, 10):
         tail = [hypergeometric_tail(stake, t) for t in range(stake + 1)]
         p_all = hypergeometric_p_all(stake)

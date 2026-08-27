@@ -283,6 +283,80 @@ final class OracleTests: XCTestCase {
         return r
     }
 
+    func testLogOnePlusExpIsStableAtBothEnds() {
+        // Brique de la récurrence de Shiryaev-Roberts. Elle doit valoir 0 en
+        // −∞ (R₀ = 0, donc le premier pas donne R₁ = f₁) et ne pas déborder
+        // pour un x grand, où log(1+eˣ) ≈ x.
+        XCTAssertEqual(SwarmEngine.logOnePlusExp(-.infinity), 0, accuracy: 1e-15)
+        XCTAssertEqual(SwarmEngine.logOnePlusExp(0), log(2.0), accuracy: 1e-12)
+        XCTAssertEqual(SwarmEngine.logOnePlusExp(-40), log(1 + exp(-40.0)), accuracy: 1e-15)
+        XCTAssertEqual(SwarmEngine.logOnePlusExp(700), 700, accuracy: 1e-9)
+        XCTAssertTrue(SwarmEngine.logOnePlusExp(700).isFinite,
+                      "exp(700) déborde — la forme x + log1p(e^-x) ne doit pas être évaluée naïvement")
+    }
+
+    func testRestartMixtureSeesALateDefectThatACumulativeBetCannot() {
+        // Le labo (`lab/experiments/f2_eprocessus.py`) a mesuré ce que coûte un
+        // pari jamais relancé : le MÊME défaut est détecté 1,00 fois sur 1
+        // quand il tombe tôt dans la série, 0,00 quand il tombe tard.
+        //
+        // La cause n'est pas un manque de sensibilité, c'est de l'arithmétique.
+        // Un pari cumulé depuis le premier tirage vaut exp(Σ log f), et une
+        // somme ne dépend pas de l'ordre : sa valeur FINALE est identique que
+        // le défaut soit au début ou à la fin. Ce qui change, c'est son
+        // maximum courant — le seul chiffre que l'inégalité de Ville autorise
+        // à lire. Un défaut tardif arrive sur une richesse déjà effondrée par
+        // 20 000 pas de dérive négative, et le maximum ne bouge plus.
+        //
+        // Ce test rejoue le mécanisme sur la famille de l'écho du bonus, dont
+        // la loi sous H0 est une Bernoulli(20/80) exacte.
+        let theta = 0.40
+        let p = ProphetConst.baseP
+        let logM = log(p * exp(theta) + (1 - p))
+
+        func trajectory(defectFirst: Bool) -> (cumFinal: Double, cumSup: Double,
+                                               srFinal: Double, srSup: Double) {
+            var seed: UInt64 = 20260827
+            func bernoulli(_ q: Double) -> Double {
+                seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                return Double(seed >> 33) / 2147483648.0 < q ? 1 : 0
+            }
+            let quiet = 20_000, loud = 400
+            var cum = 0.0, sr = -Double.infinity
+            var maxCum = 0.0, maxSR = -Double.infinity
+            for t in 0..<(quiet + loud) {
+                let biased = defectFirst ? t < loud : t >= quiet
+                let x = biased ? 1.0 : bernoulli(p)
+                let logF = theta * x - logM
+                cum += logF
+                sr = SwarmEngine.logOnePlusExp(sr) + logF
+                maxCum = max(maxCum, cum)
+                maxSR = max(maxSR, sr - log(Double(t + 1)))
+            }
+            return (exp(cum), exp(maxCum), exp(sr - log(Double(quiet + loud))), exp(maxSR))
+        }
+
+        let late = trajectory(defectFirst: false)
+        let early = trajectory(defectFirst: true)
+
+        // Le pari cumulé finit au même endroit dans les deux cas — la preuve
+        // que sa valeur finale ignore QUAND le défaut s'est produit.
+        XCTAssertEqual(late.cumFinal, early.cumFinal, accuracy: 1e-12 * max(1, early.cumFinal))
+
+        // Défaut TARDIF : le pari cumulé ne franchit jamais le seuil de 20,
+        // même en regardant son maximum sur toute la trajectoire.
+        XCTAssertLessThan(late.cumSup, 20,
+                          "un pari jamais relancé reste aveugle à un défaut tardif")
+        // Le mélange de redémarrages, lui, le voit — et de très loin.
+        XCTAssertGreaterThan(late.srFinal, 1e20)
+
+        // Témoin POSITIF : quand le défaut est au DÉBUT, le pari cumulé le voit
+        // parfaitement. Sans ce témoin, le test ne distinguerait pas « aveugle
+        // à un défaut tardif » de « cassé ».
+        XCTAssertGreaterThan(early.cumSup, 20)
+        XCTAssertGreaterThan(early.srSup, 1e20)
+    }
+
     func testDisplayedSigmaUsesTheExactLawNotAnEstimate() {
         // « ÉCART AU HASARD — +x.xx σ » divisait par un écart-type ESTIMÉ sur
         // les 60 derniers tirages. Or cet écart-type est une CONSTANTE : pour

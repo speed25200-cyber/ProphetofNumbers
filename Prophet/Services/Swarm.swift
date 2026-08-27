@@ -678,8 +678,38 @@ final class SwarmEngine {
     private var cumLoss: [Double] = []
     private var hedgeCumLoss = 0.0
     private var adaGap = 1e-3
-    // E-process en mélange de martingales : grille de tailles d'effet ±θ.
+    // MARK: E-process — mélange de martingales, et mélange de REDÉMARRAGES
+    //
+    // Un e-processus est une martingale positive d'espérance 1 sous H0 : par
+    // Ville, P(sup_t E_t ≥ 1/α) ≤ α, valide à tout instant d'arrêt. Et la
+    // moyenne d'e-valeurs étant une e-valeur, un portefeuille se lit sans la
+    // moindre correction de multiplicité.
+    //
+    // Le labo (`lab/experiments/f2_eprocessus.py`) a mesuré ce qu'un tel
+    // portefeuille coûte, et le résultat impose une correction ici : un pari
+    // JAMAIS RELANCÉ est une seule martingale cumulée depuis le premier
+    // tirage, et sous H0 elle décroît presque sûrement vers 0. Le même défaut
+    // injecté tôt dans une archive est détecté 1,00 fois sur 1 ; injecté tard,
+    // 0,00 — parce qu'il doit d'abord rembourser une richesse déjà effondrée
+    // avant de commencer à accumuler sa propre preuve.
+    //
+    // D'où le mélange sur les instants de redémarrage (Shiryaev-Roberts) :
+    //
+    //     R_t = (1 + R_{t-1}) · f_t   =   Σ_{k≤t} Π_{s=k..t} f_s
+    //
+    // R_t/t est la moyenne de t e-processus démarrés à t instants différents,
+    // donc une e-valeur — et la récurrence coûte une ligne, en O(1) de temps
+    // comme de mémoire. Un biais apparu hier est vu par le pari relancé hier.
+    //
+    // Deux familles de paris, sur les deux seules quantités dont la loi sous
+    // H0 est EXACTE ici : le recouvrement du top-20 (hypergéométrique) et
+    // l'écho du bonus (Bernoulli 0,25), le résidu le plus cohérent du dossier.
     private var eLogs: [Double] = []
+    private var srLogs: [Double] = []
+    private var eBonusLogs: [Double] = []
+    private var srBonusLogs: [Double] = []
+    private var eSteps = 0
+    private var eBonusSteps = 0
     // Anti-rejeu (bug Corriveau) : recouvrement max entre deux tirages.
     private var drawArchive: [(number: Int, set: Set<Int>)] = []
     private var dupMax = 0
@@ -699,6 +729,7 @@ final class SwarmEngine {
     private static let thetaGrid: [Double] = [0.05, 0.10, 0.20, 0.40, -0.05, -0.10, -0.20, -0.40]
     private let overlapPMF: [Double]
     private let logMs: [Double]
+    private let logMsBonus: [Double]
 
     init() {
         var pmf = [Double](repeating: 0, count: Self.drawN + 1)
@@ -715,6 +746,11 @@ final class SwarmEngine {
             }
             return log(m)
         }
+        // Écho du bonus : X = 1[bonus du tirage précédent ∈ tirage courant],
+        // Bernoulli(20/80) sous H0. m(θ) = p·e^θ + (1−p), exact.
+        logMsBonus = Self.thetaGrid.map { theta in
+            log(Self.baseP * exp(theta) + (1 - Self.baseP))
+        }
         resetState()
     }
 
@@ -728,6 +764,12 @@ final class SwarmEngine {
         hedgeCumLoss = 0
         adaGap = 1e-3
         eLogs = [Double](repeating: 0, count: Self.thetaGrid.count)
+        // R_0 = 0, donc log R_0 = −∞ : le premier pas donne R_1 = f_1.
+        srLogs = [Double](repeating: -.infinity, count: Self.thetaGrid.count)
+        eBonusLogs = [Double](repeating: 0, count: Self.thetaGrid.count)
+        srBonusLogs = [Double](repeating: -.infinity, count: Self.thetaGrid.count)
+        eSteps = 0
+        eBonusSteps = 0
         drawArchive = []
         dupMax = 0
         generation = 0
@@ -828,10 +870,23 @@ final class SwarmEngine {
         ensembleOv.append(overlap)
         if ensembleOv.count > 480 { ensembleOv.removeFirst() }
         // Mélange de martingales : chaque θ de la grille vise une taille de
-        // biais différente ; la moyenne reste une e-valeur valide.
+        // biais différente ; la moyenne reste une e-valeur valide. Chaque
+        // pari est tenu deux fois — depuis le premier tirage, et relancé à
+        // chaque tirage (Shiryaev-Roberts), pour rester capable de voir un
+        // biais apparu tard. Le plafond à 80 ne fait que RÉDUIRE la richesse :
+        // il garde l'objet sur-martingale, donc l'e-valeur reste valide.
+        let echoHit = lastBonus.map { drawn.contains($0) ? 1.0 : 0.0 }
         for j in 0..<Self.thetaGrid.count {
-            eLogs[j] = min(80, eLogs[j] + Self.thetaGrid[j] * overlap - logMs[j])
+            let logF = Self.thetaGrid[j] * overlap - logMs[j]
+            eLogs[j] = min(80, eLogs[j] + logF)
+            srLogs[j] = min(80, Self.logOnePlusExp(srLogs[j]) + logF)
+            guard let x = echoHit else { continue }
+            let logG = Self.thetaGrid[j] * x - logMsBonus[j]
+            eBonusLogs[j] = min(80, eBonusLogs[j] + logG)
+            srBonusLogs[j] = min(80, Self.logOnePlusExp(srBonusLogs[j]) + logG)
         }
+        eSteps += 1
+        if echoHit != nil { eBonusSteps += 1 }
 
         // AdaHedge : pertes ∈ [0,1], η = ln(N)/Δ où Δ est l'écart de
         // mixabilité cumulé — auto-réglé, regret optimal sans paramètre.
@@ -976,9 +1031,18 @@ final class SwarmEngine {
         var confidence = Int(round(50 + 14 * btZ))
         confidence = max(5, min(95, confidence))
 
+        // Portefeuille : 32 paris à poids égaux — deux familles, huit tailles
+        // d'effet, chacun compté depuis le début ET relancé à chaque tirage.
+        // La moyenne d'e-valeurs est une e-valeur : aucune correction due.
         var eSum = 0.0
-        for logW in eLogs { eSum += exp(min(60, logW)) }
-        let eValue = eLogs.isEmpty ? 1 : eSum / Double(eLogs.count)
+        var eCount = 0
+        let logT = log(Double(max(1, eSteps)))
+        let logTB = log(Double(max(1, eBonusSteps)))
+        for logW in eLogs { eSum += exp(min(60, logW)); eCount += 1 }
+        for logW in eBonusLogs { eSum += exp(min(60, logW)); eCount += 1 }
+        for logR in srLogs { eSum += exp(min(60, logR - logT)); eCount += 1 }
+        for logR in srBonusLogs { eSum += exp(min(60, logR - logTB)); eCount += 1 }
+        let eValue = (eCount == 0 || eSteps == 0) ? 1 : eSum / Double(eCount)
 
         // Anti-rejeu : borne d'union sur toutes les paires de l'archive.
         let mm = Double(drawArchive.count)
@@ -1432,6 +1496,13 @@ final class SwarmEngine {
             if n <= pool - 10, drawn.contains(n + 10) { c += 1 }
         }
         return c
+    }
+
+    /// log(1 + e^x), stable des deux côtés — et log(1) = 0 en −∞, ce qui
+    /// démarre correctement la récurrence de Shiryaev-Roberts.
+    static func logOnePlusExp(_ x: Double) -> Double {
+        if x == -.infinity { return 0 }
+        return x > 0 ? x + log1p(exp(-x)) : log1p(exp(x))
     }
 
     private static func comb(_ n: Int, _ k: Int) -> Double {
