@@ -2,9 +2,9 @@ import XCTest
 @testable import Prophet
 
 final class OracleTests: XCTestCase {
-    func syntheticHistory(count: Int = 80) -> [Draw] {
+    func syntheticHistory(count: Int = 80, seed initialSeed: UInt64 = 20260824) -> [Draw] {
         var draws: [Draw] = []
-        var seed: UInt64 = 20260824
+        var seed: UInt64 = initialSeed
         func next() -> UInt64 {
             seed = seed &* 6364136223846793005 &+ 1
             return seed
@@ -408,6 +408,25 @@ final class OracleTests: XCTestCase {
         let test = report.tests.first { $0.name == "Reconstruction par analogues" }
         XCTAssertNotNil(test)
         XCTAssertFalse(test!.flagged, "xorshift128 64 bits est hors de portée : aucun signal attendu")
+    }
+
+    func testGapDistributionIsCalibratedUnderRandomness() {
+        // Régression : la formule KS « avant/après » appliquée à une loi
+        // de référence DISCRÈTE (la géométrique de gapDistribution)
+        // enregistrait à tort toute la masse de F(1) comme un écart —
+        // un artefact garanti par la borne du support à g=1, indépendant
+        // du nombre de tirages. Sur des données parfaitement aléatoires,
+        // ça déclenchait le test 100% du temps avec un sigma constant
+        // ≈6,8, quelle que soit la taille de l'échantillon. Vérifié sur
+        // plusieurs graines indépendantes que ce n'est plus le cas.
+        var flaggedCount = 0
+        for seed: UInt64 in [1, 2, 3, 4, 5, 6, 7, 8] {
+            let report = Forensics.run(syntheticHistory(count: 400, seed: seed))
+            if let test = report.tests.first(where: { $0.name == "Distribution des écarts" }), test.flagged {
+                flaggedCount += 1
+            }
+        }
+        XCTAssertEqual(flaggedCount, 0, "Ne doit pas se déclencher systématiquement sur du hasard")
     }
 
     func testRecoveryBreaksAClockSeededLCG() {

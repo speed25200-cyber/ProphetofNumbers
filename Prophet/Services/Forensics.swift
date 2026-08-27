@@ -163,13 +163,26 @@ enum Forensics {
             }
         }
         guard gaps.count >= 200 else { return short("Distribution des écarts", "Source à mémoire, tirage sans remise") }
-        gaps.sort()
         let n = Double(gaps.count)
+        // Comparaison aux seuls points de support de la loi géométrique
+        // (p = 1/4), DISCRÈTE. La formule KS « avant/après » usuelle
+        // suppose une référence continue ; sur un support qui démarre à
+        // g=1, son terme « juste avant » enregistre à tort toute la
+        // masse de F(1) = p comme écart — un artefact garanti et
+        // indépendant du nombre de tirages, pas un signal (vérifié :
+        // sigma constant ≈ 6,8 sur des données parfaitement aléatoires,
+        // quelle que soit la taille de l'échantillon). On compare donc
+        // F_n(g) à F(g) seulement aux entiers, où la loi a réellement
+        // sa masse.
+        let maxGap = gaps.max() ?? 1
+        var counts = [Int](repeating: 0, count: maxGap + 1)
+        for g in gaps { counts[g] += 1 }
+        var cumulative = 0.0
         var d = 0.0
-        for (i, g) in gaps.enumerated() {
-            // Géométrique(p = 1/4) : F(g) = 1 − (3/4)^g.
+        for g in 1...maxGap {
+            cumulative += Double(counts[g]) / n
             let f = 1 - pow(1 - p1, Double(g))
-            d = max(d, max(Double(i + 1) / n - f, f - Double(i) / n))
+            d = max(d, abs(cumulative - f))
         }
         let ks = sqrt(n) * d
         // Queue de Kolmogorov (premier terme).
