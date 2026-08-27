@@ -269,6 +269,45 @@ def evaluate(arch: lab.Archive, label: str, checkpoints=CHECKPOINTS, verbose=Tru
         CHECKPOINTS = saved
 
 
+def identification(a: lab.Archive, rng):
+    """Détecter n'est pas identifier, et identifier n'est pas gagner.
+
+    `c0_plafond.py` borne ce qu'un biais non détecté vaudrait pour un
+    joueur qui LE CONNAÎTRAIT. C'est une borne d'omniscience. Un vrai
+    joueur doit d'abord deviner QUELS numéros sont biaisés, à partir des
+    mêmes données — et cette seconde étape est plus dure que la
+    détection : le χ² met en commun l'écart des 80 numéros pour dire
+    « quelque chose cloche », alors qu'il faut savoir lesquels pour en
+    tirer quoi que ce soit.
+
+    On mesure ici l'écart entre les deux, sur des archives à biais connu :
+    d'un côté l'oracle (il joue les 10 numéros réellement biaisés), de
+    l'autre le meilleur identificateur possible pour cette famille — les
+    10 plus fréquents observés jusqu'à t, qui est la statistique
+    exhaustive d'un biais marginal.
+    """
+    print(f"\n{'-' * 82}\nDÉTECTER N'EST PAS IDENTIFIER — la part de l'avantage réellement captable")
+    print(f"  {'d':>7}{'chi2':>9}{'détecté ?':>12}{'oracle':>9}{'identifié':>11}{'part captée':>13}")
+    rows = []
+    for d in (0.002, 0.003, 0.005, 0.008, 0.012, 0.020, 0.040):
+        arch = contaminate(a, "marginal", d, rng)
+        c = arch.mask.sum(0).astype(float); E = len(arch) * 0.25
+        chi2 = float(((c - E) ** 2 / E).sum())
+        orac = lab.walk_forward(arch, lambda past, t: np.arange(1, K + 1),
+                                k=K, warmup=20_000).mean()
+        ident = lab.walk_forward(arch, lambda past, t: np.argsort(-past.counts)[:K] + 1,
+                                 k=K, warmup=20_000).mean()
+        part = (ident - 2.5) / (orac - 2.5) if orac > 2.5001 else float("nan")
+        rows.append((d, chi2, orac, ident, part))
+        print(f"  {d:>7.3f}{chi2:>9.0f}{'oui' if chi2 > 99.6 else 'non':>12}"
+              f"{orac:>9.4f}{ident:>11.4f}{part:>12.0%}")
+    print("\n  (seuil de détection du registre : chi2 > 99,6)")
+    print("  À la frontière de détection, l'identification ne capte qu'une fraction")
+    print("  de l'avantage : le plafond RÉALISABLE est plus bas que le plafond")
+    print("  DÉTECTABLE de c0_plafond.py, qui suppose la règle connue.")
+    return rows
+
+
 def main():
     quick = "--quick" in sys.argv
     t0 = time.time()
@@ -321,6 +360,16 @@ def main():
         for d in levels:
             arch = contaminate(a, kind, d, rng)
             evaluate(arch, f"{kind} d = {d:.3f}", cps)
+
+    print("\n  Lecture du témoin marginal : le modèle à 14 traits ne voit rien sous")
+    print("  d = 0,020, alors que le χ² de c0 détecte dès d = 0,005 et que le simple")
+    print("  classement par fréquence capte 59 % de l'avantage dès d = 0,003 (table")
+    print("  suivante). Ce n'est pas un défaut du montage : la fréquence longue est")
+    print("  la statistique exhaustive d'un biais marginal, et les treize autres")
+    print("  traits n'apportent alors que du bruit au classement. Enrichir un modèle")
+    print("  le dégrade quand il n'y a rien de plus à trouver.")
+
+    identification(a, rng)
 
     print(f"\n{'-' * 82}")
     tok = lab.preregister(

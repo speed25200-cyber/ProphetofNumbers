@@ -5,7 +5,8 @@ Réponse courte, en trois nombres :
 | | |
 |---|---|
 | Amélioration possible par une meilleure **prédiction** | **0 %** — c'est un théorème, pas un résultat empirique |
-| Plafond de ce qu'un biais **non détecté** pourrait au maximum valoir | **+1,33 %** de rendement, pour qui le connaîtrait |
+| Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+1,33 %** de rendement |
+| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≈ +1,0 %** |
 | Avantage que l'app **affiche aujourd'hui** sur des données équitables | **+18 % à +34 %**, entièrement artefactuel |
 
 Le seul gain substantiel disponible n'est donc pas dans la prédiction. Il est
@@ -123,6 +124,63 @@ séparément dans `c1_conditionnel.py` plutôt que tranchée ici par
 raisonnement. À noter que le test des analogues (§11 de l'audit) couvre déjà
 la structure conditionnelle issue d'un état déterministe ≤ 40 bits, et rend
 zéro.
+
+## 3 bis. Détecter n'est pas identifier — le plafond réalisable est plus bas
+
+Le +1,33 % du §3 est une borne d'**omniscience** : il suppose la règle connue.
+Un vrai joueur ne l'a pas. Il doit deviner *quels* numéros sont biaisés, à
+partir des mêmes données — et cette seconde étape est plus dure que la
+détection. Le χ² met en commun l'écart des 80 numéros pour dire « quelque
+chose cloche » ; il ne dit pas quoi.
+
+Mesuré sur des archives à biais connu (`c2_apprentissage.py`), en comparant
+un oracle qui joue les 10 numéros réellement biaisés au meilleur
+identificateur possible pour cette famille — les 10 plus fréquents observés
+jusqu'à `t`, qui est la statistique exhaustive d'un biais marginal :
+
+| d | χ² | détecté ? | oracle | identifié | part captée |
+|---|---|---|---|---|---|
+| 0,002 | 58 | non | 2,5168 | 2,4967 | −20 % |
+| **0,003** | **112** | **oui** | **2,5387** | **2,5248** | **64 %** |
+| 0,005 | 166 | oui | 2,5545 | 2,5440 | 81 % |
+| 0,008 | 397 | oui | 2,6000 | 2,5982 | 98 % |
+| 0,020 | 1 916 | oui | 2,7399 | 2,7399 | 100 % |
+
+À la frontière de détection — d = 0,003, le plus gros biais qui garde une
+chance de passer inaperçu — l'identification n'en capte que **64 %**. Le
+plafond réalisable tombe donc à **+0,99 %** (2,5248 contre 2,5000). En
+dessous du seuil de détection, la part captée devient négative : le joueur
+suit du bruit et perd le peu qu'il y avait.
+
+## 3 ter. Ce qu'un modèle appris trouve, avec tous les champs
+
+L'objection qui reste : les stratégies du §1 sont naïves. On a donc donné à
+une régression logistique **tous** les champs — fréquences sur 4 fenêtres,
+fréquence longue, retard, présence aux trois derniers tirages,
+co-occurrence, heure locale cyclique, boost et bonus du tirage précédent —
+réajustée en marche avant à trois points de contrôle, chacun sur le seul
+passé disponible.
+
+Deux voies de calcul indépendantes des mêmes traits (vectorisée pour
+l'entraînement, causale depuis un `Past` borné) s'accordent à 3 × 10⁻⁸, et le
+prédicteur appris passe `leak_check`.
+
+**Sur les vraies données : 2,5023 hits, z = +0,41, log₁₀(e) = −44,2 sur
+50 560 tirages.** Rien.
+
+Les témoins positifs disent ce que ce modèle aurait vu. Sur un biais
+**conditionnel** (rémanence des 20 numéros du tirage précédent), il le trouve
+franchement dès d = 0,003 (z = +5,36) et l'exploite jusqu'à 2,73 hits à
+d = 0,020. Sur un biais **marginal**, en revanche, il ne voit rien sous
+d = 0,020 — alors que le χ² le détecte dès d = 0,005 et que le simple
+classement par fréquence en capte 64 % dès d = 0,003.
+
+Ce n'est pas un défaut du montage, et c'est la leçon la plus contre-intuitive
+du labo : **enrichir un modèle le dégrade quand il n'y a rien de plus à
+trouver.** La fréquence longue est la statistique exhaustive d'un biais
+marginal ; les treize autres traits n'apportent alors que du bruit au
+classement des 80 numéros. Un modèle plus gros n'est pas un modèle plus
+sensible.
 
 ## 4. Le boost — le seul endroit où le signe de l'espérance pourrait changer
 
