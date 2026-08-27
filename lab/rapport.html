@@ -379,7 +379,7 @@
     <div class="kicker">
       <span>Loto Express · Loterie Romande</span>
       <span>70 560 tirages</span>
-      <span>11 expériences · 3 251 tests dépensés</span>
+      <span>13 expériences · 3 266 tests dépensés</span>
     </div>
     <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
     <p class="standfirst">
@@ -396,13 +396,13 @@
     </div>
     <div class="cell">
       <div class="cell-label">Plafond d'un biais non détecté, pour qui connaîtrait la règle</div>
-      <div class="cell-value">+1,33 %</div>
-      <div class="cell-note">Borne d'omniscience</div>
+      <div class="cell-value">+3,2 %</div>
+      <div class="cell-note">Borne d'omniscience, pire famille</div>
     </div>
     <div class="cell">
       <div class="cell-label">Ce qu'un joueur pourrait réellement en tirer</div>
       <div class="cell-value">≈ +1,0 %</div>
-      <div class="cell-note">Il doit d'abord identifier le biais</div>
+      <div class="cell-note">Mesuré sur la famille marginale&nbsp;: il doit d'abord identifier le biais</div>
     </div>
     <div class="cell is-flagged">
       <div class="cell-label">Avantage que l'app affiche sur des données équitables</div>
@@ -499,9 +499,21 @@
     </div>
 
     <div class="col">
+      <h3>17ᵉ voie — covariables temporelles et périodicités</h3>
       <p>
-        <strong>Registre entier&nbsp;: 3 251 tests dépensés, seuil corrigé
-        <code>p &lt; 1,54 × 10⁻⁵</code>, zéro significatif.</strong>
+        L'horodatage n'avait jamais servi de <em>covariable</em>. Vingt-trois combinaisons — heure
+        locale, jour de semaine, minute dans l'heure, créneau dans la session, croisées avec quatre
+        statistiques — plus une analyse spectrale dont <em>le maximum du périodogramme</em> est
+        calibré sous équité, jamais un pic isolé contre un seuil de test unique.
+      </p>
+      <p>
+        <strong>Zéro drapeau à |z| ≥ 3.</strong> Aucun pic à 204 tirages (un jour) ni à 1 428 (une
+        semaine). Le seul <code>p</code> sous 0,05 correspond à un χ² <em>inférieur</em> à son
+        attente — moins de variation que le hasard, pas plus.
+      </p>
+      <p>
+        <strong>Registre entier&nbsp;: 3 266 tests dépensés, seuil corrigé
+        <code>p &lt; 1,53 × 10⁻⁵</code>, zéro significatif.</strong>
       </p>
     </div>
   </section>
@@ -510,8 +522,8 @@
     <h2>Détecter n'est pas identifier</h2>
     <div class="col">
       <p>
-        Le <code>+1,33 %</code> est une borne d'<em>omniscience</em>&nbsp;: il suppose la règle
-        connue. Un vrai joueur ne l'a pas. Il doit deviner <em>quels</em> numéros sont biaisés, à
+        Le <code>+1,33 %</code> de la famille marginale est une borne d'<em>omniscience</em>&nbsp;:
+        il suppose la règle connue. Un vrai joueur ne l'a pas. Il doit deviner <em>quels</em> numéros sont biaisés, à
         partir des mêmes données — et cette seconde étape est plus dure que la détection. Le χ² met
         en commun l'écart des 80 numéros pour dire «&nbsp;quelque chose cloche&nbsp;»&nbsp;; il ne
         dit pas quoi.
@@ -554,6 +566,54 @@
         plafond réalisable tombe à <code>+0,99 %</code>. En dessous du seuil, la part captée devient
         <em>négative</em> — le joueur suit du bruit et perd le peu qu'il y avait.
       </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Le plafond dépend de la famille — et l'intuition se trompe dans les deux sens</h2>
+    <div class="col">
+      <p>
+        J'avais d'abord affirmé qu'un biais <em>conditionnel</em> aurait une borne plus haute que
+        le marginal, ayant plus de paramètres. Puis je me suis corrigé&nbsp;: le recouvrement moyen
+        agrège vingt numéros à chaque pas, il devrait donc être très sensible et la borne plus
+        basse. Les deux raisonnements étaient justes — sur des familles différentes.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Avantage maximal qui aurait échappé à 70 560 tirages</caption>
+        <thead>
+          <tr><th>famille de biais</th><th>test qui la borne</th><th>d enveloppe</th><th>rendement</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>rémanence uniforme (conditionnel diagonal)</td><td>recouvrement moyen</td><td>0,0013</td><td>+0,53 %</td></tr>
+          <tr><td>marginal (10 numéros poussés)</td><td>χ² sur 80 cases</td><td>0,0030</td><td>+1,33 %</td></tr>
+          <tr class="is-key"><td>paires cachées (conditionnel général)</td><td>‖Ĉ‖² sur 6 400 covariances</td><td>0,0071</td><td>+3,21 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Le mécanisme est net. Une rémanence <strong>uniforme</strong> — les vingt numéros du tirage
+        précédent tous favorisés — est écrasée par le recouvrement moyen, qui les agrège tous. Mais
+        une structure en <strong>dérangement</strong>, où le numéro <code>i</code> appelle le numéro
+        <code>j ≠ i</code>, laisse ce même recouvrement strictement aveugle. Il faut alors une
+        statistique matricielle, qui répartit sa puissance sur 6 400 directions au lieu d'une.
+      </p>
+      <p>
+        Le test matriciel n'existait pas avant cette expérience&nbsp;: il a donc été appliqué aux
+        vraies données, et pas seulement utilisé pour borner. <code>z = −0,30</code>, contre
+        <code>z = +0,30</code> pour le recouvrement. Rien.
+      </p>
+    </div>
+
+    <div class="pull">
+      L'écart-type du recouvrement moyen sur 70 559 paires <em>consécutives</em> vaut 0,00678 en
+      simulation, contre 0,00635 si elles étaient indépendantes. Elles se chevauchent. Une formule
+      aurait produit un léger faux signal — la quatrième fois dans ce dossier qu'un null tabulé
+      aurait menti.
     </div>
   </section>
 
@@ -709,7 +769,7 @@
   </section>
 
   <footer>
-    <span>Onze expériences · registre pré-enregistré · nulls simulés</span>
+    <span>Treize expériences · registre pré-enregistré · nulls simulés</span>
     <span>Puissance mesurée à chaque voie</span>
     <span>Zéro significatif après correction de multiplicité</span>
   </footer>
