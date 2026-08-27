@@ -787,6 +787,68 @@
   </section>
 
   <section>
+    <h2>Le seul seuil qui fasse changer l'espérance de signe</h2>
+    <div class="col">
+      <p>
+        C'est la chose la plus actionnable du dossier, et elle ressemble enfin à une prédiction
+        utile&nbsp;: non pas <em>quels numéros</em>, mais <strong>quand jouer</strong>.
+      </p>
+      <p>
+        Le blocage était que le barème des rangs intermédiaires n'est pas publié, donc l'espérance
+        totale n'est pas calculable. Mais on n'en a pas besoin pour une condition
+        <strong>suffisante</strong>. Le gain d'un ticket vaut <code>jackpot·P(k/k)</code> plus la
+        somme des rangs intermédiaires, tous positifs ou nuls. Donc dès que
+        <code>jackpot ≥ mise / P(k/k)</code>, le pari est favorable — et tout ce qu'on ignore du
+        barème ne peut que rendre l'inégalité meilleure, jamais pire.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Jackpot suffisant pour que le pari soit favorable, barème inconnu compris</caption>
+        <thead>
+          <tr><th>mise</th><th>P(grille pleine)</th><th>jackpot suffisant, par franc misé</th></tr>
+        </thead>
+        <tbody>
+          <tr class="is-key"><td>5 numéros</td><td>1 / 1 551</td><td>CHF 1 551</td></tr>
+          <tr><td>6 numéros</td><td>1 / 7 753</td><td>CHF 7 753</td></tr>
+          <tr><td>7 numéros</td><td>1 / 40 979</td><td>CHF 40 979</td></tr>
+          <tr><td>8 numéros</td><td>1 / 230 115</td><td>CHF 230 115</td></tr>
+          <tr><td>10 numéros</td><td>1 / 8 911 711</td><td>CHF 8 911 711</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Le seuil de la mise à 5 est le seul d'un ordre de grandeur qu'un jackpot progressif puisse
+        atteindre. <strong>L'app affiche déjà les montants en direct</strong> et calcule même le
+        retour du jackpot par franc misé&nbsp;; il ne lui manquait que le seuil auquel le comparer.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Et cela corrige une affirmation qu'elle fait sans condition. L'app dit, sans réserve, que
+      «&nbsp;l'espérance totale reste négative&nbsp;». Cette affirmation porte sur une somme dont un
+      terme est inconnu — et au-dessus du seuil, elle est démontrablement fausse.
+    </div>
+
+    <div class="col">
+      <p>
+        Trois choses que ce seuil <em>n'est pas</em>. Il ne dit rien sur les numéros à cocher&nbsp;:
+        l'espérance de hits reste <code>k/4</code> quel que soit le choix. C'est une condition
+        suffisante et non nécessaire&nbsp;— le vrai seuil est plus bas, mais incalculable sans le
+        barème. Et il ne rend pas le pari bon <em>en dessous</em>.
+      </p>
+      <p>
+        Ce que l'archive ne peut pas dire&nbsp;: à quelle <strong>fréquence</strong> le seuil est
+        franchi. Elle ne contient aucun montant de jackpot. La question se tranche sur l'appareil,
+        en une ligne d'affichage.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Ce qu'il faudrait faire, par ordre de valeur réelle</h2>
     <ol class="decisions">
       <li>
