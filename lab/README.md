@@ -83,9 +83,22 @@ lab.record(tok, observed, null=null, power_at=..., verdict=..., notes=...)
 lab.holm()                                       # verdict corrigé, registre entier
 ```
 
-`past.counts` (sorties cumulées) et `past.gaps` (retards) sont servis en O(1)
-depuis des cumuls précalculés : une marche avant complète sur 70 060 tirages
-prend ~1 s au lieu de ~10 min.
+`past.counts` (sorties cumulées), `past.gaps` (retards) et
+`past.counts_window(w)` (sorties sur les `w` derniers tirages) sont servis en
+O(1) depuis des cumuls précalculés : une marche avant complète sur 70 060
+tirages prend ~1 s au lieu de ~10 min. Aucun de ces accesseurs ne lit
+au-delà de `t-1`, et `leak_check` réécrit les cumuls en même temps que les
+tirages — un décalage d'indice y est donc attrapé, jamais masqué par un
+cache périmé.
+
+## Détecter, identifier, gagner — trois choses différentes
+
+Une borne de détectabilité (« ce biais aurait-il été vu ? ») n'est pas une
+borne d'exploitabilité. Le χ² met en commun l'écart des 80 numéros pour dire
+*qu'il y a* un biais ; un joueur doit savoir *lesquels* sont biaisés, ce qui
+est plus dur, et il ne dispose pour cela que des mêmes données. Toute borne
+de piste A doit donc préciser laquelle des trois elle établit —
+`c2_apprentissage.py` mesure l'écart entre les deux dernières.
 
 ## Ce qui ne peut pas être tranché ici
 
