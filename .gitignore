@@ -13,3 +13,6 @@ Vendor/
 *.mobileprovision
 AuthKey_*.p8
 .env
+
+# Labo : cache de données régénérable (lab.load(refresh=True))
+lab/cache/
