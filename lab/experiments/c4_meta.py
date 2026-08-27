@@ -578,11 +578,11 @@ for k in ("fisher", "stouffer", "ks", "ad"):
         else:
             thr[k][arm] = {a: np.quantile(nl[k], 1 - a) for a in (0.05, 0.005)}
 
-say(f"\npuissance ({R_POW} réplicats contaminés/β ; structure IND ; seuils des deux bras)")
+say(f"\npuissance ({R_POW} réplicats contaminés/β ; structure IND)")
 say("β : chaque p élémentaire ~ Beta(β,1) au lieu d'uniforme "
     "(E[p] = β/(1+β) ; β=0,9 -> E[p]=0,474)")
 hdr = f"{'stat':10s}" + "".join(f"  β={b:<12g}" for b in BETAS)
-say(hdr + "   (colonnes : α=0,05|0,005, seuil DEP)")
+say(hdr + "   (colonnes : α=0,05, seuil IND | seuil DEP — la vérité entre les deux)")
 power_notes = {}
 rng_pow = np.random.default_rng(13)
 pow_tab = {}
@@ -593,13 +593,13 @@ for k in ("fisher", "stouffer", "ks", "ad"):
     for b in BETAS:
         v = pow_tab[b][k]
         if k == "stouffer":
-            m = null_dep[k].mean()
-            p05 = np.mean(np.abs(v - m) >= thr[k]["dep"][0.05])
-            p005 = np.mean(np.abs(v - m) >= thr[k]["dep"][0.005])
+            mi, md = null_ind[k].mean(), null_dep[k].mean()
+            p_i = np.mean(np.abs(v - mi) >= thr[k]["ind"][0.05])
+            p_d = np.mean(np.abs(v - md) >= thr[k]["dep"][0.05])
         else:
-            p05 = np.mean(v >= thr[k]["dep"][0.05])
-            p005 = np.mean(v >= thr[k]["dep"][0.005])
-        cells.append(f"{p05:.2f}|{p005:.2f}")
+            p_i = np.mean(v >= thr[k]["ind"][0.05])
+            p_d = np.mean(v >= thr[k]["dep"][0.05])
+        cells.append(f"{p_i:.2f}|{p_d:.2f}")
     say(f"{k:10s}" + "".join(f"  {c:>13s}" for c in cells))
     power_notes[k] = dict(zip(BETAS, cells))
 
@@ -630,7 +630,7 @@ if not NO_RECORD:
         lab.record(
             tokens[k], observed=obs[k],
             p=pi,
-            power_at=("derive diffuse Beta(b,1), seuils DEP a=0.05|0.005 : "
+            power_at=("derive diffuse Beta(b,1), a=0.05, seuil IND|DEP : "
                       + " ; ".join(f"b={b}: {power_notes[k][b]}" for b in BETAS)),
             verdict=("conforme" if pi > holm_thr else "SIGNIFICATIF au seuil Holm"),
             notes=(META_NOTE + f"null IND {nl.mean():.2f}±{nl.std(ddof=1):.2f} "
