@@ -100,14 +100,23 @@ struct SignalCard: View {
     var body: some View {
         Card {
             HStack(alignment: .top) {
+                // Cet écran affichait « n / 100 · 50 = hasard pur ». Le chiffre
+                // est honnête — sous un générateur équitable il est centré sur
+                // 50 — mais son échelle invite une lecture probabiliste qu'il
+                // ne supporte pas : mesuré sur l'archive, quand il dépasse 70
+                // la probabilité que le tirage suivant batte l'espérance vaut
+                // 0,374, exactement comme lorsqu'il affiche 50. C'est un écart
+                // en écarts-types, remis à l'échelle. On affiche donc l'écart
+                // lui-même, qui est exact et se lit sans ambiguïté — et c'est
+                // déjà ainsi que l'écran d'analyse le nomme (« ÉCART (Z) »).
                 VStack(alignment: .leading, spacing: 4) {
-                    Overline(text: "SIGNAL DU MODÈLE")
+                    Overline(text: "ÉCART AU HASARD")
                     HStack(alignment: .firstTextBaseline, spacing: 7) {
-                        Text("\(oracle.confidence)")
+                        Text(String(format: "%+.2f", oracle.backtestZ))
                             .font(Typeface.display(30))
                             .foregroundStyle(Palette.fg)
                             .contentTransition(.numericText())
-                        Text("/ 100 · 50 = hasard pur")
+                        Text("σ · 0 = indiscernable du hasard")
                             .font(.system(size: 11))
                             .foregroundStyle(Palette.subtle)
                     }

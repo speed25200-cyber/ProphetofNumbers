@@ -26,7 +26,8 @@ struct GridsView: View {
                 // La seule quantité que la géométrie du paquet déplace :
                 // l'espérance de gain, elle, est invariante par géométrie
                 // sous toute table de gains par grille.
-                Text("Les 12 grilles couvrent \(Set(pack.grids.flatMap(\.numbers)).count) numéros sur 80 — "
+                let covered = Set(pack.grids.flatMap { $0.numbers }).count
+                Text("Les 12 grilles couvrent \(covered) numéros sur 80 — "
                      + "au moins une pleine : \(Format.odds(pack.packPAllHit)).")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
@@ -126,6 +127,10 @@ struct GridsView: View {
         }
         if !rows.isEmpty {
             let bestStake = rows.max { $0.ret < $1.ret }?.stake
+            // Seuil de rentabilite : tous les rangs intermediaires etant
+            // positifs ou nuls, gain >= jackpot*P(k/k). A 100 ct/CHF le
+            // jackpot seul rembourse la mise, et tout le reste est du profit.
+            let favourable = rows.contains { $0.ret >= 100 }
             Card {
                 Overline(text: "VALEUR DU JACKPOT")
                 VStack(spacing: 8) {
@@ -154,14 +159,10 @@ struct GridsView: View {
                         }
                     }
                 }
-                // Le seuil. Tous les rangs intermédiaires étant positifs ou
-                // nuls, gain ≥ jackpot·P(k/k) : dès que ce retour atteint
-                // 100 ct/CHF, le jackpot seul rembourse la mise et tout le
-                // reste est du profit. C'est une condition SUFFISANTE, et
-                // elle ne suppose rien du barème inconnu — ce que l'app
-                // affirmait auparavant sans réserve (« l'espérance totale
-                // reste négative ») n'est donc pas toujours vrai.
-                let favourable = rows.contains { $0.ret >= 100 }
+                // Condition SUFFISANTE, et qui ne suppose rien du barème
+                // inconnu — ce que l'app affirmait auparavant sans réserve
+                // (« l'espérance totale reste négative ») n'est donc pas
+                // toujours vrai.
                 Text(favourable
                      ? "Au-delà de 100 ct/CHF, le jackpot seul rembourse la mise : le pari est favorable, quel que soit le barème des rangs intermédiaires."
                      : "Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment. Le seuil est 100 ct/CHF : au-delà, le jackpot seul rembourse la mise et le pari devient favorable quel que soit le barème.")
