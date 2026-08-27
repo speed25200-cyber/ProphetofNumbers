@@ -273,7 +273,42 @@ probabilité calibrée ; l'UI dit bien « 50 = hasard pur », mais le mot
    modèle de popularité écrit à la main (`Swarm.swift:1122` : dates ≤ 31,
    multiples de 7 et 11) sans aucune mesure sur les joueurs de ce jeu.
 
-## 10. Ce que ce labo ne peut pas trancher
+## 10. Les instruments qui répondraient au reste
+
+Spécification complète, code Swift et tests : `lab/experiments/a1_instruments.md`
+(rien n'a été appliqué à `Prophet/` — c'est une proposition à valider).
+
+**A — l'ordre de sortie n'est ni agrégé ni conservé.** `parseMatrix`
+(`LoroClient.swift:367-380`) préserve déjà l'ordre du tableau `main`, et
+`Draw.hasDrawOrder` (`Types.swift:24`) teste s'il diffère du tri. Mais ce
+booléen n'est lu qu'à un seul endroit — `PRNGRecovery.swift:417` — consommé
+au vol, jamais agrégé, jamais persisté, jamais affiché. **L'app calcule donc
+la donnée la plus précieuse du dossier à chaque tirage, et jette la réponse.**
+Compter la fraction de tirages où `order != order.sorted()` est un
+changement minuscule qui tranche définitivement une question à 62 bits par
+tirage.
+
+**B — le boost sur les tirages OPEN n'est pas instrumenté du tout.**
+`fetchOpen()` traite `boost` à l'identique quel que soit le statut, et
+`LivePayload` ne porte même pas l'information du tirage à venir. C'est la
+question du §4, la seule capable de changer le signe de l'espérance.
+
+**C — l'instrument de latence censure une partie de ses échantillons.**
+`recordPublicationLatency` (`ProphetStore.swift:300-305`) exige
+`previous.nextDrawNumber == newLast.drawNumber` : tout enchaînement qui n'est
+pas exactement le tirage annoncé comme suivant est écarté en silence.
+L'instrument ne mesure donc que les séquences régulières — alors qu'un cache
+mal invalidé ou une race condition se manifestent d'abord quand
+l'ordonnancement dérape. Le correctif proposé mémorise la clôture de chaque
+tirage dès qu'elle est connue, au lieu de ne regarder que le payload
+immédiatement précédent.
+
+Les critères de lecture proposés sont asymétriques, ce qui est correct ici :
+une seule observation positive tranche A et B, tandis que conclure à
+l'absence demande N = 20 pour A et B, et pour C une règle de trois — N = 300
+exclut un taux de fuite ≥ 1 %, N = 3 000 exclut ≥ 0,1 %.
+
+## 11. Ce que ce labo ne peut pas trancher
 
 - **L'ordre de sortie des boules.** L'archive est triée : `n1..n20` est
   croissant sur les 70 560 lignes. Un tirage ordonné porterait ≈ 124 bits
