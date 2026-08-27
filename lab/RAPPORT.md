@@ -239,26 +239,48 @@ Audit indépendant de la chaîne `hits → confiance` (`b3_calibration.py`,
 `Swarm.swift:908-920`).
 
 **Bonne nouvelle, et elle est établie.** Sous H₀ la confiance est **centrée** :
-E = 49,855, médiane 50, P(> 70) = 0,072. Le plancher `max(0.2, btSD)` n'est
-jamais mordu (min btSD = 1,005) et ne pourrait que *réduire* |z|. La
-réutilisation du backtest pour repondérer l'essaim *et* pour le juger — le
-mode de fuite qu'on pouvait craindre — ne déplace pas le centre
-(Δ = −0,081 ± 0,507). Sur l'archive réelle : fraction > 70 de 0,0770 contre
-0,0722 ± 0,0056 sous H₀, z = +0,86, p = 0,37. L'e-valeur reste à 1,259 au
-maximum sur toute l'archive (seuil d'alerte : 20). **L'app ne s'imagine pas
-un avantage.**
+E = 49,855, médiane 50, sd 14,2, P(> 70) = 0,072. Le plancher
+`max(0.2, btSD)` n'est jamais mordu (0 fois sur 10⁶, min btSD = 1,005 — il
+faudrait 59 tirages identiques sur 60) et, étant un max au dénominateur, ne
+pourrait que *réduire* |z|.
+
+Le mode de fuite qu'on pouvait craindre — repondérer l'essaim sur le
+backtest, puis juger le mélange sur ce même backtest — **n'existe pas, et
+pour une raison structurelle** : `evaluate()` (`Swarm.swift:764-796`)
+enregistre le recouvrement *avant* qu'AdaHedge ne voie les pertes du tirage,
+et les têtes n'absorbent le tirage qu'ensuite (`L721`). L'évaluation est donc
+préquentielle : chaque point du backtest est hors-échantillon pour le mélange
+qui l'a produit. Vérifié plutôt que déduit — un mini-essaim fidèle de
+14 têtes donne E = 49,77 contre 49,86 en i.i.d. (Δ = −0,08 ± 0,51).
+
+Sur l'archive réelle : fraction > 70 de 0,0770 contre une bande H₀ de
+[0,0585 ; 0,0867], p = 0,37. L'e-valeur reste à 1,259 au maximum sur toute
+l'archive (seuil d'alerte : 20) et finit à 2,7 × 10⁻¹⁰⁷ — elle s'appauvrit,
+ce qui est le comportement honnête sous H₀. **L'app ne s'imagine pas un
+avantage.**
 
 **Mais « confiance » n'est pas une probabilité.** Quand l'app affiche plus de
 70, la probabilité que le tirage suivant dépasse l'espérance vaut **0,3741** —
-contre 0,3744 sans condition. Strictement plate. C'est un z rescalé, pas une
-probabilité calibrée ; l'UI dit bien « 50 = hasard pur », mais le mot
-« confiance /100 » invite une lecture que le chiffre ne supporte pas.
+contre 0,3744 sans condition, et 0,3740 quand l'app affiche 50. Strictement
+plate. C'est un z rescalé, pas une probabilité calibrée ; l'UI dit bien
+« 50 = hasard pur », mais le mot « confiance /100 » invite une lecture que le
+chiffre ne supporte pas.
+
+Corollaire à assumer : c'est un compteur de bruit. 7,2 % des consultations
+afficheront plus de 70, et le 95 finira par être atteint — avec une
+probabilité voisine de 1 sur un historique de cette longueur. Symétriquement,
+le 5 aussi (la queue basse est même très légèrement plus lourde). Rien
+d'anormal ; mais un utilisateur qui ouvre l'app un jour de 88 lira un signal
+là où il n'y a qu'une fluctuation.
 
 ## 9. Ce qu'il faudrait faire, par ordre de valeur réelle
 
 1. **Corriger `ESPÉRANCE` sur les grilles** (`GridsView.swift:261`). C'est la
-   seule affirmation fausse que voit l'utilisateur. Afficher `k/4`, ou
-   estimer par fenêtre disjointe — les deux donnent la même chose sous H₀.
+   seule affirmation fausse que voit l'utilisateur. Correction d'une ligne
+   dans `Swarm.swift:1133` — `expectedHits: Double(stake) * Self.baseP` au
+   lieu de `p.reduce(0, +)` — ou estimation par fenêtre disjointe : les deux
+   donnent la même chose sous H₀, la première étant exacte et sans
+   estimation.
 2. **Renommer la confiance.** Elle est honnête mais son nom promet une
    probabilité qu'elle n'est pas. « Écart au hasard » plutôt que
    « confiance /100 ».
