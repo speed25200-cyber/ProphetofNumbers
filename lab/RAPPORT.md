@@ -134,7 +134,7 @@ crête — 0,01 écart-type par tirage, un ordre de grandeur sous le plafond du
 puissance au seuil Holm est donc ≤ à celle affichée (même convention que la
 16ᵉ voie).
 
-**Registre entier : m = 3 278 tests dépensés, seuil Holm p < 1,53 × 10⁻⁵,
+**Registre entier : m = 3 290 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
 0 significatif.**
 
 ## 3. Le plafond : ce que l'ignorance résiduelle peut au maximum valoir
@@ -314,21 +314,52 @@ fabrique des découvertes. Le null est donc simulé en rejouant la structure du
 registre, avec deux bras — indépendance totale, et joints exacts simulés plus
 bornes comonotones.
 
-| combinaison | ce qu'elle voit | observé | p |
-|---|---|---|---|
-| Fisher | les petites p | 114,53 | 0,193 |
-| Stouffer | un décalage cohérent | 0,766 | 0,302 |
-| Kolmogorov-Smirnov | la distribution entière | 0,117 | 0,454 |
-| Anderson-Darling | les queues | 0,559 | 0,741 |
+| combinaison | ce qu'elle voit | observé | p (indép.) | p (dép.) |
+|---|---|---|---|---|
+| Fisher | les petites p | 114,53 | 0,184 | 0,308 |
+| Stouffer | un décalage cohérent | +0,77 | 0,286 | 0,629 |
+| Kolmogorov-Smirnov | la distribution entière | 0,117 | 0,448 | 0,996 |
+| Anderson-Darling | les queues | 0,559 | 0,750 | 1,000 |
 
-Conforme partout. Le Fisher tabulé aurait donné 0,226 — l'écart avec le 0,193
-simulé est ici sans conséquence, mais il illustre une cinquième fois que la
-table n'est pas le null.
+Conforme dans les deux bras. Le bras « indépendance » est le plus défavorable
+au verdict de conformité — c'est donc lui qui fait foi, et la vérité est entre
+les deux.
 
-**Puissance mesurée**, sur une dérive diffuse Beta(b, 1) : `b = 0,5` détecté à
-100 %, `b = 0,7` à 74 %, `b = 0,8` à 39 %, `b = 0,9` à 13 %. Une dérive faible
-resterait donc invisible — dit franchement plutôt que caché derrière un
-« conforme ».
+**Puissance mesurée**, sur une dérive diffuse Beta(b, 1), au niveau nominal :
+`b = 0,5` détecté à 100 %, `b = 0,7` à 83 %, `b = 0,8` à 50 %, `b = 0,9` à
+21 %. Une dérive faible resterait donc invisible. Et au seuil Holm du registre,
+**aucune dérive diffuse plausible ne passerait** — ce qui est exactement
+pourquoi cette méta-analyse existe : elle couvre l'angle mort que la
+correction de multiplicité, conçue pour être conservatrice, ne peut pas voir.
+
+### Une erreur de conception de mon registre, corrigée
+
+Les quatre plus petites `p` du registre étaient des **extrêmes de famille
+consignés sans leur correction** — `seed_ledger.py` gardait le `p` brut de
+l'extrême et ne portait la taille de la famille que dans le compte `m_extra`.
+Pour la correction de multiplicité c'est suffisant ; pour une méta-analyse
+c'est un biais vers la significativité par construction. Transformées en `p`
+familiales `1 − (1 − p)^F` :
+
+```
+audit.paires        0,0002 -> 0,469   (F = 3 160)
+audit.maurer        0,041  -> 0,314
+audit.fenetres_bm   0,0425 -> 0,294
+audit.fenetres_maurer 0,051 -> 0,342
+```
+
+### Ce que la méta-analyse a montré avant d'être diluée
+
+Nuance à ne pas taire : sur l'instantané au moment de sa conception — 27 `p`
+défendables, avant que `c1` et `c3` n'entrent au registre — Fisher et KS
+donnaient `p ≈ 0,016–0,03`, un excès diffus **nominal** porté par cinq petites
+`p`. Les 25 tests neufs, tous conformes, l'ont dilué.
+
+Ce n'est pas un tour de passe-passe : des tests neufs qui conforment sont des
+preuves, et les diluer est le comportement correct d'une méta-analyse. Mais
+cela veut dire que ce résultat dépend de la composition du registre, et il faut
+le dire. Le volet réplication ci-dessous montre indépendamment que les moteurs
+de cet excès se dégonflent un à un.
 
 ### Le seul signal résiduel de l'audit ne survit pas à la règle du labo
 
@@ -343,6 +374,12 @@ Le p passe à 0,047 — et surtout, **l'écart était dans le sens « trop
 aléatoire »** (fₙ haut = flux moins compressible), ce qui est incompatible
 avec une source défaillante dès le départ. Verdict : affaibli, et de toute
 façon orienté du mauvais côté pour signifier quoi que ce soit.
+
+Le troisième signal de l'audit — le recouvrement conditionné au bonus,
+`p = 0,044`, lui aussi tabulé — subit le même sort : null re-dérivé par
+chaînes complètes (dépendance exacte, effectif de correspondances aléatoire),
+`5,5705 ± 0,0550`, `p = 0,047`. Base rate, avec un témoin de rémanence détecté
+à 97 %.
 
 ### Une limite que la réplication met à nu
 
