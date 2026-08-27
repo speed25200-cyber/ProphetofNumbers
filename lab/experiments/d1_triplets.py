@@ -41,9 +41,10 @@ CONNUE — (a) 8 triplets disjoints forcés dans une fraction f des tirages
 (excès par triplet = N*f*(1-p1)/8, connu exactement) ; (b) motif diffus :
 un triplet AP aléatoire forcé dans une fraction f des tirages (excès agrégé
 N*f réparti sur 1 560 cases, invisible au max) ; (c) un point témoin
-« pool groupé » (20 numéros favorisés, biais marginal mesuré) pour montrer
-le régime où sumsq voit ce que le max manque — témoin détectable d'abord
-par le chi2 marginal (voie fermée), donné à titre de démonstration.
+« pool groupé » (40 numéros légèrement favorisés : 9 880 cases déplacées
+d'une fraction de sigma chacune) pour montrer le régime où sumsq voit ce
+que le max manque — témoin détectable d'abord par le chi2 marginal (voie
+fermée), donné à titre de démonstration.
 
 Usage : python3 d1_triplets.py [--fast] [--no-record]
   --fast      réplicats réduits (fumée), n'écrit PAS au registre
@@ -76,9 +77,10 @@ R_NULL = 30 if FAST else 300               # réplicats du null (3 stats, même 
 R_POWER = 4 if FAST else 30                # réplicats par point de puissance
 
 K_LOC = 8                                  # triplets disjoints sur-représentés
-F_LOC = (0.005, 0.01, 0.02, 0.04)          # fraction de tirages contaminés
+F_LOC = (0.005, 0.01, 0.015, 0.02, 0.04)   # fraction de tirages contaminés
 F_AP = (0.01, 0.02, 0.04, 0.08)            # idem, motif AP diffus
-GAMMA_DEMO = 0.10                          # log-poids du témoin pool groupé
+FAV_DEMO = 40                              # numéros favorisés du témoin diffus
+GAMMA_DEMO = 0.012                         # log-poids : 9 880 cases à ~+0,6 sigma
 
 EXP_MAX = "d1.triplets_max"
 EXP_SS = "d1.triplets_sumsq"
@@ -229,10 +231,12 @@ def make_contaminate_ap(f: float):
 
 
 def contaminate_pool(mask: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Témoin « pool groupé » : 20 numéros au log-poids GAMMA_DEMO (Gumbel
-    top-20). Excès diffus sur les 1 140 triplets du groupe — régime de
-    sumsq. Biais marginal MESURÉ et rapporté, pas supposé."""
-    fav = rng.choice(80, size=20, replace=False)
+    """Témoin « pool groupé » : FAV_DEMO numéros au log-poids GAMMA_DEMO
+    (Gumbel top-20). Excès diffus sur les C(FAV_DEMO,3) = 9 880 triplets du
+    groupe, chacun déplacé d'une fraction de sigma — le max de cellule est
+    aveugle par construction, sumsq agrège. Biais marginal MESURÉ, pas
+    supposé."""
+    fav = rng.choice(80, size=FAV_DEMO, replace=False)
     lw = np.zeros(80)
     lw[fav] = GAMMA_DEMO
     keys = lw + rng.gumbel(size=(len(mask), 80))
@@ -412,17 +416,19 @@ def main() -> None:
 
     # témoin pool groupé : biais marginal mesuré, une seule amplitude
     rngd = np.random.default_rng(4242)
-    mm = lab.srs(40000, rngd)
-    fav_test = np.arange(20)
+    n_meas = 40000
+    fav_test = np.arange(FAV_DEMO)
     lw = np.zeros(80)
     lw[fav_test] = GAMMA_DEMO
-    keys = lw + rngd.gumbel(size=(len(mm), 80))
+    keys = lw + rngd.gumbel(size=(n_meas, 80))
     idx = np.argpartition(-keys, 20, axis=1)[:, :20]
-    d_meas = float(np.isin(idx, fav_test).sum() / (len(mm) * 20) * 4 - 1)
+    frac = np.isin(idx, fav_test).sum() / (n_meas * 20)
+    d_meas = float(frac / (FAV_DEMO / 80) - 1)
     pw_pool = measured_power(contaminate_pool, seed=777)
     print(f"\n(c) témoin pool groupé (gamma={GAMMA_DEMO}, biais marginal mesuré "
-          f"{d_meas*100:+.1f} % sur 20 numéros — détectable d'abord par le chi2 "
-          f"marginal, voie fermée ; démonstration du régime diffus) :")
+          f"{d_meas*100:+.2f} % sur {FAV_DEMO} numéros, 9 880 cases déplacées — "
+          f"détectable d'abord par le chi2 marginal, voie fermée ; démonstration "
+          f"du régime diffus) :")
     print(f"    puiss. max {pw_pool['max']:.2f}  sumsq {pw_pool['sumsq']:.2f}  "
           f"motif {pw_pool['motif']:.2f}")
 
