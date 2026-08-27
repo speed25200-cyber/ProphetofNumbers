@@ -76,6 +76,28 @@ def rule(t=""):
         say("=" * 78)
 
 
+def shiryaev_roberts(loge: np.ndarray) -> np.ndarray:
+    """R_t = (1 + R_{t-1})·f_t, en log, vectorisé sur les modèles.
+
+    f2 a mesuré ce qu'un e-processus cumulé depuis le premier tirage coûte :
+    le même défaut est détecté 1,00 fois sur 1 quand il tombe tôt, 0,00 quand
+    il tombe tard. La cause est arithmétique — exp(Σ log f) ne dépend pas de
+    l'ORDRE, donc sa valeur finale ignore quand le défaut s'est produit, et
+    son maximum courant ne bouge plus une fois la richesse effondrée.
+
+    R_t = Σ_{k≤t} Π_{s=k..t} f_s est la somme des paris démarrés à chaque
+    instant : R_t/t est la moyenne de t e-processus, donc une e-valeur. Un
+    biais apparu au tirage 70 000 est vu par le pari relancé au tirage 70 000.
+    """
+    T, M = loge.shape
+    out = np.empty((T, M))
+    r = np.full(M, -np.inf)
+    for t in range(T):
+        r = np.minimum(np.logaddexp(0.0, r) + loge[t], 700.0)
+        out[t] = r
+    return out
+
+
 def e20_log(W: np.ndarray) -> np.ndarray:
     """log e_20(w) pour un bloc de poids (B, M, 80), poids déjà centrés à 1."""
     B, M, _ = W.shape
@@ -101,6 +123,18 @@ TOK = lab.preregister(
     "significatif si E >= 20 (alpha = 0,05, valide a tout instant) ; le seuil "
     "de Ville ne se corrige pas de la multiplicite car la moyenne d'e-valeurs "
     "est une e-valeur",
+    track="C")
+
+TOK_SR = lab.preregister(
+    "f4.restart",
+    "un portefeuille qui inclut les paris RELANCES a chaque tirage accumule "
+    "de la richesse contre le hasard, y compris pour un biais apparu tard",
+    "max_t log10 de la moyenne des 348 e-processus (174 depuis le debut, 174 "
+    "en melange de Shiryaev-Roberts)",
+    "aucune calibration : moyenne d'e-valeurs = e-valeur ; seuil de Ville",
+    "significatif si le sup depasse 20 ; f2 a montre qu'un portefeuille sans "
+    "relance est structurellement aveugle a un defaut tardif, ce jeton couvre "
+    "ce cas",
     track="C")
 
 TOK_MAX = lab.preregister(
@@ -248,6 +282,31 @@ say(f"   seuil de Ville à α = 0,05 : 10^{math.log10(20):+.3f}")
 say(f"   taux de Kelly             : {log_mix[-1] / np.log(2) / len(cum):+.3e} bit/tirage")
 say(f"   (un tirage coûte {LOG_C / math.log(2):.4f} bits sous H0)")
 
+# --------------------------------------------------------------------------
+# 2 bis. Les mêmes paris, mais relancés à chaque tirage
+# --------------------------------------------------------------------------
+
+rule("2 bis. LE MÊME PORTEFEUILLE, RELANCÉ À CHAQUE TIRAGE")
+say("   Le mélange ci-dessus est cumulé depuis le premier tirage. f2 a montré")
+say("   qu'une telle martingale est structurellement aveugle à un défaut")
+say("   tardif : sa richesse est déjà effondrée quand le défaut arrive. On")
+say("   ajoute donc les mêmes 174 paris relancés à CHAQUE tirage.")
+
+SR = shiryaev_roberts(LOGE)
+logt = np.log(np.arange(1, len(SR) + 1))[:, None]
+ALL = np.concatenate([cum, SR - logt], axis=1)          # 348 e-processus
+mx2 = ALL.max(axis=1, keepdims=True)
+log_all = mx2[:, 0] + np.log(np.exp(ALL - mx2).mean(axis=1))
+log10_all = log_all / np.log(10)
+
+mxs = (SR - logt).max(axis=1, keepdims=True)
+log_sr = mxs[:, 0] + np.log(np.exp((SR - logt) - mxs).mean(axis=1))
+say(f"\n   sup_t E, relancés seuls   : 10^{(log_sr / np.log(10)).max():+.3f}")
+say(f"   sup_t E, les 348 ensemble : 10^{log10_all.max():+.3f}"
+    f"  (au pas {int(np.argmax(log10_all))} / {len(log10_all)})")
+say(f"   E final, les 348 ensemble : 10^{log10_all[-1]:+.3f}")
+say(f"   seuil de Ville à α = 0,05 : 10^{math.log10(20):+.3f}")
+
 best = int(np.argmax(cum[-1]))
 say(f"\n   meilleur modèle isolé     : {MODEL_NAMES[best]}  ->  10^{cum[-1, best] / np.log(10):+.3f}")
 say(f"   pire modèle isolé         : {MODEL_NAMES[int(np.argmin(cum[-1]))]}"
@@ -288,7 +347,7 @@ def contaminate(m, rng, eps):
     return m
 
 
-say("\n   ε        avance réelle     log10 E du mélange    E >= 20 ?")
+say("\n   ε        avance réelle     sup_t log10 E (348)   E >= 20 ?")
 for eps in (0.0, 0.02, 0.05, 0.10):
     m = lab.srs(T_POW, rngp)
     if eps:
@@ -296,10 +355,12 @@ for eps in (0.0, 0.02, 0.05, 0.10):
     lag1 = float((m[1:] & m[:-1]).sum(axis=1).mean())
     lg = portfolio(m, None)
     c = np.cumsum(lg, axis=0)
-    mm = c.max(axis=1, keepdims=True)
-    l10 = (mm[:, 0] + np.log(np.exp(c - mm).mean(axis=1))) / np.log(10)
-    say(f"   {eps:<8.2f} +{lag1 - 5:.4f} hits     {l10[-1]:+10.3f}"
-        f"            {'oui' if l10[-1] >= math.log10(20) else 'non'}")
+    sr = shiryaev_roberts(lg) - np.log(np.arange(1, len(lg) + 1))[:, None]
+    a = np.concatenate([c, sr], axis=1)
+    mm = a.max(axis=1, keepdims=True)
+    l10 = (mm[:, 0] + np.log(np.exp(a - mm).mean(axis=1))) / np.log(10)
+    say(f"   {eps:<8.2f} +{lag1 - 5:.4f} hits     {l10.max():+10.3f}"
+        f"            {'oui' if l10.max() >= math.log10(20) else 'non'}")
 
 
 # --------------------------------------------------------------------------
@@ -311,6 +372,11 @@ lab.record(TOK, float(log10_mix[-1]), None, p=float(min(1.0, 10 ** (-log10_mix[-
            verdict="",
            notes=f"{M} modeles, melange a poids egaux ; Kelly "
                  f"{log_mix[-1] / np.log(2) / len(cum):+.3e} bit/tirage")
+lab.record(TOK_SR, float(log10_all.max()), None,
+           p=float(min(1.0, 10 ** (-log10_all.max()))),
+           power_at=f"contamination momentum, cf. section 3 (T={T_POW})",
+           verdict="", notes="348 e-processus : 174 depuis le debut + 174 relances "
+                             "a chaque tirage (Shiryaev-Roberts)")
 lab.record(TOK_MAX, float(log10_mix.max()), None,
            p=float(min(1.0, 10 ** (-log10_mix.max()))),
            power_at=f"contamination momentum, cf. section 3 (T={T_POW})",
