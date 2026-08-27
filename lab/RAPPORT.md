@@ -352,7 +352,101 @@ C'est la conclusion la plus utile de toute la recherche de biais : le plus
 beau résidu que 70 560 tirages puissent produire, à supposer qu'il soit réel,
 vaut deux centièmes de pourcent.
 
-**Registre entier : m = 3 306 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
+### Le null lui-même, remis en question — et confirmé (`f1_permutation.py`)
+
+Les 23 voies ci-dessus partagent une hypothèse jamais interrogée : tous les
+nulls sont simulés par `lab.srs()`, un tirage SRS 20/80 supposé
+**parfaitement uniforme**. C'est une hypothèse, pas une donnée — et si la loi
+réelle s'écarte très légèrement de l'uniforme, trop peu pour que le χ²
+marginal le voie, tout test calibré contre SRS hérite d'un null mal calibré.
+
+Pour toute hypothèse **temporelle**, il existe un null strictement meilleur :
+la **permutation**. Permuter l'ordre des 70 560 tirages réels détruit toute
+structure temporelle en préservant EXACTEMENT la distribution empirique
+jointe des tirages, quelle qu'elle soit — valide sous la seule hypothèse
+d'échangeabilité, sans rien supposer de l'uniformité. `lab.calibrate_perm()`
+l'implémente (même contrat que `lab.calibrate()`, `stat(archive)` reçoit une
+Archive dont le contenu est permuté, `ts` restant fixe).
+
+**Sanity check.** Sur une archive SRS *propre* (rien à détruire), les deux
+nulls doivent coïncider : `calibrate()` 4,99988 ± 0,006818 contre
+`calibrate_perm()` 4,99974 ± 0,006145 — ratio de sd 0,90, moyennes à
+0,03 sd l'une de l'autre. Implémentation validée avant de la pointer sur les
+vraies données.
+
+**Le piège, démontré et pas seulement affirmé.** Une statistique purement
+MARGINALE — la loi du bonus sur 80 numéros (V1 de d7) — est invariante par
+permutation de l'ordre des lignes : sur 10 réplicats, le null vaut
+92,340136 ± 1,5 × 10⁻¹⁴. Un sd numériquement nul : permuter les lignes ne
+change *rien* à un compte marginal, le null est un point, pas une loi. La
+permutation ne couvre donc que les hypothèses d'**ordre** ou de **covariable
+temporelle** ; elle est structurellement aveugle aux marginales (§1 de
+l'audit, V1/V5 de d7, c0), aux comptes de triplets (d1_triplets.py) et à
+tout agrégat qui ne regarde pas le rang du tirage.
+
+**Re-dérivation** des résultats temporels clés, SRS frais vs permutation
+(archive réelle), 150 réplicats chacun :
+
+| statistique | observé | null SRS | z SRS | null PERM | z PERM | sd(perm)/sd(srs) |
+|---|---|---|---|---|---|---|
+| T1 — recouvrement lag-1 (c1) | 5,0019 | 5,0006 ± 0,0065 | +0,21 | 4,9996 ± 0,0067 | +0,35 | 1,028 |
+| **V3 — bonus_t dans t+1 (d7)** | **0,24605** | 0,25001 ± 0,00157 | **−2,52** | 0,25005 ± 0,00152 | **−2,63** | 0,969 |
+| S1 — forme du recouvrement (d3) | 30,292 | 12,525 ± 5,23 | +3,40 | 11,372 ± 4,91 | +3,86 | 0,938 |
+| c3 heure→somme | 115 440 | 135 010 ± 49 900 | −0,39 | 144 270 ± 46 900 | −0,61 | 0,940 |
+| c3 slot→recouvrement | 665,33 | 579,32 ± 52,5 | +1,64 | 569,63 ± 53,5 | +1,79 | 1,019 |
+
+Sur les cinq, le ratio des sd reste dans **[0,94 ; 1,03]** — le null SRS
+n'était ni anti-conservateur ni conservateur de façon consistante, il était
+juste **correct**, dans le bruit d'estimation à 150 réplicats. Aucun z ne
+change de camp ; aucun verdict ne change. `lab.holm()` : 0 significatif,
+m passe à 3 311 (+5), seuil quasi inchangé (1,51 × 10⁻⁵).
+
+**Le verdict sur V3, puisque c'est la question qui décide.** z passe de
+−2,52 (SRS, recalculé à 150 réplicats — cohérent avec le −2,58 original à
+300) à **−2,63 sous permutation**. Le résidu **s'amplifie très légèrement** ;
+il ne s'annule pas. p_perm = 0,0066 tombe sur le plancher de Davison-Hinkley
+(0 des 150 permutations aussi extrêmes que l'observé, soit 1/151) : c'est une
+limite de résolution à 150 réplicats, pas un saut de significativité — le z
+est la comparaison qui fait foi, et il dit la même chose que sous SRS, à un
+dixième près, à des ordres de grandeur du seuil Holm. **La conclusion de
+`d7b_chasse.py` ne bouge pas** : le résidu est réel dans ses vérifications
+internes, cohérent sous les deux nulls, et vaut +0,02 % s'il est réel — la
+permutation ne le fait ni disparaître ni décoller.
+
+**Puissance — les deux nulls détectent-ils pareil ?** Self-permutation par
+réplicat contaminé (80 réplicats de null chacune) contre null SRS fixe,
+N=20 000 (réduit — génération séquentielle, ~20-25 µs/tirage), 12 réplicats
+par point, seuil |z| ≥ 4,33 :
+
+| rémanence d (T1) | pw SRS | pw PERM | · | déficit bonus (V3) | pw SRS | pw PERM |
+|---|---|---|---|---|---|---|
+| 0,001 | 0 % | 0 % | | 0,02 | 0 % | 0 % |
+| 0,002 | 8 % | 8 % | | 0,05 | 58 % | 58 % |
+| 0,004 | 100 % | 100 % | | 0,10 | 100 % | 100 % |
+| 0,008 | 100 % | 100 % | | 0,20 | 100 % | 100 % |
+
+**Détection identique à chaque palier, pour les deux familles.** Passer au
+null par permutation ne coûte ni ne gagne de puissance ici — cohérent avec
+des sd déjà quasi identiques.
+
+**Ce que la permutation couvre** : toute hypothèse d'ordre ou de covariable
+temporelle — rémanence/répulsion lag-k (T1/T2 de c1), forme de la loi du
+recouvrement (S1 de d3), dépendance sérielle du bonus (V2/V3/V4 de d7),
+dépendance à une covariable dérivée de `ts` (c3 : heure, jour, créneau,
+minute). **Ce qu'elle ne couvre pas** : toute hypothèse dont la statistique
+est invariante par permutation de l'ordre des lignes — les lois marginales
+(§1 de l'audit, V1/V5 de d7, c0), les comptes de triplets (d1), le boost non
+conditionné à une covariable temporelle. Ce n'est pas une limite qu'on
+pourrait lever en rééchantillonnant plus : c'est structurel, le null y est
+un point.
+
+**Un résultat utile précisément parce qu'il ne bouge rien** : les 23 voies
+temporelles du dossier tenaient déjà sous l'hypothèse d'échangeabilité
+seule, plus faible que l'uniformité SRS qu'on leur prêtait implicitement.
+L'hypothèse cachée n'était pas fausse — elle était vérifiée, sans jamais
+avoir été nommée.
+
+**Registre entier : m = 3 311 tests dépensés, seuil Holm p < 1,51 × 10⁻⁵,
 0 significatif.** Ce compte augmente à chaque expérience ; `lab.holm()` le
 recalcule depuis `ledger.jsonl` et fait foi sur toute valeur citée ici.
 
