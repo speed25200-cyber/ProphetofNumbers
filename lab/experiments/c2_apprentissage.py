@@ -308,6 +308,46 @@ def identification(a: lab.Archive, rng):
     return rows
 
 
+def diagnostic(a: lab.Archive, rng):
+    """Pourquoi le modèle riche rate le biais marginal — le mécanisme exact.
+
+    « Enrichir un modèle le dégrade quand il n'y a rien de plus à trouver »
+    est une affirmation forte ; elle mérite mieux qu'une table de résultats.
+    On regarde donc ce que le modèle apprend REELLEMENT sur le trait qui
+    porte le biais, et ce que devient son classement final.
+    """
+    global CHECKPOINTS
+    saved = CHECKPOINTS
+    names = [f"freq {w}" for w in WINDOWS] + ["freq longue", "retard", "t-1", "t-2", "t-3",
+                                              "co-occurrence", "heure sin", "heure cos",
+                                              "boost t-1", "bonus t-1"]
+    print(f"\n{'-' * 82}\nMÉCANISME — que le modèle apprend-il quand le biais marginal EST là ?")
+    try:
+        CHECKPOINTS = (20_000,)
+        for d in (0.003, 0.020):
+            arch = contaminate(a, "marginal", d, rng)
+            f = features_bulk(arch)
+            coef = Learner(f, arch).model(20_000).coef_.ravel()
+            top4 = np.argsort(-np.abs(coef))[:4]
+            picked = np.argsort(-(f[60_000] @ coef))[:K]
+            by_freq = np.argsort(-f[60_000][:, 4])[:K]
+            print(f"\n  d = {d:.3f}")
+            print("    poids dominants : " + " | ".join(f"{names[i]} {coef[i]:+.3f}" for i in top4))
+            print(f"    poids sur « freq longue », le trait qui porte le biais : {coef[4]:+.4f}")
+            print(f"    numéros biaisés retenus par le modèle          : "
+                  f"{sum(1 for x in picked if x < 10)}/10")
+            print(f"    numéros biaisés retenus par « freq longue » seule : "
+                  f"{sum(1 for x in by_freq if x < 10)}/10")
+    finally:
+        CHECKPOINTS = saved
+    print("\n  À d = 0,003 le modèle apprend zéro sur le trait informatif — 18 000")
+    print("  tirages d'entraînement n'y montrent qu'un signal à ~1 écart-type — pendant")
+    print("  qu'un poids parasite sur la co-occurrence domine le classement et détruit")
+    print("  ce que le trait brut portait à lui seul. À d = 0,020 le poids se met en")
+    print("  place et le modèle retrouve les dix numéros. Le seuil n'est donc pas celui")
+    print("  du signal, c'est celui de l'apprentissage du poids.")
+
+
 def main():
     quick = "--quick" in sys.argv
     t0 = time.time()
@@ -370,6 +410,7 @@ def main():
     print("  le dégrade quand il n'y a rien de plus à trouver.")
 
     identification(a, rng)
+    diagnostic(a, rng)
 
     print(f"\n{'-' * 82}")
     tok = lab.preregister(

@@ -175,12 +175,21 @@ d = 0,020. Sur un biais **marginal**, en revanche, il ne voit rien sous
 d = 0,020 — alors que le χ² le détecte dès d = 0,005 et que le simple
 classement par fréquence en capte 64 % dès d = 0,003.
 
-Ce n'est pas un défaut du montage, et c'est la leçon la plus contre-intuitive
-du labo : **enrichir un modèle le dégrade quand il n'y a rien de plus à
-trouver.** La fréquence longue est la statistique exhaustive d'un biais
-marginal ; les treize autres traits n'apportent alors que du bruit au
-classement des 80 numéros. Un modèle plus gros n'est pas un modèle plus
-sensible.
+Ce n'est pas un défaut du montage, et le mécanisme a été isolé plutôt que
+supposé. À d = 0,003, le poids appris sur « fréquence longue » — le seul trait
+qui porte le biais — vaut **+0,0014**, c'est-à-dire zéro : 18 000 tirages
+d'entraînement n'y montrent qu'un signal à environ un écart-type. Pendant ce
+temps un poids parasite de −0,53 sur la co-occurrence domine le classement.
+Résultat : le modèle retient **0 des 10** numéros biaisés, là où le seul trait
+informatif, pris brut, en retrouve **6 sur 10**. À d = 0,020 le poids se met
+en place (+0,51) et le modèle retrouve les dix.
+
+Le seuil n'est donc pas celui du signal : c'est celui de l'apprentissage du
+poids. D'où la leçon la plus contre-intuitive du labo — **enrichir un modèle
+le dégrade quand il n'y a rien de plus à trouver.** La fréquence longue est
+la statistique exhaustive d'un biais marginal ; les treize autres traits
+n'apportent que du bruit au classement des 80 numéros. Un modèle plus gros
+n'est pas un modèle plus sensible.
 
 ## 4. Le boost — le seul endroit où le signe de l'espérance pourrait changer
 
