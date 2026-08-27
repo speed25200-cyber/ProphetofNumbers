@@ -353,7 +353,11 @@ for eps in (0.0, 0.02, 0.05, 0.10):
     if eps:
         m = contaminate(m, rngp, eps)
     lag1 = float((m[1:] & m[:-1]).sum(axis=1).mean())
-    lg = portfolio(m, None)
+    # Un bonus uniforme, sinon les 6 modèles de la famille « bonus » reçoivent
+    # un champ constant, valent 1 à chaque pas, et posent un PLANCHER de
+    # 6/348 au mélange — un chiffre qui ressemble à une mesure sans en être une.
+    bonus_sim = rngp.integers(1, POOL + 1, size=len(m))
+    lg = portfolio(m, bonus_sim)
     c = np.cumsum(lg, axis=0)
     sr = shiryaev_roberts(lg) - np.log(np.arange(1, len(lg) + 1))[:, None]
     a = np.concatenate([c, sr], axis=1)

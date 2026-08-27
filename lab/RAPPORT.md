@@ -1091,3 +1091,283 @@ exclut un taux de fuite ≥ 1 %, N = 3 000 exclut ≥ 0,1 %.
 - **Un défaut d'implémentation ou un accès privilégié.** Hors de portée de
   toute analyse de sorties publiques, quelle qu'en soit la profondeur — ce
   n'est pas une question de méthode mais d'accès (cf. §14 de l'audit).
+
+## 12. Le renversement : tester le prédicteur, et non plus les tirages
+
+Les vingt-trois voies qui précèdent testent toutes une propriété des
+**tirages** : une fréquence, un écart, un recouvrement, un décalage. Chacune
+doit nommer sa régularité d'avance, et chacune paie sa place au registre.
+
+Cinq expériences ont changé de **méthode** plutôt que de question. Elles ne
+demandent plus « telle régularité existe-t-elle ? » mais « qu'est-ce qui,
+dans tout ce qu'on a construit, bat le hasard — et de combien, en quelle
+unité ? ». Trois d'entre elles répondent sans avoir à nommer quoi que ce
+soit d'avance.
+
+### 12.1 L'essaim déployé bat-il le hasard ? (`f3_predicteur.py`)
+
+Personne n'avait jamais testé le prédicteur lui-même. C'est pourtant la
+seule question dont la réponse décide du produit.
+
+Pour la poser il faut la **loi de l'essaim sous H₀**, donc pouvoir le rejouer
+des centaines de fois sur des archives synthétiques. `lab/swarm_py.py`
+transcrit les 26 têtes, leurs constantes, l'ordre des opérations (évaluation
+avant absorption, à partir du 13ᵉ tirage), le z-score de population, le
+top-20 et AdaHedge. Deux écarts sont assumés et tous deux **conservateurs** :
+l'évolution est désactivée — elle ferait de « la tête h » une cible mouvante,
+et une tête figée ne peut que sous-performer une tête qui s'adapte —, et les
+égalités de tri sont départagées par indice croissant.
+
+Le test est exact sans rien supposer du contenu des prédictions, grâce au
+théorème qui borne déjà tout le dossier : pour **tout** ensemble de 20
+numéros choisi sans voir le tirage, le recouvrement suit une
+hypergéométrique(80, 20, 20), d'espérance 5 et d'écart-type 1,687632. Donc
+`S_h = Σ_t (recouvrement_{h,t} − 5)` est une martingale de loi connue. Le
+seul inconnu est la **dépendance entre têtes**, obtenue par simulation.
+
+Sur les 70 560 tirages, en marche avant :
+
+| tête | hits/tirage | z |
+|---|---|---|
+| `pression` (la meilleure) | 5,01195 | +1,88 |
+| `acp.2` | 5,01079 | +1,70 |
+| … | | |
+| `mom.8x32` (la pire) | 4,98771 | −1,93 |
+| **ensemble AdaHedge — ce que l'app utilise** | **4,99572** | **−0,67** |
+
+Quatre statistiques pré-enregistrées, contre un null obtenu en rejouant
+l'essaim entier sur 12 archives SRS complètes (et un null conditionnel
+martingale sur 600 réplicats ; c'est le plus large des deux qui est retenu) :
+
+| | observé | null | z | p |
+|---|---|---|---|---|
+| **F3-A** meilleure des 26 têtes | +1,881 | +1,914 ± 0,572 | −0,06 | 0,965 |
+| **F3-B** ensemble AdaHedge | −0,674 | +0,439 ± 0,999 | −1,11 | 0,256 |
+| **F3-C** transfert hors échantillon | −0,214 | −0,087 ± 0,378 | −0,34 | 0,846 |
+| **F3-D** têtes effectives | 6,796 | 8,061 ± 2,606 | −0,49 | 0,846 |
+
+F3-A est l'omnibus : la multiplicité du choix de tête est **dans la loi du
+maximum**, pas corrigée après coup. F3-C est la seule version *exploitable*
+de la question — la tête gagnante d'un pli, payée sur le pli suivant, sans
+malédiction du vainqueur.
+
+**Sensibilité.** Sur une contamination momentum à T = 20 000, le seuil à 3 σ
+du null est +3,12, et l'essaim détecte 4 fois sur 4 dès **+0,043 hits par
+tirage** (+0,85 %). Il ne détecte pas +0,019. Il n'y a rien à ce niveau.
+
+**Conséquence produit.** L'app affiche `TÊTES EFFECTIVES 6,8` sur la carte
+« L'ESSAIM », ce qui se lit comme un signe d'apprentissage. Sous le hasard
+pur, cette statistique va de **3,2 à 14,1** selon le réplicat (f6 ci-dessous).
+C'est un nombre aléatoire.
+
+### 12.2 Combien de bits ? (`f4_codage.py`)
+
+Toutes les voies du dossier réduisent un tirage à un nombre. C'est jeter 61
+bits pour n'en garder que trois. f3 lui-même ne regarde que le top-20 de
+chaque tête.
+
+Ici on ne réduit rien. Sous H₀, le tirage est uniforme sur les
+C(80, 20) = 3,54·10¹⁸ sous-ensembles : il coûte **61,6165 bits**, et pas un
+de moins. Un modèle qui, avant de voir le tirage, propose une loi *Q* sur ces
+mêmes sous-ensembles reçoit `e_t = Q(D_t)·C(80,20)`, et sous H₀
+
+    E[e_t | passé] = Σ_S (1/C) · Q(S) · C = 1   exactement.
+
+La loi *Q* est une **Bernoulli conditionnelle** : 80 poids w, et
+`Q(S) = Π_{i∈S} w_i / e_20(w)`, où le polynôme symétrique élémentaire e₂₀ se
+calcule par récurrence en 80 × 21 produits — vectorisée sur tous les modèles
+et tous les tirages d'un bloc.
+
+Trois conséquences que le dossier n'avait pas :
+
+1. **Aucune correction de multiplicité.** La moyenne d'e-valeurs est une
+   e-valeur : 174 paris se lisent tels quels, là où le registre impose un
+   seuil de Holm à 1,51·10⁻⁵ à toute statistique classique.
+2. **Valide à tout instant** (Ville) : la courbe s'inspecte en continu sans
+   dépenser d'alpha.
+3. **La réponse est en bits**, donc en argent — (1/T)·log₂ E est le taux de
+   croissance de Kelly, et zéro bit signifie aucune information exploitable,
+   quelle que soit la mise.
+
+La construction a été vérifiée avant d'être appliquée : sur 200 000 tirages
+uniformes et des poids arbitraires, la moyenne de `e_t` vaut 1 à +0,73 σ,
+−0,33 σ et +1,44 σ pour θ = +0,05, +0,20 et −0,20. Un e-processus faux monte
+tout seul et invente un signal ; celui-ci ne bouge pas.
+
+Les modèles : les 26 têtes de l'app, leur mélange AdaHedge, l'appartenance au
+tirage précédent et l'écho du bonus, chacun incliné par θ ∈ {±0,02 ; ±0,05 ;
+±0,10}. Sur les 70 560 tirages :
+
+| | valeur |
+|---|---|
+| sup_t E du mélange | **10^+0,066** (au pas 6 sur 70 547) |
+| seuil de Ville à α = 0,05 | 10^+1,301 |
+| **taux de Kelly** | **−3,33·10⁻³ bit/tirage** |
+| coût d'un tirage sous H₀ | 61,6165 bits |
+
+Les 174 paris réunis extraient une information **négative** sur le tirage
+suivant. Détail cohérent : le meilleur des 174 est `bonus@−0,02` — l'écho du
+bonus incliné exactement dans la direction que `d7` avait trouvée. C'est le
+pari qui perd le moins (10^−68,4 contre 10^−84 pour les pires têtes). Il perd
+quand même.
+
+### 12.3 Tous les décalages, toutes les fréquences, toutes les paires (`f5_paires.py`)
+
+Le dossier avait testé les décalages 1 à 30 (`d2`), le recouvrement
+conditionnel (`c1`), les triplets (`d1`) : quelques décalages, choisis à la
+main. Or l'archive contient **2 489 344 020 paires** de tirages et le
+processus a **35 280 fréquences**. Les regarder toutes n'était pas une
+question de volonté mais d'algorithme.
+
+Le recouvrement au décalage *d* s'écrit
+
+    Σ_t |D_t ∩ D_{t+d}| = Σ_{n=1}^{80} Σ_t x_n[t] · x_n[t+d]
+
+c'est-à-dire la somme des **autocorrélations** des 80 séries binaires
+d'appartenance. Une FFT par numéro donne les 69 560 décalages en **3,5
+secondes**, contre 2,5 milliards de comparaisons en force brute. Le null
+aussi — ce qui rend possible une loi du maximum sur 300 archives complètes.
+
+Le null lui-même a été vérifié avant usage : sous H₀ les paires (t, t+d) et
+(t+d, t+2d) sont **non corrélées** — le tirage du milieu est intégré des deux
+côtés à la même espérance 5 —, donc la variance de la moyenne vaut exactement
+2,8481/(T−d), sans terme croisé. Mesuré sur 200 décalages : écart-type des z
+= 1,0051.
+
+| | observé | null | z | p |
+|---|---|---|---|---|
+| **f5-A** max sur 69 560 décalages | 4,157 | 4,473 ± 0,269 | −1,17 | 0,249 |
+| **f5-B** max sur 35 280 fréquences | 1,513 | 1,534 ± 0,043 | −0,48 | 0,621 |
+| **f5-C** max sur 2 489 344 020 paires | 16/20 | λ(≥16) = 1,691 | | 0,816 |
+
+Les trois maxima sont **en dessous** de leur null. Et 168 décalages dépassent
+3 σ là où H₀ en prédit 188 ; 3 dépassent 4 σ pour 4,4 attendus. Le décalage 1
+— la voie `c1` — sort à z = +0,30 sans la moindre sélection.
+
+f5-C est le test de réutilisation de graine (le bug Corriveau du Keno de
+Pennsylvanie, 1994) mené à l'échelle de l'archive entière, au lieu des 480
+derniers tirages que l'app surveille. L'histogramme complet suit
+l'hypergéométrique classe par classe jusqu'à la queue rare : 2 paires
+observées à 16 pour 1,664 attendues, 0 à 17 pour 0,027.
+
+**Une limite mesurée plutôt que supposée.** f5-B est **faiblement puissant**
+contre la contamination testée : une raie de période 512 tirages n'est pas
+détectée à 0/3, même à amplitude 0,010. Le périodogramme couvre toutes les
+fréquences, pas toutes les amplitudes. f5-A détecte +0,037 hits à un décalage
+donné (2/2) mais pas +0,026.
+
+### 12.4 Réel, permuté, simulé — le triangle qui isole la cause (`f6_permute.py`)
+
+Le premier réplicat du null de f3 donnait 9,97 têtes effectives contre 6,80
+observées, ce qui ressemblait à un écart. Un null seul ne peut pas dire d'où
+viendrait un tel écart. Trois sommets le peuvent :
+
+- **RÉEL** — l'archive telle quelle ;
+- **PERMUTÉ** — les *mêmes* tirages, ordre rebattu : détruit le temps,
+  préserve exactement le multi-ensemble ;
+- **SIMULÉ** — des tirages SRS uniformes indépendants.
+
+Réel ≠ permuté signifie structure temporelle ; permuté ≠ simulé signifie que
+la loi des tirages s'écarte de l'uniforme ; les trois égaux signifient qu'il
+n'y a rien.
+
+| statistique | RÉEL | PERMUTÉ (8) | SIMULÉ (8) |
+|---|---|---|---|
+| têtes effectives | 6,80 | 7,43 ± 3,79 | 6,84 ± 3,32 |
+| max_h z_h | +1,88 | +1,86 ± 0,64 | +2,11 ± 1,02 |
+| dispersion des hits | 417,8 | 426,8 ± 88,6 | 444,0 ± 150,2 |
+| z de l'ensemble | −0,67 | −0,10 ± 0,90 | +0,46 ± 1,55 |
+
+Réel contre permuté : z = −0,17. Réel contre simulé : z = −0,01. Permuté
+contre simulé : t = +0,33. Les trois sommets coïncident. Le 9,97 était du
+bruit.
+
+Mesure au passage : deux têtes différentes partagent **5,92 numéros sur 20**
+dans leur top-20, à peine au-dessus des 5,00 que partagent deux ensembles
+sans aucun rapport. L'essaim n'est pas 26 variantes d'une même idée.
+
+### 12.5 Ce que l'anytime-validité coûte (`f2_eprocessus.py`)
+
+Le résultat le plus utile de cette série est négatif, et il va contre sa
+propre méthode.
+
+Un portefeuille de quatre e-processus — recouvrement lag-1, écho du bonus,
+somme marginale, dispersion du recouvrement — se lit sans correction de
+multiplicité et à tout instant d'arrêt. Sur les vrais tirages : max_t E_t =
+**4,99**, atteint au pas 234, puis retour à zéro ; p de Ville = 0,20. La
+famille `overlap_shape`, celle de la voie `d3` qui sortait à z = +3,47 par
+lots, culmine à 19,1 **au pas 234 sur 70 559** avant de s'effondrer. Un vrai
+biais fait monter un e-processus de façon monotone.
+
+Mais mesurée sur les contaminations transitoires de `a3` :
+
+| fenêtre corrompue | biais | portefeuille | balayage par lots `a3` |
+|---|---|---|---|
+| 200 tirages | +40 % | 0,05 | **0,58** |
+| 500 tirages | +20 % | 0,00 | **0,28** |
+| 2 000 tirages | +20 % | 0,00 | **1,00** |
+
+Le diagnostic décisif : le **même** défaut (L = 500, j = 7), placé tôt
+(t ∈ [1, 5 000]) → puissance **1,00** ; placé tard (t ∈ [50 000, N−L]) →
+**0,00**. La cause est arithmétique, pas un manque de sensibilité. Un pari
+cumulé depuis le premier tirage vaut exp(Σ log f), et **une somme ne dépend
+pas de l'ordre** : sa valeur finale ignore *quand* le défaut s'est produit.
+Ce qui change est son maximum courant — le seul chiffre que Ville autorise à
+lire —, et un défaut tardif arrive sur une richesse déjà effondrée par la
+dérive négative.
+
+L'anytime-validité et l'absence de correction se paient donc en puissance
+contre les défauts transitoires. Le remède porte un nom : le **mélange sur
+les instants de redémarrage**.
+
+### 12.6 Ce que ces expériences ont changé dans l'app
+
+Trois correctifs, tous démontrés plutôt qu'argumentés.
+
+**1. L'écart affiché se mesure contre la loi exacte.** « ÉCART AU HASARD —
++x.xx σ » divisait par un écart-type **estimé sur 60 tirages**. Ce n'est pas
+une quantité à estimer : c'est la constante 1,687632 de f3. L'estimer sur 60
+points ajoutait σ/√(2·59) ≈ 9 % de bruit au dénominateur — le chiffre affiché
+était un t de Student à 59 degrés présenté comme un σ. Le test recalcule
+l'écart-type **à partir de la loi**, terme à terme, sans réutiliser la formule
+fermée du code : les deux chemins tombent sur 1,687631851389.
+
+**2. La surveillance cesse d'être aveugle à un biais apparu tard.** L'app
+affichait une e-valeur avec la phrase « sous ce seuil, aucune anomalie ».
+f2 a montré que c'était faux pour un défaut tardif. La récurrence de
+Shiryaev-Roberts
+
+    R_t = (1 + R_{t−1}) · f_t = Σ_{k≤t} Π_{s=k..t} f_s
+
+est la somme des paris démarrés à chaque instant : `R_t/t` est la moyenne de
+*t* e-processus, donc une e-valeur — en une ligne, O(1) de temps comme de
+mémoire. L'e-valeur affichée devient la moyenne de **32 paris** : deux
+familles dont la loi sous H₀ est exacte (recouvrement du top-20,
+hypergéométrique ; écho du bonus, Bernoulli 0,25), huit tailles d'effet,
+chacun tenu depuis le début **et** relancé à chaque tirage.
+
+Le test rejoue le mécanisme, avec son témoin positif — sans lui il ne
+distinguerait pas « aveugle à un défaut tardif » de « cassé » :
+
+| | valeur |
+|---|---|
+| valeur finale du pari cumulé, tôt contre tard | 7,056·10⁻⁹⁰ = 7,056·10⁻⁹⁰ |
+| défaut **tardif** : sup du pari cumulé | **7,748** — jamais 20 |
+| défaut **tardif** : redémarrages | 3,256·10⁴⁶ |
+| témoin, défaut **tôt** : sup du pari cumulé | 1,703·10⁵⁰ |
+| témoin, défaut **tôt** : redémarrages | 1,129·10⁴⁸ |
+
+**3. f4 s'applique à lui-même ce qu'il reproche à l'app.** Écrit d'abord comme
+un e-processus cumulé depuis le premier tirage, il portait exactement la
+faiblesse démontrée par f2. Les 174 paris sont désormais tenus deux fois —
+depuis le début et relancés à chaque tirage —, et la sensibilité se lit sur le
+supremum de la trajectoire, non sur sa valeur finale.
+
+### 12.7 Où en est le registre
+
+Ces expériences ajoutent 15 entrées. Le registre compte **107 tests
+consignés**, m = 3 307 en comptant les familles dont seul l'extrême est
+enregistré, seuil de Holm **1,512·10⁻⁵**. Le plus petit p du dossier entier
+reste **2,0·10⁻⁴** (`audit.paires`).
+
+**0 significatif.**
