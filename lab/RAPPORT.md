@@ -425,6 +425,53 @@ l'autre (k = 6, 10 ou 5 selon la variante), et aucune comparaison n'atteint
 les mises est fixé par l'opérateur, pas par k**, et toutes sont à espérance
 négative. Kelly conclut `f* = 0`.
 
+## 5 bis. Le seul seuil qui fasse changer l'espérance de signe
+
+C'est la chose la plus actionnable du dossier, et elle ressemble enfin à une
+prédiction utile : non pas *quels numéros*, mais **quand jouer**.
+
+Le blocage du §5 était que le barème des rangs intermédiaires n'est pas
+publié, donc l'espérance totale n'est pas calculable — et l'app se contente
+de l'affirmer négative (`GridsView.swift:148`). Mais on n'a pas besoin du
+barème pour établir une condition **suffisante**. Le gain d'un ticket vaut
+
+```
+gain = jackpot·P(k/k) + Σ (rangs intermédiaires) ≥ jackpot·P(k/k)
+```
+
+puisque tous les rangs intermédiaires sont positifs ou nuls. Donc dès que
+`jackpot ≥ mise / P(k/k)`, le pari est favorable — et **tout ce qu'on ignore
+du barème ne peut que rendre l'inégalité meilleure, jamais pire**.
+
+| mise | P(grille pleine) | jackpot suffisant, par franc misé |
+|---|---|---|
+| **5** | 1 / 1 551 | **CHF 1 551** |
+| 6 | 1 / 7 753 | CHF 7 753 |
+| 7 | 1 / 40 979 | CHF 40 979 |
+| 8 | 1 / 230 115 | CHF 230 115 |
+| 10 | 1 / 8 911 711 | CHF 8 911 711 |
+
+Le seuil de la mise à 5 est le seul d'un ordre de grandeur qu'un jackpot
+progressif puisse atteindre. L'app affiche déjà les montants k/k en direct
+(`LoroClient.parseJackpots`) ; il ne lui manquait que le seuil auquel les
+comparer.
+
+Trois choses que ce seuil **n'est pas**, à ne pas confondre :
+
+- Il ne dit rien sur les numéros à cocher. L'espérance de hits reste `k/4`
+  quel que soit le choix (§1) ; le seuil porte sur *l'instant*, pas sur la
+  grille.
+- C'est une condition **suffisante**, pas nécessaire. Le vrai seuil est plus
+  bas — d'autant plus bas que les rangs intermédiaires sont généreux — mais
+  il n'est pas calculable sans eux.
+- Il ne rend pas le pari bon *en dessous*. En dessous, on ne sait rien de
+  plus qu'avant : l'espérance reste négative d'un montant inconnu.
+
+Contrôle de la loi exacte par simulation sur 2 millions de tirages, en cadre
+de Poisson (les comptes attendus vont de 1 290 à 0,22 selon la mise, donc un
+écart-type sur la fréquence n'aurait aucun sens aux grandes mises) : les cinq
+conforment, `p` de 0,30 à 1,00.
+
 ## 6. La géométrie des grilles : réelle, mais pas là où on l'attend
 
 L'invariance est ici plus forte qu'il n'y paraît, et il faut la poser avant
@@ -581,16 +628,20 @@ là où il n'y a qu'une fluctuation.
 2. **Renommer la confiance.** Elle est honnête mais son nom promet une
    probabilité qu'elle n'est pas. « Écart au hasard » plutôt que
    « confiance /100 ».
-3. **Instrumenter la question du boost avant clôture.** Seul point capable de
-   changer le signe de l'espérance. A priori négatif, mais non tranché.
-4. **Revoir la géométrie des 12 grilles** : bannir l'union de toutes les
+3. **Afficher le seuil de jackpot** à côté des montants k/k déjà affichés
+   (§5 bis) : `CHF 1 551` par franc misé pour la mise à 5. C'est la seule
+   information du dossier qui puisse dire à l'utilisateur qu'un pari est
+   devenu favorable, et elle ne dépend d'aucune hypothèse sur le barème.
+4. **Instrumenter la question du boost avant clôture.** L'autre point capable
+   de changer le signe de l'espérance. A priori négatif, mais non tranché.
+5. **Revoir la géométrie des 12 grilles** : bannir l'union de toutes les
    grilles déjà émises et intégrer la pénalité de popularité au greedy, au
    lieu d'en faire une grille qui duplique la première. À présenter pour ce
    que c'est — un lissage du risque (variance ÷ 3,75 à 5,25, P(zéro hit) → 0),
    jamais comme de la prédiction : `P(plein)` reste inchangée à 1 % près, et
    l'espérance de gain est invariante sous **tout** barème.
-5. **Supprimer ou corriger `pAllHit`**, champ mort et faux d'un facteur 22.
-6. **Mettre au conditionnel l'argument « Furtif »** : il suppose des gains
+6. **Supprimer ou corriger `pAllHit`**, champ mort et faux d'un facteur 22.
+7. **Mettre au conditionnel l'argument « Furtif »** : il suppose des gains
    partagés entre gagnants, ce que rien dans le dossier n'établit, et un
    modèle de popularité écrit à la main (`Swarm.swift:1122` : dates ≤ 31,
    multiples de 7 et 11) sans aucune mesure sur les joueurs de ce jeu.
