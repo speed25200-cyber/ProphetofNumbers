@@ -379,7 +379,7 @@
     <div class="kicker">
       <span>Loto Express · Loterie Romande</span>
       <span>70 560 tirages</span>
-      <span>14 expériences · 3 287 tests dépensés</span>
+      <span>14 expériences · 3 290 tests dépensés</span>
     </div>
     <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
     <p class="standfirst">
@@ -512,7 +512,7 @@
         attente — moins de variation que le hasard, pas plus.
       </p>
       <p>
-        <strong>Registre entier&nbsp;: 3 287 tests dépensés, seuil corrigé
+        <strong>Registre entier&nbsp;: 3 290 tests dépensés, seuil corrigé
         <code>p &lt; 1,52 × 10⁻⁵</code>, zéro significatif.</strong>
       </p>
     </div>
@@ -675,22 +675,39 @@
       <table>
         <caption>Quatre combinaisons, quatre sensibilités différentes</caption>
         <thead>
-          <tr><th>combinaison</th><th>ce qu'elle voit</th><th>observé</th><th>p</th></tr>
+          <tr><th>combinaison</th><th>ce qu'elle voit</th><th>observé</th><th>p indép.</th><th>p dép.</th></tr>
         </thead>
         <tbody>
-          <tr><td>Fisher</td><td>les petites p</td><td>114,53</td><td>0,193</td></tr>
-          <tr><td>Stouffer</td><td>un décalage cohérent</td><td>0,766</td><td>0,302</td></tr>
-          <tr><td>Kolmogorov-Smirnov</td><td>la distribution entière</td><td>0,117</td><td>0,454</td></tr>
-          <tr><td>Anderson-Darling</td><td>les queues</td><td>0,559</td><td>0,741</td></tr>
+          <tr><td>Fisher</td><td>les petites p</td><td>114,53</td><td>0,184</td><td>0,308</td></tr>
+          <tr><td>Stouffer</td><td>un décalage cohérent</td><td>+0,77</td><td>0,286</td><td>0,629</td></tr>
+          <tr><td>Kolmogorov-Smirnov</td><td>la distribution entière</td><td>0,117</td><td>0,448</td><td>0,996</td></tr>
+          <tr><td>Anderson-Darling</td><td>les queues</td><td>0,559</td><td>0,750</td><td>1,000</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="col">
       <p>
-        Conforme partout. <strong>Puissance mesurée</strong> sur une dérive diffuse&nbsp;: une dérive
-        forte serait vue à 100 %, une dérive faible à 13 %. Elle resterait donc invisible — dit
-        franchement plutôt que caché derrière un «&nbsp;conforme&nbsp;».
+        Conforme dans les deux bras. Le bras «&nbsp;indépendance&nbsp;» est le plus défavorable au
+        verdict de conformité&nbsp;: c'est lui qui fait foi, et la vérité est entre les deux.
+        <strong>Puissance mesurée</strong> sur une dérive diffuse&nbsp;: forte, vue à 100 %&nbsp;;
+        faible, à 21 %. Elle resterait donc invisible — dit franchement plutôt que caché derrière
+        un «&nbsp;conforme&nbsp;».
+      </p>
+      <p>
+        Nuance que je ne tais pas&nbsp;: au moment où cette analyse a été conçue, sur les 27
+        valeurs alors disponibles, Fisher et Kolmogorov-Smirnov donnaient <code>p ≈ 0,016–0,03</code>
+        — un excès diffus <em>nominal</em>. Les vingt-cinq tests ajoutés depuis, tous conformes,
+        l'ont dilué. Ce n'est pas un tour de passe-passe — des tests neufs qui conforment sont des
+        preuves — mais le résultat dépend de la composition du registre, et il faut le dire.
+      </p>
+
+      <h3>Une erreur de conception de mon propre registre</h3>
+      <p>
+        Les quatre plus petites valeurs du registre étaient des <strong>extrêmes de famille</strong>
+        consignés sans leur correction&nbsp;: suffisant pour la correction de multiplicité, mais un
+        biais vers la significativité dès qu'on agrège. Corrigées, la plus petite passe de
+        <code>0,0002</code> à <code>0,469</code>.
       </p>
 
       <h3>Le dernier signal résiduel de l'audit ne survit pas</h3>
