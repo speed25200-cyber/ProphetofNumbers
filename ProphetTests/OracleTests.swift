@@ -101,6 +101,75 @@ final class OracleTests: XCTestCase {
         XCTAssertFalse(result.duplicateAlert)
     }
 
+    // MARK: Écho du bonus (23ᵉ voie du labo)
+
+    func testBonusEchoTargetsThePreviousBonus() {
+        // Le câblage vise-t-il le bon numéro ? C'est le bonus du tirage le
+        // plus récent, pas celui d'un tirage quelconque de l'historique.
+        let history = syntheticHistory()
+        let result = Swarm.run(history)
+        XCTAssertEqual(result.bonusEcho, history.first?.bonus)
+        XCTAssertNotNil(result.bonusEcho)
+    }
+
+    func testBonusEchoPenalisesOnATie() {
+        // Témoin POSITIF : sur un champ plat, le départage doit faire tomber
+        // le bonus précédent en dernier. Sans cela le mécanisme serait
+        // indistinguable d'un mécanisme cassé.
+        let flat = [Double](repeating: 1.0, count: 80)
+        let adjusted = SwarmEngine.applyBonusEcho(flat, bonus: 42)
+        XCTAssertEqual(adjusted.firstIndex(of: adjusted.min()!), 41)
+        for (i, v) in adjusted.enumerated() where i != 41 {
+            XCTAssertEqual(v, 1.0, accuracy: 1e-12)
+        }
+        XCTAssertEqual(adjusted[41], 1.0 - SwarmEngine.bonusEchoRelative, accuracy: 1e-12)
+    }
+
+    func testBonusEchoIsInertWithoutABonus() {
+        // Témoin NÉGATIF : sans bonus connu, ou hors du champ 1–80, le
+        // départage ne doit toucher à rien.
+        let field = (0..<80).map { Double($0) * 0.1 }
+        XCTAssertEqual(SwarmEngine.applyBonusEcho(field, bonus: nil), field)
+        XCTAssertEqual(SwarmEngine.applyBonusEcho(field, bonus: 0), field)
+        XCTAssertEqual(SwarmEngine.applyBonusEcho(field, bonus: 81), field)
+        // Champ de mauvaise taille : inerte plutôt que fautif.
+        XCTAssertEqual(SwarmEngine.applyBonusEcho([1.0, 2.0], bonus: 1), [1.0, 2.0])
+    }
+
+    func testBonusEchoIsSizedAsATieBreak() {
+        // Le point qui compte : l'écart mesuré vaut +0,02 % d'avantage
+        // exploitable. Il doit donc trancher une égalité et RIEN de plus.
+        // Un écart de score franc ne doit pas bouger, sinon on aurait
+        // transformé deux centièmes de pourcent en coefficient de décision.
+        XCTAssertEqual(SwarmEngine.bonusEchoRelative,
+                       SwarmEngine.bonusEchoDeficit / ProphetConst.baseP,
+                       accuracy: 1e-4,
+                       "le départage doit rester la traduction du déficit mesuré")
+        XCTAssertLessThan(SwarmEngine.bonusEchoRelative, 0.05,
+                          "au-delà, ce n'est plus un départage mais une pondération")
+
+        var field = [Double](repeating: 0, count: 80)
+        field[41] = 0.10                      // le bonus précédent mène nettement
+        let adjusted = SwarmEngine.applyBonusEcho(field, bonus: 42)
+        XCTAssertEqual(adjusted.firstIndex(of: adjusted.max()!), 41,
+                       "un écart franc doit survivre au départage")
+    }
+
+    func testBonusEchoLeavesGridsValid() {
+        // Le départage ne doit rien casser en aval : cardinalité, unicité et
+        // bornes des grilles restent celles que teste déjà la suite.
+        let result = Swarm.run(syntheticHistory())
+        guard let echo = result.bonusEcho else { return XCTFail("écho absent") }
+        XCTAssertTrue((1...80).contains(echo))
+        for pack in result.stakes {
+            for grid in pack.grids {
+                XCTAssertEqual(grid.numbers.count, pack.stake)
+                XCTAssertEqual(Set(grid.numbers).count, pack.stake)
+                XCTAssertTrue(grid.numbers.allSatisfy { (1...80).contains($0) })
+            }
+        }
+    }
+
     func testSwarmIsDeterministic() {
         let history = syntheticHistory()
         let a = Swarm.run(history)

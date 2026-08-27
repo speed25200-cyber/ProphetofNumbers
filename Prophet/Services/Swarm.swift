@@ -609,8 +609,45 @@ final class PressureHead: SwarmHead {
 final class SwarmEngine {
     private static let pool = ProphetConst.poolSize
     private static let drawN = ProphetConst.drawSize
+
+    // MARK: Écho du bonus
+    //
+    // 23ᵉ voie du labo (`lab/experiments/d7_bonus.py`, synthèse dans
+    // `lab/RAPPORT.md`) : sur les 70 560 tirages de l'archive, le numéro
+    // bonus d'un tirage revient dans le tirage SUIVANT dans 0,246049 des cas
+    // au lieu de 0,250000 — un déficit relatif de 1,58 % (z = −2,58).
+    //
+    // Ce résidu survit à toutes les vérifications que l'archive permet :
+    // même signe dans les deux moitiés et dans 7 huitièmes sur 8, spécifique
+    // au lag 1 (les lags 2 à 30 ont une moyenne de z de +0,011), et absent
+    // d'un placebo où le bonus est remplacé par un des 20 numéros tiré au
+    // hasard. Il va aussi en sens opposé au recouvrement global, donc ce
+    // n'est pas une dérive du tirage.
+    //
+    // Il n'est PAS significatif après correction de multiplicité : p = 0,010
+    // contre un seuil de registre à 1,5 × 10⁻⁵. Et surtout, sa valeur
+    // exploitable est de +0,02 % — les probabilités d'inclusion somment à 20,
+    // donc un déficit sur un numéro se dilue sur les 79 autres, et une grille
+    // n'en coche que 5 à 10.
+    //
+    // D'où le câblage : en unités de probabilité sur `inclusion`, où le
+    // chiffre a un sens dimensionnel, et comme simple DÉPARTAGE de rang sur
+    // la sélection. Un effet de deux centièmes de pourcent mérite de trancher
+    // une égalité, pas de peser dans un classement.
+    static let bonusEchoDeficit = 0.003951      // en probabilité d'inclusion
+    static let bonusEchoRelative = 0.0158       // 0,003951 / 0,25, en unités z
+
     private static let baseP = ProphetConst.baseP
     private static let uniformExp = Double(ProphetConst.drawSize * ProphetConst.drawSize) / Double(ProphetConst.poolSize)
+
+    /// Applique le départage de l'écho du bonus à un champ de scores.
+    /// Sans bonus connu, le champ ressort inchangé.
+    static func applyBonusEcho(_ score: [Double], bonus: Int?) -> [Double] {
+        guard let bonus, (1...pool).contains(bonus), score.count == pool else { return score }
+        var out = score
+        out[bonus - 1] -= bonusEchoRelative
+        return out
+    }
 
     private var heads: [SwarmHead] = []
     private var headCount = 0
@@ -635,6 +672,8 @@ final class SwarmEngine {
     private var recent16: [[Int]] = []
     private var adjSeries: [Double] = []
     private var seen = Set<Int>()
+    // Bonus du dernier tirage absorbé — cible de l'écho (cf. bonusEchoDeficit).
+    private var lastBonus: Int?
     private var lastDrawNumber = Int.min
     private var absorbed = 0
     private var prevRanks: [Int]?
@@ -680,6 +719,7 @@ final class SwarmEngine {
         recent16 = []
         adjSeries = []
         seen = []
+        lastBonus = nil
         lastDrawNumber = Int.min
         absorbed = 0
         prevRanks = nil
@@ -755,6 +795,7 @@ final class SwarmEngine {
             }
 
             seen.insert(draw.drawNumber)
+            if let b = draw.bonus, (1...Self.pool).contains(b) { lastBonus = b }
             lastDrawNumber = max(lastDrawNumber, draw.drawNumber)
             absorbed += 1
         }
@@ -1020,6 +1061,7 @@ final class SwarmEngine {
             duplicateAlert: duplicateAlert,
             gaps: gap,
             freq16: freq16,
+            bonusEcho: lastBonus,
             swarm: swarmStats
         )
     }
@@ -1031,6 +1073,8 @@ final class SwarmEngine {
         var alpha: [Double]
         var omega: [Double]
         var nexus: [Double]
+        // Numéro bonus du tirage précédent, pénalisé au départage.
+        var bonusEcho: Int?
     }
 
     func gridSources() -> GridSources {
@@ -1059,11 +1103,18 @@ final class SwarmEngine {
             return out
         }
         let inclusionIdx = heads.firstIndex { $0.id == "bayes.b" } ?? 0
+        // L'écho s'applique ici en PROBABILITÉ, la seule unité où le déficit
+        // mesuré (0,003951) a un sens dimensionnel.
+        var inclusion = rawFields[inclusionIdx]
+        if let b = lastBonus, (1...Self.pool).contains(b) {
+            inclusion[b - 1] -= Self.bonusEchoDeficit
+        }
         return GridSources(
-            inclusion: rawFields[inclusionIdx],
+            inclusion: inclusion,
             alpha: tagBlend(.momentum),
             omega: tagBlend(.reversion),
-            nexus: ensemble
+            nexus: ensemble,
+            bonusEcho: lastBonus
         )
     }
 
@@ -1098,14 +1149,24 @@ final class SwarmEngine {
             // les numéros que la stratégie classe derniers (contre-épreuve
             // vivante : sur un RNG équitable, elle fait jeu égal ; si le
             // modèle se trompait systématiquement, elle gagnerait).
-            let first = greedyPick(k: stake, score: source, kind: kind, banned: [])
-            let second = greedyPick(k: stake, score: source, kind: kind, banned: Set(first))
-            let anti = greedyPick(k: stake, score: source.map { -$0 }, kind: kind, banned: [])
+            // Départage de l'écho du bonus, appliqué après l'inversion pour
+            // l'anti : c'est une affirmation sur le tirage, pas une stratégie,
+            // donc elle vaut dans les deux sens.
+            let ranked = Self.applyBonusEcho(source, bonus: sources.bonusEcho)
+            let first = greedyPick(k: stake, score: ranked, kind: kind, banned: [])
+            let second = greedyPick(k: stake, score: ranked, kind: kind, banned: Set(first))
+            let anti = greedyPick(
+                k: stake,
+                score: Self.applyBonusEcho(source.map { -$0 }, bonus: sources.bonusEcho),
+                kind: kind, banned: [])
             // Furtif : même signal, pénalisé par la popularité humaine —
             // mêmes hits attendus, jackpot moins susceptible d'être partagé.
             var stealthScore = source
             for i in 0..<Self.pool { stealthScore[i] -= 0.4 * Self.popularity[i] }
-            let stealth = greedyPick(k: stake, score: stealthScore, kind: kind, banned: [])
+            let stealth = greedyPick(
+                k: stake,
+                score: Self.applyBonusEcho(stealthScore, bonus: sources.bonusEcho),
+                kind: kind, banned: [])
             for (variant, numbers) in [(1, first), (2, second), (3, anti), (4, stealth)] {
                 let p = numbers.map { sources.inclusion[$0 - 1] }
                 let label: String

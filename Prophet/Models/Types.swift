@@ -147,6 +147,10 @@ struct OracleResult {
     // État courant du champ 1–80.
     var gaps: [Int]
     var freq16: [Double]
+    // Écho du bonus : le numéro bonus du dernier tirage, pénalisé au
+    // départage dans la sélection (cf. Swarm.bonusEchoRelative). nil tant
+    // qu'aucun tirage absorbé n'a publié de bonus.
+    var bonusEcho: Int?
     // Diagnostics de l'essaim.
     var swarm: SwarmStats
 }
