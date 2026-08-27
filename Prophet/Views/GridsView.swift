@@ -23,6 +23,13 @@ struct GridsView: View {
                 Text(caption)
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
+                // La seule quantité que la géométrie du paquet déplace :
+                // l'espérance de gain, elle, est invariante par géométrie
+                // sous toute table de gains par grille.
+                Text("Les 12 grilles couvrent \(Set(pack.grids.flatMap(\.numbers)).count) numéros sur 80 — "
+                     + "au moins une pleine : \(Format.odds(pack.packPAllHit)).")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.subtle)
                 if let pending = store.payload?.pendingDrawNumber, store.payload?.hole == true {
                     Text("Résultat #\(pending) pas encore publié — grilles déjà calées pour le tour suivant.")
                         .font(.system(size: 12))
@@ -141,11 +148,23 @@ struct GridsView: View {
                             }
                             Text(String(format: "%.2f ct/CHF", row.ret))
                                 .font(Typeface.mono(12, weight: .semibold))
-                                .foregroundStyle(row.stake == bestStake ? Palette.goldSoft : Palette.fg)
+                                .foregroundStyle(row.ret >= 100
+                                                 ? Palette.gain
+                                                 : (row.stake == bestStake ? Palette.goldSoft : Palette.fg))
                         }
                     }
                 }
-                Text("Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment — l'espérance totale reste négative.")
+                // Le seuil. Tous les rangs intermédiaires étant positifs ou
+                // nuls, gain ≥ jackpot·P(k/k) : dès que ce retour atteint
+                // 100 ct/CHF, le jackpot seul rembourse la mise et tout le
+                // reste est du profit. C'est une condition SUFFISANTE, et
+                // elle ne suppose rien du barème inconnu — ce que l'app
+                // affirmait auparavant sans réserve (« l'espérance totale
+                // reste négative ») n'est donc pas toujours vrai.
+                let favourable = rows.contains { $0.ret >= 100 }
+                Text(favourable
+                     ? "Au-delà de 100 ct/CHF, le jackpot seul rembourse la mise : le pari est favorable, quel que soit le barème des rangs intermédiaires."
+                     : "Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment. Le seuil est 100 ct/CHF : au-delà, le jackpot seul rembourse la mise et le pari devient favorable quel que soit le barème.")
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
             }
@@ -257,10 +276,19 @@ struct GridCard: View {
 
             FlexibleBalls(numbers: grid.numbers, last: nil)
 
+            // Trois faits exacts, et aucune redondance. L'ancienne paire
+            // « ESPÉRANCE / HASARD » comparait une estimation de l'essaim à
+            // la base : l'estimation surestimait de 18 à 34 % parce que la
+            // grille était notée avec l'estimateur qui avait servi à la
+            // choisir. L'espérance vaut exactement k/4, donc les deux
+            // pastilles disaient le même nombre — l'une d'elles en mentant.
             HStack(spacing: 8) {
+                let k = grid.numbers.count
                 StatPill(label: "ESPÉRANCE", value: String(format: "%.2f hits", grid.expectedHits))
-                StatPill(label: "HASARD", value: String(format: "%.2f hits", grid.baseExpected))
-                StatPill(label: "COTE MAX", value: Format.odds(grid.basePAllHit))
+                if k >= 2, grid.tail.count > k - 1 {
+                    StatPill(label: "\(k - 1)/\(k)", value: Format.odds(grid.tail[k - 1]))
+                }
+                StatPill(label: "\(k)/\(k)", value: Format.odds(grid.basePAllHit))
             }
 
             if let targetDraw {

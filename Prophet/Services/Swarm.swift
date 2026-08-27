@@ -932,10 +932,12 @@ final class SwarmEngine {
 
         let sources = gridSourcesFrom(rawFields: rawFields, zFields: zFields, ensemble: ensemble)
         let stakes: [StakeGrids] = ProphetConst.stakes.map { stake in
-            StakeGrids(
+            let grids = makeGrids(stake: stake, sources: sources)
+            return StakeGrids(
                 stake: stake,
-                grids: makeGrids(stake: stake, sources: sources),
-                oddsLabel: Self.formatPlainOdds(Self.hypergeometricPAll(stake))
+                grids: grids,
+                oddsLabel: Self.formatPlainOdds(Self.hypergeometricPAll(stake)),
+                packPAllHit: Self.packPAllHit(grids.map(\.numbers), stake: stake)
             )
         }
 
@@ -1214,8 +1216,11 @@ final class SwarmEngine {
                 score: spread(Self.applyBonusEcho(stealthScore, bonus: sources.bonusEcho)),
                 kind: kind, banned: [])
             take(stealth)
+            // Loi de survie exacte : identique pour toutes les grilles de même
+            // taille, puisqu'elle ne dépend pas de leur contenu. Calculée une
+            // fois par mise.
+            let tail = (0...stake).map { Self.hypergeometricTail(stake, $0) }
             for (variant, numbers) in [(1, first), (2, second), (3, anti), (4, stealth)] {
-                let p = numbers.map { sources.inclusion[$0 - 1] }
                 let label: String
                 let subtitle: String
                 switch variant {
@@ -1238,9 +1243,11 @@ final class SwarmEngine {
                     label: label,
                     subtitle: subtitle,
                     numbers: numbers,
-                    expectedHits: p.reduce(0, +),
+                    // Exacte, et donc égale à la base : aucune sélection ne
+                    // déplace l'espérance d'une hypergéométrique.
+                    expectedHits: Double(stake) * Self.baseP,
                     baseExpected: Double(stake) * Self.baseP,
-                    pAllHit: Self.heterogeneousAllHit(p),
+                    tail: tail,
                     basePAllHit: Self.hypergeometricPAll(stake)
                 ))
             }
@@ -1415,6 +1422,40 @@ final class SwarmEngine {
         comb(drawN, k) / comb(pool, k)
     }
 
+    /// P(une grille de `k` numéros atteint au moins `t` hits) — exacte.
+    /// Hypergéométrique(80, 20, k) : elle ne dépend pas du CONTENU de la
+    /// grille, seulement de sa taille. C'est le théorème qui interdit à
+    /// toute sélection de déplacer l'espérance.
+    private static func hypergeometricTail(_ k: Int, _ t: Int) -> Double {
+        guard t <= k else { return 0 }
+        var acc = 0.0
+        for h in max(0, t)...k {
+            acc += comb(drawN, h) * comb(pool - drawN, k - h)
+        }
+        return acc / comb(pool, k)
+    }
+
+    /// P(au moins une grille du paquet est pleine) — exacte.
+    ///
+    /// Inclusion-exclusion sur les grilles réellement produites. Le terme
+    /// d'ordre 2 est celui qui porte tout l'effet de la duplication : deux
+    /// grilles qui se recouvrent gagnent ensemble, donc ne comptent que pour
+    /// une occasion. L'ordre 3 vaut moins de 10⁻¹⁰ ici et est négligé.
+    ///
+    /// P(un ensemble fixe de m numéros est entièrement tiré) = C(20,m)/C(80,m).
+    private static func packPAllHit(_ grids: [[Int]], stake: Int) -> Double {
+        guard !grids.isEmpty else { return 0 }
+        var acc = Double(grids.count) * hypergeometricPAll(stake)
+        for i in 0..<grids.count {
+            let a = Set(grids[i])
+            for j in (i + 1)..<grids.count {
+                let union = a.union(grids[j]).count
+                acc -= hypergeometricPAll(union)
+            }
+        }
+        return max(0, acc)
+    }
+
     private static func mean(_ xs: [Double]) -> Double {
         guard !xs.isEmpty else { return 0 }
         return xs.reduce(0, +) / Double(xs.count)
@@ -1454,24 +1495,6 @@ final class SwarmEngine {
             ranks[numIdx] = order + 1
         }
         return ranks
-    }
-
-    private static func heterogeneousAllHit(_ p: [Double]) -> Double {
-        let k = p.count
-        if k == 0 { return 0 }
-        let sorted = p.sorted(by: >)
-        var remaining = Double(drawN)
-        var poolLeft = Double(pool)
-        var prod = 1.0
-        for i in 0..<k {
-            let pi = min(0.92, max(0.02, sorted[i]))
-            let cond = min(0.96, (pi * poolLeft) / max(1, remaining))
-            prod *= cond
-            remaining -= 1
-            poolLeft -= 1
-            if remaining <= 0 { break }
-        }
-        return min(prod, 0.5)
     }
 
     private static func chiSquareUniform(_ counts: [Double], nDraws: Int) -> Double {

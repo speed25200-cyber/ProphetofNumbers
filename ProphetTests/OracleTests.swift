@@ -271,6 +271,79 @@ final class OracleTests: XCTestCase {
         }
     }
 
+    // MARK: Exactitude de ce qui est affiché
+
+    /// Coefficient binomial, recalculé ici pour ne rien emprunter au code testé.
+    private func binom(_ n: Int, _ k: Int) -> Double {
+        if k < 0 || k > n { return 0 }
+        if k == 0 || k == n { return 1 }
+        let kk = min(k, n - k)
+        var r = 1.0
+        for i in 1...kk { r *= Double(n - kk + i) / Double(i) }
+        return r
+    }
+
+    func testDisplayedExpectationIsExact() {
+        // Régression de fond : « ESPÉRANCE » portait la somme du posterior de
+        // l'essaim sur les numéros SÉLECTIONNÉS par un score corrélé à ce même
+        // posterior, ce qui surestimait de 18 à 34 % sur des données pourtant
+        // équitables. L'espérance d'une hypergéométrique ne dépend pas du
+        // contenu de la grille : elle vaut k/4, exactement.
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            for grid in pack.grids {
+                XCTAssertEqual(grid.expectedHits, Double(pack.stake) * 0.25, accuracy: 1e-12)
+                XCTAssertEqual(grid.expectedHits, grid.baseExpected, accuracy: 1e-12,
+                               "l'affiché et la base ne peuvent pas diverger : c'est le même nombre")
+            }
+        }
+    }
+
+    func testTailLawIsExactHypergeometric() {
+        // La loi de survie affichée doit être la loi exacte, recalculée ici
+        // indépendamment du code testé.
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            let k = pack.stake
+            guard let grid = pack.grids.first else { return XCTFail("paquet vide") }
+            XCTAssertEqual(grid.tail.count, k + 1)
+            XCTAssertEqual(grid.tail[0], 1.0, accuracy: 1e-12, "P(>= 0 hit) vaut 1")
+            for t in 0...k {
+                var expected = 0.0
+                for h in t...k { expected += binom(20, h) * binom(60, k - h) }
+                expected /= binom(80, k)
+                XCTAssertEqual(grid.tail[t], expected, accuracy: 1e-9,
+                               "mise \(k), rang \(t)")
+            }
+            // Décroissante, et le dernier rang coïncide avec la cote affichée.
+            for t in 1...k {
+                XCTAssertLessThanOrEqual(grid.tail[t], grid.tail[t - 1])
+            }
+            XCTAssertEqual(grid.tail[k], grid.basePAllHit, accuracy: 1e-12)
+            // Toutes les grilles d'une même mise partagent la même loi : elle
+            // ne dépend pas de leur contenu. C'est le théorème, pas un hasard.
+            for other in pack.grids {
+                XCTAssertEqual(other.tail, grid.tail)
+            }
+        }
+    }
+
+    func testPackProbabilityIsExactAndNearItsCeiling() {
+        // P(au moins une des 12 grilles pleine). Encadrement dur : au moins
+        // celle d'une grille seule, au plus douze fois. Et comme le paquet est
+        // désormais étalé, la valeur doit frôler la borne haute — c'est
+        // précisément ce que la duplication faisait perdre (−24,8 % à la mise 5).
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            guard let single = pack.grids.first?.basePAllHit else { return XCTFail("paquet vide") }
+            let ceiling = 12 * single
+            XCTAssertGreaterThan(pack.packPAllHit, single)
+            XCTAssertLessThanOrEqual(pack.packPAllHit, ceiling)
+            XCTAssertGreaterThan(pack.packPAllHit, 0.98 * ceiling,
+                                 "mise \(pack.stake) : le paquet perd trop à la duplication")
+        }
+    }
+
     func testIncrementalEngineMatchesFullRebuild() {
         let history = syntheticHistory() // du plus récent au plus ancien
         let full = Swarm.run(history)

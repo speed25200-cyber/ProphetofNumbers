@@ -68,9 +68,16 @@ struct SuggestedGrid: Identifiable {
     var label: String
     var subtitle: String
     var numbers: [Int]
+    // Espérance de hits. EXACTE et égale à `baseExpected` : sous un tirage
+    // sans remise 20/80, elle vaut k/4 quel que soit le contenu de la grille.
+    // Elle portait auparavant une estimation issue du posterior de l'essaim,
+    // qui surestimait de 18 à 34 % par malédiction du vainqueur — la grille
+    // était notée avec l'estimateur qui avait servi à la choisir.
     var expectedHits: Double
     var baseExpected: Double
-    var pAllHit: Double
+    // Loi de survie EXACTE : `tail[t]` = P(la grille atteint au moins t hits),
+    // pour t de 0 à k. Hypergéométrique(80, 20, k), sans estimation.
+    var tail: [Double]
     var basePAllHit: Double
     var id: String { "\(kind.rawValue).\(variant)" }
 }
@@ -79,6 +86,10 @@ struct StakeGrids: Identifiable {
     var stake: Int
     var grids: [SuggestedGrid]
     var oddsLabel: String
+    // P(au moins une des 12 grilles est pleine), EXACTE par inclusion-exclusion
+    // sur le paquet réellement produit. C'est la seule quantité que la
+    // géométrie déplace : l'espérance de gain, elle, est invariante.
+    var packPAllHit: Double
     var id: Int { stake }
 }
 
