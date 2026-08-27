@@ -211,6 +211,66 @@ final class OracleTests: XCTestCase {
         }
     }
 
+    func testGridPackIsSpreadAcrossTheField() {
+        // Audit `lab/experiments/e1_audit_grilles.py` : le paquet dupliquait
+        // ses grilles (30 numéros couverts sur 80 à la mise 5, pour 60
+        // emplacements) et perdait 24,8 % de P(au moins une grille pleine).
+        // La préférence de couverture doit désormais atteindre le maximum
+        // possible : douze grilles de k couvrent min(12k, 80) numéros.
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            let all = pack.grids.flatMap(\.numbers)
+            let distinct = Set(all).count
+            XCTAssertEqual(distinct, min(12 * pack.stake, 80),
+                           "mise \(pack.stake) : couverture non maximale")
+
+            var cover = [Int](repeating: 0, count: 81)
+            for n in all { cover[n] += 1 }
+            let maxCover = cover.max() ?? 0
+            let ceiling = (12 * pack.stake + 79) / 80
+            XCTAssertLessThanOrEqual(maxCover, ceiling,
+                                     "mise \(pack.stake) : un numéro est repris \(maxCover) fois")
+        }
+    }
+
+    func testGridPackHasNoNearDuplicatePair() {
+        // Le défaut mesuré était que « Furtif » reprenait 4 numéros sur 5 de
+        // la variante I, et que l'Anti d'une famille était la principale
+        // d'une autre (alpha et omega sont anti-corrélées à −0,70). Aucune
+        // paire de grilles ne doit plus se recouvrir au-delà de ce que la
+        // place impose.
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            // Aucune paire ne doit partager plus de la moitié de sa grille.
+            // Sous l'ancienne géométrie, Furtif reprenait 4 numéros sur 5 de
+            // la variante I — ce seuil l'aurait attrapé.
+            let ceiling = pack.stake / 2
+            for i in 0..<pack.grids.count {
+                for j in (i + 1)..<pack.grids.count {
+                    let common = Set(pack.grids[i].numbers)
+                        .intersection(pack.grids[j].numbers).count
+                    XCTAssertLessThanOrEqual(
+                        common, ceiling,
+                        "mise \(pack.stake) : \(pack.grids[i].label) et "
+                        + "\(pack.grids[j].label) partagent \(common) numéros")
+                }
+            }
+        }
+    }
+
+    func testSpreadDoesNotTouchTheExpectation() {
+        // Témoin : étaler change la FORME de la loi, jamais son espérance.
+        // Chaque grille reste un k-sous-ensemble, donc son espérance de hits
+        // vaut k/4 quel que soit son contenu — c'est ce que l'affichage
+        // « HASARD » doit continuer de dire.
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            for grid in pack.grids {
+                XCTAssertEqual(grid.baseExpected, Double(pack.stake) * 0.25, accuracy: 1e-12)
+            }
+        }
+    }
+
     func testIncrementalEngineMatchesFullRebuild() {
         let history = syntheticHistory() // du plus récent au plus ancien
         let full = Swarm.run(history)

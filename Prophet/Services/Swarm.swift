@@ -1135,8 +1135,51 @@ final class SwarmEngine {
         return p
     }()
 
+    // Étalement du paquet (audit `lab/experiments/e1_audit_grilles.py`).
+    //
+    // Les douze grilles se dupliquaient massivement, pour deux raisons
+    // structurelles mesurées :
+    //
+    //   1. « Furtif » est le même champ que la variante I, seulement pénalisé
+    //      par la popularité : 4,00 numéros communs sur 5 (Jaccard 0,69),
+    //      8,30 sur 10. Ce n'était pas une variante, c'était un doublon.
+    //   2. `alpha` (têtes momentum, numéros chauds) et `omega` (têtes
+    //      reversion, numéros en retard) sont ANTI-corrélées à −0,70 : la
+    //      contre-épreuve d'une famille était la grille principale d'une
+    //      autre.
+    //
+    // Conséquence : 30 numéros couverts sur 80 à la mise 5 pour 60
+    // emplacements, et P(au moins une grille pleine) en retrait de 24,8 %
+    // sur l'optimum — moins bien que douze grilles tirées au hasard.
+    //
+    // Le correctif est une préférence de COUVERTURE, pas un bannissement :
+    // bannir devient impossible dès que 12·k > 80. Un numéro déjà retenu est
+    // pénalisé assez fort pour que les grilles soient disjointes tant que la
+    // place le permet, et équilibrées au-delà. Mesuré sur 40 historiques,
+    // probabilité exacte par inclusion-exclusion : l'optimum théorique est
+    // atteint à 0,000 % près à la mise 5, à −0,12 % à la mise 10.
+    //
+    // Ce que cela ne change PAS, et il faut le dire : l'espérance de gain est
+    // invariante par géométrie sous toute table de gains par grille (le gain
+    // du paquet est une somme de gains par grille, et la loi marginale d'une
+    // grille ne dépend pas de son contenu). Ce qui change est la FORME de la
+    // loi — plus d'occasions distinctes de toucher, moins de variance, et
+    // P(tout perdre) ramenée à zéro. Étaler ne coûte rien puisque aucune
+    // sélection ne déplace l'espérance ; c'est donc gratuit.
+    private static let spreadPenalty = 1e6
+
     func makeGrids(stake: Int, sources: GridSources) -> [SuggestedGrid] {
         var grids: [SuggestedGrid] = []
+        // Nombre de grilles déjà émises qui retiennent chaque numéro.
+        var cover = [Double](repeating: 0, count: Self.pool)
+        func spread(_ score: [Double]) -> [Double] {
+            var out = score
+            for i in 0..<Self.pool { out[i] -= Self.spreadPenalty * cover[i] }
+            return out
+        }
+        func take(_ picked: [Int]) {
+            for n in picked where (1...Self.pool).contains(n) { cover[n - 1] += 1 }
+        }
         for kind in [GridKind.alpha, .omega, .nexus] {
             let source: [Double]
             switch kind {
@@ -1153,20 +1196,24 @@ final class SwarmEngine {
             // l'anti : c'est une affirmation sur le tirage, pas une stratégie,
             // donc elle vaut dans les deux sens.
             let ranked = Self.applyBonusEcho(source, bonus: sources.bonusEcho)
-            let first = greedyPick(k: stake, score: ranked, kind: kind, banned: [])
-            let second = greedyPick(k: stake, score: ranked, kind: kind, banned: Set(first))
+            let first = greedyPick(k: stake, score: spread(ranked), kind: kind, banned: [])
+            take(first)
+            let second = greedyPick(k: stake, score: spread(ranked), kind: kind, banned: Set(first))
+            take(second)
             let anti = greedyPick(
                 k: stake,
-                score: Self.applyBonusEcho(source.map { -$0 }, bonus: sources.bonusEcho),
+                score: spread(Self.applyBonusEcho(source.map { -$0 }, bonus: sources.bonusEcho)),
                 kind: kind, banned: [])
+            take(anti)
             // Furtif : même signal, pénalisé par la popularité humaine —
             // mêmes hits attendus, jackpot moins susceptible d'être partagé.
             var stealthScore = source
             for i in 0..<Self.pool { stealthScore[i] -= 0.4 * Self.popularity[i] }
             let stealth = greedyPick(
                 k: stake,
-                score: Self.applyBonusEcho(stealthScore, bonus: sources.bonusEcho),
+                score: spread(Self.applyBonusEcho(stealthScore, bonus: sources.bonusEcho)),
                 kind: kind, banned: [])
+            take(stealth)
             for (variant, numbers) in [(1, first), (2, second), (3, anti), (4, stealth)] {
                 let p = numbers.map { sources.inclusion[$0 - 1] }
                 let label: String
