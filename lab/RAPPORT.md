@@ -64,9 +64,9 @@ fonction des mêmes comptes de colonnes que le χ². **Puissance** : une
 rémanence portant le recouvrement à 5,5 aurait été vue à 99 %, un pool
 partagé 76/80 à 100 %.
 
-**16ᵉ voie — rupture à résolution libre** (`a3_changepoint.py`). Le §15
-testait 8 fenêtres fixes de 9 000 tirages ; un défaut de trois jours y serait
-dilué au dixième. Balayage à pas fin, 4 statistiques, fenêtres de 200 à
+**16ᵉ voie — rupture à résolution libre** (`a3_changepoint.py`). Le §15 de
+l'audit testait 8 fenêtres fixes de 9 000 tirages ; un défaut de trois
+jours y serait dilué au dixième. Balayage à pas fin, 4 statistiques, fenêtres de 200 à
 9 000. Le max observé vaut **|z| = 5,24** — contre un seuil de test unique,
 cela annoncerait une rupture à 5 σ. Calibré contre **la loi du max du même
 balayage** sur 300 archives SRS complètes : **p = 0,066**. C'est l'artefact
