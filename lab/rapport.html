@@ -379,7 +379,7 @@
     <div class="kicker">
       <span>Loto Express · Loterie Romande</span>
       <span>70 560 tirages</span>
-      <span>14 expériences · 3 290 tests dépensés</span>
+      <span>22 voies · 3 304 tests dépensés</span>
     </div>
     <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
     <p class="standfirst">
@@ -512,7 +512,7 @@
         attente — moins de variation que le hasard, pas plus.
       </p>
       <p>
-        <strong>Registre entier&nbsp;: 3 290 tests dépensés, seuil corrigé
+        <strong>Registre entier&nbsp;: 3 304 tests dépensés, seuil corrigé
         <code>p &lt; 1,52 × 10⁻⁵</code>, zéro significatif.</strong>
       </p>
     </div>
@@ -787,6 +787,56 @@
   </section>
 
   <section>
+    <h2>Le plus grand écart du dossier, et pourquoi il ne tient pas</h2>
+    <div class="col">
+      <p>
+        Six voies neuves ont été ouvertes après coup&nbsp;: les 82 160 triplets — l'audit n'avait
+        testé que les 3 160 paires —, le couplage à tous les lags de 1 à 306, la dépendance
+        <em>non linéaire</em>, la forme interne d'un tirage, le contenu conditionné au boost, et
+        l'horodatage. Toutes nulles, chacune avec sa puissance mesurée.
+      </p>
+      <p>
+        La dernière a produit la plus forte déviation qu'une statistique pré-enregistrée ait
+        donnée dans tout ce labo&nbsp;: la <strong>forme</strong> de la loi du recouvrement entre
+        tirages consécutifs, <code>z = +3,47</code>. Excès à O = 2 et O = 8, déficit à O = 10 —
+        des épaules plus lourdes. Le script se termine lui-même par «&nbsp;voir chasse à
+        l'artefact avant toute annonce&nbsp;».
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Trois vérifications, chacune capable de tuer le signal</caption>
+        <thead>
+          <tr><th>vérification</th><th>ce qu'elle donne</th><th>verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>sur-dispersion (la lecture en une statistique)</td><td>z = +0,95</td><td>ne confirme pas</td></tr>
+          <tr><td>réplication (deux moitiés disjointes)</td><td>+1,33 contre +2,80</td><td>ne réplique pas</td></tr>
+          <tr><td>localisation (par huitième d'archive)</td><td>7 dans le bruit, 1 à +3,38</td><td>régime déjà borné</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Le χ² à 13 cases capte un motif que le résumé naturel — la variance du recouvrement — ne
+        voit pas. L'écart vit dans une seule moitié, et dans un seul huitième&nbsp;: exactement le
+        régime que le balayage de ruptures avait déjà borné. <strong>Fluctuation de base
+        rate</strong>&nbsp;: <code>p = 0,010</code> contre un seuil de registre à
+        <code>1,5 × 10⁻⁵</code>, trois ordres de grandeur.
+      </p>
+    </div>
+
+    <div class="pull">
+      Ce que je ne classe pas pour autant. Un biais réel <em>réglé pour produire exactement
+      l'écart observé</em> serait presque indistinguable d'une fluctuation à cette taille
+      d'échantillon — l'absence de réplication interne est donc une preuve faible. C'est le seul
+      point du dossier qui mérite d'être re-testé sur des données neuves plutôt que classé.
+    </div>
+  </section>
+
+  <section>
     <h2>Le seul seuil qui fasse changer l'espérance de signe</h2>
     <div class="col">
       <p>
@@ -911,7 +961,7 @@
   </section>
 
   <footer>
-    <span>Quatorze expériences · registre pré-enregistré · nulls simulés</span>
+    <span>Vingt-deux voies · registre pré-enregistré · nulls simulés</span>
     <span>Puissance mesurée à chaque voie</span>
     <span>Zéro significatif après correction de multiplicité</span>
   </footer>
