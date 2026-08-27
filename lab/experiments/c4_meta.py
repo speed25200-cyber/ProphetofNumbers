@@ -75,10 +75,21 @@ Dépendances résiduelles APRÈS sélection (bras DEP) :
   - {audit.maurer, audit.fenetres_maurer, nist.entropie} : trois
     estimateurs d'entropie du même flux — pas de joint simulable
     honnêtement : borne comonotone (une seule uniforme partagée) ;
-  - {audit.chi2, audit.derive, a3.changepoint_scan, b3.conf_real} : mêmes
-    70 560 tirages, statistiques de champ/recouvrement — borne comonotone.
+  - familles PAR SUBSTRAT sur les mêmes 70 560 tirages — le registre a
+    grossi de 25 entrées (c1, c3) pendant la conception de cette
+    expérience ; les 23 tests c3 partagent EN PLUS une même banque de
+    400 réplicats SRS pour leurs nulls, ce qui corrèle leurs p au-delà
+    du partage de données. Bornes comonotones par substrat :
+      champ (χ² des 80 fréquences)  : audit.chi2 + c3.*_champ + a3 ;
+      recouvrement lag-1            : audit.derive + c1.overlap_real +
+                                      c1.matrix_real + c3.*_ov1 +
+                                      c3.spectre_fft_ov1 + b3.conf_real ;
+      somme des 20 numéros          : c3.*_somme + c3.spectre_* ;
+      séquence boost                : c3.*_boost + b2.boost_transition.
   Le reste est traité indépendant (recoupements négligeables, p. ex. la
-  cohorte a2 = 0,5 % de l'archive de audit.bonus_position).
+  cohorte a2 = 0,5 % de l'archive de audit.bonus_position). Les bornes
+  comonotones sont volontairement EXCESSIVES : le bras DEP est la borne
+  large ; le bras IND la borne étroite ; la vérité est entre les deux.
 
 Second volet — les trois signaux les plus forts jamais observés
 ---------------------------------------------------------------
@@ -402,18 +413,43 @@ R_META = 4000 if FAST else 20000
 ROUND2 = {"audit.chi2", "audit.antirejeu", "audit.derive", "audit.analogues"}
 ROUND3 = {"audit.geometrie", "audit.bonus_position", "nist.blocs", "nist.runs",
           "nist.longest", "nist.dft", "nist.entropie", "audit.bonus_overlap"}
-DH_GRID = {"a2.rang1_bonus_rang": 4000, "a2.rang1_boost_loi": 4000,
-           "b2.boost_transition": 2000, "a3.changepoint_scan": 300,
-           "b3.conf_real": 1000}
+# grilles DH : lues sur le registre (null_reps de chaque entrée) — couvre
+# aussi toute entrée future consignée par un autre volet du labo
+DH_GRID = {eid: int(last[eid]["null_reps"]) for eid in KEPT_IDS
+           if last[eid].get("null_reps") and eid not in FAMILY}
 BANK_A2 = {"a2.rang1_chi2_champ": 0, "a2.rang1_recouvrement_prec": 1,
            "a2.rang1_recouvrement_max": 2}
 BANK_WALK = {"nist.monobit": 0, "nist.cusum": 1}
 BANK_BM = {"nist.bm": 0, "audit.fenetres_bm": 1}
-# blocs comonotones du bras DEP (une uniforme partagée par bloc)
+for eid in list(DH_GRID):
+    if eid in BANK_A2 or eid in BANK_WALK or eid in BANK_BM:
+        del DH_GRID[eid]
+# blocs comonotones du bras DEP (une uniforme partagée par bloc, par substrat)
 COMONO = {"audit.maurer": "blkM", "audit.fenetres_maurer": "blkM",
           "nist.entropie": "blkM",
-          "audit.chi2": "blkArc", "audit.derive": "blkArc",
-          "a3.changepoint_scan": "blkArc", "b3.conf_real": "blkArc"}
+          "audit.chi2": "blkChamp", "a3.changepoint_scan": "blkChamp",
+          "audit.derive": "blkOv", "b3.conf_real": "blkOv",
+          "c1.overlap_real": "blkOv", "c1.matrix_real": "blkOv",
+          "b2.boost_transition": "blkBoost"}
+for cov in ("heure", "jsem", "minute", "jmois", "slot"):
+    COMONO[f"c3.{cov}_champ"] = "blkChamp"
+    COMONO[f"c3.{cov}_ov1"] = "blkOv"
+    COMONO[f"c3.{cov}_somme"] = "blkSum"
+    COMONO[f"c3.{cov}_boost"] = "blkBoost"
+COMONO["c3.spectre_fft_ov1"] = "blkOv"
+COMONO["c3.spectre_fft_somme"] = "blkSum"
+COMONO["c3.spectre_cible_somme"] = "blkSum"
+
+unclassified = [e for e in KEPT_IDS
+                if e not in COMONO and e not in BANK_A2 and e not in BANK_WALK
+                and e not in BANK_BM and e not in FAMILY and e not in ROUND2
+                and e not in ROUND3 and e not in DH_GRID]
+if unclassified:
+    say(f"ATTENTION — entrées sans classement de dépendance/marge (traitées "
+        f"indépendantes, arrondi 3 déc.) : {unclassified}")
+say(f"grilles DH lues sur le registre : { {e: DH_GRID[e] for e in sorted(DH_GRID)} }")
+say(f"blocs comonotones DEP effectifs : "
+    f"{ {b: sum(1 for e in KEPT_IDS if COMONO.get(e) == b) for b in sorted(set(COMONO.values()))} }")
 
 _sorted_banks = {"a2": np.sort(a2_bank, axis=0),
                  "walk": np.sort(walk_p, axis=0),
@@ -444,8 +480,8 @@ def assemble(R: int, arm: str, rng: np.random.Generator,
     même pipeline de discrétisation/transformation. Les entrées en banque
     reçoivent le quantile de leur marge de banque au rang Beta(beta,1)."""
     P = np.empty((R, N_KEPT))
-    blocks = {"blkM": rng.random(R) ** (1.0 / beta),
-              "blkArc": rng.random(R) ** (1.0 / beta)}
+    blocks = {b: rng.random(R) ** (1.0 / beta)
+              for b in ("blkM", "blkChamp", "blkOv", "blkSum", "blkBoost")}
     idx_a2 = rng.integers(0, B_A2, R)
     idx_walk = rng.integers(0, B_WALK, R)
     idx_bm = rng.integers(0, B_BM, R)

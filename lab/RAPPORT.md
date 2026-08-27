@@ -47,7 +47,7 @@ un biais ?**
 
 ## 2. Il n'y en a pas — et on sait désormais à quelle sensibilité
 
-`claude/AUDIT-CLAUDE.md` avait fermé quatorze voies. Le labo en ajoute deux,
+`claude/AUDIT-CLAUDE.md``claude/AUDIT-CLAUDE.md` avait fermé quatorze voies. Le labo en ajoute trois,
 choisies pour leurs angles morts, et — c'est la différence — **mesure sa
 propre puissance** à chaque fois.
 
@@ -81,7 +81,60 @@ Sa courbe de détectabilité dit exactement ce qui aurait pu passer :
 | 500 tirages | 0,00 | 0,00 | 0,28 | 1,00 |
 | 2 000 tirages (≈ 10 jours) | 0,00 | 0,10 | 1,00 | 1,00 |
 
-**Registre entier : m = 3 266 tests dépensés, seuil Holm p < 1,53 × 10⁻⁵,
+**17ᵉ voie — covariables temporelles et périodicités** (`c3_temporel.py`).
+`unix_utc` n'avait jamais servi de covariable : une charge serveur qui varie
+selon l'heure, un cron à heure fixe ou un week-end différent ne produiraient
+ni rupture (a3 aveugle) ni signature de reprise (a2 aveugle) — seulement une
+modulation périodique, invisible en agrégat. Fait structurel établi d'abord :
+l'horaire est ancré sur l'horloge **locale** Europe/Zurich (06:05 → 23:00,
+204 tirages/jour ; les deux seuls gaps nocturnes anormaux sont exactement les
+nuits de changement d'heure), donc le rang dans la session **est** la
+position dans la journée locale. Cinq covariables (heure locale, jour de
+semaine, minute dans l'heure — détecteur de cron —, position dans le mois,
+créneau du jour = rang de session) × quatre statistiques (χ² d'homogénéité
+des 80 fréquences, recouvrement lag-1, somme des 20 numéros, loi du boost),
+plus trois périodogrammes dont le max est calibré contre **la loi du max du
+même balayage** (35 280 ordonnées FFT sur la somme, 6 périodes physiques
+6 h–168 h en temps réel, 35 107 ordonnées sur le recouvrement). 23 tests
+pré-enregistrés, nulls simulés sur 400 archives SRS complètes partagées.
+**Nul partout : 0 drapeau sur 23** (z du null simulé) :
+
+| covariable (groupes) | χ² champ | ov1 | somme | boost |
+|---|---|---|---|---|
+| heure locale (18) | −0,82 | +1,15 | −0,43 | −0,18 |
+| jour de semaine (7) | −0,44 | −0,37 | +0,07 | +0,09 |
+| minute dans l'heure (12) | −0,45 | +0,82 | +0,56 | −2,04 |
+| position dans le mois (3) | +0,41 | −0,97 | −1,02 | −0,02 |
+| créneau du jour (204) | +1,20 | +1,36 | +1,12 | −0,33 |
+
+Spectres : FFT somme z = −0,32, ciblé 6 périodes z = −0,39, FFT recouvrement
+z = −0,72. Aucun pic à 204 tirages (un jour) ni à 1 428 (une semaine) : les
+cinq plus fortes ordonnées tombent sur des périodes de 2,4 à 5,9 tirages, et
+le maximum vaut 10,70 contre un null de 11,13 ± 1,35. Le seul p sous 0,05
+(boost par minute, p = 0,040) est un χ² **inférieur** à son attente — moins
+de variation que le hasard, pas plus, et la base rate à 23 tests suffit.
+**Puissance**, par famille :
+
+| défaut injecté (amplitude mesurée, pas supposée) | détecteur | puissance |
+|---|---|---|
+| modulation 24 h de la somme, crête 1,2 pt (0,013 σ) | périodogramme ciblé | 0,93 |
+| modulation 24 h, crête 2,2 pts (0,024 σ) | ciblé / FFT / heure | 1,00 / 0,72 / 0,97 |
+| modulation 24 h, crête 4,2 pts | les trois | 1,00 |
+| modulation 168 h (hebdo), crête 2,2 pts | ciblé / jour de semaine | 0,97 / 0,97 |
+| pool réduit à 78/80 pendant une heure de la journée | χ² champ \| heure | 1,00 |
+| pool 76/80 sur un seul créneau de 5 min (n = 346) | χ² champ \| créneau | 1,00 |
+| recouvrement lag-1 +0,25 pendant une heure | ov1 \| heure | 1,00 |
+| P(répétition) modulée à 24 h, amplitude 0,10 ov | périodogramme ov1 | 1,00 |
+| boost collé à 1 (ε = 0,05) sur un tiers du mois | boost \| position mois | 0,98 |
+
+La modulation périodique devient donc invisible sous ≈ 1 point de somme en
+crête — 0,01 écart-type par tirage, un ordre de grandeur sous le plafond du
+§3. Réplicats de puissance réduits (30–40 par point) pour tenir le run en
+8 min ; le seuil de détection |z| ≥ 3 est plus lâche que le Holm final, la
+puissance au seuil Holm est donc ≤ à celle affichée (même convention que la
+16ᵉ voie).
+
+**Registre entier : m = 3 287 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
 0 significatif.**
 
 ## 3. Le plafond : ce que l'ignorance résiduelle peut au maximum valoir
@@ -244,31 +297,65 @@ T2  somme des carrés de Ĉ   3,164e-03  z = −0,30   p = 0,787
 
 Rien. Recouvrement maximal observé sur 70 559 paires consécutives : 13.
 
-## 3 quinquies. 17ᵉ voie — covariables temporelles et périodicités
+## 3 sexies. La question qu'aucun test individuel ne pose
 
-`unix_utc` n'avait jamais servi de **covariable**. L'audit avait regardé la
-structure des coupures, `a2` les dix premiers tirages après reprise, `a3` les
-ruptures franches. Aucun ne verrait une **modulation périodique** — charge
-serveur selon l'heure, tâche planifiée, week-end différent.
+Holm répond à « **un** de ces tests est-il significatif ? ». Ce n'est pas la
+seule question. Une source légèrement défaillante ne produirait pas un test
+franc — elle produirait un **léger excès diffus** réparti sur beaucoup de
+tests, dont aucun ne franchirait son seuil. C'est précisément ce qu'une
+correction de multiplicité, conçue pour être conservatrice, ne peut pas voir.
 
-`c3_temporel.py` teste 23 combinaisons (heure locale, jour de semaine, minute
-dans l'heure, jour du mois, créneau dans la session) × (χ² du champ,
-recouvrement lag-1, somme des 20 numéros, loi du boost), plus une analyse
-spectrale dont **le maximum du périodogramme** est calibré sous H₀ — jamais
-un pic isolé contre un seuil de test unique.
+Sous H₀, les p-values de tests indépendants sont uniformes sur [0,1].
+`c4_meta.py` teste cette prédiction sur les **52 p défendables** du registre
+(69 identifiants, moins 8 doublons ou contrôles qualité, et 4 transformées
+pour tenir compte de leur famille). Le point délicat est la dépendance : les
+entrées ne sont pas indépendantes, et un Fisher tabulé sur des p corrélées
+fabrique des découvertes. Le null est donc simulé en rejouant la structure du
+registre, avec deux bras — indépendance totale, et joints exacts simulés plus
+bornes comonotones.
 
-**Zéro drapeau à |z| ≥ 3 sur 23 tests.** Aucun pic à 204 tirages (un jour) ni
-à 1 428 (une semaine) ; les cinq plus fortes ordonnées tombent sur des
-périodes de 2,4 à 5,9 tirages, et le maximum vaut 10,70 contre un null de
-11,13 ± 1,35. Le seul p sous 0,05 (loi du boost par minute, p = 0,040)
-correspond à un χ² **inférieur** à son attente — moins de variation que le
-hasard, pas plus.
+| combinaison | ce qu'elle voit | observé | p |
+|---|---|---|---|
+| Fisher | les petites p | 114,53 | 0,193 |
+| Stouffer | un décalage cohérent | 0,766 | 0,302 |
+| Kolmogorov-Smirnov | la distribution entière | 0,117 | 0,454 |
+| Anderson-Darling | les queues | 0,559 | 0,741 |
 
-Le script établit au passage un fait que l'audit rapportait sans l'expliquer :
-les deux seuls gaps nocturnes différents de 25 500 s sont exactement les nuits
-de changement d'heure. L'horaire des sessions est ancré sur l'horloge locale,
-ce qui a un corollaire utile — le rang dans la session *est* la position dans
-la journée.
+Conforme partout. Le Fisher tabulé aurait donné 0,226 — l'écart avec le 0,193
+simulé est ici sans conséquence, mais il illustre une cinquième fois que la
+table n'est pas le null.
+
+**Puissance mesurée**, sur une dérive diffuse Beta(b, 1) : `b = 0,5` détecté à
+100 %, `b = 0,7` à 74 %, `b = 0,8` à 39 %, `b = 0,9` à 13 %. Une dérive faible
+resterait donc invisible — dit franchement plutôt que caché derrière un
+« conforme ».
+
+### Le seul signal résiduel de l'audit ne survit pas à la règle du labo
+
+L'audit gardait un `p = 0,041` — le test de Maurer à `L = 14`, son plus petit
+p. Ce chiffre était **tabulé** (gaussienne NIST) avec `K = 36 030`, soit 450
+fois sous la recommandation `K ≥ 1000·2^L`. La règle n° 1 du labo ne lui avait
+jamais été appliquée.
+
+Re-dérivé avec un null **simulé** sur le pipeline complet : `E[fₙ] = 13,167328
+± 0,007159` contre `13,167693` en table, et `z = +1,96` au lieu de `+2,045`.
+Le p passe à 0,047 — et surtout, **l'écart était dans le sens « trop
+aléatoire »** (fₙ haut = flux moins compressible), ce qui est incompatible
+avec une source défaillante dès le départ. Verdict : affaibli, et de toute
+façon orienté du mauvais côté pour signifier quoi que ce soit.
+
+### Une limite que la réplication met à nu
+
+Le χ² du champ au rang 1 (`a2`, `p = 0,0145`) a été soumis à un test de
+réplication : un vrai signal se retrouve dans les deux moitiés temporelles
+disjointes, une fluctuation non. Résultat : **non répliqué** (`p = 0,134`
+conditionnellement au χ² plein).
+
+Mais la leçon est dans la puissance, pas dans le verdict. Un biais réel
+*réglé pour produire exactement le χ² observé* serait presque indistinguable
+d'une fluctuation, à cette taille d'échantillon appariée. **L'archive seule ne
+peut pas répliquer ce signal — seules des données nouvelles le pourraient.**
+C'est une limite de la méthode, pas un résultat sur le générateur.
 
 ## 4. Le boost — le seul endroit où le signe de l'espérance pourrait changer
 
