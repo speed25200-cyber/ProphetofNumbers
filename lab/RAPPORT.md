@@ -147,9 +147,17 @@ négative. Kelly conclut `f* = 0`.
 
 ## 6. La géométrie des grilles : réelle, mais pas là où on l'attend
 
-À espérance figée, la géométrie du paquet de 12 grilles change la **forme**
-de la loi jointe (`b1_geometrie.py`, 4 millions de réplicats, `E[total]`
-vérifié partout). Ce qu'elle change, et ce qu'elle ne change pas :
+L'invariance est ici plus forte qu'il n'y paraît, et il faut la poser avant
+tout chiffre : le gain d'un paquet est une **somme de gains par grille**, et
+la loi marginale de chaque grille est la même hypergéométrique quel que soit
+son contenu. Donc **`E[gain total]` est invariant par géométrie sous
+n'importe quelle table de gains par grille** — pas seulement `E[total hits]`.
+Aucune géométrie ne peut créer du rendement, quel que soit le barème, connu
+ou non.
+
+Ce qui bouge, en revanche, c'est la **forme** de la loi jointe
+(`b1_geometrie.py`, 4 millions de réplicats, recoupés par quatre voies
+exactes indépendantes ; contrôle d'espérance passé partout à ±4 écarts-types) :
 
 | | k = 5 | k = 10 |
 |---|---|---|
@@ -163,14 +171,23 @@ ne change rien : ratio 1,00 à 1,05.** Ce qu'elle change, c'est la variance
 couverture équilibrée touche les 80 numéros, donc les 20 boules tirées sont
 forcément couvertes : P(zéro hit) devient exactement nul.
 
-La géométrie actuelle de l'app est **moins bonne que le hasard** : les 12
-grilles sont 3 familles × (I, II, Anti, Furtif), et Furtif duplique largement
-la variante I tandis que les trois familles dérivent du même essaim. Émulée
-entre les deux bornes de corrélation inter-familles, `Var(app)/Var(disjoint)`
-vaut 5,02 (familles décorrélées) à 14,98 (familles identiques), contre 3,75
-pour iid. Sur `P(max ≥ 4)` à k = 5, l'app fait 0,854 à 0,298 fois le disjoint.
-Douze grilles disjointes sont possibles à k = 5 et k = 6 (60 et 72 ≤ 80),
-impossibles au-delà (couverture équilibrée alors).
+La structure de l'app est **bonne dans son principe** — I, II et Anti sont
+déjà disjointes au sein de chaque famille — et ses deux défauts sont des
+**duplications** : Furtif reprend le même champ pénalisé par la popularité et
+recouvre I de 3 à 4 numéros sur 5 ; et alpha, omega, nexus sont des mélanges
+des mêmes 26 têtes, donc corrélés. Émulée entre les deux bornes de
+corrélation inter-familles, `Var(app)/Var(disjoint)` vaut 5,02 (familles
+décorrélées) à 14,98 (familles identiques), contre 3,75 pour iid ; sur
+`P(max ≥ 4)` à k = 5, l'app fait 0,854 à 0,298 fois le disjoint. Verdict :
+**entre indifférente et mauvaise, et mauvaise exactement dans la mesure où
+ses grilles se dupliquent.**
+
+Le correctif est local : dans `makeGrids`, bannir l'union de **toutes** les
+grilles déjà émises — familles comprises, pas seulement au sein d'une famille
+— et appliquer la pénalité de popularité *dans* le greedy plutôt que d'en
+faire une quatrième grille qui duplique la première. Douze grilles deux à
+deux disjointes sont alors possibles à k = 5 et k = 6 (60 et 72 ≤ 80) ; au-delà
+(k = 7, 8, 10) la couverture équilibrée prend le relais.
 
 ## 7. Ce que l'app affiche — le seul vrai problème du dossier
 
@@ -286,9 +303,12 @@ là où il n'y a qu'une fluctuation.
    « confiance /100 ».
 3. **Instrumenter la question du boost avant clôture.** Seul point capable de
    changer le signe de l'espérance. A priori négatif, mais non tranché.
-4. **Revoir la géométrie des 12 grilles** — en disant ce qu'elle apporte
-   (variance ÷ 3,75 à 5,25, P(zéro hit) → 0) et ce qu'elle n'apporte pas
-   (P(plein) inchangée à 1 % près). Supprimer la duplication Furtif ≈ I.
+4. **Revoir la géométrie des 12 grilles** : bannir l'union de toutes les
+   grilles déjà émises et intégrer la pénalité de popularité au greedy, au
+   lieu d'en faire une grille qui duplique la première. À présenter pour ce
+   que c'est — un lissage du risque (variance ÷ 3,75 à 5,25, P(zéro hit) → 0),
+   jamais comme de la prédiction : `P(plein)` reste inchangée à 1 % près, et
+   l'espérance de gain est invariante sous **tout** barème.
 5. **Supprimer ou corriger `pAllHit`**, champ mort et faux d'un facteur 22.
 6. **Mettre au conditionnel l'argument « Furtif »** : il suppose des gains
    partagés entre gagnants, ce que rien dans le dossier n'établit, et un
