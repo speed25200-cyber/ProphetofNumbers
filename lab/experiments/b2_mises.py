@@ -251,17 +251,15 @@ def paytable_analysis() -> None:
 
     print("--- Mêmes variantes, renormalisées à RTP = 0,65 (forme seule) ---")
     print("À espérance égalisée, seul reste ce que la géométrie de la loi impose :")
-    print(f"{'k':>3}", end="")
-    for name in PAYTABLES:
-        print(f"  | {name.split()[0]:>10}: {'P(perte)':>8} {'P(g>=m)':>8} {'sd':>8}", end="")
-    print()
+    print(f"{'k':>3} | " + " | ".join(f"{name.split()[0]:^27}" for name in PAYTABLES))
+    print(f"{'':>3} | " + " | ".join(f"{'P(perte)':>8} {'P(g>=m)':>8} {'sd':>8}" for _ in PAYTABLES))
     for k in STAKES:
-        print(f"{k:>3}", end="")
+        cells = []
         for name, tabs in PAYTABLES.items():
             m0 = metrics(k, tabs[k])
             m = metrics(k, tabs[k], scale=0.65 / m0["rtp"])
-            print(f"  | {'':>10}  {m['p_zero']:>8.3f} {m['p_win_stake']:>8.4f} {m['sd']:>8.1f}", end="")
-        print()
+            cells.append(f"{m['p_zero']:>8.3f} {m['p_win_stake']:>8.4f} {m['sd']:>8.1f}")
+        print(f"{k:>3} | " + " | ".join(cells))
 
 
 def random_paytable_robustness(done: set) -> dict:
@@ -445,7 +443,7 @@ def boost_analysis(a: lab.Archive, done: set) -> None:
 # 6. Jackpot k/k (mécanisme réel de l'app) + Kelly
 # ==========================================================================
 
-def jackpot_and_kelly(done: set) -> None:
+def jackpot_and_kelly(done: set, rob: dict) -> None:
     title("6. Jackpot k/k (le seul levier réel de l'app) et conclusion de Kelly")
     print("SU : P(plein) exacte, et jackpot J_k nécessaire pour que le SEUL jackpot")
     print("rende 1 CHF par CHF misé (hors rangs intermédiaires), J_k = mise / P(plein) :")
@@ -457,6 +455,13 @@ def jackpot_and_kelly(done: set) -> None:
     print("`extraJackpots`) — c'est le nombre à surveiller dans l'app (GridsView:108 le")
     print("fait déjà : francs × P(plein), étoile sur la mise la moins défavorable).")
 
+    # Espérances nettes réellement calculées sous les 3 barèmes supposés.
+    evs = [metrics(k, tabs[k])["ev_net"] for tabs in PAYTABLES.values() for k in STAKES]
+    ev_lo, ev_hi, ev_med = min(evs), max(evs), float(np.median(evs))
+    # Robustesse deux à deux issue de l'étape 4.
+    f510 = next((z, w, s) for a_, b_, z, w, s in rob["pairs"] if (a_, b_) == (5, 10))
+    others = [max(z, w, s) for a_, b_, z, w, s in rob["pairs"] if (a_, b_) != (5, 10)]
+
     tok = lab.preregister(
         "b2.mises_classement",
         "classement des mises {5,6,7,8,10} par espérance et par forme du risque, "
@@ -465,27 +470,30 @@ def jackpot_and_kelly(done: set) -> None:
         "2 000 barèmes aléatoires par mise à RTP égalisé 0,65",
         "aucun (décision analytique exacte sous chaque barème ; pas de test)",
         "le classement par ESPÉRANCE dépend du barème (non identifiable hors ligne) ; "
-        "le classement par FORME doit être robuste sur >=95 % des barèmes aléatoires",
+        "le classement par FORME est jugé robuste s'il tient sur >=95 % des barèmes aléatoires",
         track="B",
     )
-    rec_guarded(done, tok, observed=-0.35, null=None, p=None,
+    rec_guarded(done, tok, observed=ev_med, null=None, p=None,
                 power_at=None,
                 verdict="mise optimale de Kelly : 0 — espérance négative sous tout barème plausible",
-                notes="SU : E[hits]=k/4 quelle que soit la grille ; le signe de l'espérance est "
-                      "fixé par le barème, et aucun barème Keno publié n'a RTP>=1 (bande supposée "
-                      "0,50-0,92 -> perte 8 à 50 ct/CHF ; observed=-0,35 = variante centrale V2). "
-                      "Classement par espérance NON identifiable hors ligne ; classement par forme "
-                      "robuste : k petit => moins de pertes sèches, gains plus fréquents, variance "
-                      "plus faible ; k grand => queue plus lourde uniquement. À espérance négative, "
-                      "Kelly f* = 0 : la seule mise gagnante est de ne pas miser ; s'il faut miser, "
-                      "k=5 minimise la variance de la ruine, k=10 maximise P(gain extrême).")
+                notes="SU : E[hits]=k/4 quelle que soit la grille ; le signe de l'espérance est fixé "
+                      "par le barème, absent du dépôt (HistoryView.swift:282) — aucun barème Keno "
+                      f"publié n'a RTP>=1. Sous les 3 barèmes supposés : E[net] de {ev_lo:+.2f} à "
+                      f"{ev_hi:+.2f} CHF/CHF (médiane {ev_med:+.2f}), et la meilleure mise change de "
+                      "variante en variante -> classement par espérance NON identifiable hors ligne. "
+                      "Forme à RTP égalisé : k=5 domine k=10 sur "
+                      f"{min(f510):.0%}-{max(f510):.0%} des barèmes aléatoires (moins de pertes "
+                      "sèches, gains plus fréquents, variance plus faible), mais aucune paire "
+                      f"n'atteint 95 % (autres paires : 50-{max(others):.0%}) : un barème peut "
+                      "inverser toute comparaison. À espérance négative, Kelly f* = 0 : la seule "
+                      "mise gagnante est de ne pas miser.")
 
     print("\nKelly (SU dans sa structure, SUPPOSÉ dans son ampleur) :")
     print("  f* = argmax E[log(1 + f·G)] ; pour tout G à E[G] < 0, f* = 0.")
-    print("  Sous les barèmes supposés : E[net] entre -0,08 et -0,50 CHF par CHF misé")
-    print("  (variante centrale loterie ≈ -0,35). La mise optimale est ZÉRO. Le seul")
-    print("  paramètre qui pourrait inverser le signe est un jackpot k/k dépassant")
-    print("  mise/P(plein) (table ci-dessus) — surveillable en live, jamais atteint aux")
+    print(f"  Sous les barèmes supposés : E[net] entre {ev_lo:+.2f} et {ev_hi:+.2f} CHF par CHF")
+    print(f"  misé (médiane {ev_med:+.2f}). La mise optimale est ZÉRO. Le seul paramètre qui")
+    print("  pourrait inverser le signe est un jackpot k/k dépassant mise/P(plein) (table")
+    print("  ci-dessus) — surveillable en live via `extraJackpots`, hors de portée aux")
     print("  échelles habituelles des jackpots affichés.")
 
 
@@ -497,9 +505,9 @@ def main() -> None:
     exact_tables()
     verify_pmf(done)
     paytable_analysis()
-    random_paytable_robustness(done)
+    rob = random_paytable_robustness(done)
     boost_analysis(a, done)
-    jackpot_and_kelly(done)
+    jackpot_and_kelly(done, rob)
     title("Registre — état après b2 (Holm sur le registre entier)")
     rows = lab.holm()
     sig = [r for r in rows if r["significant"]]

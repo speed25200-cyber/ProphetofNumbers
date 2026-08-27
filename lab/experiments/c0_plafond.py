@@ -30,6 +30,26 @@ poids : le tirage biaisé est simulé (Gumbel top-20, c.-à-d. échantillonnage
 successif sans remise), et les probabilités d'inclusion réalisées sont
 MESURÉES. C'est la règle du labo — le null et l'alternative sont simulés,
 jamais tabulés.
+
+Deux limites, à porter avec le résultat
+---------------------------------------
+1. Le seuil de détection extrapole la queue du null par une gaussienne
+   (z = 4,32 pour m = 3 228 tests). 300 réplicats ne permettent pas de
+   lire empiriquement un quantile à 1,5e-05 ; le χ² à 80 cellules est
+   proche de la normalité, donc l'extrapolation est raisonnable, mais
+   c'est une approximation et non une mesure. Elle déplace le seuil, pas
+   l'ordre de grandeur : la courbe de puissance passe de 1 % à 44 % entre
+   d = 0,002 et d = 0,003, donc la frontière est franche et un seuil
+   légèrement différent ne déplace guère la borne.
+
+2. La borne couvre les biais MARGINAUX — une déformation des fréquences
+   des 80 numéros. Un biais CONDITIONNEL (la loi du tirage dépendant du
+   précédent) a bien plus de paramètres et se détecte moins bien à
+   nombre de tirages égal : la borne y serait plus haute. Ce n'est pas
+   un angle mort du dossier pour autant — le test des analogues (§11 de
+   l'audit) couvre précisément la structure conditionnelle issue d'un
+   état déterministe, jusqu'à 40 bits, et rend zéro. Mais la borne
+   chiffrée ci-dessous ne vaut, elle, que pour le cas marginal.
 """
 import os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
