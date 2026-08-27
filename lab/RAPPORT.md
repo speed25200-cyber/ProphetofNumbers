@@ -453,8 +453,22 @@ du barème ne peut que rendre l'inégalité meilleure, jamais pire**.
 
 Le seuil de la mise à 5 est le seul d'un ordre de grandeur qu'un jackpot
 progressif puisse atteindre. L'app affiche déjà les montants k/k en direct
-(`LoroClient.parseJackpots`) ; il ne lui manquait que le seuil auquel les
-comparer.
+(`LoroClient.parseJackpots`) et calcule même le retour du jackpot par franc
+misé ; il ne lui manquait que le seuil auquel le comparer.
+
+**Et cela corrige une affirmation qu'elle fait sans condition.**
+`GridsView.swift:148` et `docs/ESSAIM.md` §6 disent tous deux, sans réserve,
+que « l'espérance totale reste négative ». Cette affirmation ne peut pas être
+justifiée : elle porterait sur une somme dont un terme — le barème
+intermédiaire — est inconnu. Et au-dessus du seuil, elle est *démontrablement
+fausse*. Ce n'est pas un détail rhétorique : c'est le seul énoncé du produit
+qui pourrait faire manquer à son utilisateur la seule occasion favorable que
+ce jeu puisse offrir.
+
+Ce que l'archive ne peut pas dire, en revanche, c'est **à quelle fréquence**
+le seuil est franchi : elle ne contient aucun montant de jackpot, et le
+réseau est fermé. La question se tranche sur l'appareil, en une ligne
+d'affichage.
 
 Trois choses que ce seuil **n'est pas**, à ne pas confondre :
 
