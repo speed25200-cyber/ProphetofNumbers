@@ -5,8 +5,8 @@ Réponse courte, en trois nombres :
 | | |
 |---|---|
 | Amélioration possible par une meilleure **prédiction** | **0 %** — c'est un théorème, pas un résultat empirique |
-| Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+1,33 %** de rendement |
-| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≈ +1,0 %** |
+| Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+3,2 %** de rendement |
+| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≈ +1,0 %** sur la famille mesurée |
 | Avantage que l'app **affiche aujourd'hui** sur des données équitables | **+18 % à +34 %**, entièrement artefactuel |
 
 Le seul gain substantiel disponible n'est donc pas dans la prédiction. Il est
@@ -81,7 +81,7 @@ Sa courbe de détectabilité dit exactement ce qui aurait pu passer :
 | 500 tirages | 0,00 | 0,00 | 0,28 | 1,00 |
 | 2 000 tirages (≈ 10 jours) | 0,00 | 0,10 | 1,00 | 1,00 |
 
-**Registre entier : m = 3 250 tests dépensés, seuil Holm p < 1,54 × 10⁻⁵,
+**Registre entier : m = 3 266 tests dépensés, seuil Holm p < 1,53 × 10⁻⁵,
 0 significatif.**
 
 ## 3. Le plafond : ce que l'ignorance résiduelle peut au maximum valoir
@@ -114,16 +114,10 @@ déplace le seuil sans déplacer l'ordre de grandeur puisque la puissance passe
 de 1 % à 44 % entre d = 0,002 et 0,003 ; et la borne couvre les biais
 **marginaux**.
 
-Le cas **conditionnel** — une loi du tirage `t+1` qui dépend du tirage `t` —
-n'est pas couvert par ce calcul. L'intuition qu'il aurait une borne plus
-haute, ayant plus de paramètres, n'est pas fiable : sur la famille la plus
-simple (rémanence des 20 numéros du tirage précédent), le recouvrement moyen
-agrège les 20 numéros à chaque pas et devient une statistique très
-sensible — la borne pourrait donc être plus BASSE. La question est traitée
-séparément dans `c1_conditionnel.py` plutôt que tranchée ici par
-raisonnement. À noter que le test des analogues (§11 de l'audit) couvre déjà
-la structure conditionnelle issue d'un état déterministe ≤ 40 bits, et rend
-zéro.
+Le cas **conditionnel** est traité au §3 quater, et il se scinde en deux
+familles aux bornes opposées : +0,53 % pour une rémanence uniforme, +3,21 %
+pour une structure en paires cachées. C'est cette dernière qui fixe le
+plafond de toute la piste A.
 
 ## 3 bis. Détecter n'est pas identifier — le plafond réalisable est plus bas
 
@@ -190,6 +184,76 @@ le dégrade quand il n'y a rien de plus à trouver.** La fréquence longue est
 la statistique exhaustive d'un biais marginal ; les treize autres traits
 n'apportent que du bruit au classement des 80 numéros. Un modèle plus gros
 n'est pas un modèle plus sensible.
+
+## 3 quater. Le plafond dépend de la famille de biais — et j'avais tort deux fois
+
+Le §3 borne les biais **marginaux**. J'avais d'abord affirmé qu'un biais
+**conditionnel** aurait une borne plus haute, ayant plus de paramètres ; puis
+je me suis corrigé en remarquant que le recouvrement moyen agrège 20 numéros
+à chaque pas et serait donc très sensible. `c1_conditionnel.py` tranche : les
+deux raisonnements étaient justes, mais sur des familles différentes.
+
+| famille de biais | test qui la borne | avantage maximal non détecté |
+|---|---|---|
+| rémanence uniforme (conditionnel diagonal) | recouvrement moyen | **+0,53 %** |
+| marginal (10 numéros poussés) | χ² sur 80 cases | **+1,33 %** |
+| **paires cachées (conditionnel général)** | **‖Ĉ‖² sur 6 400 covariances** | **+3,21 %** |
+
+Le mécanisme est net. Une rémanence **uniforme** — les 20 numéros du tirage
+précédent tous favorisés — est écrasée par le recouvrement moyen, qui les
+agrège tous : borne à +0,53 %, la plus basse des trois. Mais une structure en
+**dérangement** — le numéro `i` appelle le numéro `j ≠ i` — laisse le
+recouvrement moyen strictement aveugle (`z_T1 ≈ 0` sur toutes les
+configurations testées). Il faut alors une statistique matricielle, qui
+répartit sa puissance sur 6 400 directions au lieu d'une : borne 2,4 fois
+plus haute que le cas marginal.
+
+**Le plafond de la piste A est donc +3,21 %**, atteint par la configuration
+la moins visible : 50 lignes modulées, invisibles au test qui borne les deux
+autres familles.
+
+Deux choses à porter avec ce chiffre. D'abord, c'est encore une borne
+d'**omniscience** — et la pénalité d'identification du §3 bis y serait plus
+lourde qu'ailleurs, puisqu'il faudrait estimer une matrice de couplage et non
+dix numéros ; elle n'a pas été mesurée pour cette famille. Ensuite, la borne
+couvre le **premier ordre linéaire au lag 1** ; une structure non linéaire
+n'est pas bornée par ce calcul.
+
+Le test matriciel n'existait pas avant cette expérience — il a donc été
+appliqué aux vraies données, pas seulement utilisé pour borner :
+
+```
+T1  recouvrement moyen      5,00191    z = +0,30   p = 0,807
+T2  somme des carrés de Ĉ   3,164e-03  z = −0,30   p = 0,787
+```
+
+Rien. Recouvrement maximal observé sur 70 559 paires consécutives : 13.
+
+## 3 quinquies. 17ᵉ voie — covariables temporelles et périodicités
+
+`unix_utc` n'avait jamais servi de **covariable**. L'audit avait regardé la
+structure des coupures, `a2` les dix premiers tirages après reprise, `a3` les
+ruptures franches. Aucun ne verrait une **modulation périodique** — charge
+serveur selon l'heure, tâche planifiée, week-end différent.
+
+`c3_temporel.py` teste 23 combinaisons (heure locale, jour de semaine, minute
+dans l'heure, jour du mois, créneau dans la session) × (χ² du champ,
+recouvrement lag-1, somme des 20 numéros, loi du boost), plus une analyse
+spectrale dont **le maximum du périodogramme** est calibré sous H₀ — jamais
+un pic isolé contre un seuil de test unique.
+
+**Zéro drapeau à |z| ≥ 3 sur 23 tests.** Aucun pic à 204 tirages (un jour) ni
+à 1 428 (une semaine) ; les cinq plus fortes ordonnées tombent sur des
+périodes de 2,4 à 5,9 tirages, et le maximum vaut 10,70 contre un null de
+11,13 ± 1,35. Le seul p sous 0,05 (loi du boost par minute, p = 0,040)
+correspond à un χ² **inférieur** à son attente — moins de variation que le
+hasard, pas plus.
+
+Le script établit au passage un fait que l'audit rapportait sans l'expliquer :
+les deux seuls gaps nocturnes différents de 25 500 s sont exactement les nuits
+de changement d'heure. L'horaire des sessions est ancré sur l'horloge locale,
+ce qui a un corollaire utile — le rang dans la session *est* la position dans
+la journée.
 
 ## 4. Le boost — le seul endroit où le signe de l'espérance pourrait changer
 
