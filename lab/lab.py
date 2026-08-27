@@ -407,6 +407,32 @@ def ledger() -> list[dict]:
         return [json.loads(l) for l in fh if l.strip()]
 
 
+def dedupe() -> int:
+    """Ne garde que la dernière consignation de chaque `id`.
+
+    Relancer une expérience pendant sa mise au point ne doit pas gonfler
+    `m` : c'est le même test, pas deux. L'effet d'un doublon est
+    conservateur (il durcit le seuil), donc il ne fabrique pas de fausse
+    découverte — mais il fausse le compte, et le compte est précisément
+    ce sur quoi repose la correction.
+    """
+    rows = ledger()
+    keep = {r["id"]: r for r in rows}          # la dernière écrase les précédentes
+    order = []
+    seen = set()
+    for r in reversed(rows):
+        if r["id"] not in seen:
+            seen.add(r["id"])
+            order.append(keep[r["id"]])
+    order.reverse()
+    removed = len(rows) - len(order)
+    if removed:
+        with open(LEDGER, "w") as fh:
+            for r in order:
+                fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+    return removed
+
+
 def holm(alpha: float = 0.05) -> list[dict]:
     """Holm-Bonferroni sur le REGISTRE ENTIER, voies de l'audit comprises.
 

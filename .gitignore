@@ -16,3 +16,5 @@ AuthKey_*.p8
 
 # Labo : cache de données régénérable (lab.load(refresh=True))
 lab/cache/
+__pycache__/
+*.pyc
