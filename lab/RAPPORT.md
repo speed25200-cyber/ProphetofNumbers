@@ -184,7 +184,110 @@ façon attrapé d'abord par le χ² marginal, voie fermée). Réplicats : null
 le seuil Holm final est plus strict, la puissance y est ≤ à celle
 affichée. Run complet ~12 min.
 
-**Registre entier : m = 3 296 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
+**19ᵉ voie — le couplage à tous les lags de 1 à 306** (`d2_lags.py`).
+`c1_conditionnel.py` n'avait testé que le lag 1 et l'écrivait dans ses
+limites. Un tampon circulaire, un cache de taille fixe ou une graine
+réutilisée toutes les N sorties produiraient un couplage à un lag précis,
+**invisible au lag 1**. Les deux statistiques de `c1` — recouvrement moyen
+(T1) et norme de la matrice de couplage (T2) — ont donc été appliquées à
+306 lags, en incluant explicitement les lags structurellement suspects :
+k = 12 (une heure), k = 204 (une journée complète de tirages), k = 288,
+k = 408, k = 1 428 (une semaine). Tous conformes, |z| ≤ 1,88. Et la loi du
+**maximum sur les 306 lags** est calibrée comme telle sur 300 archives
+complètes — sans quoi le balayage fabriquerait un signal à tous les coups :
+
+```
+T1  max |z| = 2,89  au lag 209   p = 0,482
+T2  max |z| = 3,05  au lag 265   p = 0,784
+```
+
+Sa courbe de puissance confirme sur toute la plage la dichotomie que `c1`
+avait trouvée au lag 1, et elle justifie après coup d'avoir porté les deux
+statistiques : une rémanence diagonale est vue à 70 % par T1 et **jamais**
+par T2 ; un dérangement en paires cachées à 83 % par T2 et **jamais** par T1.
+Chacune est totalement aveugle à ce que l'autre voit. Le plafond conditionnel
+passe de +3,21 % (lag 1 seul) à **+3,46 %** : balayer 306 lags coûte un peu
+de puissance, comme attendu.
+
+**20ᵉ voie — la dépendance non linéaire** (`d3_nonlineaire.py`), la seule
+famille que le labo avait explicitement déclarée non bornée. Trois angles :
+la **forme** de la loi du recouvrement et pas seulement sa moyenne (S1) ; la
+corrélation et l'information mutuelle entre recouvrements successifs (S2,
+S3) — l'information mutuelle capte une dépendance de forme quelconque là où
+la corrélation ne voit que le linéaire ; et un **gradient boosting** en
+marche avant, avec témoins positifs, contrôle de fuite passé et accord
+bulk/causal exact.
+
+```
+S1  forme de la loi de O (13 cases)   z = +3,47   p = 0,010
+S2  corrélation successive            z = −2,03   p = 0,037
+S3  information mutuelle              z = +1,30   p = 0,216
+modèle non linéaire, marche avant     2,4997 hits   z = −0,05
+```
+
+### Le plus grand écart du dossier, et pourquoi il ne tient pas
+
+`S1` est la plus forte déviation qu'une statistique pré-enregistrée ait
+produite dans tout ce labo, et le script se termine lui-même par « voir
+chasse à l'artefact avant toute annonce ». `d3b_chasse.py` est cette chasse.
+Trois vérifications indépendantes, chacune capable de tuer le signal :
+
+- **La sur-dispersion ne le confirme pas.** La forme observée — excès à
+  O = 2 (+2,53) et O = 8 (+3,13), déficit à O = 10 (−2,46) — se lit
+  naturellement comme des épaules plus lourdes, et cette lecture tient en
+  *une* statistique interprétable au lieu d'un χ² sur 13 cases : la variance
+  du recouvrement. Elle vaut 2,86271 contre un null de 2,84828 ± 0,01516,
+  soit **z = +0,95**. Le χ² capte un motif que le résumé naturel ne voit pas.
+- **Il ne se réplique pas.** 1ʳᵉ moitié `z = +1,33`, 2ᵉ moitié `z = +2,80`.
+- **Il est localisé.** Par huitième d'archive, sept sont dans le bruit
+  (±1,1), le quatrième sort à +3,38 — exactement le régime que la 16ᵉ voie
+  a déjà borné (`p = 0,066` sur son maximum).
+
+Les coupures de session sont écartées : les 345 paires à cheval vont dans
+l'*autre* sens et sont deux cents fois moins nombreuses.
+
+**Verdict : fluctuation de base rate.** `p = 0,010` contre un seuil de
+registre à 1,5 × 10⁻⁵ — trois ordres de grandeur — et rien ne l'en rapproche.
+
+Ce que je ne classe pas pour autant : `c4_meta.py` a établi qu'un biais réel
+*réglé pour produire exactement l'écart observé* serait presque
+indistinguable d'une fluctuation à cette taille d'échantillon appariée.
+L'absence de réplication interne est donc une **preuve faible**. C'est le
+seul point du dossier qui mérite d'être re-testé sur des données **neuves**
+plutôt que classé — et la seule source de données neuves est l'app.
+
+**21ᵉ voie — la forme interne d'un tirage** (`d4_forme_interne.py`). Toutes
+les voies précédentes examinent soit les relations *entre* tirages, soit les
+marginales *à travers* les tirages. Une seule statistique touchait à
+l'intérieur d'un tirage — le comptage d'adjacences du §2 de l'audit, et
+seulement sa moyenne. Or un tirage est un objet géométrique, 20 points sur
+[1, 80], et sa forme est précisément ce que rate un générateur à mauvaise
+discrépance. Quatre profils sur leur distribution **complète** — écarts entre
+numéros triés consécutifs, adjacences, somme, profil de dizaines — max |z| =
+1,01 contre une loi du max à 1,44 ± 0,82, **p = 0,654**. Puissance : le test
+voit une déformation dès qu'elle déplace la moyenne d'adjacences de 0,024 sur
+4,7465, soit un demi-pourcent, sans qu'aucune fréquence marginale ne bouge.
+
+**22ᵉ voie — le contenu conditionné au boost** (`d5_boost_contenu.py`). Le
+boost avait été testé pour sa loi, sa mémoire, sa matrice de transition, son
+lien au temps — toujours comme une série à part. Jamais dans l'autre sens :
+le tirage est-il différent selon la valeur du boost qui l'accompagne ? C'est
+pourtant le point de fuite naturel si boost et numéros sortent du même flux,
+et il est invisible à tout ce qui précède puisqu'il ne touche ni la loi
+marginale du boost ni celle des numéros. Le null par **permutation des
+étiquettes** est exact et préserve les deux marginales par construction :
+champ `z = −0,04`, somme `+0,27`, adjacences `−0,51`, recouvrement `+1,70` ;
+max calibré **p = 0,254**. Puissance : un lien de 5 % serait vu à 72 %, de
+10 % à 100 %.
+
+**Une voie close par absence de donnée, et non par test.** L'horodatage
+pourrait porter un canal — un générateur qui fait du rejet met plus longtemps
+à produire certains tirages. Mais 70 548 tirages sur 70 560 tombent
+*exactement* sur la grille des 300 secondes, et les douze écarts restants
+valent 1 à 4 secondes. Il n'y a rien à mesurer. De même, l'ordre de sortie
+des boules est absent des **huit** fichiers (0 tirage non trié sur 70 560).
+
+**Registre entier : m = 3 304 tests dépensés, seuil Holm p < 1,52 × 10⁻⁵,
 0 significatif.** Ce compte augmente à chaque expérience ; `lab.holm()` le
 recalcule depuis `ledger.jsonl` et fait foi sur toute valeur citée ici.
 
