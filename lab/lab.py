@@ -189,6 +189,53 @@ def calibrate(stat, n_draws: int, reps: int = 400, seed: int = 0, progress: bool
     return Null(float(vals.mean()), float(vals.std(ddof=1)), reps, vals)
 
 
+def calibrate_perm(stat, archive: "Archive", reps: int = 400, seed: int = 0,
+                   progress: bool = False) -> Null:
+    """Distribution de `stat` sous PERMUTATION de l'ordre des VRAIS tirages.
+
+    `calibrate()` simule le null en supposant un tirage SRS parfaitement
+    uniforme — une hypothèse, jamais vérifiée que l'archive réelle la
+    respecte au-delà de ce que le χ² marginal peut voir. `calibrate_perm`
+    n'a besoin d'aucune hypothèse d'uniformité : permuter l'ordre des
+    70 560 tirages RÉELS détruit toute structure TEMPORELLE (rémanence,
+    dérive, périodicité) tout en préservant EXACTEMENT la distribution
+    empirique jointe des tirages, quelle qu'elle soit — marginales,
+    corrélations entre les 20 numéros d'un même tirage, valeur du bonus
+    qui lui est associée, etc. Valide sous la seule hypothèse
+    d'ÉCHANGEABILITÉ des tirages dans le temps.
+
+    `stat(archive)` reçoit une `Archive` dont `nums`, `boost`, `bonus` et
+    `mask` sont permutés ENSEMBLE selon le même ordre aléatoire — chaque
+    tirage garde tout son contenu propre (le bonus d'un tirage reste un de
+    ses 20 numéros), seul son RANG dans la séquence change. `ids` et `ts`
+    restent d'origine : le null ne réinvente pas une horloge, il réordonne
+    le contenu SOUS une grille temporelle inchangée — c'est justement ce
+    qui permet de tester une covariable dérivée de `ts` (heure, jour de
+    semaine) sous la même hypothèse d'échangeabilité.
+
+    PIÈGE (à lire avant d'utiliser cette fonction) : toute statistique
+    invariante par permutation de l'ordre des lignes — une loi marginale,
+    un comptage de triplets, tout ce qui agrège les tirages sans égard à
+    leur ordre — a une valeur IDENTIQUE avant et après permutation. Le null
+    produit alors un `sd` nul (ou numériquement nul) et `z` n'est pas
+    interprétable : ce n'est pas que le test est conservateur, c'est qu'il
+    est VIDE. `calibrate_perm` ne couvre que les hypothèses dont la
+    statistique dépend de l'ORDRE ou d'une covariable temporelle externe ;
+    pour tout le reste, `calibrate()` reste le seul null qui a un sens.
+    """
+    rng = np.random.default_rng(seed)
+    n = len(archive)
+    vals = np.empty(reps)
+    for r in range(reps):
+        perm = rng.permutation(n)
+        shuffled = Archive(archive.ids, archive.ts, archive.nums[perm],
+                           archive.boost[perm], archive.bonus[perm], archive.mask[perm])
+        vals[r] = stat(shuffled)
+        if progress and (r + 1) % max(1, reps // 10) == 0:
+            print(f"  null_perm {r + 1}/{reps}", flush=True)
+    return Null(float(vals.mean()), float(vals.std(ddof=1)), reps, vals)
+
+
 def power(stat, contaminate, n_draws: int, null: Null, reps: int = 100,
           seed: int = 1, alpha_z: float = 3.0) -> float:
     """Puissance : fraction des réplicats CONTAMINÉS que le test détecte.

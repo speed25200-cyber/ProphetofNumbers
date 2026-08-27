@@ -640,6 +640,25 @@ final class SwarmEngine {
     private static let baseP = ProphetConst.baseP
     private static let uniformExp = Double(ProphetConst.drawSize * ProphetConst.drawSize) / Double(ProphetConst.poolSize)
 
+    /// Écart-type EXACT du recouvrement d'un top-20 avec le tirage.
+    ///
+    /// Pour tout ensemble de 20 numéros choisi sans voir le tirage, le
+    /// recouvrement suit une hypergéométrique(80, 20, 20) : espérance 5,
+    /// variance 20 · (20/80) · (60/80) · (60/79) = 2,848101, soit un
+    /// écart-type de 1,687632. Ce n'est pas une estimation — c'est une
+    /// constante, et elle ne dépend NI du contenu du top-20 NI de la
+    /// longueur de la fenêtre.
+    ///
+    /// L'estimer sur les 60 derniers tirages, comme le faisait `btZ`,
+    /// ajoutait σ/√(2·59) ≈ 9 % de bruit au dénominateur : le chiffre
+    /// affiché était un t de Student à 59 degrés présenté comme un σ.
+    /// Le remplacer par la valeur exacte est une pure amélioration de
+    /// précision, sans hypothèse supplémentaire.
+    static let overlapSD = (Double(ProphetConst.drawSize) * ProphetConst.baseP
+                            * (1 - ProphetConst.baseP)
+                            * Double(ProphetConst.poolSize - ProphetConst.drawSize)
+                            / Double(ProphetConst.poolSize - 1)).squareRoot()
+
     /// Applique le départage de l'écho du bonus à un champ de scores.
     /// Sans bonus connu, le champ ressort inchangé.
     static func applyBonusEcho(_ score: [Double], bonus: Int?) -> [Double] {
@@ -950,14 +969,9 @@ final class SwarmEngine {
         // Signal honnête : dérivé du backtest réel, 50 = indistinguable du hasard.
         let recentBT = Array(ensembleOv.suffix(60))
         let btMean = recentBT.isEmpty ? Self.uniformExp : Self.mean(recentBT)
-        var btVar = 0.0
-        for x in recentBT {
-            let d = x - btMean
-            btVar += d * d
-        }
-        let btSD = recentBT.count > 1 ? sqrt(btVar / Double(recentBT.count - 1)) : 1.68
+        // Dénominateur exact (cf. `overlapSD`) plutôt qu'estimé sur 60 points.
         let btZ: Double = recentBT.count >= 12
-            ? (btMean - Self.uniformExp) / (max(0.2, btSD) / sqrt(Double(recentBT.count)))
+            ? (btMean - Self.uniformExp) / (Self.overlapSD / sqrt(Double(recentBT.count)))
             : 0
         var confidence = Int(round(50 + 14 * btZ))
         confidence = max(5, min(95, confidence))

@@ -283,6 +283,33 @@ final class OracleTests: XCTestCase {
         return r
     }
 
+    func testDisplayedSigmaUsesTheExactLawNotAnEstimate() {
+        // « ÉCART AU HASARD — +x.xx σ » divisait par un écart-type ESTIMÉ sur
+        // les 60 derniers tirages. Or cet écart-type est une CONSTANTE : pour
+        // tout top-20 choisi sans voir le tirage, le recouvrement suit une
+        // hypergéométrique(80, 20, 20). L'estimer sur 60 points ajoutait
+        // ±9 % de bruit au dénominateur — le chiffre affiché était un t de
+        // Student à 59 degrés déguisé en σ.
+        //
+        // Ce test recalcule l'écart-type À PARTIR DE LA LOI, terme à terme,
+        // sans réutiliser la formule fermée du code : les deux chemins doivent
+        // tomber sur le même nombre, sinon l'un des deux est faux.
+        let tot = binom(80, 20)
+        var mean = 0.0
+        var square = 0.0
+        for o in 0...20 {
+            let p = binom(20, o) * binom(60, 20 - o) / tot
+            mean += Double(o) * p
+            square += Double(o * o) * p
+        }
+        XCTAssertEqual(mean, 5.0, accuracy: 1e-9,
+                       "l'espérance du recouvrement vaut 5 pour TOUT top-20")
+        XCTAssertEqual((square - mean * mean).squareRoot(), SwarmEngine.overlapSD,
+                       accuracy: 1e-9)
+        // Et la valeur elle-même, pour qu'une régression se voie à l'œil.
+        XCTAssertEqual(SwarmEngine.overlapSD, 1.6876317, accuracy: 1e-6)
+    }
+
     func testDisplayedExpectationIsExact() {
         // Régression de fond : « ESPÉRANCE » portait la somme du posterior de
         // l'essaim sur les numéros SÉLECTIONNÉS par un score corrélé à ce même
