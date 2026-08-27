@@ -1120,9 +1120,22 @@ final class SwarmEngine {
         )
     }
 
-    // Popularité humaine des numéros (dates de naissance, « 7 », motifs) :
-    // sans effet sur les hits, mais un jackpot partagé se partage moins
-    // quand on évite les choix de la foule — dominance faible, coût nul.
+    // Popularité humaine des numéros (dates de naissance, « 7 », motifs).
+    //
+    // Sans effet sur les hits — l'espérance d'une hypergéométrique ne dépend
+    // pas du choix des numéros. L'argument est ailleurs : un gain PARTAGÉ
+    // entre gagnants simultanés se partage moins quand on évite les choix de
+    // la foule.
+    //
+    // Deux réserves, qu'il faut porter avec l'idée plutôt que de les taire.
+    // Rien dans le dossier n'établit que ce jeu partage ses gains plutôt que
+    // de payer à cote fixe : si la cote est fixe, éviter la foule ne rapporte
+    // rigoureusement rien. Et le barème lui-même n'est pas publié
+    // (HistoryView : l'API donne les jackpots k/k, pas les rangs
+    // intermédiaires). Le modèle de popularité ci-dessous est par ailleurs une
+    // heuristique écrite à la main, sans aucune mesure sur les joueurs de ce
+    // jeu-ci. Coût nul, gain conditionnel et non démontré — le sous-titre de
+    // la grille le dit désormais au conditionnel.
     private static let popularity: [Double] = {
         var p = [Double](repeating: 0, count: ProphetConst.poolSize)
         for n in 1...ProphetConst.poolSize {
@@ -1235,7 +1248,7 @@ final class SwarmEngine {
                     subtitle = "Le pari inverse — les numéros que \(kind.label) classe derniers"
                 default:
                     label = "\(kind.label) Furtif"
-                    subtitle = "Évite les numéros de la foule — un jackpot se partage moins"
+                    subtitle = "Évite les numéros de la foule — utile seulement si les gains se partagent"
                 }
                 grids.append(SuggestedGrid(
                     kind: kind,

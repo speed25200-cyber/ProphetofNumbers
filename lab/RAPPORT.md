@@ -850,6 +850,77 @@ le 5 aussi (la queue basse est même très légèrement plus lourde). Rien
 d'anormal ; mais un utilisateur qui ouvre l'app un jour de 88 lira un signal
 là où il n'y a qu'une fluctuation.
 
+## 8 bis. Ce qui a été appliqué à l'app, et ce que ça vaut
+
+L'audit s'est prolongé en correctifs. Chacun est mesuré, aucun ne repose sur
+une hypothèse quant au barème inconnu.
+
+### La géométrie du paquet perdait un quart de ses chances
+
+`e1_audit_grilles.py` mesure la géométrie réellement produite, là où
+`b1_geometrie.py` ne pouvait que la borner entre deux hypothèses de
+corrélation inter-familles. Trois défauts structurels :
+
+- **« Furtif » n'était pas une variante mais un doublon** de la variante I :
+  même champ, seulement pénalisé par la popularité — **4,00 numéros communs
+  sur 5** (Jaccard 0,69), 8,30 sur 10. Mesure robuste, sans rien supposer des
+  têtes : les champs sont des z-scores et la pénalité est connue.
+- **`alpha` et `omega` sont anti-corrélées à −0,70.** `alpha` agrège les
+  têtes *momentum* (numéros chauds), `omega` les têtes *reversion* (numéros
+  en retard) : la contre-épreuve d'une famille **était** la grille principale
+  d'une autre. `b1` bornait cette corrélation entre 0 et +1 — il ne pouvait
+  pas la voir.
+- **Couverture effondrée** : 30 numéros sur 80 à la mise 5, pour 60
+  emplacements.
+
+Coût, en probabilité exacte par inclusion-exclusion sur 40 historiques :
+**−24,8 %** de `P(au moins une grille pleine)` à la mise 5, −7,7 % à la mise
+10. L'app faisait donc **moins bien que douze grilles tirées au hasard**.
+
+Le correctif est une préférence de couverture — pas un bannissement, qui
+devient impossible dès que 12k > 80. Il atteint l'optimum théorique à
+**0,000 %** près à la mise 5.
+
+### L'objectif choisi était-il le bon ? (`e2_tous_rangs.py`)
+
+Maximiser `P(grille pleine)` n'allait pas de soi : une table de Keno paie
+plusieurs rangs, et les deux régimes tirent en sens opposés — étaler
+décorrèle les grilles, concentrer les corrèle. **L'étalement domine à tous
+les rangs** :
+
+| mise | t = 2 | t = 3 | t = 4 | t = 5 | t = 8 | t = 9 | t = 10 |
+|---|---|---|---|---|---|---|---|
+| 5 | ×1,024 | ×1,314 | ×1,415 | ×1,165 | — | — | — |
+| 10 | — | — | — | — | ×1,085 | ×1,045 | ×1,017 |
+
+Mon Monte-Carlo annonçait pourtant une *perte* aux rangs 9 et 10 de la mise
+10 : il y comptait 216 événements contre 256, et quatre contre cinq. Refait
+en exact — inclusion-exclusion avec la loi jointe de deux grilles partageant
+`s` numéros, calculée par hypergéométrique multivariée — le signe s'inverse.
+
+**Conséquence qui compte** : une dominance rang par rang vaut sous n'importe
+quelle pondération positive. L'ignorance du barème devient donc *sans
+conséquence* pour cette décision.
+
+### L'affichage est passé de l'estimation aux combinatoires exactes
+
+- **`ESPÉRANCE`** vaut désormais exactement `k/4`. Elle portait la somme du
+  posterior de l'essaim sur les numéros sélectionnés par un score corrélé à
+  ce même posterior : +18 à +34 % sur des données pourtant équitables.
+- **`pAllHit` supprimé** — champ mort et faux d'un facteur 6 à 22.
+- **Loi de survie exacte** affichée à la place de la paire redondante
+  `ESPÉRANCE / HASARD` : `P(≥ k−1)` et `P(k/k)`, que l'app calculait sans
+  jamais les montrer.
+- **`P(au moins une des 12 grilles pleine)`**, exacte, qui n'existait pas :
+  **1/129** à la mise 5 contre 1/1 551 pour une grille seule.
+- **Le seuil de jackpot** : la carte calculait déjà le retour en centimes par
+  franc ; le seuil est simplement **100 ct/CHF**. Au-delà, le jackpot seul
+  rembourse la mise et le pari est favorable quel que soit le barème.
+- **L'écran principal** affiche l'écart en σ au lieu d'un « n/100 » qui
+  invitait une lecture probabiliste que le chiffre ne supporte pas.
+- **La grille « Furtif »** met son argument au conditionnel : éviter la foule
+  ne rapporte que si les gains se partagent, ce que rien n'établit.
+
 ## 9. Ce qu'il faudrait faire, par ordre de valeur réelle
 
 1. **Corriger `ESPÉRANCE` sur les grilles** (`GridsView.swift:261`). C'est la
