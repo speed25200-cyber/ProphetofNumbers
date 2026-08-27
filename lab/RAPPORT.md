@@ -80,7 +80,7 @@ Sa courbe de détectabilité dit exactement ce qui aurait pu passer :
 | 500 tirages | 0,00 | 0,00 | 0,28 | 1,00 |
 | 2 000 tirages (≈ 10 jours) | 0,00 | 0,10 | 1,00 | 1,00 |
 
-**Registre entier : m = 3 243 tests dépensés, seuil Holm p < 1,54 × 10⁻⁵,
+**Registre entier : m = 3 250 tests dépensés, seuil Holm p < 1,54 × 10⁻⁵,
 0 significatif.**
 
 ## 3. Le plafond : ce que l'ignorance résiduelle peut au maximum valoir
