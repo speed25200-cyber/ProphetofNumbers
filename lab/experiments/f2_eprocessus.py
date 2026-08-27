@@ -436,6 +436,44 @@ def power_bonus_echo(threshold: float, r_power: int) -> dict:
     return out
 
 
+def power_repeat_by_position(threshold: float, r_power: int) -> dict:
+    """DIAGNOSTIC DÉCISIF : le même défaut (L=500, overlap forcé j=7) placé
+    TÔT vs TARD dans l'archive. Un portefeuille SANS RESET est une
+    martingale non-négative unique, cumulée depuis le pas 1 : sous H0 elle
+    décroit p.s. vers 0 (cf. §1). Si le défaut tombe tard, le pari doit
+    d'abord "remonter" depuis une richesse déjà proche de 0 avant même de
+    commencer à accumuler la preuve locale -- un désavantage qu'un balayage
+    par fenêtres (a3), qui réévalue une statistique FRAÎCHE à chaque
+    position, n'a pas. C'est la réponse à "voit-il ce que les lots
+    diluent, et réciproquement" : la dilution existe, mais côté portefeuille,
+    et elle dépend de LA POSITION, pas seulement de l'amplitude."""
+    out = {}
+    L, j = 500, 7
+    contaminate_early = a3.make_contaminate_repeat(L, j)
+    windows = {"tôt (t in [1,5000])": (1, 5000),
+              "tard (t in [50000,N-L])": (50000, N - L)}
+    for label, (lo, hi) in windows.items():
+        def contaminate(mask, rng, lo=lo, hi=hi):
+            start = int(rng.integers(lo, hi))
+            for t in range(start, start + L):
+                prev = np.flatnonzero(mask[t - 1])
+                keep = rng.choice(prev, size=j, replace=False)
+                other = np.setdiff1d(np.arange(POOL), prev, assume_unique=True)
+                new = np.concatenate([keep, rng.choice(other, size=DRAWN - j, replace=False)])
+                mask[t] = False
+                mask[t, new] = True
+            return mask
+        rng = np.random.default_rng(800_000 + hash(label) % 10_000)
+        hit = 0
+        for _ in range(r_power):
+            mask = lab.srs(N, rng)
+            mask = contaminate(mask, rng)
+            if portfolio_max_with_bonus(mask, rng) >= threshold:
+                hit += 1
+        out[label] = hit / r_power
+    return out
+
+
 # --------------------------------------------------------------------------
 # 7. Orchestration
 # --------------------------------------------------------------------------
@@ -523,6 +561,17 @@ def main() -> None:
           "(variance seule : z=+0,95, RAPPORT l.240)")
     print(f"  portefeuille F2 : max E_t={real['max_e']:.2f}  p_emp={p_emp:.4f}  p_Ville={p_ville:.4f}")
 
+    # Réciproque : le portefeuille voit-il quelque chose LÀ où a3 a placé
+    # son propre maximum (chi2 W=200 @tirage 58340, RAPPORT §2, p=0,066) ?
+    a3_hot_lo = 58340 - 1
+    a3_hot_hi = a3_hot_lo + 200
+    if a3_hot_hi <= len(real["port_e"]):
+        e_there = real["port_e"][a3_hot_lo:a3_hot_hi].max()
+        print(f"  au hotspot de a3 (tirage 58340, chi2 W=200, non-signif. p=0,066) : "
+              f"max E_t portefeuille sur cette fenêtre = {e_there:.3e} -- portefeuille aveugle "
+              "ici (chi2 champ omnidirectionnel n'est pas un des 4 paris, ET la richesse y est "
+              "déjà quasi nulle, cf. §5)")
+
     # -- 5. Puissance ----------------------------------------------------
     print(f"\n{'-'*78}\n4. PUISSANCE — mêmes contaminations que a3 (R_power={R_POWER}/point), "
           f"seuil = plancher empirique {floor_thr:.2f} (p={p_floor:.2e})")
@@ -554,10 +603,27 @@ def main() -> None:
     for (L, tp), pw in be_pw.items():
         print(f"  L={L}, P(bonus_t in t+1) forcée à {tp:.2f} (H0=0,25) : puissance F2 = {pw:.2f}")
 
+    # -- 5 bis. LE mécanisme : la position du défaut, pas seulement son amplitude
+    print(f"\n{'-'*78}\n5. POURQUOI L'ÉCART DE PUISSANCE — même défaut, position tôt vs tard")
+    print("  a3 (RAPPORT §2, registre) : L=500, j=6 -> puissance 1,00 ; j=7 -> puissance 1,00")
+    print(f"  F2 ci-dessus (position ALÉATOIRE, comme a3) : j=6 -> {rep_pw[(500,6)]:.2f} ; "
+          f"j=7 -> {rep_pw[(500,7)]:.2f}")
+    t0 = time.time()
+    pos_pw = power_repeat_by_position(floor_thr, R_POWER)
+    print(f"  MÊME défaut (L=500, j=7), position contrôlée ({time.time()-t0:.0f}s) :")
+    for label, pw in pos_pw.items():
+        print(f"    {label:<28} puissance F2 = {pw:.2f}")
+    print("  -> le portefeuille est une SEULE martingale cumulée depuis le pas 1 : sous H0 elle")
+    print("     décroît p.s. vers 0 (§1). Un défaut TARD doit d'abord regagner cette richesse")
+    print("     perdue avant d'accumuler la preuve locale ; un défaut TÔT n'a rien à regagner.")
+    print("     a3 réévalue une statistique FRAÎCHE à chaque position de fenêtre : aucun passif.")
+
     # -- 6. Verdict et registre -------------------------------------------
     notes = (f"max_e={real['max_e']:.4f} @pas {real['argmax']} ({real['date_argmax']}); "
              f"p_Ville={p_ville:.4f}; floor={floor_thr:.2f} (R_NULL={R_NULL}); "
              f"freq_power={freq_pw}; repeat_power={rep_pw}; bonus_echo_power={be_pw}; "
+             f"position_mechanism(L=500,j=7)={pos_pw}; "
+             f"a3_hotspot_e={e_there if a3_hot_hi <= len(real['port_e']) else None}; "
              f"R_power={R_POWER}")
     print(f"\n{'-'*78}\nVERDICT FINAL : {verdict}  (max E_t={real['max_e']:.2f}, "
           f"p_emp={p_emp:.4f}, plancher {p_floor:.2e})")
