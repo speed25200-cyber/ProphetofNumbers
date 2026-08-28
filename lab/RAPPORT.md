@@ -1211,6 +1211,50 @@ bonus incliné exactement dans la direction que `d7` avait trouvée. C'est le
 pari qui perd le moins (10^−68,4 contre 10^−84 pour les pires têtes). Il perd
 quand même.
 
+**Et f4 s'applique à lui-même ce qu'il reproche à l'app.** Écrit ainsi, c'est
+un e-processus cumulé depuis le premier tirage — exactement la construction
+que §12.5 démontre aveugle à un défaut tardif. Conclure « rien » avec cet
+outil aurait porté la faiblesse que le même dossier reproche à l'ancien
+e-processus de l'app. Les 174 paris sont donc tenus une seconde fois,
+relancés à chaque tirage par la récurrence de Shiryaev-Roberts, et le mélange
+des **348** se lit toujours sans correction :
+
+| | valeur |
+|---|---|
+| **sup_t E des 348 — statistique pré-enregistrée** | **10^+0,962 = 9,16** (au pas 2 679) |
+| p de Ville (≤ 1/sup) | **0,109** |
+| seuil de Ville à α = 0,05 | 10^+1,301 = 20 |
+| seuil du registre (Holm sur m = 3 310) | 1,51·10⁻⁵ |
+
+Un chiffre descriptif, à ne pas lire comme un résultat : les paris relancés
+*seuls* culminent à 10^+1,262 = 18,3, juste sous le seuil. Ce n'est pas la
+statistique pré-enregistrée, et la choisir après l'avoir vue serait
+précisément la malédiction du vainqueur que ce labo refuse. Le mélange des
+348 est la seule lecture valide, et il donne 9,16.
+
+**La correction se paie en puissance retrouvée, et c'est mesuré.** À
+T = 20 000, sur la contamination momentum :
+
+| ε | avance réelle | sup_t log₁₀ E (348) | E ≥ 20 ? |
+|---|---|---|---|
+| 0 | +0,024 hits | +0,374 | non |
+| 0,02 | +0,017 hits | +0,568 | non |
+| 0,05 | **+0,044 hits** | **+1,459** | **oui** |
+| 0,10 | +0,120 hits | +19,464 | oui |
+
+La version cumulée seule ne voyait rien à ε = 0,05 et ne se déclenchait qu'à
+ε = 0,10. Le mélange de redémarrages descend le seuil de détection à
+**+0,044 hits par tirage** — le même ordre de grandeur que f3 (+0,043), par
+un chemin entièrement différent.
+
+**Un plancher pris pour une mesure, et corrigé.** La première version de cette
+section passait `bonus = None` aux archives simulées. Le champ du bonus
+devient alors constant, son z-score vaut zéro, et les 6 modèles de cette
+famille valent exactement 1 à chaque pas : le mélange ne peut plus descendre
+sous 6/174, soit log₁₀ = −1,4622. Les trois « −1,462 » identiques que j'avais
+lus comme trois mesures étaient ce plancher. Les archives simulées reçoivent
+désormais un bonus uniforme.
+
 ### 12.3 Tous les décalages, toutes les fréquences, toutes les paires (`f5_paires.py`)
 
 Le dossier avait testé les décalages 1 à 30 (`d2`), le recouvrement
@@ -1357,17 +1401,17 @@ distinguerait pas « aveugle à un défaut tardif » de « cassé » :
 | témoin, défaut **tôt** : sup du pari cumulé | 1,703·10⁵⁰ |
 | témoin, défaut **tôt** : redémarrages | 1,129·10⁴⁸ |
 
-**3. f4 s'applique à lui-même ce qu'il reproche à l'app.** Écrit d'abord comme
-un e-processus cumulé depuis le premier tirage, il portait exactement la
-faiblesse démontrée par f2. Les 174 paris sont désormais tenus deux fois —
-depuis le début et relancés à chaque tirage —, et la sensibilité se lit sur le
-supremum de la trajectoire, non sur sa valeur finale.
+**3. f4 s'applique à lui-même ce qu'il reproche à l'app** (§12.2) : les 174
+paris sont désormais tenus deux fois, et le seuil de détection descend de
++0,120 à **+0,044 hits par tirage**. Le remède que f2 nomme est donc mesuré,
+pas seulement recommandé — ce qui est la seule raison de le câbler dans l'app.
 
 ### 12.7 Où en est le registre
 
-Ces expériences ajoutent 15 entrées. Le registre compte **107 tests
-consignés**, m = 3 307 en comptant les familles dont seul l'extrême est
-enregistré, seuil de Holm **1,512·10⁻⁵**. Le plus petit p du dossier entier
-reste **2,0·10⁻⁴** (`audit.paires`).
+Ces expériences ajoutent 18 entrées. Le registre compte **110 tests
+consignés**, m = 3 310 en comptant les familles dont seul l'extrême est
+enregistré, seuil de Holm **1,511·10⁻⁵**. Le plus petit p du dossier entier
+reste **2,0·10⁻⁴** (`audit.paires`) ; le plus petit p de cette série est
+**0,109** (`f4.restart`).
 
 **0 significatif.**
