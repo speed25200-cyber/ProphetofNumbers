@@ -342,6 +342,21 @@
   }
   ol.decisions p { font-size: 0.9375rem; color: var(--muted); margin: 0; }
 
+  .tag {
+    font-family: var(--data);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.16em 0.5em;
+    border: 1px solid currentColor;
+    vertical-align: 0.16em;
+    margin-left: var(--s2);
+    white-space: nowrap;
+  }
+  .tag.done    { color: var(--null); }
+  .tag.pending { color: var(--flag); }
+
   /* ---------- limits ---------- */
 
   ul.limits { list-style: none; padding: 0; margin: var(--s3) 0 0; max-width: 62ch; }
@@ -379,7 +394,7 @@
     <div class="kicker">
       <span>Loto Express · Loterie Romande</span>
       <span>70 560 tirages</span>
-      <span>22 voies · 3 304 tests dépensés</span>
+      <span>29 voies · 3 310 tests dépensés</span>
     </div>
     <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
     <p class="standfirst">
@@ -899,42 +914,264 @@
   </section>
 
   <section>
-    <h2>Ce qu'il faudrait faire, par ordre de valeur réelle</h2>
+    <h2>Tester le prédicteur, et non plus les tirages</h2>
+    <div class="col">
+      <p>
+        Les vingt-trois voies qui précèdent testent toutes une propriété des <em>tirages</em>&nbsp;:
+        une fréquence, un écart, un recouvrement, un décalage. Chacune doit nommer sa régularité
+        d'avance, et chacune paie sa place au registre.
+      </p>
+      <p>
+        Personne n'avait testé la seule chose dont la réponse décide du produit&nbsp;:
+        <strong>l'essaim déployé bat-il le hasard&nbsp;?</strong> Pour la poser il faut sa loi sous
+        l'hypothèse d'équité, donc pouvoir le rejouer des centaines de fois sur des archives
+        synthétiques — les 26 têtes, leurs constantes, l'ordre des opérations, AdaHedge, transcrits
+        et rejoués en marche avant.
+      </p>
+    </div>
+
+    <div class="pull">
+      La multiplicité du choix de tête n'est pas corrigée après coup&nbsp;: elle est dans la loi du
+      maximum, obtenue en rejouant l'essaim entier sur douze archives équitables complètes.
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>L'essaim sur les 70 560 tirages, en marche avant</caption>
+        <thead>
+          <tr><th>statistique</th><th>observé</th><th>null</th><th>z</th><th>p</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>meilleure des 26 têtes</td><td>+1,881</td><td>+1,914 ± 0,572</td><td>−0,06</td><td>0,965</td></tr>
+          <tr class="is-key"><td>ensemble AdaHedge — ce que l'app utilise</td><td>−0,674</td><td>+0,439 ± 0,999</td><td>−1,11</td><td>0,256</td></tr>
+          <tr><td>transfert hors échantillon</td><td>−0,214</td><td>−0,087 ± 0,378</td><td>−0,34</td><td>0,846</td></tr>
+          <tr><td>têtes effectives</td><td>6,796</td><td>8,061 ± 2,606</td><td>−0,49</td><td>0,846</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        L'ensemble que l'app fait tourner obtient <code>4,99572</code> hit par tirage là où le hasard
+        en donne <code>5,00000</code>. La meilleure des 26 têtes sort à <code>p = 0,965</code> contre
+        la loi de son propre maximum. Et la sensibilité est mesurée&nbsp;: l'essaim détecterait
+        <strong>+0,043 hit par tirage</strong> quatre fois sur quatre.
+      </p>
+      <p>
+        Un chiffre en tombe qui touche l'affichage&nbsp;: la carte «&nbsp;L'ESSAIM&nbsp;» montre
+        <code>TÊTES EFFECTIVES 6,8</code>, ce qui se lit comme un signe d'apprentissage. Sous le
+        hasard pur, cette statistique va de <strong>3,2 à 14,1</strong> selon le réplicat. C'est un
+        nombre aléatoire.
+      </p>
+    </div>
+
+    <h3 class="col">Combien de bits&nbsp;?</h3>
+    <div class="col">
+      <p>
+        Toutes les voies du dossier réduisent un tirage à un nombre&nbsp;: c'est jeter 61 bits pour
+        n'en garder que trois. Sous équité, un tirage est uniforme sur les
+        <code>C(80,20) = 3,54·10¹⁸</code> sous-ensembles — il coûte <strong>61,6165 bits</strong>, et
+        pas un de moins. Un modèle qui propose une loi <em>Q</em> sur ces mêmes sous-ensembles reçoit
+        <code>e = Q(tirage) · C(80,20)</code>, d'espérance <strong>exactement 1</strong>.
+      </p>
+      <p>
+        La moyenne d'e-valeurs étant une e-valeur, 174 paris se lisent tels quels — <em>sans aucune
+        correction de multiplicité</em>, et valides à tout instant. Et la réponse sort en bits, donc
+        en taux de croissance de Kelly&nbsp;: zéro bit signifie aucune information exploitable,
+        quelle que soit la mise.
+      </p>
+    </div>
+
+    <div class="readout">
+      <div class="cell">
+        <div class="cell-label">Ce que 174 paris simultanés extraient du tirage suivant</div>
+        <div class="cell-value">−0,0033</div>
+        <div class="cell-note">bit par tirage, sur les 61,6165 qu'il coûte</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Richesse maximale atteinte, paris relancés compris</div>
+        <div class="cell-value">9,16</div>
+        <div class="cell-note">Seuil de Ville&nbsp;: 20. Seuil du registre&nbsp;: 1,51·10⁻⁵</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Avance qu'il faudrait pour que ce portefeuille se déclenche</div>
+        <div class="cell-value">+0,044</div>
+        <div class="cell-note">hit par tirage — le même ordre que l'essaim, par un chemin
+        entièrement différent</div>
+      </div>
+    </div>
+    <p class="readout-caption">
+      Le meilleur des 174 paris est l'écho du bonus incliné vers le bas, exactement la direction que
+      la 23ᵉ voie avait trouvée. C'est celui qui perd le moins. Il perd quand même.
+    </p>
+  </section>
+
+  <section>
+    <h2>Tout regarder d'un coup</h2>
+    <div class="col">
+      <p>
+        Le dossier avait testé les décalages 1 à 30, le recouvrement conditionnel, les triplets&nbsp;:
+        quelques décalages, choisis à la main. Or l'archive contient deux milliards et demi de paires
+        de tirages, et le processus a 35 280 fréquences. Les regarder toutes n'était pas une question
+        de volonté, mais d'algorithme.
+      </p>
+      <p>
+        Le recouvrement au décalage <code>d</code> est la somme des <em>autocorrélations</em> des 80
+        séries binaires d'appartenance. Une transformée de Fourier par numéro donne les 69 560
+        décalages en <strong>3,5 secondes</strong>, contre 2,5 milliards de comparaisons en force
+        brute. Le null aussi — ce qui rend possible une loi du maximum sur 300 archives complètes.
+      </p>
+    </div>
+
+    <div class="readout">
+      <div class="cell">
+        <div class="cell-label">Maximum sur les 69 560 décalages</div>
+        <div class="cell-value">4,157</div>
+        <div class="cell-note">null 4,473 ± 0,269 — <em>sous</em> son attente. p = 0,249</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Maximum sur les 35 280 fréquences</div>
+        <div class="cell-value">1,513</div>
+        <div class="cell-note">null 1,534 ± 0,043 — <em>sous</em> son attente. p = 0,621</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Recouvrement maximal sur 2 489 344 020 paires</div>
+        <div class="cell-value">16/20</div>
+        <div class="cell-note">1,691 paire attendue à ce niveau. p = 0,816</div>
+      </div>
+    </div>
+    <p class="readout-caption">
+      168 décalages dépassent 3&nbsp;σ là où l'équité en prédit 188&nbsp;; 3 dépassent 4&nbsp;σ pour
+      4,4 attendus. Le décalage 1 sort à z = +0,30, sans la moindre sélection.
+    </p>
+
+    <div class="col">
+      <p>
+        La dernière colonne est le test de réutilisation de graine — le bug du Keno de Pennsylvanie,
+        1994 — mené sur l'archive entière au lieu des 480 derniers tirages que l'app surveille.
+        L'histogramme complet suit l'hypergéométrique classe par classe jusqu'à la queue rare&nbsp;:
+        2 paires observées à 16 pour 1,664 attendues, 0 à 17 pour 0,027.
+      </p>
+      <h3>D'où viendrait un écart, si l'on en trouvait un&nbsp;?</h3>
+      <p>
+        Un null seul ne peut pas le dire. Trois séquences le peuvent&nbsp;: l'archive telle quelle,
+        les <em>mêmes</em> tirages dans un ordre rebattu — ce qui détruit le temps en préservant
+        exactement le multi-ensemble —, et des tirages équitables simulés.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Réel, permuté, simulé — le triangle qui sépare les causes</caption>
+        <thead>
+          <tr><th>statistique</th><th>réel</th><th>permuté (8)</th><th>simulé (8)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>têtes effectives</td><td>6,80</td><td>7,43 ± 3,79</td><td>6,84 ± 3,32</td></tr>
+          <tr><td>meilleure des 26 têtes</td><td>+1,88</td><td>+1,86 ± 0,64</td><td>+2,11 ± 1,02</td></tr>
+          <tr><td>dispersion des hits</td><td>417,8</td><td>426,8 ± 88,6</td><td>444,0 ± 150,2</td></tr>
+          <tr><td>ensemble AdaHedge</td><td>−0,67</td><td>−0,10 ± 0,90</td><td>+0,46 ± 1,55</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Réel contre permuté&nbsp;: <code>z = −0,17</code>. Réel contre simulé&nbsp;:
+        <code>z = −0,01</code>. Permuté contre simulé&nbsp;: <code>t = +0,33</code>. Ni structure
+        temporelle, ni écart de la loi des tirages à l'uniforme. Les trois sommets coïncident.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce que la validité permanente coûte — et le correctif qu'elle vaut</h2>
+    <div class="col">
+      <p>
+        Le résultat le plus utile de cette série est négatif, et il va contre sa propre méthode. Un
+        portefeuille d'e-processus se lit sans correction de multiplicité et à tout instant
+        d'arrêt&nbsp;; sur les vrais tirages il atteint 4,99 puis retombe à zéro. Mais sur des
+        fenêtres délibérément corrompues, il détecte 0,00 à 0,05 là où le balayage par lots atteint
+        0,58 à 1,00.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Le même défaut, placé tôt&nbsp;: détecté une fois sur une. Placé tard&nbsp;: jamais.
+    </div>
+
+    <div class="col">
+      <p>
+        La cause est arithmétique, pas un manque de sensibilité. Un pari cumulé depuis le premier
+        tirage vaut <code>exp(Σ log f)</code>, et <strong>une somme ne dépend pas de l'ordre</strong>&nbsp;:
+        sa valeur finale ignore <em>quand</em> le défaut s'est produit. Ce qui change est son maximum
+        courant — le seul chiffre que l'inégalité de Ville autorise à lire —, et un défaut tardif
+        arrive sur une richesse déjà effondrée par la dérive négative.
+      </p>
+      <p>
+        L'app affichait précisément un tel pari, avec la phrase «&nbsp;sous ce seuil, aucune
+        anomalie&nbsp;». Le remède tient en une ligne&nbsp;: <code>R = (1 + R) · f</code> est la
+        somme des paris démarrés à chaque instant, donc <code>R/t</code> reste une e-valeur, en
+        O(1) de temps comme de mémoire. Un biais apparu hier est vu par le pari relancé hier.
+      </p>
+      <p>
+        Le gain est mesuré, pas supposé&nbsp;: le seuil de détection du portefeuille descend de
+        <code>+0,120</code> à <strong>+0,044 hit par tirage</strong>. C'est la seule raison de le
+        câbler dans l'app.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce qui a été corrigé dans l'app, et ce qui reste ouvert</h2>
+    <div class="col">
+      <p>
+        Chaque ligne ci-dessous est un correctif <em>démontré</em>, pas argumenté&nbsp;: le nombre
+        entre parenthèses est ce que la mesure donne, et le test qui l'accompagne recalcule la
+        quantité par un chemin indépendant du code corrigé.
+      </p>
+    </div>
     <ol class="decisions">
       <li>
         <div>
-          <div class="d-head">Corriger l'espérance affichée sur les grilles</div>
-          <p>La seule affirmation fausse que voit l'utilisateur. Correction d'une ligne&nbsp;: afficher <code>k/4</code>, exact et sans estimation.</p>
+          <div class="d-head">L'espérance affichée sur les grilles <span class="tag done">corrigé</span></div>
+          <p>La seule affirmation fausse que voyait l'utilisateur, surestimée de 18 à 34 % sur des données pourtant équitables. Elle vaut désormais exactement <code>k/4</code> — sans estimation, donc sans malédiction du vainqueur.</p>
         </div>
       </li>
       <li>
         <div>
-          <div class="d-head">Renommer la confiance</div>
-          <p>Elle est honnête — centrée à 49,9 sous équité — mais son nom promet une probabilité qu'elle n'est pas. Quand l'app affiche 70, l'événement se produit 37,4 % du temps, exactement comme quand elle affiche 50.</p>
+          <div class="d-head">La confiance «&nbsp;n/100&nbsp;» <span class="tag done">corrigé</span></div>
+          <p>Son nom promettait une probabilité qu'elle n'était pas&nbsp;: quand l'app affichait 70, l'événement se produisait 37,4 % du temps, exactement comme à 50. L'écran principal montre l'écart au hasard en σ.</p>
         </div>
       </li>
       <li>
         <div>
-          <div class="d-head">Instrumenter le boost avant clôture</div>
-          <p>Seul point du dossier capable de changer le <em>signe</em> de l'espérance. A priori négatif, mais non tranché&nbsp;: l'archive ne contient pas l'heure de clôture.</p>
+          <div class="d-head">Le dénominateur de cet écart <span class="tag done">corrigé</span></div>
+          <p>Il était <em>estimé</em> sur 60 tirages. Or c'est une constante&nbsp;: <code>1,687632</code>, l'écart-type d'une hypergéométrique (80, 20, 20). L'estimer ajoutait 9 % de bruit et faisait du chiffre affiché un t de Student déguisé en σ.</p>
         </div>
       </li>
       <li>
         <div>
-          <div class="d-head">Revoir la géométrie des douze grilles</div>
-          <p>Variance divisée par 3,75 à 5,25 et risque de tout perdre ramené à zéro — mais la probabilité de grille pleine reste inchangée à 1 % près. À présenter comme un lissage du risque, jamais comme de la prédiction.</p>
+          <div class="d-head">La géométrie des douze grilles <span class="tag done">corrigé</span></div>
+          <p>Le paquet perdait un quart de sa probabilité de grille pleine en dupliquant ses propres grilles. Étalé, il domine <em>rang par rang</em> — donc sous n'importe quel barème positif, ce qui rend l'ignorance du barème sans conséquence pour cette décision.</p>
         </div>
       </li>
       <li>
         <div>
-          <div class="d-head">Supprimer un champ mort et faux</div>
-          <p>La probabilité de grille pleine calculée sur les mêmes valeurs gonflées est fausse d'un facteur 22 — mais n'est jamais lue. Bug latent, pas mensonge à l'écran.</p>
+          <div class="d-head">La surveillance du générateur <span class="tag done">corrigé</span></div>
+          <p>L'e-valeur affichée était un pari jamais relancé, structurellement aveugle à un biais apparu tard — le même défaut détecté une fois sur une quand il tombe tôt, jamais quand il tombe tard. Elle est désormais la moyenne de 32 paris, dont la moitié relancés à chaque tirage.</p>
         </div>
       </li>
       <li>
         <div>
-          <div class="d-head">Mettre au conditionnel l'argument «&nbsp;Furtif&nbsp;»</div>
-          <p>Éviter les numéros populaires ne rapporte que si les gains sont partagés entre gagnants — ce que rien dans le dossier n'établit. Et le modèle de popularité est une heuristique écrite à la main.</p>
+          <div class="d-head">Un champ mort et faux, et un argument sans preuve <span class="tag done">corrigé</span></div>
+          <p>La probabilité de grille pleine calculée sur les valeurs gonflées était fausse d'un facteur 22 — jamais lue, donc bug latent et non mensonge à l'écran&nbsp;: supprimée, au profit de la loi de survie exacte. Et l'argument «&nbsp;Furtif&nbsp;» est passé au conditionnel&nbsp;: éviter la foule ne rapporte que si les gains se partagent.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="d-head">Le boost avant clôture <span class="tag pending">ouvert</span></div>
+          <p>Seul point du dossier capable de changer le <em>signe</em> de l'espérance. A priori négatif, mais non tranché&nbsp;: l'archive ne contient pas l'heure de clôture, et le réseau est fermé depuis l'environnement d'analyse.</p>
         </div>
       </li>
     </ol>
@@ -961,7 +1198,7 @@
   </section>
 
   <footer>
-    <span>Vingt-deux voies · registre pré-enregistré · nulls simulés</span>
+    <span>Vingt-neuf voies · registre pré-enregistré · nulls simulés</span>
     <span>Puissance mesurée à chaque voie</span>
     <span>Zéro significatif après correction de multiplicité</span>
   </footer>
