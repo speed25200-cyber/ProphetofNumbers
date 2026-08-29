@@ -62,14 +62,31 @@ def rule(t=""):
 
 
 def hyper_pmf(k: int) -> np.ndarray:
+    """Loi des hits d'un ensemble de k numéros : hypergéométrique(80, 20, k).
+
+    Le dénominateur est C(80, k) — le nombre de façons de choisir l'ensemble —
+    et PAS C(80, 20). La première version de ce fichier faisait cette erreur :
+    juste pour k = 20 (les deux coïncident), fausse d'un facteur 2·10⁵ pour
+    k = 10, et le regroupement de classes partait alors en boucle infinie à
+    chercher un attendu ≥ 8 dans une « loi » qui sommait à 4,7·10⁻⁶.
+    """
     c = math.comb
-    tot = c(POOL, DRAWN)
-    return np.array([c(DRAWN, h) * c(POOL - DRAWN, k - h) / tot
-                     for h in range(k + 1)], float)
+    tot = c(POOL, k)
+    pmf = np.array([c(DRAWN, h) * c(POOL - DRAWN, k - h) / tot
+                    for h in range(k + 1)], float)
+    assert abs(pmf.sum() - 1.0) < 1e-9, f"pmf({k}) somme à {pmf.sum()}"
+    return pmf
 
 
 def chi2_classes(pmf: np.ndarray, T: int, min_exp: float = 8.0):
-    """Regroupe les classes de queue pour que chaque attendu soit >= min_exp."""
+    """Regroupe les classes de queue pour que chaque attendu soit >= min_exp.
+
+    Le garde-fou n'est pas décoratif : sur une pmf qui ne somme pas à 1, les
+    boucles de regroupement ne terminent pas. Mieux vaut une erreur immédiate
+    qu'un processus à 100 % de CPU pendant 43 minutes — vécu.
+    """
+    assert abs(pmf.sum() - 1.0) < 1e-9, f"pmf somme à {pmf.sum()}, pas 1"
+    assert pmf.sum() * T >= 2 * min_exp, "T trop petit pour deux classes"
     exp = pmf * T
     lo = 0
     while exp[:lo + 1].sum() < min_exp:
