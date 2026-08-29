@@ -394,7 +394,7 @@
     <div class="kicker">
       <span>Loto Express · Loterie Romande</span>
       <span>70 560 tirages</span>
-      <span>29 voies · 3 310 tests dépensés</span>
+      <span>30 voies · 3 313 tests dépensés</span>
     </div>
     <h1>De combien peut-on améliorer les prédictions&nbsp;?</h1>
     <p class="standfirst">
@@ -1123,6 +1123,66 @@
   </section>
 
   <section>
+    <h2>Trois thèses qui ferment le dossier par le haut</h2>
+    <div class="col">
+      <p>
+        Vingt-neuf voies ont cherché un écart. Les trois dernières posent la question
+        inverse&nbsp;: que peut-on <strong>prouver</strong> sur la meilleure prédiction
+        possible&nbsp;?
+      </p>
+      <h3>La distribution du prédicteur, pas sa moyenne</h3>
+      <p>
+        Un prédicteur qui exploiterait une structure pourrait avoir la bonne moyenne et la
+        mauvaise <em>loi</em> — des épaules plus lourdes, une queue déplacée. Personne n'avait
+        regardé l'histogramme complet. Le null, ici, est <strong>exact</strong>&nbsp;:
+        conditionnellement au passé, chaque recouvrement est hypergéométrique quel que soit le
+        contenu du top-k, donc l'histogramme des 70 547 pas est exactement multinomial — sans le
+        moindre rejeu d'archives.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>La loi complète du déployé, contre un null exact</caption>
+        <thead>
+          <tr><th>statistique</th><th>χ²</th><th>ddl</th><th>null multinomial</th><th>p</th></tr>
+        </thead>
+        <tbody>
+          <tr class="is-key"><td>top-20 de l'ensemble</td><td>10,57</td><td>11</td><td>11,01 ± 4,74</td><td>0,921</td></tr>
+          <tr><td>top-10 — la grille maximale</td><td>2,58</td><td>8</td><td>7,96 ± 3,95</td><td>0,141</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        L'histogramme suit l'hypergéométrique classe par classe — pire classe à +2,41&nbsp;σ sur
+        douze, exactement ce que douze classes donnent sous équité. Et le p = 0,141 du top-10 est
+        un χ² <em>inférieur</em> à son attente&nbsp;: l'écart va dans le sens de la conformité,
+        pas du signal.
+      </p>
+      <h3>Ce que l'archive peut réfuter, et le prix d'aller plus loin</h3>
+      <p>
+        <strong>Zéro tirage exactement répété sur 70 560</strong> (attendu&nbsp;: 7·10⁻¹⁰). Un
+        générateur qui aurait cyclé dans l'archive aurait répété des tirages&nbsp;; la borne est
+        faible et c'est la thèse — l'archive ne peut réfuter que les états minuscules, et tout
+        état modéré est hors de portée de <em>n'importe quelle</em> analyse de ces 70 560
+        sorties, celles de ce labo comprises. Porter le résidu le plus cohérent du dossier au
+        seuil du registre coûterait <strong>627 jours</strong> de tirages nouveaux — en supposant
+        l'effet réel et stationnaire, sinon ce temps n'achète rien.
+      </p>
+    </div>
+
+    <div class="pull">
+      Sous équité, la loi <em>complète</em> des gains d'une grille — chaque rang, sous tout
+      barème à cotes fixes — est la même pour tout choix de numéros. Suivre l'essaim ne coûte
+      donc rien, et capterait un biais s'il en apparaissait un&nbsp;: la politique de l'app est
+      minimax. La meilleure prédiction possible n'est pas un choix de numéros — c'est une
+      politique.
+    </div>
+  </section>
+
+  <section>
     <h2>Ce qui a été corrigé dans l'app, et ce qui reste ouvert</h2>
     <div class="col">
       <p>
@@ -1198,7 +1258,7 @@
   </section>
 
   <footer>
-    <span>Vingt-neuf voies · registre pré-enregistré · nulls simulés</span>
+    <span>Trente voies · registre pré-enregistré · nulls simulés</span>
     <span>Puissance mesurée à chaque voie</span>
     <span>Zéro significatif après correction de multiplicité</span>
   </footer>

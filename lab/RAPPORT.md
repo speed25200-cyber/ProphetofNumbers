@@ -1415,3 +1415,92 @@ reste **2,0·10⁻⁴** (`audit.paires`) ; le plus petit p de cette série est
 **0,109** (`f4.restart`).
 
 **0 significatif.**
+
+## 13. Trois thèses qui ferment le dossier par le haut (`g1_theses.py`)
+
+Vingt-neuf voies ont cherché un écart. g1 pose la question inverse : que
+peut-on **prouver** sur la meilleure prédiction possible ?
+
+### 13.1 La distribution du prédicteur, pas sa moyenne
+
+f3 a testé l'*espérance* des hits du prédicteur déployé. Mais un prédicteur
+qui exploiterait une structure pourrait avoir la bonne moyenne et la
+mauvaise **loi** — des épaules plus lourdes, une queue déplacée, plus de
+très bons tirages compensés par plus de très mauvais. Personne n'avait
+regardé l'histogramme complet.
+
+Le test a un luxe qu'aucune autre voie n'a : son null est **exact**. Sous
+H₀, conditionnellement au passé, le recouvrement du top-k est
+hypergéométrique *quel que soit le contenu du top-k* — la suite des 70 547
+recouvrements est donc exactement multinomiale(T, pmf), sans le moindre
+rejeu d'archives.
+
+| | χ² | ddl | null multinomial | p |
+|---|---|---|---|---|
+| top-20 de l'ensemble | 10,57 | 11 | 11,01 ± 4,74 | **0,921** |
+| top-10 (la grille maximale) | 2,58 | 8 | 7,96 ± 3,95 | **0,141** |
+
+L'histogramme suit l'hypergéométrique classe par classe (pire classe :
++2,41 σ sur 12, exactement ce que 12 classes donnent sous H₀). Puissance :
+la contamination momentum est vue à ε = 0,10 (2/2) et à la frontière à
+ε = 0,05 (1/2), sur T = 20 000.
+
+Le top-10 à p = 0,141 mérite sa phrase : c'est un χ² *inférieur* à son
+attente (2,58 pour 8 ddl) — l'histogramme colle *mieux* que la moyenne des
+tirages multinomiaux, pas moins bien. La direction de l'écart est celle de
+la conformité, pas du signal.
+
+### 13.2 Ce que l'archive peut réfuter — et le prix d'aller plus loin
+
+**Zéro tirage exactement répété sur 70 560** (attendu sous H₀ : 7·10⁻¹⁰).
+Un générateur qui aurait cyclé dans l'archive aurait répété des tirages à
+l'identique ; la période dépasse donc 70 559 pas, soit un état de plus de
+16,1 bits par pas consommé. La borne est **faible, et c'est la thèse** :
+l'archive ne peut réfuter que les générateurs à état minuscule. Tout état
+modéré — 64 bits et plus — est hors de portée de *n'importe quelle* analyse
+de 70 560 sorties, celles de ce labo comprises. Le budget total
+d'information de l'archive est de 4,35 Mbit ; un état cryptographique n'y
+laisse, par construction, rien d'exploitable.
+
+Et le prix de la première découverte possible est chiffré : porter le
+résidu V3 (z = −2,58, le plus cohérent du dossier) au seuil du registre
+(1,51·10⁻⁵, z = 4,33) demanderait **198 491 tirages — 627 jours de tirages
+nouveaux** à 204 par jour. En supposant l'effet réel *et stationnaire* ;
+sinon ce temps n'achète rien.
+
+### 13.3 Le théorème de l'assurance gratuite
+
+Sous H₀, les 80 numéros sont échangeables : pour toute grille de k numéros
+choisie sans voir le tirage — si adaptative soit-elle —, la **loi
+complète** de ses hits est hypergéométrique(80, 20, k). Pas seulement
+l'espérance : chaque probabilité de chaque rang de gain, donc la
+distribution des gains sous n'importe quel barème à cotes fixes.
+
+Conséquence jamais énoncée : suivre l'essaim ne coûte **rien** — en
+distribution — par rapport à des numéros au hasard, et capterait un biais
+des familles bornées par c0/c1 s'il en apparaissait un (f3 : détection à
++0,043 hit dès T = 20 000). La politique de l'app —
+
+    essaim (biais éventuels) + paquet étalé (P(pleine) rang par rang)
+    + seuil de jackpot (quand jouer) + surveillance relancée (alerte)
+
+— est donc **minimax** : perte exactement nulle sous H₀, gain maximal
+réalisable sous les alternatives bornées. « La meilleure prédiction
+possible » n'est pas un choix de numéros ; c'est cette politique, et §13.1
+vient d'en tester la prémisse sur les 70 547 pas du déployé.
+
+### 13.4 Une boucle infinie de ma fabrication, et ce qu'elle enseigne
+
+La première version de `hyper_pmf(k)` divisait par C(80, 20) quel que soit
+k — juste pour k = 20, faux d'un facteur 2·10⁵ pour k = 10, et le
+regroupement de classes cherchait alors sans fin un attendu ≥ 8 dans une
+« loi » qui sommait à 4,7·10⁻⁶ : 43 minutes à 100 % de CPU. Ma vérification
+indépendante d'avant lancement n'avait couvert que k = 20 — exactement
+l'angle mort. Deux assertions transforment désormais ce genre d'erreur en
+échec immédiat, et la formule est re-vérifiée aux trois tailles (somme 1,
+espérance k/4).
+
+### 13.5 Registre final
+
+**113 tests consignés, m = 3 313, seuil de Holm 1,509·10⁻⁵. Zéro
+significatif.** Le plus petit p du dossier reste 2,0·10⁻⁴ (`audit.paires`).
