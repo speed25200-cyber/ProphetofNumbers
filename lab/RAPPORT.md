@@ -1,16 +1,25 @@
 # De combien peut-on améliorer les prédictions ?
 
-Réponse courte, en quatre nombres :
+Réponse courte, en cinq nombres :
 
 | | |
 |---|---|
 | Amélioration possible par une meilleure **prédiction** | **0 %** — c'est un théorème, pas un résultat empirique |
-| Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+3,2 %** de rendement |
+| Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+6,3 %** de rendement (§40) |
 | Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≈ +1,0 %** sur la famille mesurée |
-| Avantage que l'app **affiche aujourd'hui** sur des données équitables | **+18 % à +34 %**, entièrement artefactuel |
+| Avantage que l'app affichait sur des données équitables | **+18 % à +34 %**, entièrement artefactuel — **corrigé** (§8 bis) |
+| Avantage de la maison, pour comparaison | **−25 % à −35 %** |
 
 Le seul gain substantiel disponible n'est donc pas dans la prédiction. Il est
 dans le fait de cesser d'en annoncer une qui n'existe pas.
+
+Deux de ces chiffres ont bougé depuis la première rédaction, et dans des sens
+opposés. Le plafond est passé de +3,2 % à +6,3 % — non parce qu'un signal a
+été trouvé, mais parce qu'une famille de biais qui n'avait **aucune** borne
+en a reçu une : le couplage quadratique du §40. Et l'avantage artefactuel que
+l'app affichait n'est plus affiché : `ESPÉRANCE` vaut désormais exactement
+`k/4`. La quatrième ligne est conservée parce qu'un dossier qui efface ses
+erreurs corrigées n'apprend rien à personne.
 
 Protocole, API et règles : `lab/README.md`. Registre de tous les tests :
 `lab/ledger.jsonl`. Chaque chiffre ci-dessous sort d'un script de
@@ -3278,3 +3287,172 @@ Ce que cette section ajoute n'est donc pas un zéro de plus. C'est un
 instrument dont chaque flux est vérifié contre l'extérieur, dont chaque
 combinaison sait retrouver son propre témoin avec exactement une graine, et
 dont le périmètre est écrit — y compris là où il est vide.
+
+## 40. Le couplage quadratique, et le plafond qui manquait (`h24_couplage_quadratique.py`)
+
+Le §3 quater lègue une phrase à laquelle personne n'avait répondu : « une
+dépendance **non linéaire** du tirage complet reste non bornée ». Le §20 a
+répondu par trois angles — la forme de la loi du recouvrement, l'information
+mutuelle entre recouvrements successifs, un gradient boosting sur six traits
+agrégés — et les trois réduisent le tirage à **un scalaire** avant de
+regarder quoi que ce soit. Un nombre, là où le tirage en porte 61,6 bits. La
+famille « non linéaire du tirage complet » était donc restée exactement aussi
+ouverte qu'avant, et — c'est le point qui décide — **sans aucun test, elle
+n'avait aucun plafond**. Ni `c0` (marginal), ni `c1` (linéaire au lag 1), ni
+`d2` (le même, sur 306 décalages) ne la touchent.
+
+Le premier terme non linéaire du développement est le seul qui reste
+calculable sur 70 560 tirages :
+
+```
+P(n ∈ D_{t+1} | D_t) = 1/4 + Σ_{i<j} M2[n,(i,j)] · r_ij(D_t)
+```
+
+où `r_ij` est l'indicatrice « i ET j sortis en t », **débarrassée de sa part
+linéaire**. 80 × 3 160 = **252 800 paramètres**, contre 6 400 pour `c1`. La
+question n'est pas « une paire appelle-t-elle un numéro ? » — un tel biais
+laisse une trace linéaire que `c1` verrait — mais : reste-t-il une dépendance
+aux paires **une fois retirée toute la dépendance aux numéros** ? La
+projection est refaite avec la covariance empirique de chaque archive à
+laquelle on l'applique, réelle, simulée ou contaminée : aucune constante
+tabulée n'entre dans la statistique.
+
+Trois statistiques, une par régime de défaut : **Q1**, la somme des carrés
+des 252 800 corrélations partielles (structure diffuse) ; **Q2**, leur
+maximum, avec la multiplicité **dans** la loi du max et non corrigée après
+coup (règle forte et isolée) ; **Q3**, la somme des carrés restreinte aux
+6 320 cellules où le numéro appelé est l'un des deux membres de la paire — la
+« rémanence quadratique », le cas physiquement naturel, et un sous-espace
+40 fois plus petit donc 6,1 fois plus sensible (mesuré : 719 contre 118
+d'écart-type).
+
+**Un cadeau de l'arithmétique, qui change le statut du témoin.** La
+contamination module le logit d'un numéro par `v(D_t)`, valant +1 si les deux
+membres de la paire source sont sortis, −γ si un seul, +δ si aucun. En
+résolvant `E[v] = 0` et `Cov(v, x_i) = 0` en rationnels — P₂ = 19/316,
+P₁ = 120/316, P₀ = 177/316 — on trouve γ = 19/60 et δ = 19/177. Et il se
+trouve que `Cov(v, x_k) = 0` **aussi pour les 78 autres numéros** :
+[6840 − (19/60)·45600 + (19/177)·70800]/492960 = 0/492960, exactement. La
+contamination n'a donc **aucune composante** dans la famille que `c1` et `d2`
+bornent — pas « peu visible », strictement orthogonale. La disjonction des
+familles est démontrée avant d'être mesurée, et mesurée ensuite : sur les
+neuf points de contamination, `T1` reste dans [−0,63 ; +1,11], `T2` dans
+[−0,55 ; +0,44], `S1` dans [−0,60 ; +0,55], pendant que Q1 monte à +4,5 et Q3
+à +16,2.
+
+**Sur l'archive réelle : rien.** Null simulé sur 400 archives SRS complètes.
+
+| | observé | null simulé | z | p |
+|---|---|---|---|---|
+| Q1 Σ Z² (252 800 cellules) | 252 193,49 | 252 773,90 ± 719,03 | **−0,81** | 0,4165 |
+| Q2 max \|Z\| | 4,6577 | 4,70093 ± 0,24286 | **−0,18** | 0,8703 |
+| Q3 Σ Z² (6 320, n ∈ {i,j}) | 6 492,59 | 6 325,74 ± 118,50 | **+1,41** | 0,1372 |
+
+Deux des trois maxima sont **sous** leur null. La cellule la plus déviante de
+l'archive — le numéro 4 appelé par la paire (16, 44) — sort à Z = +4,658
+contre une loi du max à 4,70 ± 0,24 : elle est *en dessous* de ce que 252 800
+cellules produisent d'ordinaire. Et le décompte des queues suit : 19 cellules
+au-delà de 4 σ pour 16,0 attendues, **681** au-delà de 3 σ pour 683.
+
+La chasse à l'artefact — moitiés, huitièmes, placebo par permutation — n'a
+pas été déclenchée : le plus grand |z| des trois vaut 1,41, sous le seuil de
+3 déclaré au pré-enregistrement. Le bloc est écrit et validé sur une archive
+délibérément contaminée (moitiés +2,61 et +2,21, `calibrate_perm` z = +5,34
+contre +5,30 en SRS) ; il n'avait simplement pas lieu de tourner, et le dire
+fait partie du protocole — une chasse lancée après coup sur un z ordinaire
+fabrique des sous-groupes à volonté.
+
+**Trois contre-épreuves que ce fichier se devait de passer.** `T1`, `T2` et
+`S1` y sont recodés depuis zéro, et retombent exactement sur les valeurs
+publiées : recouvrement lag-1 **5,00191** contre 5,00191 (`c1`), ‖Ĉ‖²_F
+**3,160·10⁻³** contre 3,164·10⁻³ (`c1`), forme de la loi de O **30,29198**
+contre 30,292 (`d3`, `f1`). Si l'un des trois avait bougé, c'est le montage
+d'ici qu'il aurait fallu suspecter avant les résultats.
+
+**Le plafond, enfin — et il déplace un chiffre du sommaire.** Même question
+que `c0` et `c1`, même convention (le plus gros biais dont la puissance de
+détection reste sous 50 % au seuil du registre), structure balayée et non
+supposée : 2 familles × 3 tailles × 3 densités × 4 amplitudes, puis re-mesure
+à l'enveloppe sur 12 archives.
+
+| famille de biais | test qui la borne | plafond |
+|---|---|---|
+| rémanence uniforme | recouvrement moyen (`c1`) | +0,53 % |
+| marginal | χ² sur 80 cases (`c0`) | +1,33 % |
+| paires cachées (linéaire lag-1) | ‖Ĉ‖²_F sur 6 400 (`c1`) | +3,21 % |
+| linéaire, lags 1 à 306 | le même, balayé (`d2`) | +3,46 % |
+| **quadratique lag-1** | **Q1/Q2/Q3 sur 252 800 (`h24`)** | **+6,27 %** |
+
+L'enveloppe est atteinte à 80 numéros modulés par 2 paires sources chacun,
+θ = 0,080 : **+0,1567 ± 0,0008 hits sur 2,50**, puissance mesurée **17 %**.
+Le §3 quater annonçait « le plafond de la piste A est donc +3,21 % » et le
+§19 le portait à +3,46 % ; ces deux chiffres bornent les familles
+**linéaires**, et il faut désormais lire le plafond de la piste A comme
+**+6,27 %** — pas parce qu'un signal a été trouvé, mais parce qu'une famille
+qui n'avait pas de borne en a une. La comparaison qui compte ne bouge pas :
+l'avantage de la maison reste de −25 à −35 %.
+
+**La courbe de sensibilité, par famille.**
+
+| θ | avantage du joueur omniscient | Q1 | Q2 | Q3 | détection |
+|---|---|---|---|---|---|
+| tiers 0,05 | +3,96 % | +1,2 | +1,6 | −0,3 | 0 % |
+| tiers 0,08 | +6,21 % | +2,2 | +5,8 | −1,0 | 0 % |
+| tiers 0,10 | +7,81 % | +4,5 | +9,4 | −0,3 | **83 %** |
+| membre 0,04 | +2,68 % | +0,8 | — | **+4,6** | **83 %** |
+| membre 0,05 | +3,20 % | +1,7 | — | **+6,3** | **100 %** |
+
+Et les trois statistiques voient bien trois choses différentes, ce qui est la
+seule justification d'en dépenser trois au registre : à nombre de cellules
+touchées décroissant et amplitude compensée, une règle **unique** sort à
+|Z| = 17,5 — franche pour Q2 (+52,6 σ), invisible pour Q1 (+0,6 σ, parce que
+306 de plus sur une somme d'écart-type 719 n'est rien) ; réciproquement
+160 règles faibles allument Q1 et laissent Q2 dans sa loi du maximum ; et Q3
+reste **exactement à zéro** sur la famille « tiers », par construction.
+
+**Ce que j'ai eu tort d'écrire, et que la mesure a corrigé.** Trois fois.
+D'abord, la première version n'avait qu'une famille de contamination, celle
+où la paire appelle un numéro tiers — et Q3, dont c'est précisément le
+sous-espace complémentaire, y mesurait **0 % de puissance à tous les
+points**. Un test dont aucun témoin ne se déclenche est indistinguable d'un
+test cassé : c'est la règle n° 4 du labo, enfreinte en croyant la respecter
+parce que *les autres* statistiques, elles, se déclenchaient. La famille
+« membre » a été ajoutée pour cela. Ensuite, sur 30 réplicats de mise au
+point, l'écart-type simulé de Q1 valait 0,934 fois la valeur d'indépendance
+et celui de Q3 1,206 fois, d'où une phrase sur une loi tabulée qui
+« mentirait dans les deux sens » ; à 400 réplicats les ratios valent **1,011
+et 1,054**, et la phrase était fausse. La voici dans le bon sens : **ici, la
+table n'aurait presque pas menti** — retirer la part linéaire décorrèle
+largement les cellules — là où `d1` mesurait 12 749 contre 4 354 sur son
+agrégat mod 2. C'est une des rares fois de ce dossier où la règle n° 1
+n'attrape rien, et cela se dit aussi : elle reste le seul moyen de l'avoir
+**su**, et la loi du maximum de Q2 n'a de toute façon aucune forme tabulée
+utilisable sur 252 800 cellules dépendantes. Enfin, le sous-bloc Q3 avait été
+annoncé « 4 fois plus sensible » sur une racine mal prise : c'est √40 ≈ 6,
+mesuré à 6,1. Les trois phrases sont désormais **calculées depuis le null**
+dans le script, pour qu'aucune exécution future ne puisse les rendre fausses.
+
+Détail d'exécution qui n'en est pas un : le noyau est fait de 160 petits
+produits de Gram (80×80 en sortie). Mesuré, **0,45 s en mono-thread contre
+1,0 à 9,0 s en multi-thread** — la synchronisation coûte plus que le calcul à
+cette forme de matrice, et le pire cas est erratique. Le run complet tient en
+17 minutes.
+
+**Limites déclarées.** (1) Lag 1 seulement ; `d2` a montré que balayer
+306 décalages coûte ~5 % sur la borne, et le coût serait le même ici, mais
+306 nulls complets dépassent le budget. (2) Le seuil du registre extrapole la
+queue du null : gaussienne pour Q1 et Q3, mais **Gumbel ajusté aux moments**
+pour Q2, qui est un maximum — une extrapolation gaussienne l'aurait placé à
+4,33 σ au lieu de 8,21 et aurait sur-estimé la puissance. (3) Le plafond est
+une borne d'**omniscience**, comme `c0` et `c1` : la pénalité
+d'identification du §3 bis s'y ajouterait, et elle serait plus lourde
+qu'ailleurs puisqu'il faudrait estimer 252 800 coefficients au lieu de dix
+numéros. Elle n'est pas mesurée — pas plus, du reste, qu'elle ne l'est pour
+les paires cachées de `c1`. (4) Le grain du balayage (4 amplitudes) laisse le
+plafond légèrement conservateur. (5) Le **troisième ordre** — un triplet
+appelant un numéro — reste non borné à son tour ; c'est la limite que ce
+fichier lègue, avec une raison de la croire moins urgente : la dilution en
+√(nombre de cellules) coûte un facteur 2,8 de plus à chaque degré.
+
+**Registre : 122 entrées, m = 3 318, seuil de Holm 1,507·10⁻⁵, 0
+significatif.** Le plus petit p du dossier reste 2,0·10⁻⁴ (`audit.paires`).
