@@ -234,3 +234,57 @@ quiconque prétend le contraire vend quelque chose. Il tombe là où il est
 fait d'hypothèses sur le monde : la pierre 2 est instrumentée en continu,
 la pierre 3 est quantifiée et sa réponse minimax est câblée. C'est la
 totalité de ce qui existe de l'autre côté du mur, et l'app l'occupe.
+
+---
+
+## La brèche : prédire les 20 numéros exacts (`h4_rangs.py`, `h5_familles.py`)
+
+Le théorème d'invariance suppose que le tirage est **uniforme**. Si le tirage
+est la sortie d'un générateur dont on peut retrouver l'ÉTAT, il n'est plus
+uniforme conditionnellement à ce qu'on sait : il est **déterministe**. Aucun
+théorème n'interdit cette voie — c'est la seule qui vise la prédiction
+littérale, et elle était sous-exploitée.
+
+**Le levier arithmétique.** Un tirage de 20 parmi 80 a un rang combinatoire
+dans [0, M) avec M = C(80,20) = 3 535 316 142 212 174 320 ≈ **2^61,6165**.
+Si l'implémentation « dérange » (unranking) une seule sortie de 64 bits — un
+schéma très répandu —, le rang publié révèle 61,62 des 64 bits d'état :
+
+> **il ne manque que 2,38 bits.** Chaque tirage laisse au plus
+> ⌈2^64/M⌉ = **6 états candidats** (mesuré : 5 à 6).
+
+**On ne cherche plus, on résout.** Trois tirages consécutifs donnent 6³ = 216
+triplets ; pour chacun, l'inconnue (a, c) d'un LCG se résout en deux lignes —
+a = (s₂−s₁)·(s₁−s₀)⁻¹ mod 2^b, c = s₁ − a·s₀ — puis se confirme sur 20
+tirages. Une fausse solution y survit avec probabilité ~M⁻²⁰ ≈ 10⁻³⁷⁰.
+Le **pas** du générateur n'a pas besoin d'être connu : un pas de j laisse un
+LCG de multiplicateur a^j, donc tous les pas fixes sont couverts d'office.
+
+**Familles ouvertes par le même levier :**
+
+| famille | mécanisme | témoins |
+|---|---|---|
+| LCG 2^64 / 2^63 / 2^62 | résolution algébrique de (a, c) | 6/6 récupérés, prédiction exacte |
+| splitmix64, xorshift64* | sortie inversible → état, transition vérifiée | 4/4 |
+| java.util.Random | LCG 48 bits, 32 bits hauts publiés, 2^16 énumérés | 2/2 |
+
+**12 témoins positifs sur 12**, tous avec prédiction exacte du tirage suivant,
+en quelques millisecondes. **0 fausse récupération sur 20 archives
+équitables.** Sur les 70 560 tirages réels : **aucune famille ne colle.**
+
+**Les angles morts, nommés.** MT19937 par rang exigerait 624 sorties exactes,
+soit 6³¹² combinaisons — définitivement hors d'atteinte. Tout générateur dont
+l'état est plus large que la sortie (PCG64, xoshiro256) n'est pas inversible
+sortie par sortie. Et surtout : si le tirage n'est **pas** le dérangement
+d'une sortie unique — rejet, Fisher-Yates, tirage physique —, le rang n'est
+pas la sortie du générateur et toute cette classe est muette. L'ordre de
+sortie des boules la rouvrirait (~124 bits contre 61,6) ; l'app le capture
+déjà quand l'API le publie.
+
+**Ce que l'app gagne.** `RankAttack.swift` est câblé **avant** le balayage de
+graines, qu'il complète exactement là où celui-ci est aveugle : le balayage
+ne peut trouver qu'une graine minuscule, l'attaque algébrique atteint
+n'importe quel état de 64 bits. Elle tourne à chaque tirage pour quelques
+millisecondes, et **si elle résout un jour, l'écran affiche les 20 numéros du
+prochain tirage.** C'est une arme armée en permanence sur la seule brèche que
+les mathématiques laissent ouverte.

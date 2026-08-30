@@ -202,9 +202,21 @@ struct RecoveryCard: View {
                 }
             }
 
-            Text("Cherche l’état interne du générateur : 8 familles (LCG glibc et MSVC, java.util.Random, xorshift32 et 128+, splitmix64, PCG32, Mersenne Twister) × 3 façons de tirer 20 numéros sur 80 × amorçages horloge, n° de tirage et graines courtes. Un état ne compte que s’il reproduit un tirage entier **et** confirme le suivant.")
+            Text("Deux attaques. L’ALGÉBRIQUE d’abord : le rang combinatoire d’un tirage vit dans C(80,20) ≈ 2⁶¹ᐟ⁶, donc il ne cache que 2,38 bits d’un état de 64 bits — trois tirages suffisent à RÉSOUDRE le générateur au lieu de le chercher, et vingt de plus à le confirmer. Puis le BALAYAGE de graines : 8 familles × 3 façons de tirer 20 numéros sur 80 × amorçages horloge, n° de tirage et graines courtes. Un état ne compte que s’il reproduit un tirage entier **et** confirme le suivant.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
+
+            if let r = store.recovery, !r.predicted.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Overline(text: "PROCHAIN TIRAGE — DÉTERMINÉ")
+                    Text(r.predicted.map(String.init).joined(separator: " · "))
+                        .font(Typeface.mono(15))
+                        .foregroundStyle(Palette.live)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(Palette.elevated, in: RoundedRectangle(cornerRadius: 10))
+            }
 
             if let r = store.recovery {
                 HStack(spacing: 5) {

@@ -1578,3 +1578,29 @@ Le théorème a trois hypothèses ; une seule est des mathématiques.
 Le mur ne tombe pas là où il est fait de mathématiques ; il tombe là où il
 est fait d'hypothèses sur le monde. La pierre 2 est sous surveillance
 permanente, la pierre 3 a sa réponse minimax câblée (« Furtif »).
+
+## 17. La brèche : prédire les 20 numéros exacts (`h4_rangs.py`, `h5_familles.py`)
+
+L'invariance suppose l'uniformité. Un générateur dont on retrouve l'état
+n'est pas uniforme conditionnellement — il est déterministe. C'est la seule
+voie qui vise la prédiction littérale, et aucun théorème ne l'interdit.
+
+Le levier : M = C(80,20) ≈ 2^61,6165, donc le rang combinatoire d'un tirage
+ne cache que **2,38 bits** d'un état de 64 bits — au plus **6 candidats par
+tirage**. On ne cherche plus la graine, on **résout** le générateur : trois
+tirages donnent (a, c) d'un LCG en deux lignes, vingt de plus le confirment
+à 10⁻³⁷⁰ près. Tous les pas fixes sont couverts d'office (a^j reste un LCG).
+
+Familles ouvertes : LCG 2^64/2^63/2^62, splitmix64, xorshift64*,
+java.util.Random. **12 témoins positifs sur 12** récupérés avec prédiction
+exacte du tirage suivant, **0 fausse récupération sur 20 archives
+équitables**, et **aucune famille ne colle** sur les 70 560 tirages réels.
+
+Angles morts nommés : MT19937 par rang (6³¹² combinaisons), les générateurs à
+état plus large que la sortie, et surtout tout tirage qui n'est pas le
+dérangement d'une sortie unique — l'ordre de sortie des boules rouvrirait
+cette classe, et l'app le capture déjà.
+
+`RankAttack.swift` est câblé avant le balayage de graines : il coûte des
+millisecondes, couvre exactement l'angle mort du balayage, et **afficherait
+les 20 numéros du prochain tirage** s'il résolvait un jour.

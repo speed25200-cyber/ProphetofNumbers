@@ -39,6 +39,10 @@ struct RecoveryResult {
     var mode: String
     var verdict: String
     var detail: String
+    // Les 20 numéros du prochain tirage, quand l'attaque algébrique par rang
+    // a résolu le générateur (cf. RankAttack). Vide sinon — et vide est la
+    // réponse attendue tant que le générateur tient.
+    var predicted: [Int] = []
 }
 
 // MARK: - Flux d'entiers
@@ -386,6 +390,26 @@ enum PRNGRecovery {
         let nextDraw = ordered[ordered.count - 1]
         let target = Target(targetDraw.numbers)
         let confirm = Target(nextDraw.numbers)
+
+        // Attaque ALGÉBRIQUE d'abord — elle ne cherche pas, elle résout, et
+        // coûte quelques millisecondes contre les secondes du balayage.
+        // Le balayage de graines qui suit est borné aux graines minuscules ;
+        // celle-ci atteint n'importe quel état de 64 bits, pourvu que le
+        // tirage soit le dérangement d'une sortie unique (cf. RankAttack).
+        if let sol = RankAttack.solve(ordered) {
+            return RecoveryResult(
+                candidatesTested: 0, familiesTested: 1, samplersTested: 1,
+                bestPrefix: 20, bestFamily: sol.family, bestSampler: "rang combinatoire",
+                bestSeedLabel: sol.mapping, expectedPrefix: 0,
+                solved: true,
+                solvedDescription: "\(sol.family) — \(sol.detail)",
+                elapsed: 0, targetDraw: targetDraw.drawNumber,
+                orderAvailable: ordered.contains { $0.hasDrawOrder },
+                mode: "algébrique (rang)",
+                verdict: "Générateur résolu",
+                detail: "Le rang combinatoire du tirage ne cache que 2,38 bits d'un état 64 bits : la suite des rangs a été résolue algébriquement, et la solution rejoue TOUT l'historique fourni. Le prochain tirage est déterminé.",
+                predicted: sol.predicted)
+        }
 
         let ts: UInt64 = {
             guard let d = Zurich.parseISO(targetDraw.drawDate) else { return 0 }

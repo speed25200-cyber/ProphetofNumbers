@@ -103,6 +103,119 @@ final class OracleTests: XCTestCase {
 
     // MARK: Écho du bonus (23ᵉ voie du labo)
 
+    // MARK: - Attaque algébrique par rang
+    //
+    // La seule voie du dossier qui vise la prédiction LITTÉRALE des 20
+    // numéros. Elle n'est bloquée par aucun théorème : l'invariance suppose
+    // un tirage uniforme, or un générateur dont on retrouve l'état n'est plus
+    // uniforme conditionnellement — il est déterministe.
+
+    /// Fabrique un historique dont les tirages SONT le dérangement d'un LCG.
+    private func lcgHistory(a: UInt64, c: UInt64, count: Int = 40,
+                            floorMapping: Bool = false) -> [Draw] {
+        var s: UInt64 = 0x0123_4567_89AB_CDEF
+        var draws: [Draw] = []
+        for i in 1...count {
+            s = a &* s &+ c
+            let r: UInt64 = floorMapping
+                ? s.multipliedFullWidth(by: RankAttack.modulus).high
+                : s % RankAttack.modulus
+            draws.append(Draw(drawNumber: 90_000 + i,
+                              drawDate: "2026-08-30T12:00:00+02:00",
+                              numbers: RankAttack.unrank(r),
+                              boost: 2, bonus: 7))
+        }
+        return draws
+    }
+
+    func testRankIsABijectionOnTheWholeDomain() {
+        // Si `rank` et `unrank` ne sont pas exactement inverses, toute
+        // l'attaque repose sur du sable — et l'erreur serait invisible sur
+        // les petits rangs.
+        XCTAssertEqual(RankAttack.modulus, 3_535_316_142_212_174_320,
+                       "M = C(80,20) — la table des binomiaux est fausse sinon")
+        XCTAssertEqual(RankAttack.rank(Array(1...20)), 0)
+        XCTAssertEqual(RankAttack.rank(Array(61...80)), RankAttack.modulus - 1)
+        XCTAssertEqual(RankAttack.unrank(0), Array(1...20))
+        XCTAssertEqual(RankAttack.unrank(RankAttack.modulus - 1), Array(61...80))
+        // Aller-retour sur un échantillon déterministe couvrant tout le champ.
+        var seed: UInt64 = 20_260_830
+        for _ in 0..<300 {
+            var set = Set<Int>()
+            while set.count < 20 {
+                seed = seed &* 6364136223846793005 &+ 1
+                set.insert(Int(seed >> 33) % 80 + 1)
+            }
+            let g = set.sorted()
+            XCTAssertEqual(RankAttack.unrank(RankAttack.rank(g)!), g)
+        }
+        // Une taille invalide ne doit pas produire un rang muet.
+        XCTAssertNil(RankAttack.rank(Array(1...19)))
+        XCTAssertNil(RankAttack.rank(Array(1...20).map { $0 + 70 }))
+    }
+
+    func testRankLeavesOnlyASixWayAmbiguity() {
+        // Le cœur de l'attaque : 2^64 / M = 5,22, donc au plus 6 états par
+        // tirage. Si ce nombre explosait, l'attaque deviendrait infaisable —
+        // ce test est la sentinelle de sa faisabilité.
+        var seed: UInt64 = 4242
+        for _ in 0..<200 {
+            seed = seed &* 6364136223846793005 &+ 1
+            let r = seed % RankAttack.modulus
+            for floorMapping in [false, true] {
+                let cand = RankAttack.candidates(r, b: 64, floorMapping: floorMapping)
+                XCTAssertGreaterThanOrEqual(cand.count, 5)
+                XCTAssertLessThanOrEqual(cand.count, 6)
+            }
+        }
+        // Le rang maximal est le cas limite qui fait déborder la borne haute
+        // (elle vaudrait 2^64) : il doit rendre des candidats, pas planter.
+        for floorMapping in [false, true] {
+            let cand = RankAttack.candidates(RankAttack.modulus - 1, b: 64,
+                                             floorMapping: floorMapping)
+            XCTAssertFalse(cand.isEmpty)
+        }
+    }
+
+    func testRankAttackSolvesAKnownGeneratorAndPredictsTheNextDraw() {
+        // TÉMOIN POSITIF. Sans lui, « rien trouvé » sur l'archive réelle
+        // serait indistinguable d'une attaque cassée.
+        let a: UInt64 = 6364136223846793005, c: UInt64 = 1442695040888963407
+        for floorMapping in [false, true] {
+            let history = lcgHistory(a: a, c: c, count: 40, floorMapping: floorMapping)
+            // On cache le dernier tirage : l'attaque doit le PRÉDIRE.
+            let known = Array(history.dropLast())
+            guard let sol = RankAttack.solve(known) else {
+                XCTFail("le LCG n'a pas été résolu (mapping floor = \(floorMapping))")
+                continue
+            }
+            XCTAssertTrue(sol.family.hasPrefix("LCG"), "famille : \(sol.family)")
+            XCTAssertEqual(sol.predicted, history.last!.numbers,
+                           "les 20 numéros prédits doivent être exacts")
+        }
+    }
+
+    func testRankAttackStaysSilentOnFairDraws() {
+        // TÉMOIN NÉGATIF. Une fausse solution devrait survivre à 20
+        // confirmations avec probabilité ~M⁻²⁰ ≈ 10⁻³⁷⁰ : zéro attendu.
+        XCTAssertNil(RankAttack.solve(Array(syntheticHistory(count: 60).reversed())))
+        XCTAssertNil(RankAttack.solve(Array(syntheticHistory(count: 60, seed: 987_654_321).reversed())))
+        // Et un historique trop court ne doit rien affirmer.
+        XCTAssertNil(RankAttack.solve(Array(syntheticHistory(count: 8).reversed())))
+    }
+
+    func testRecoveryReportsThePredictionWhenItSolves() {
+        // Le chemin complet, tel que l'écran le voit.
+        let history = lcgHistory(a: 6364136223846793005, c: 1442695040888963407, count: 40)
+        let r = PRNGRecovery.attack(Array(history.reversed()), budget: 1)
+        XCTAssertTrue(r.solved)
+        XCTAssertEqual(r.mode, "algébrique (rang)")
+        XCTAssertEqual(r.predicted.count, 20)
+        // Sur du hasard, l'écran ne doit annoncer aucune prédiction.
+        let fair = PRNGRecovery.attack(syntheticHistory(count: 60), budget: 1)
+        XCTAssertTrue(fair.predicted.isEmpty)
+    }
+
     func testBonusEchoTargetsThePreviousBonus() {
         // Le câblage vise-t-il le bon numéro ? C'est le bonus du tirage le
         // plus récent, pas celui d'un tirage quelconque de l'historique.
