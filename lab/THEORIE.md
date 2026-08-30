@@ -820,17 +820,19 @@ occasions homogènes : écart relatif **0,00e+00** entre la règle adaptative
 et la meilleure fraction figée. C'est ce qui établit que l'écart mesuré
 ci-dessous vient bien de l'hétérogénéité et non de la machinerie de rejeu.
 
-**L'écart, mesuré.** Sur le processus de cagnotte de h15 (400 000 tirages,
-13 072 occasions, 13 grilles disjointes à la mise 6) :
+**L'écart, mesuré.** Sur le processus de cagnotte de h15 (20 000 000
+tirages, 654 827 occasions, 13 grilles disjointes à la mise 6) :
 
 | règle | croissance | rapport |
 |---|---|---|
-| meilleure fraction figée, choisie par un oracle | 0,51481 | ×0,708 |
-| fraction figée de h17, à la cagnotte moyenne | 0,50520 | ×0,695 |
-| **fraction recalculée sur la cagnotte affichée** | **0,72693** | ×1,000 |
+| meilleure fraction figée, choisie par un oracle | 32,317 | ×0,728 |
+| fraction figée de h17, à la cagnotte moyenne | 32,278 | ×0,727 |
+| **fraction recalculée sur la cagnotte affichée** | **44,409** | ×1,000 |
 
-L'écart de Jensen vaut donc **×1,41 contre l'oracle** des fractions figées,
-et ×1,44 contre la règle effectivement écrite dans h17.
+L'écart vaut donc **×1,374 contre l'oracle** des fractions figées, et ×1,376
+contre la règle effectivement écrite dans h17. Recoupé par quadrature sur la
+loi exacte de la cagnotte — un chemin sans tirage aléatoire ni rejeu —
+le rapport vaut **1,3750** contre 1,3742 par simulation, soit 0,06 % d'écart.
 
 **Corollaire (ce que la mise n'a pas besoin de savoir).** Les arguments de
 `g` au moment de miser sont la cote nette `b`, lue sur la cagnotte affichée,
@@ -843,13 +845,21 @@ c'est le contraire de ce que la forme de h17 laissait croire.
 croissance logarithmique est concave en `f` mais s'effondre bien plus vite
 au-dessus de l'optimum qu'en dessous. Une fraction figée réglée sur un α
 surestimé d'un facteur 3 — l'ordre de grandeur de l'incertitude réelle du
-dossier, dont l'intervalle va de +8 % à +1 165 % — donne une croissance
-**négative** (−0,182). La règle adaptative n'est donc pas seulement
-meilleure en espérance : elle est la seule à ne pas exposer le joueur à la
-falaise de surmise, puisqu'elle ne dépend d'aucun paramètre estimé.
+dossier, dont l'intervalle va de +8 % à +1 165 % — ne conserve que **5 %**
+de la croissance, quand le sous-estimer du même facteur en conserve 49 %.
+Se tromper vers le haut coûte donc dix fois plus que se tromper vers le bas.
+La règle adaptative n'est pas seulement meilleure en espérance : elle est la
+seule à ne pas exposer le joueur à cette asymétrie, puisqu'elle ne dépend
+d'aucun paramètre estimé.
+
+*(Une première rédaction annonçait ici une croissance négative. Elle
+reposait sur une trajectoire de 400 000 tirages dont une trentaine de cycles
+seulement atteignaient le seuil — l'effectif effectif n'était pas celui que
+suggérait le nombre d'occasions. Corrigé à 20 millions de tirages et recoupé
+par intégration : le sens de l'asymétrie tient, son amplitude était fausse.)*
 
 **Portée, et il faut la borner.** Le théorème est général, mais l'écart
-×1,41 est mesuré sur *une* loi de cagnotte — celle de h15, sous ses trois
+×1,374 est mesuré sur *une* loi de cagnotte — celle de h15, sous ses trois
 hypothèses H1–H3. Une cagnotte dont la loi serait moins dispersée
 rapprocherait les deux membres, jusqu'à l'égalité du témoin. Ce qui ne
 dépend d'aucune hypothèse, en revanche, c'est le sens de l'inégalité et le

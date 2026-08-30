@@ -209,54 +209,96 @@ say("""   h17 dimensionne à J = S(1 + α), la cagnotte MOYENNE au-dessus du
    réglage.""")
 
 
-def simulate_process(alpha: float, n_draws: int, rng, j0: float = 0.0):
-    """Processus de cagnotte de h15, par franc misé.
-
-    H1 la cagnotte croît de r par tirage ; H2 elle tombe avec probabilité q
-    par tirage, sans mémoire ; H3 elle repart de j0. Les deux paramètres ne
-    sont pas libres : h16 établit mu = r/q = alpha*S. On fixe q et l'on en
-    déduit r, de sorte que le processus porte exactement l'alpha demandé.
-    """
+def simulate_process_loop(alpha: float, n_draws: int, rng, j0: float = 0.0):
+    """Version de référence, écrite en boucle — lente mais littérale."""
     mu = alpha * S
-    q = 1.0 / 400.0                      # une chute toutes les 400 tirages
+    q = 1.0 / 400.0
     r = mu * q
     fall = rng.random(n_draws) < q
     out = np.empty(n_draws)
-    j = j0 + r * rng.geometric(q)        # démarrage à l'équilibre, pas à zéro
+    a0 = int(rng.geometric(q))
+    j = j0 + r * a0
     for t in range(n_draws):
         out[t] = j
         j = j0 if fall[t] else j + r
     return out, r, q
 
 
-def replay(jackpots, sizing, n=n_grids, k=K):
-    """Rejoue le capital en logarithme sur une trajectoire de cagnottes.
+def simulate_process(alpha: float, n_draws: int, rng, j0: float = 0.0):
+    """Processus de cagnotte de h15, par franc misé — version vectorisée.
 
-    `sizing(J)` rend la fraction du capital misée sur le tour de n grilles.
-    Le gain est celui du rang plein : une grille pleine paie J par franc.
+    H1 la cagnotte croît de r par tirage ; H2 elle tombe avec probabilité q
+    par tirage, sans mémoire ; H3 elle repart de j0. Les deux paramètres ne
+    sont pas libres : h16 établit mu = r/q = alpha*S. On fixe q et l'on en
+    déduit r, de sorte que le processus porte exactement l'alpha demandé.
+
+    La cagnotte au tirage t ne reflète que les chutes STRICTEMENT avant t,
+    d'où le décalage d'un cran sur le cumul — c'est le point où une version
+    vectorisée diverge silencieusement de sa boucle, et c'est pourquoi la
+    section 0 les confronte.
     """
-    p1 = p_full(k)
-    q_win = n * p1
-    logcap = 0.0
-    played = 0
-    for J in jackpots:
-        if J < S:                        # règle D1, sans aucun paramètre
-            continue
-        f = sizing(J)
-        if f <= 0 or f >= 1:
-            continue
-        b = J / n - 1
-        if b <= 0:
-            continue
-        played += 1
-        # Espérance de log, plutôt qu'un tirage de Bernoulli : à p ~ 1e-4 il
-        # faudrait des milliards de tirages pour que la moyenne empirique
-        # converge, et l'espérance de log EST la quantité que Kelly maximise.
-        logcap += q_win * math.log1p(f * b) + (1 - q_win) * math.log1p(-f)
-    return logcap, played
+    mu = alpha * S
+    q = 1.0 / 400.0
+    r = mu * q
+    fall = rng.random(n_draws) < q
+    a0 = int(rng.geometric(q))
+    idx = np.arange(n_draws)
+    marked = np.where(fall, idx, -1)
+    shifted = np.concatenate(([-1], marked[:-1]))
+    last = np.maximum.accumulate(shifted)      # dernière chute avant t
+    # Une chute à l'indice s remet la cagnotte à j0 POUR le tirage s+1, dont
+    # l'âge vaut donc 0 et non 1 : d'où le « - 1 ». C'est précisément
+    # l'erreur que le contrôle ci-dessous a attrapée dans la première
+    # version, avec un écart maximal valant exactement r.
+    age = np.where(last >= 0, idx - last - 1, a0 + idx)
+    return j0 + r * age, r, q
 
 
-N_DRAWS = 400_000
+def occasions_of(jackpots):
+    """Les cagnottes qui franchissent le seuil — la règle D1, sans paramètre."""
+    return jackpots[jackpots >= S]
+
+
+def growth_of(occ, f, n=n_grids, k=K):
+    """Croissance logarithmique cumulée, vectorisée sur les occasions.
+
+    `f` est soit un scalaire (fraction figée), soit un vecteur de la taille
+    de `occ` (fraction recalculée par occasion). Espérance de log plutôt
+    qu'un tirage de Bernoulli : à p ~ 1e-3 il faudrait des milliards de
+    tirages pour que la moyenne empirique converge, et l'espérance de log
+    EST la quantité que Kelly maximise.
+    """
+    q_win = n * p_full(k)
+    b = occ / n - 1
+    f = np.broadcast_to(np.asarray(f, dtype=float), b.shape)
+    ok = (f > 0) & (f < 1) & (b > 0)
+    g = np.zeros_like(b)
+    g[ok] = (q_win * np.log1p(f[ok] * b[ok])
+             + (1 - q_win) * np.log1p(-f[ok]))
+    return float(g.sum())
+
+
+def replay(jackpots, sizing, n=n_grids, k=K):
+    """Compatibilité avec la forme `sizing(J)` — rend (croissance, occasions)."""
+    occ = occasions_of(jackpots)
+    f = np.array([sizing(J) for J in occ]) if len(occ) else np.zeros(0)
+    return growth_of(occ, f, n, k), len(occ)
+
+
+# ---- SECTION 0 : la vectorisation contre sa boucle de référence ----
+_chk = np.random.default_rng(7)
+_a, _, _ = simulate_process(ALPHA_HAT, 5_000, np.random.default_rng(11))
+_b, _, _ = simulate_process_loop(ALPHA_HAT, 5_000, np.random.default_rng(11))
+_maxdiff = float(np.abs(_a - _b).max())
+say(f"""
+   CONTRÔLE — le processus vectorisé contre sa boucle littérale, même
+   graine, 5 000 tirages : écart maximal {_maxdiff:.3e}. Le décalage d'un
+   cran sur les chutes est le piège de cette réécriture, et c'est
+   exactement ce que ce contrôle attrape.""")
+
+# Assez long pour que le nombre de CYCLES atteignant le seuil soit grand :
+# c'est lui, et non le nombre de tirages, qui fixe la précision (cf. §4).
+N_DRAWS = 20_000_000
 jack, r_true, q_true = simulate_process(ALPHA_HAT, N_DRAWS, RNG)
 say(f"""
    Processus simulé : {N_DRAWS:,} tirages, alpha = {ALPHA_HAT:.4f}, chute toutes les
@@ -264,35 +306,33 @@ say(f"""
    franc. Occasions (J >= S) : {int((jack >= S).sum()):,} soit {(jack >= S).mean():.2%} des tirages.""")
 
 
-def sizing_fixed(_J):
-    return f_star_mean
+occ = occasions_of(jack)
 
 
-def sizing_observed(J):
-    f, _ = kelly(p_win, J / n_grids - 1)
-    return f
+def f_observed(o):
+    """Fraction de Kelly par occasion, sur la cagnotte affichée — vectorisée."""
+    return np.clip(p_win - (1 - p_win) / (o / n_grids - 1), 0.0, None)
 
 
-def sizing_wrong_alpha(J, factor=3.0):
-    # Dimensionne sur la cagnotte moyenne d'un alpha faux d'un facteur 3.
+def f_at_alpha(factor=1.0):
+    """Fraction figée dimensionnée sur la cagnotte moyenne d'un alpha donné."""
     Jw = S * (1 + ALPHA_HAT * factor)
     f, _ = kelly(p_win, Jw / n_grids - 1)
     return f
 
 
 # ---- TÉMOIN : sur des occasions HOMOGÈNES, les trois règles coïncident ----
-# Sans ce contrôle, une machinerie `replay` cassée pourrait faire gagner R2
+# Sans ce contrôle, une machinerie de rejeu cassée pourrait faire gagner R2
 # pour une raison qui n'aurait rien à voir avec l'hétérogénéité. Si toutes
 # les occasions portent la MÊME cagnotte, « recalculer sur l'affichage » et
-# « fraction figée bien réglée » sont la même chose, et l'écart doit être
-# nul à la précision de la grille de recherche.
+# « fraction figée bien réglée » sont la même chose, et l'écart doit être nul.
 J_flat = J_mean
 flat = np.full(20_000, J_flat)
 f_flat_star, _ = kelly(p_win, J_flat / n_grids - 1)
-g_flat_obs, _ = replay(flat, sizing_observed)
-g_flat_fix, _ = replay(flat, lambda _J: f_flat_star)
+g_flat_obs = growth_of(flat, f_observed(flat))
+g_flat_fix = growth_of(flat, f_flat_star)
 grid_w = np.geomspace(f_flat_star * 1e-2, min(0.5, f_flat_star * 1e2), 601)
-g_flat_orc = max(replay(flat, (lambda c: (lambda _J: c))(f))[0] for f in grid_w)
+g_flat_orc = max(growth_of(flat, f) for f in grid_w)
 say(f"""
    TÉMOIN — occasions homogènes (même cagnotte partout, {len(flat):,} occasions).
    Les trois règles doivent alors coïncider : il n'y a plus d'hétérogénéité
@@ -315,26 +355,25 @@ say(f"""
 
 # R0 — l'oracle des fractions figées, cherché sur la trajectoire entière.
 grid = np.geomspace(f_star_mean * 1e-2, min(0.5, f_star_mean * 1e2), 601)
-g_grid = np.array([replay(jack, (lambda c: (lambda _J: c))(f))[0] for f in grid])
+g_grid = np.array([growth_of(occ, f) for f in grid])
 f_oracle = float(grid[int(np.argmax(g_grid))])
 g_oracle = float(g_grid.max())
 if int(np.argmax(g_grid)) in (0, len(grid) - 1):
     say("   ATTENTION : l'optimum de R0 est au bord de la grille — élargir.")
 
 rows = [
-    ("R0  meilleure fraction figée (oracle)", lambda _J: f_oracle),
-    ("R1  fraction figée à la cagnotte moyenne", sizing_fixed),
-    ("R2  fraction sur la cagnotte affichée", sizing_observed),
-    ("R3  figée, alpha faux x3", sizing_wrong_alpha),
-    ("R3' figée, alpha faux /3", lambda J: sizing_wrong_alpha(J, 1 / 3)),
+    ("R0  meilleure fraction figée (oracle)", f_oracle),
+    ("R1  fraction figée à la cagnotte moyenne", f_star_mean),
+    ("R2  fraction sur la cagnotte affichée", f_observed(occ)),
+    ("R3  figée, alpha faux x3", f_at_alpha(3.0)),
+    ("R3' figée, alpha faux /3", f_at_alpha(1 / 3)),
 ]
 say(f"\n   fraction de l'oracle R0 : {f_oracle:.4e}  "
     f"(h17 dimensionne à {f_star_mean:.4e})")
 say("\n   règle de dimensionnement                    croissance totale   rapport à R2")
 results = {}
-for name, fn in rows:
-    lg, played = replay(jack, fn)
-    results[name] = lg
+for name, f in rows:
+    results[name] = growth_of(occ, f)
 base = results["R2  fraction sur la cagnotte affichée"]
 for name, _ in rows:
     lg = results[name]
@@ -353,6 +392,64 @@ say(f"""
    avec ce qui est visible à l'instant de miser.** alpha n'entre dans D2
    que si l'on choisit de dimensionner sur une moyenne dont on n'a pas
    besoin.""")
+
+
+# ==========================================================================
+# 3 bis. La même quantité par une seconde voie, entièrement indépendante
+# ==========================================================================
+
+rule("3 bis. SECONDE VOIE — intégration sur la loi, sans trajectoire")
+
+say("""   La section 3 mesure l'écart sur UNE trajectoire simulée. Si le
+   simulateur n'était pas en régime stationnaire, ou si `replay` comptait
+   mal les occasions, le chiffre serait faux sans que rien ne le signale.
+
+   La même quantité se calcule par un chemin qui ne partage rien avec le
+   premier — ni tirage aléatoire, ni boucle de rejeu. Par absence de
+   mémoire, la cagnotte au-dessus du seuil vérifie J - S ~ Exp(mu), donc
+
+     règle adaptative   E[ max_f g(f, b(J)) ]      integrale sur la loi
+     meilleure figée    max_f E[ g(f, b(J)) ]      integrale, puis maximum
+
+   Les deux intégrales sont évaluées par quadrature sur la loi exacte.""")
+
+mu = ALPHA_HAT * S
+# Quadrature sur J - S ~ Exp(mu) : noeuds par quantiles réguliers, ce qui
+# évite d'avoir à tronquer la queue à la main.
+u = (np.arange(1, 200_001) - 0.5) / 200_000
+J_q = S - mu * np.log1p(-u)              # quantiles de S + Exp(mu)
+b_q = J_q / n_grids - 1
+
+# Voie adaptative : optimum atteint occasion par occasion.
+f_q = p_win - (1 - p_win) / b_q
+f_q = np.clip(f_q, 0.0, None)
+g_adapt = float(np.mean(
+    p_win * np.log1p(f_q * b_q) + (1 - p_win) * np.log1p(-f_q)))
+
+# Voie figée : une seule fraction, la meilleure en espérance.
+fs = np.geomspace(f_star_mean * 1e-2, min(0.5, f_star_mean * 1e2), 4001)
+g_fixed_all = np.array([
+    float(np.mean(p_win * np.log1p(f * b_q) + (1 - p_win) * math.log1p(-f)))
+    for f in fs])
+g_fixed = float(g_fixed_all.max())
+f_fixed = float(fs[int(np.argmax(g_fixed_all))])
+
+n_occ = len(occ)
+sim_adapt = results["R2  fraction sur la cagnotte affichée"] / n_occ
+sim_oracle = results["R0  meilleure fraction figée (oracle)"] / n_occ
+
+say(f"""
+                              par intégration      par simulation      écart
+   règle adaptative           {g_adapt:.6e}        {sim_adapt:.6e}       {abs(g_adapt/sim_adapt - 1):.2%}
+   meilleure fraction figée   {g_fixed:.6e}        {sim_oracle:.6e}       {abs(g_fixed/sim_oracle - 1):.2%}
+   rapport adaptative/figée   {g_adapt/g_fixed:.4f}               {sim_adapt/sim_oracle:.4f}
+
+   fraction figée optimale : {f_fixed:.4e} par intégration, {f_oracle:.4e} par simulation.""")
+
+say(f"""
+   Les deux voies s'accordent. Le rapport — l'écart de Jensen du théorème N
+   — vaut {g_adapt/g_fixed:.3f} par intégration contre {sim_adapt/sim_oracle:.3f} par simulation, et il ne dépend
+   donc ni du tirage aléatoire ni de la machinerie de rejeu.""")
 
 
 # ==========================================================================
@@ -573,13 +670,21 @@ say(f"""   1. alpha n'entre dans AUCUNE des quatre décisions de l'app. D4 est
       unique sur des occasions hétérogènes est donc perdant par nature, pas
       par mauvais réglage.
 
-   6. Et le danger est asymétrique, ce qui est l'argument le plus fort de
+   6. Et le danger est ASYMÉTRIQUE, ce qui est l'argument le plus fort de
       tous : dimensionner à la moyenne avec un alpha surestimé d'un facteur
       3 — soit à peu près la largeur de l'intervalle dont le dossier
-      dispose — fait passer la croissance en NÉGATIF. La règle qui n'a
-      besoin d'aucun alpha n'est donc pas seulement meilleure en moyenne,
-      elle est la seule à ne pas exposer le joueur à la falaise de surmise
-      décrite en §30.
+      dispose — ne garde que 5 % de la croissance, quand le sous-estimer du
+      même facteur en garde encore 49 %. Se tromper vers le haut coûte dix
+      fois plus que se tromper vers le bas, ce qui est la falaise de surmise
+      de §30. La règle qui n'a besoin d'aucun alpha n'y est pas exposée.
+
+      Une version antérieure de ce fichier annonçait ici une croissance
+      NÉGATIVE. C'était un artefact d'échantillon : à 400 000 tirages, seuls
+      une trentaine de cycles atteignent le seuil, et la trajectoire n'avait
+      donc pas l'effectif que ses six chiffres laissaient croire. À 20
+      millions de tirages, et confirmée par l'intégration de la section
+      3 bis, la croissance reste positive. Le sens de l'asymétrie tient ;
+      son amplitude était fausse.
 
    Réserve, et elle est entière. Rien de tout cela ne prédit un numéro, et
    rien n'y prétend. Le théorème d'invariance reste intact : ce fichier ne

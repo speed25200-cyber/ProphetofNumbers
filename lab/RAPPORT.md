@@ -2658,35 +2658,76 @@ une confirmation indépendante. Le témoin qui porte l'information est que
 `R2` ne trouve rien de mieux qu'une fraction figée quand les occasions sont
 identiques.)
 
-Quatre règles rejouées sur le même processus (400 000 tirages, α = 0,2950,
-13 grilles disjointes à la mise 6, 13 072 occasions soit 3,27 % des tirages) :
+Quatre règles rejouées sur le même processus (20 000 000 tirages,
+α = 0,2950, 13 grilles disjointes à la mise 6, 654 827 occasions soit
+3,27 % des tirages) :
 
 | règle de dimensionnement | croissance totale | rapport à R2 |
 |---|---|---|
-| **R0** meilleure fraction figée, choisie par un oracle connaissant toute la trajectoire | 0,51481 | ×0,708 |
-| **R1** fraction figée à la cagnotte moyenne — ce que fait `h17` | 0,50520 | ×0,695 |
-| **R2** fraction recalculée sur la cagnotte **affichée** | **0,72693** | ×1,000 |
-| **R3** figée, α surestimé d'un facteur 3 | **−0,18193** | ×−0,250 |
-| R3′ figée, α sous-estimé d'un facteur 3 | 0,37099 | ×0,510 |
+| **R0** meilleure fraction figée, choisie par un oracle connaissant toute la trajectoire | 32,317 | ×0,728 |
+| **R1** fraction figée à la cagnotte moyenne — ce que fait `h17` | 32,278 | ×0,727 |
+| **R2** fraction recalculée sur la cagnotte **affichée** | **44,409** | ×1,000 |
+| **R3** figée, α surestimé d'un facteur 3 | 2,212 | **×0,050** |
+| R3′ figée, α sous-estimé d'un facteur 3 | 21,829 | ×0,492 |
 
 Trois lectures, et c'est la deuxième qui décide.
 
-**R2 gagne 44 %** de croissance sur la règle du dossier. **R2 bat aussi
+**R2 gagne 38 %** de croissance sur la règle du dossier. **R2 bat aussi
 R0**, la meilleure fraction figée qu'un oracle omniscient puisse choisir
-(×1,41) : le compromis d'une fraction unique appliquée à des occasions
+(×1,374) : le compromis d'une fraction unique appliquée à des occasions
 hétérogènes est donc perdant **par nature**, et non par mauvais réglage. La
 question n'est pas de mieux estimer α pour mieux régler une fraction figée ;
 c'est que la fraction ne doit pas être figée.
 
 **Et le danger est asymétrique.** À la moyenne, un α surestimé d'un facteur
 3 — soit à peu près la largeur de l'intervalle dont le dossier dispose, de
-+8 % à +1 165 % — fait passer la croissance en **négatif**. C'est la falaise
-de surmise de §30, atteinte non par gourmandise mais par ignorance d'un
-paramètre. La règle qui n'a besoin d'aucun α est donc la seule qui n'y
-expose pas.
++8 % à +1 165 % — ne garde que **5 %** de la croissance, là où le
+sous-estimer du même facteur en garde encore 49 %. Se tromper vers le haut
+coûte dix fois plus que se tromper vers le bas : c'est la falaise de surmise
+de §30, atteinte non par gourmandise mais par ignorance d'un paramètre. La
+règle qui n'a besoin d'aucun α n'y est pas exposée.
+
+**Le chiffre a été corrigé en cours de route, et il faut le dire.** Une
+première version de cette section annonçait ici une croissance *négative*,
+sur une trajectoire de 400 000 tirages. C'était un artefact d'effectif :
+seuls les cycles qui atteignent le seuil portent de l'information, et il n'y
+en avait qu'une trentaine — la trajectoire n'avait pas la précision que ses
+six chiffres affichaient. Portée à 20 millions de tirages et recoupée par
+intégration, la croissance reste positive. Le sens de l'asymétrie tenait ;
+son amplitude était fausse.
 
 R2 ne demande rien qui ne soit visible : la cagnotte est affichée, `p` est
 exacte, `n` est un choix.
+
+### La même quantité par une seconde voie
+
+Une trajectoire simulée peut mentir sans le dire — c'est ce qui venait
+d'arriver. L'écart est donc recalculé par un chemin qui ne partage rien avec
+le premier : ni tirage aléatoire, ni rejeu. Par absence de mémoire, la
+cagnotte au-dessus du seuil vérifie `J − S ~ Exp(μ)`, et les deux membres du
+théorème N s'obtiennent par quadrature sur cette loi exacte.
+
+| | par intégration | par simulation | écart |
+|---|---|---|---|
+| règle adaptative | 6,805460 × 10⁻⁵ | 6,781788 × 10⁻⁵ | 0,35 % |
+| meilleure fraction figée | 4,949508 × 10⁻⁵ | 4,935174 × 10⁻⁵ | 0,29 % |
+| **rapport** | **1,3750** | **1,3742** | 0,06 % |
+
+Le rapport ne dépend donc ni du tirage aléatoire ni de la machinerie de
+rejeu. Et c'est cette confrontation qui a établi que la version à 400 000
+tirages était fausse : les rapports concordaient déjà (1,375 contre 1,412),
+mais les *niveaux* divergeaient de 22 %, ce qu'aucune lecture du seul
+rapport n'aurait révélé.
+
+**Un troisième contrôle, et il a servi.** Passer la simulation de 400 000 à
+20 000 000 de tirages a exigé de vectoriser le processus. La réécriture
+avait un décalage d'un tirage sur l'âge de la cagnotte : une chute à
+l'instant `s` remet la cagnotte à zéro *pour* l'instant `s+1`, dont l'âge
+vaut donc 0 et non 1. Le contrôle contre la boucle littérale, sur la même
+graine, a rendu un écart maximal de **5,718** — c'est-à-dire exactement `r`,
+l'accumulation par tirage. Une erreur d'un cran se signe par la constante
+qu'elle décale ; sans ce contrôle elle aurait produit des chiffres
+plausibles et faux.
 
 ### Le plan de relevés, corrigé — l'information arrive au rythme des chutes
 
