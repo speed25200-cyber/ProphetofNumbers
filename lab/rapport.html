@@ -1945,6 +1945,100 @@
   </section>
 
   <section>
+    <h2>L'angle mort&nbsp;: le générateur ré-amorcé</h2>
+    <div class="col">
+      <p>
+        Toutes les attaques de ce dossier supposaient un générateur qui <em>tourne en continu</em>
+        entre les tirages — c'est ce qui permet de <em>résoudre</em> ses constantes au lieu de les
+        deviner. Une implémentation qui le <strong>ré-amorce à chaque tirage</strong> les défait
+        toutes d'un coup. Et c'est le cas le plus courant en pratique&nbsp;: <code>new Random(seed)</code>
+        au début de la fonction de tirage.
+      </p>
+      <p>
+        Contre lui, la seule arme est le balayage de graines. Et l'ordre de sortie en change
+        l'échelle&nbsp;: sur l'ensemble trié, une graine fausse survit avec probabilité
+        3·10⁻¹⁹&nbsp;; sur l'<em>ordre</em>, 1·10⁻³⁷. Toute touche serait réelle.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Une erreur de protocole, commise puis corrigée&nbsp;: exiger qu'une graine reproduise
+      <em>aussi</em> un second tirage allait exactement contre le but. Dans l'hypothèse du
+      ré-amorçage, chaque tirage a sa propre graine — un générateur amorcé par le numéro de tirage
+      aurait été trouvé, puis jeté.
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>La campagne de balayage, et ce qu'elle a trouvé</caption>
+        <thead>
+          <tr><th>espace balayé</th><th>couverture</th><th>résultat</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>graines [0, 2³²) sur un tirage ordonné</td><td>12 familles × 4 échantillonneurs</td><td>0</td></tr>
+          <tr><td>millisecondes d'époque ± 7 jours</td><td>idem</td><td>0</td></tr>
+          <tr><td>nanosecondes d'époque ± 1 s</td><td>idem</td><td>0</td></tr>
+          <tr><td>graine = numéro de tirage + B, sur 10 tirages étalés sur des mois</td><td>idem</td><td>0</td></tr>
+          <tr class="is-key"><td><strong>les 2⁴⁸ états complets de java.util.Random</strong></td><td>Fisher-Yates</td><td><strong>0</strong></td></tr>
+          <tr><td>MT19937, 2³² graines</td><td>2 amorçages × 5 échantillonneurs</td><td>0 sur la première moitié</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Douze familles, des LCG historiques (java, MSVC, glibc) aux modernes (xoshiro, xoroshiro,
+        PCG). Autotest&nbsp;: <strong>48/48</strong>, chacune retrouvant exactement sa graine témoin.
+      </p>
+      <p>
+        <strong>Le coup le plus satisfaisant</strong> est java.util.Random. La force brute sur 2⁴⁸
+        demandait 78 heures. Mais <code>nextInt(80)</code> publie <code>(s&gt;&gt;17) mod 80</code>,
+        donc pour une borne <em>paire</em>, les bits <strong>17 à 20</strong> de l'état — ni les bits
+        de poids faible où vit le levier 2-adique habituel, ni ceux de poids fort où vivent les
+        attaques par réseau&nbsp;: ceux du <em>milieu</em>. Le générateur restant clos modulo 2²¹, on
+        énumère 2²¹ états bas (il en survit une trentaine), puis les 27 bits hauts. Soixante-dix-huit
+        heures deviennent quelques secondes — un facteur 10⁴.
+      </p>
+      <p>
+        <strong>Deux pièges auraient tout fait rater en silence.</strong> <code>nextInt</code> traite
+        les bornes qui sont des puissances de deux à part, en prenant les bits de poids <em>fort</em>
+        — une seule borne est concernée parmi 80…61, la 64ᵉ, au dix-septième pas. Et le
+        <code>_randbelow</code> de CPython demande <code>n.bit_length()</code> bits, pas
+        <code>(n-1).bit_length()</code>&nbsp;: les deux coïncident partout sauf quand n est une
+        puissance de deux, donc encore à 64, au dix-septième numéro. Seize numéros justes puis une
+        dérive muette. Aucun autotest interne ne pouvait le voir&nbsp;: c'est la confrontation à
+        <em>CPython lui-même</em> qui l'a attrapé.
+      </p>
+    </div>
+
+    <div class="pull">
+      Et une fuite trouvée dans l'app&nbsp;: elle recevait l'ordre de sortie à chaque tirage, et le
+      perdait à chaque relance.
+    </div>
+
+    <div class="col">
+      <p>
+        L'historique refetché revient trié. L'app jetait donc, tirage après tirage, la donnée la plus
+        précieuse du dossier — 122,69 bits contre 61,62. C'est réparé&nbsp;: l'ordre est désormais
+        journalisé, persisté, et réinjecté avant chaque attaque. L'accumulation de tirages
+        <em>consécutifs</em> se fait toute seule, un toutes les cinq minutes, sans que personne ait
+        rien à relever. Cinq consécutifs referment la classe de générateurs candidats sur trois
+        éléments là où cinq épars en laissent dix-sept.
+      </p>
+      <p>
+        <strong>Ce qui reste ouvert, nommé sans détour.</strong> Les graines de plus de 32 bits non
+        dérivées d'une horloge (2⁶⁴&nbsp;: hors de portée du calcul). L'état complet de 19 937 bits
+        d'un Mersenne Twister (hors de portée de l'information&nbsp;: il faudrait 624 sorties
+        consécutives entières, cinq tirages n'en donnent que 630 bits tronqués). Et surtout un
+        générateur dont l'état ne suit aucune récurrence affine — chiffrement par bloc, éponge,
+        source matérielle. C'est le cas le plus probable pour un opérateur certifié, et
+        <strong>aucune analyse de sorties publiques ne peut le trancher, quelle qu'en soit la
+        profondeur</strong>.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Ce que ce labo ne peut pas trancher</h2>
     <ul class="limits">
       <li>
