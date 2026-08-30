@@ -1310,9 +1310,17 @@ derniers tirages que l'app surveille. L'histogramme complet suit
 l'hypergéométrique classe par classe jusqu'à la queue rare : 2 paires
 observées à 16 pour 1,664 attendues, 0 à 17 pour 0,027.
 
-**Une limite mesurée plutôt que supposée.** f5-B est **faiblement puissant**
-contre la contamination testée : une raie de période 512 tirages n'est pas
-détectée à 0/3, même à amplitude 0,010. Le périodogramme couvre toutes les
+**Une limite mesurée plutôt que supposée — et plus faible que je ne l'avais
+écrite.** f5-B est **faiblement puissant** contre la contamination testée :
+une raie de période 512 tirages n'est pas détectée, même à amplitude 0,010.
+Ce fascicule a longtemps publié « 0 sur 3 » ; c'était un **0 sur 2**. La
+boucle de puissance de `f5_paires.py` tournait sur `range(2)` pendant que le
+format d'impression écrivait `/3` en dur. Le verdict ne bouge pas — zéro
+détection dans les deux cas — mais un 0 sur 2 est une information nettement
+plus faible qu'un 0 sur 3, et c'est précisément une mesure de puissance,
+c'est-à-dire l'endroit du dossier où le dénominateur EST le résultat. Le
+dénominateur est désormais lu sur le tableau des réplicats, de sorte
+qu'aucune exécution future ne puisse le contredire. Le périodogramme couvre toutes les
 fréquences, pas toutes les amplitudes. f5-A détecte +0,037 hits à un décalage
 donné (2/2) mais pas +0,026.
 

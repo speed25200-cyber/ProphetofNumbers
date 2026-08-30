@@ -334,8 +334,12 @@ for amp in (0.002, 0.005, 0.010):
         p = spectrum(mm)
         got.append(float(p.max() / p.mean()))
     got = np.array(got)
+    # Le dénominateur est LU sur le tableau et non écrit à la main : la
+    # première version imprimait « /3 » sur une boucle de 2 réplicats, et
+    # le rapport a publié un 0/3 qui était un 0/2. Une puissance de 0 sur 2
+    # est une information nettement plus faible qu'un 0 sur 3.
     say(f"   {amp:<11.3f} 512 tirages  {got.mean():13.3f}    "
-        f"{int((got >= seuilB).sum())}/3")
+        f"{int((got >= seuilB).sum())}/{len(got)}")
 
 
 # --------------------------------------------------------------------------
