@@ -6315,3 +6315,100 @@ générateur reproductible ne le ferait pas *tomber* : il rendrait le tirage
 **prévisible**, ce qui est une autre chose — l'espérance resterait `k/4` pour
 qui ne connaît pas la graine. C'était la seule voie ouverte vers une prédiction
 réelle ; elle est ici fermée sur cette région, et l'archive n'y montre rien.
+
+## 64. Le troisième ordre, et la prédiction qui a tenu (`h27_troisieme_ordre.py`)
+
+La limite n° 5 du §40 était la dernière famille conditionnelle sans plafond :
+« le troisième ordre — un triplet appelant un numéro — reste non borné ». Le
+terme suivant du développement compte `80 × C(80,3) = 6 572 800` cellules,
+**26 fois** l'espace du quadratique.
+
+### La double projection se réduit à une seule, et c'est un théorème
+
+Retirer la part linéaire puis la quadratique semble demander une régression
+sur `80 + 3 160` colonnes. Mais chaque tirage contient exactement 20 numéros,
+donc `Σ_{b≠a} x_a·x_b = 19·x_a` **identiquement**. Les 80 indicatrices sont
+donc **dans** l'espace des 3 160 produits de paires : projeter sur les paires
+seules retire les deux parts d'un coup, exactement (résidu mesuré
+1,4 × 10⁻¹³), pour un huitième du coût.
+
+### Le polynôme orthogonal de degré 3
+
+La contamination témoin module le logit par `v(m)`, `m = |D_t ∩ S|`. En
+résolvant `E[v] = E[v·m] = E[v·m²] = 0` en rationnels sous le poids
+hypergéométrique :
+
+    v = (−57/1711, +57/590, −3/10, +1),   Var(v) = 83 391 / 2 703 380
+
+C'est le polynôme orthogonal de degré 3 de ce poids, et l'orthogonalité se
+propage par les identités de somme : `Cov(v, x_a) = 0` pour les 80 numéros et
+`Cov(v, w_ab) = 0` pour les 3 160 paires, **exactement**, les six cas vérifiés
+en arithmétique de fractions. Mesuré **dans les deux sens** : sous les
+contaminations cubiques (avantage jusqu'à +9,45 %, détecté à 100 %), les
+statistiques de c1, d3 et h24 restent dans [−0,65 ; +1,47] ; réciproquement la
+contamination quadratique de h24 allume Q1/Q2 à +4,4/+7,7 pendant que U1/U2/U3
+ne voient rien. **Les familles sont disjointes, pas « peu couplées ».**
+
+### Sur l'archive réelle : rien — la quarantième voie
+
+| | observé | null simulé (40 SRS) | z | p |
+|---|---|---|---|---|
+| U1 `Σ Z²` (6 572 800) | 6 575 424,17 | 6 572 444,80 ± 3 327,98 | +0,90 | 0,390 |
+| U2 `max \|Z\|` | 5,6178 | 5,29451 ± 0,17505 | +1,85 | 0,073 |
+| U3 `Σ Z²` (n ∈ {i,j,k}) | 245 765,64 | 246 493,48 ± 642,63 | −1,13 | 0,244 |
+
+La cellule la plus déviante — le numéro 47 appelé par le triplet (12, 26, 63) —
+sort à |Z| = 5,618 contre une loi du max à 5,29 ± 0,18. Les queues suivent :
+421 cellules au-delà de 4 σ pour 416 attendues.
+
+### Le plafond, et la prédiction confrontée
+
+Enveloppe : famille « tiers », m = 80, R = 8 triplets sources, θ = 0,120.
+Avantage **+0,2453 ± 0,0019** hits sur 2,50, soit **+9,81 %**, puissance de
+détection mesurée 12 %.
+
+| famille | test qui la borne | plafond |
+|---|---|---|
+| marginal | χ² sur 80 (`c0`) | +1,33 % |
+| linéaire lag-1 | ‖Ĉ‖²_F sur 6 400 (`c1`) | +3,21 % |
+| lags 1..306 | le même, balayé (`d2`) | +3,46 % |
+| quadratique | Q1/Q2/Q3 sur 252 800 (`h24`) | +6,27 % |
+| **cubique** | **U1/U2/U3 sur 6 572 800 (`h27`)** | **+9,81 %** |
+
+> **Le §41 avait publié, avant cette mesure et par une voie qui n'a rien de
+> commun avec elle, une prédiction falsifiable : entre +8,9 % et +14,2 %.
+> Mesuré : +9,81 %. La loi tient.**
+
+Le rapport des plafonds 2→3 vaut 1,57 là où la loi à ‖a‖ constant donnerait
+2,26 : ‖a‖ décroît d'un facteur 0,69 de l'ordre 2 à l'ordre 3, prolongeant la
+décroissance monotone mesurée au §41.
+
+### Ce que ce plafond n'est pas
+
+C'est une borne d'**omniscience stricte** : elle suppose les 6 572 800
+coefficients connus du joueur. La hiérarchie monte en degré — +3,21, +6,27,
++9,81 — mais elle monte **vers rien** : même omniscient, l'adversaire cubique
+reste sous la marge de l'opérateur (41 %, §62), et l'adversaire réel doit
+estimer sa règle sur les mêmes 70 560 tirages qui la cachent. C'est le §61 qui
+donne l'état actuel de cette pénalité : elle n'est pas le simple m^(−1/4) du
+§42, mais le produit reste maximal au bord dense et le net n'a pas bougé.
+
+### Limites déclarées, et les erreurs corrigées en route
+
+Lag 1 seulement. Le seuil de U2 extrapole la queue par un Gumbel ajusté aux
+moments (une gaussienne aurait dit 4,33 au lieu de 8,21 et **surestimé** la
+puissance). Null à 40 réplicats au lieu de 400 : ±11 % sur les écarts-types,
+plancher du p empirique à 0,024. Balayage borné à R ≤ 8 : le plafond est
+légèrement **conservateur**.
+
+Cinq erreurs corrigées par la mesure et déclarées : la double projection
+planifiée en régression jointe avant que le théorème ne la divise par huit ;
+un comptage « optimisé » plus lent que le naïf ; la doctrine mono-thread de
+h24 qui s'inverse sur d'autres formes de matrices (×3,7) ; un chrono isolé
+qui mentait de 50 % sur le régime soutenu ; et des grilles d'amplitude
+initiales plaçant la frontière à θ ≈ 0,4 quand le pilote l'a mesurée à 0,19 —
+parce que c'est **U2** qui mord en premier, pas U1.
+
+**Registre : 4 entrées, m = 3 331, seuil de Holm 1,501 × 10⁻⁵, 0 significatif.**
+Le plus petit `p` du dossier reste 2,0 × 10⁻⁴ (`audit.paires`). Run officiel :
+8 120 s.
