@@ -27,6 +27,10 @@ final class ProphetStore: ObservableObject {
     // réclame : la distance au seuil de bascule était connue depuis h9, sa
     // FRÉQUENCE de franchissement demande une série.
     @Published var jackpotLog: [JackpotReading] = []
+    // Journal des tirages ORDONNÉS. L'app voyait l'ordre puis le perdait à
+    // chaque relance ; elle le garde désormais, et l'accumulation de tirages
+    // consécutifs se fait toute seule (h14).
+    @Published var orderedLog: [OrderedDraw] = []
 
     struct LatencyStats {
         var count: Int
@@ -67,6 +71,7 @@ final class ProphetStore: ObservableObject {
     private static let latencyKey = "prophet.latency.v1"
     private static let openBoostKey = "prophet.openboost.v1"
     private static let jackpotKey = "prophet.jackpots.v1"
+    private static let orderedKey = "prophet.ordered.v1"
     private static let notifKey = "prophet.notifs.v1"
     private static let turboKey = "prophet.turbo.v1"
     private static let holdKey = "prophet.journal.hold.v1"
@@ -77,6 +82,7 @@ final class ProphetStore: ObservableObject {
         publicationLatencies = Self.readLatencies()
         openBoostAudit = Self.readOpenBoostAudit()
         jackpotLog = Self.readJackpotLog()
+        orderedLog = Self.readOrderedLog()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
         turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
         let storedHold = UserDefaults.standard.integer(forKey: Self.holdKey)
@@ -132,6 +138,7 @@ final class ProphetStore: ObservableObject {
             recordPublicationLatency(previous: previous, live: live)
             recordOpenBoostObservation(live: live)
             recordJackpots(live: live)
+            recordOrderedDraws(live: live)
             if oracle == nil || newestDraw != lastOracleDraw {
                 // Variante incrémentale : grilles disponibles dans la foulée
                 // du résultat.
@@ -188,7 +195,20 @@ final class ProphetStore: ObservableObject {
     func runRecovery() async {
         guard !recoveryRunning, let payload else { return }
         recoveryRunning = true
-        let history = payload.history
+        // L'historique refetché revient TRIÉ ; le journal, lui, a gardé
+        // l'ordre de sortie de chaque tirage vu depuis l'installation. On
+        // réinjecte donc l'ordre conservé dans l'historique avant d'attaquer,
+        // faute de quoi l'attaque travaillerait sur 61,62 bits par tirage au
+        // lieu de 122,69 — et c'est toute la différence entre les cinq
+        // familles de générateurs couvertes et aucune.
+        let known = Dictionary(orderedLog.map { ($0.drawNumber, $0.order) },
+                               uniquingKeysWith: { a, _ in a })
+        let history = payload.history.map { d -> Draw in
+            guard !d.hasDrawOrder, let ord = known[d.drawNumber] else { return d }
+            var out = d
+            out.order = ord
+            return out
+        }
         let result = await Task.detached(priority: .userInitiated) {
             PRNGRecovery.attack(history, budget: 25)
         }.value
@@ -357,6 +377,61 @@ final class ProphetStore: ObservableObject {
         jackpotLog = JackpotLaw.record(jackpotLog, drawNumber: draw,
                                        jackpots: live.jackpots, at: Date())
         if jackpotLog.count != before { Self.writeJackpotLog(jackpotLog) }
+    }
+
+    // Tout tirage dont l'ordre publié diffère de l'ordre trié est conservé.
+    // Le test `hasDrawOrder` est la seule garantie disponible : si l'API
+    // publiait déjà trié, il est faux et rien n'est enregistré — ce qui est
+    // le bon comportement, un ordre trié ne portant aucune information.
+    private func recordOrderedDraws(live: LivePayload) {
+        var candidates: [Draw] = []
+        if let last = live.last { candidates.append(last) }
+        candidates.append(contentsOf: live.today)
+        candidates.append(contentsOf: live.history)
+        var added = false
+        for d in candidates where d.hasDrawOrder {
+            if orderedLog.contains(where: { $0.drawNumber == d.drawNumber }) { continue }
+            orderedLog.append(OrderedDraw(drawNumber: d.drawNumber, order: d.order,
+                                          bonus: d.bonus, at: Date()))
+            added = true
+        }
+        if added {
+            orderedLog.sort { $0.drawNumber < $1.drawNumber }
+            Self.writeOrderedLog(orderedLog)
+        }
+    }
+
+    /// La plus longue suite de tirages ordonnés CONSÉCUTIFS du journal.
+    /// C'est la quantité que h14 désigne comme décisive : à pas impair la
+    /// classe de générateurs candidats se referme, à pas pair jamais.
+    var longestConsecutiveRun: Int { Self.longestRun(orderedLog) }
+
+    /// Fonction pure, pour être testable hors de l'acteur principal.
+    nonisolated static func longestRun(_ log: [OrderedDraw]) -> Int {
+        let ids = log.map(\.drawNumber).sorted()
+        guard !ids.isEmpty else { return 0 }
+        var best = 1, run = 1
+        for i in 1..<ids.count {
+            if ids[i] == ids[i - 1] + 1 {
+                run += 1
+                best = max(best, run)
+            } else if ids[i] != ids[i - 1] {
+                run = 1
+            }
+        }
+        return best
+    }
+
+    private static func readOrderedLog() -> [OrderedDraw] {
+        guard let data = UserDefaults.standard.data(forKey: orderedKey) else { return [] }
+        return (try? JSONDecoder().decode([OrderedDraw].self, from: data)) ?? []
+    }
+
+    private static func writeOrderedLog(_ list: [OrderedDraw]) {
+        let clipped = Array(list.suffix(4000))
+        if let data = try? JSONEncoder().encode(clipped) {
+            UserDefaults.standard.set(data, forKey: orderedKey)
+        }
     }
 
     private static func readJackpotLog() -> [JackpotReading] {

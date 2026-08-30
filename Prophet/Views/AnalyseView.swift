@@ -225,6 +225,22 @@ struct RecoveryCard: View {
                 .background(Palette.elevated, in: RoundedRectangle(cornerRadius: 10))
             }
 
+            // Ce que le journal des tirages ordonnés a accumulé. h14 :
+            // la longueur de la plus longue suite CONSÉCUTIVE est la
+            // quantité décisive — à pas impair la classe de générateurs
+            // candidats se referme, à pas pair jamais.
+            if !store.orderedLog.isEmpty {
+                let run = store.longestConsecutiveRun
+                Text("Journal des tirages ordonnés : \(store.orderedLog.count) conservé"
+                     + (store.orderedLog.count > 1 ? "s" : "")
+                     + ", plus longue suite consécutive \(run)."
+                     + (run >= 5
+                        ? " Cinq consécutifs suffisent aux trois modèles de source, avec une classe de solutions unanime."
+                        : " Il en faut cinq consécutifs pour que la classe de solutions se referme ; l'app en accumule un toutes les cinq minutes."))
+                    .font(.system(size: 11))
+                    .foregroundStyle(run >= 5 ? Palette.goldSoft : Palette.subtle)
+            }
+
             if let r = store.recovery {
                 HStack(spacing: 5) {
                     Image(systemName: r.orderAvailable ? "list.number" : "arrow.up.arrow.down.circle")

@@ -766,6 +766,32 @@ final class OracleTests: XCTestCase {
                        -log(0.025), accuracy: 1e-5)
     }
 
+    func testOrderedLogTracksTheLongestConsecutiveRun() {
+        // h14 : la longueur de la plus longue suite CONSÉCUTIVE est la
+        // quantité décisive — à pas impair la classe de générateurs candidats
+        // se referme, à pas pair jamais. Le journal doit donc la rendre juste,
+        // y compris quand les tirages arrivent dans le désordre ou en double.
+        func log(_ ids: [Int]) -> [OrderedDraw] {
+            ids.map { OrderedDraw(drawNumber: $0, order: Array(1...20), bonus: nil,
+                                  at: Date()) }
+        }
+        XCTAssertEqual(ProphetStore.longestRun([]), 0)
+        XCTAssertEqual(ProphetStore.longestRun(log([7])), 1)
+        XCTAssertEqual(ProphetStore.longestRun(log([1, 2, 3, 7, 8])), 3)
+        XCTAssertEqual(ProphetStore.longestRun(log([8, 7, 3, 2, 1])), 3,
+                       "l'ordre d'arrivée ne doit pas compter")
+        XCTAssertEqual(ProphetStore.longestRun(log([4, 4, 5, 6])), 3,
+                       "un doublon ne doit pas couper la suite")
+        XCTAssertEqual(ProphetStore.longestRun(log([1, 3, 5, 7])), 1,
+                       "un pas de 2 ne fait aucune suite")
+
+        // La position du bonus dans l'ordre — la mesure de h19.
+        let d = OrderedDraw(drawNumber: 1, order: [5, 9, 12, 40], bonus: 12, at: Date())
+        XCTAssertEqual(d.bonusPosition, 3)
+        let e = OrderedDraw(drawNumber: 2, order: [5, 9, 12, 40], bonus: 77, at: Date())
+        XCTAssertNil(e.bonusPosition, "un bonus hors du tirage n'a pas de position")
+    }
+
     func testBonusRuleTestFiresOnAFixedPositionAndStaysQuietOtherwise() {
         // h19 : si le bonus marque une position d'émission fixe, il porte
         // 4,32 bits d'ordre par tirage. Le test doit le voir dès quelques

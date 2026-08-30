@@ -36,6 +36,30 @@ struct Jackpot: Identifiable, Hashable {
     var francs: Double { amount >= 10_000 ? amount / 100 : amount }
 }
 
+// Un tirage dont l'ORDRE DE SORTIE est connu, conservé sur disque.
+//
+// C'est la donnée la plus rare et la plus précieuse du dossier. Un tirage
+// trié porte 61,62 bits ; ordonné, 122,69 — et h14 a montré que cinq tirages
+// ordonnés CONSÉCUTIFS referment la classe de générateurs candidats sur trois
+// éléments là où cinq tirages épars en laissent dix-sept.
+//
+// L'app reçoit l'ordre à chaque tirage quand l'API le publie, et le jetait
+// à chaque relance : l'historique refetché revient trié. Ce journal le garde,
+// et c'est ce qui permet à l'accumulation de tirages CONSÉCUTIFS de se faire
+// toute seule, à raison d'un toutes les cinq minutes.
+struct OrderedDraw: Codable, Identifiable, Hashable {
+    var drawNumber: Int
+    var order: [Int]
+    var bonus: Int?
+    var at: Date
+    var id: Int { drawNumber }
+    /// Position du bonus dans l'ordre de sortie — la mesure de h19.
+    var bonusPosition: Int? {
+        guard let bonus, let idx = order.firstIndex(of: bonus) else { return nil }
+        return idx + 1
+    }
+}
+
 // Un relevé de cagnotte, daté par le tirage. C'est la matière première de
 // `JackpotLaw` — et, d'après lab/experiments/h15_loi_cagnotte.py, la donnée
 // manquante la plus rentable de tout le dossier : elle seule dit à quelle
