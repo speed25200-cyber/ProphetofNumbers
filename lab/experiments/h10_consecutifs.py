@@ -218,21 +218,20 @@ say(f"""
    {bits_per_out:.2f} bits là où le réseau en coûte 64 par dimension. Elle ne devient
    positive qu'à partir de d = {d_cross}.
 
-   Face à cela, LLL ne garantit qu'un facteur d'approximation de l'ordre de
-   2^(d/4) — soit 2^{20 / 4:.0f} en dimension 21, 2^{40 / 4:.0f} en dimension 41. La condition
-   « LLL suffit » s'écrit donc d/4 < marge(d), et elle n'est vérifiée pour
-   AUCUN d : en dessous de {d_cross} la marge est négative, au-dessus le terme d/4
-   dépasse immédiatement un plafond de {asympt:.1f}.
+   ERRATUM — cette section concluait ici que LLL ne pouvait pas passer.
+   C'ÉTAIT FAUX, et `h11_reseau.py` le démontre en récupérant 9 témoins sur
+   9 avec prédiction exacte du tirage suivant.
 
-   **Il n'existe aucun point de fonctionnement pour LLL sur cette famille.**
-   Ce n'est pas l'information qui manque — {len(rows) * DRAWN} sorties en donnent
-   {len(rows) * DRAWN * bits_per_out:.0f} bits pour 192 bits d'inconnues, un facteur {len(rows) * DRAWN * bits_per_out / 192:.1f}. C'est la
-   géométrie du réseau, et davantage de tirages n'y changerait rien. Il
-   faudrait BKZ à grand bloc — et aucune bibliothèque de réduction n'est
-   disponible ici (ni fpylll, ni sympy, ni flint).
+   L'erreur : j'avais comparé la marge au facteur d'approximation PIRE CAS
+   de LLL, 2^(d/4), soit 2^{40 / 4:.0f} en dimension 41. C'est la mauvaise borne. En
+   pratique LLL atteint un facteur d'Hermite racine δ₀ ≈ 1,0219, donc un
+   facteur d'approximation δ₀^d — soit ×{1.0219 ** 20:.1f} en dimension 21 et ×{1.0219 ** 40:.1f} en
+   dimension 41, pas ×{2 ** 10:.0f}. Face à une marge qui plafonne à ×{2 ** asympt:.0f}, il y a
+   largement la place.
 
-   Je ne livre pas une attaque que je ne peux pas valider sur témoins.
-   C'est la règle qui a fait tomber les quatre familles précédentes, et
-   elle vaut aussi quand elle m'arrête.""")
+   La leçon vaut d'être gardée : une borne pire cas ne dit rien du
+   comportement typique, et la conclusion « impossible » ne tenait qu'à
+   avoir pris la mauvaise. La correction est dans h11 — attaque écrite,
+   passée aux témoins, appliquée aux données.""")
 
 rule(f"total {time.time() - T0:.0f}s")

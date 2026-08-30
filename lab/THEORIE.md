@@ -427,3 +427,42 @@ affichées ×1 396 seulement. **Les petites mises sont donc systématiquement
 les plus proches du point d'équilibre** — la combinatoire l'impose. Si le
 seuil doit être franchi un jour, ce sera sur une mise de 5 ou 6, pas sur
 celle qui affiche le plus gros montant.
+
+---
+
+## L'attaque par réseau, et une erreur d'impossibilité corrigée (`h11_reseau.py`)
+
+h10 concluait qu'« il n'existe aucun point de fonctionnement pour LLL » sur
+la famille multiply-shift. **C'était faux**, et l'erreur mérite d'être
+nommée : j'avais comparé la marge du réseau au facteur d'approximation
+**pire cas** de LLL, 2^(d/4) — soit ×1024 en dimension 41.
+
+C'est la mauvaise borne. En pratique LLL atteint un facteur d'Hermite racine
+δ₀ ≈ 1,0219, donc un facteur d'approximation δ₀^d : **×1,5 en dimension 21,
+×2,4 en dimension 41**. Face à une marge qui plafonne à ×17, il y a
+largement la place. Une borne pire cas ne dit rien du comportement typique.
+
+**L'attaque, écrite et validée.** `lab/lll.py` implémente LLL (base entière
+exacte, Gram-Schmidt flottante) et le plan le plus proche de Babai — aucune
+bibliothèque de réduction n'existant dans cet environnement. Le principe de
+sûreté : **LLL propose, l'arithmétique exacte dispose.** Chaque candidat
+d'état est rejoué en entiers exacts contre les 20 numéros observés ; un
+candidat faux est rejeté, jamais accepté, donc l'imprécision flottante ne
+peut pas produire de faux positif.
+
+Formulation : sous Fisher-Yates multiply-shift, p_i = ⌊s_i·m_i / 2⁶⁴⌋ borne
+chaque état dans un intervalle de largeur 2⁶⁴/m_i. Avec (a, c) connus,
+s_i = A_i·x + C_i, et chaque contrainte devient (A_i·x − B_i) mod 2⁶⁴ ∈
+[0, W_i) : un problème du vecteur le plus proche en dimension 21.
+
+| | résultat |
+|---|---|
+| contrôle de l'outil (réseau q-ary, dim 12) | plus court vecteur ÷7,5 |
+| **témoins positifs** (3 LCG × 3 tirages) | **9/9 récupérés, 9/9 prédictions exactes** |
+| témoins négatifs (ordres uniformes) | **0/6** faux positifs |
+| coût | ≈ 3 s par tirage |
+
+L'attaque prédit donc **les 20 numéros exacts du tirage suivant** dès qu'un
+tirage a été produit par un LCG à constantes connues avec échantillonneur
+multiply-shift. C'est la dernière famille LCG-formée du dossier, et elle est
+désormais couverte — non par un argument, mais par du code passé aux témoins.
