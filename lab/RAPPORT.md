@@ -7189,3 +7189,93 @@ Fisher-Yates, où elle est nulle.
 
 **Registre :** `h53.theoreme_du_trou`, 0 état compatible, m = 3 335, zéro
 significatif.
+
+## 73. La carte de couverture, et l'hypothèse silencieuse qui la porte (`h54_carte_et_hypothese.py`)
+
+Cinq sections (§68 à §72) ont été ajoutées vite, chacune fermant une case. Il
+faut dire exactement ce qui est couvert — et nommer une hypothèse qui porte
+**tout** l'édifice et qu'aucune des cinq n'écrivait.
+
+### L'hypothèse
+
+Le théorème de la fuite exige l'**ordre de sortie** : il dit quel mot du
+générateur a produit quel numéro. Les cinq tirages ordonnés viennent de
+`parseMatrix`, qui préserve l'ordre du tableau `main` de l'API.
+
+> **Rien n'établit que cet ordre soit celui du générateur.**
+
+Il pourrait être l'ordre d'affichage d'une animation, un tri secondaire, ou un
+ordre d'insertion. Ce qu'on peut vérifier ici est peu de chose : **0 des 5**
+tirages ordonnés est déjà trié, ce qui exclut le cas le plus grossier — et
+rien de plus.
+
+### Ce qu'un ordre faux coûterait
+
+Si l'ordre est faux, les équations associent le mauvais mot à chaque numéro,
+le système devient incohérent, et l'attaque ne trouve rien — **exactement
+comme si le générateur n'était pas de la famille**. Un « 0 état compatible » a
+donc deux lectures :
+
+1. le générateur n'appartient à aucune famille testée ;
+2. l'ordre enregistré n'est pas celui du générateur.
+
+**Elles sont indiscernables par les §68 à §72.** Ce que les cinq sections
+établissent est donc exactement :
+
+> **Si** l'ordre enregistré est celui du générateur, **alors** aucune des
+> familles testées ne produit ces tirages, pour aucune graine.
+
+Et rien de plus fort. Ce qui lèverait l'ambiguïté, par ordre de coût : **un
+témoin d'ordre** (comparer un tirage à l'animation — coût nul, une
+observation) ; la documentation technique ; ou une attaque qui aboutirait, ce
+qui validerait l'ordre rétrospectivement.
+
+### La carte
+
+| famille | échantillonneur | § | condition |
+|---|---|---|---|
+| LCG mod 2⁴⁸ (`java.util.Random`) | rejet / FY modulaire | §34 | 2-adique, **2⁴⁸ complets**, toute graine |
+| LCG à constantes connues | multiply-shift | §24 | réseau LLL + Babai, 9/9 témoins |
+| LCG à constantes **inconnues** | ordonné | §25 | théorème des deux états, (a,c) calculés |
+| 12 familles | 4 échantillonneurs | §34 | graines [0, 2³²) **énumérées** |
+| 8 familles | 4 échantillonneurs | §63 | graine = horloge ou compteur |
+| 8 familles | 4 échantillonneurs | §65 | amorçage unique + course continue |
+| **F₂-linéaires ≤ 128 bits** | rejet modulo 80 | §68 | **résolu**, toute graine, couverture 46–99 % |
+| **F₂-linéaires ≤ 128 bits** | Fisher-Yates | §71 | **résolu**, toute graine, couverture 100 % |
+| **F₂-linéaires ≤ 110 bits** | FY, tirages **non voisins** | §72 | **résolu**, trous gratuits |
+
+**Ce qui reste — et aucune collecte n'y changera rien :**
+
+| | pourquoi |
+|---|---|
+| PCG (XSH-RR) | l'état avance par LCG mod 2⁶⁴ : la **transition** n'est pas F₂-linéaire |
+| xoshiro `**` et `++` | brouillage de sortie multiplicatif ou additif |
+| splitmix64 | mixeur non linéaire à deux multiplications |
+| MT19937 | F₂-linéaire, mais 19 937 bits (§69) |
+| tout CSPRNG | casser la famille = casser la primitive |
+| matériel (TRNG) | aucun état, donc rien à résoudre |
+
+### Le budget, en une formule
+
+> Pour `N` tirages ordonnés, **pas nécessairement voisins**, d'un générateur
+> F₂-linéaire : `bits = N × Σᵢ v₂(module au pas i)`.
+
+| N | rejet mod 80 | Fisher-Yates | ce que N ouvre (FY) |
+|---|---|---|---|
+| **5** *(le dossier)* | 400 | **110** | xorshift96 |
+| 10 | 800 | 220 | xorshift128 |
+| 20 | 1 600 | 440 | état 256 bits |
+| **907** | 72 560 | **19 954** | **MT19937** |
+
+MT19937 demanderait N = 907 sous Fisher-Yates ou N = 250 sous rejet — et sous
+rejet les trous coûtent une énumération, donc il les faudrait **voisins**, ce
+qu'une session de 204 tirages ne permet pas.
+
+### Ce que cette section change
+
+Elle ne ferme aucune case nouvelle. Elle empêche une case fermée **par
+hypothèse** de passer pour fermée tout court — et elle transforme cinq
+affirmations en une **implication** dont la prémisse est nommée, chiffrée, et
+falsifiable pour un coût nul.
+
+**Registre : inchangé.** `h54` ne teste pas l'archive — il cartographie.
