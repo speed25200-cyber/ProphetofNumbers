@@ -703,3 +703,38 @@ cagnotte progressive sont la même condition.
 fréquence de franchissement (théorème J) en dépend exponentiellement. Un
 relevé unique suffit donc à en donner un intervalle utilisable — borne basse
 +8 % à la mise 6 — quand le même relevé laisse la fréquence entre 0 et 92 %.
+
+---
+
+## Théorème L — l'étalement se paie en croissance, au même facteur n
+
+**Cadre.** Un pari de probabilité p et de cote nette b = J − 1, joué sur une
+fraction f du capital, a pour taux de croissance logarithmique
+g(f) = p·ln(1+fb) + (1−p)·ln(1−f), maximal en f\* = p − (1−p)/b.
+
+**Énoncé.** Répartir la mise sur n grilles DISJOINTES change (p, b) en
+(n·p, J/n − 1) : la probabilité de toucher est multipliée par n, le gain par
+occasion divisé par n. L'espérance est inchangée — c'est le théorème
+d'invariance — mais la variance est divisée par n, et le taux de croissance
+optimal est multiplié par n.
+
+Mesuré : ×1,00, ×2,00, ×4,00, ×8,01, ×13,02 pour n = 1, 2, 4, 8, 13. Le
+facteur suit n à moins de 0,2 % près, et vérifié par simulation sur
+40 millions d'occasions à 0,6 σ.
+
+**Démonstration (au premier ordre).** Pour f petit, g(f) ≈ f·μ₁ − f²·σ²/2 où
+μ₁ = p·b − (1−p) est l'avantage et σ² ≈ p·b² la variance du rendement. D'où
+g\* ≈ μ₁²/(2σ²). L'étalement laisse μ₁ inchangé et divise σ² par n — car
+(np)·(b/n)² = p·b²/n — donc multiplie g\* par n. ∎
+
+**Corollaire (le plafond).** Le nombre de grilles disjointes est ⌊N/k⌋, donc
+le gain de croissance disponible par cette voie est borné par ⌊80/k⌋ : ×13 à
+la mise 6, ×8 à la mise 10.
+
+**Corollaire (la contrainte de capital).** f\* étant une fraction du
+capital, et le ticket ayant un prix plancher c, la stratégie n'est jouable à
+Kelly qu'à partir d'un capital n·c/f\*. En dessous, on surmise — et g(f) est
+concave avec g(2f\*) ≈ 0 : au-delà de deux fois Kelly, une espérance
+positive produit une croissance NÉGATIVE. L'espérance et la croissance ne
+disent donc pas la même chose, et c'est la seconde qui décide pour qui joue
+plus d'une fois.

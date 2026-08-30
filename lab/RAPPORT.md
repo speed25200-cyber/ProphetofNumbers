@@ -2156,3 +2156,66 @@ cent. Le quantile du khi-deux nécessaire à l'intervalle est obtenu depuis la
 même fonction de répartition de Poisson, via
 P(χ²(2n) ≤ x) = P(Poisson(x/2) ≥ n), et vérifié contre scipy sur douze
 points.
+
+## 30. Combien miser, et ce que le gain rapporte vraiment (`h17_taille_de_mise.py`)
+
+h16 donne une espérance. Ce n'est pas de l'argent. Entre les deux il y a la
+variance, et elle est ici démesurée : on gagne une fois sur 7 753 et l'on
+touche 10 000 fois la mise. Ne pas poser la question serait malhonnête.
+
+**Une grille seule.** Le critère de Kelly donne une fraction optimale de
+2,94·10⁻⁵ du capital par occasion, soit une croissance de 3,96·10⁻⁶ en
+logarithme — **+1,4 % par an** en jouant les 3,37 % de tirages favorables,
+à raison d'un tirage toutes les cinq minutes. L'espérance est de +29,5 %,
+mais miser davantage détruit plus de capital dans les 99,987 % de pertes
+qu'il n'en gagne dans le reste.
+
+**Et c'est ici que la géométrie de h13 se paie en francs.** n grilles
+disjointes gagnent n fois plus souvent, n fois moins gros : la moyenne est
+intacte, la variance divisée par n, et la croissance de Kelly — au premier
+ordre le carré de l'avantage divisé par la variance — multipliée par n.
+
+| n grilles disjointes | fraction de Kelly | croissance/occasion | rapport | croissance/an |
+|---|---|---|---|---|
+| 1 | 2,94·10⁻⁵ | 3,96·10⁻⁶ | ×1,00 | +1,4 % |
+| 4 | 1,18·10⁻⁴ | 1,59·10⁻⁵ | ×4,00 | +5,8 % |
+| 8 | 2,35·10⁻⁴ | 3,17·10⁻⁵ | ×8,01 | +11,9 % |
+| **13** | **3,83·10⁻⁴** | **5,16·10⁻⁵** | **×13,02** | **+20,0 %** |
+
+Le facteur suit n à moins de 0,2 % près, et 13 = ⌊80/6⌋ est le maximum de
+grilles disjointes à la mise 6. Vérifié par simulation sur 40 millions
+d'occasions : croissance mesurée à 0,6 σ de la prédiction.
+
+**La contrainte qui décide de tout.** La fraction de Kelly est un
+pourcentage du capital ; le ticket, lui, a un prix plancher. Si le premier
+tombe sous le second, on ne peut pas miser Kelly — on est forcé de
+**surmiser**.
+
+| prix du ticket | coût d'un tour de 13 grilles | capital minimal pour Kelly |
+|---|---|---|
+| CHF 0,50 | CHF 6,50 | CHF 16 995 |
+| CHF 1,00 | CHF 13,00 | **CHF 33 991** |
+| CHF 2,00 | CHF 26,00 | CHF 67 981 |
+| CHF 5,00 | CHF 65,00 | CHF 169 953 |
+
+Et la courbe de surmise est brutale : à ×2 Kelly la croissance annualisée
+tombe de +20,0 % à +5,0 %, à ×3 elle vaut **−25,5 %**, à ×5 **−75,0 %**. Un
+joueur disposant de CHF 1 000 et misant un tour à CHF 1 la grille miserait
+**×34 Kelly** — très au-delà du point où l'espérance positive cesse de
+produire de la croissance.
+
+> **La conclusion pratique du dossier, et elle tempère §29 sans le
+> contredire.** Le gain est réel et important en espérance, mais il ne se
+> convertit en capital qu'à partir d'une réserve de l'ordre de plusieurs
+> dizaines de milliers de francs. En dessous, le pari reste favorable en
+> espérance et **perdant en croissance** — ce qui, pour quelqu'un qui joue
+> plus d'une fois, est ce qui compte.
+
+**Ce que le barème inconnu changerait, et dans le bon sens.** Les rangs
+intermédiaires ajoutent deux fois : ils augmentent l'espérance, et ils
+réduisent la dissymétrie — or c'est la dissymétrie qui écrase la fraction de
+Kelly. Sur un modèle délibérément grossier (un seul rang intermédiaire
+fictif rendant une fraction ρ de la mise), la croissance est multipliée par
+3,2 à ρ = 20 %, par 7,6 à ρ = 40 %, par 15,5 à ρ = 60 %. Le barème ne
+déplace donc pas seulement l'espérance : il déplace la **taille de mise
+admissible**, et c'est elle qui décide si le gain devient de l'argent.
