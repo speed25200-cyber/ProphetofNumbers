@@ -1653,3 +1653,26 @@ congruentiels, tirage physique. Ces classes demandent des tirages ordonnés
 **consécutifs** — deux à trois suffiraient en théorie de l'information
 (122,69 bits par tirage contre 192 bits d'inconnues), le blocage devenant
 algorithmique et non plus informationnel.
+
+## 20. Deux tirages ordonnés, et le test qui les relie (`h8_ordre_joint.py`)
+
+Le tirage **1381026** est arrivé, à trois tirages du premier. L'écart est
+exploitable : sous Fisher-Yates l'échantillonneur consomme un nombre fixe de
+sorties par tirage, donc l'état avance d'un nombre connu de pas — balayé de
+20 à 40 plutôt que supposé.
+
+Un générateur ne se réinitialise pas entre deux tirages : les deux jeux de
+contraintes portent donc sur **une seule chaîne 2-adique**, soit 44 bits
+contre 2¹⁷ triplets candidats. Survivants attendus sous H₀ : 2¹⁷/2⁴⁴ ≈ 0.
+
+| | témoins positifs | témoins négatifs | données réelles |
+|---|---|---|---|
+| survivants | **64** | 0 dans **20/20** | **0**, pour tout d de 20 à 40 |
+
+Réplication indépendante sur 1381026 seul : 4/19 paires affines (null
+4,50 ± 0,76), 0 triplet survivant — identique à 1381023.
+
+**« LCG modulo une puissance de deux + Fisher-Yates » est écarté par les
+deux tirages conjointement.** Ce qui reste (multiply-shift, générateurs non
+congruentiels, tirage physique) demande une réduction de réseau, pas plus de
+tirages — mais des tirages **consécutifs** y vaudraient le plus.

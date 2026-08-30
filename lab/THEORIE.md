@@ -374,3 +374,35 @@ ni sur un tirage physique. Pour ces classes il faut des tirages ordonnés
 (a, c, état), donc **deux à trois tirages consécutifs suffisent en théorie
 de l'information** — le blocage devient algorithmique (réduction de réseau),
 plus informationnel.
+
+### Le second tirage ordonné, et le test qui les relie (`h8_ordre_joint.py`)
+
+Le tirage **1381026** est arrivé — non consécutif au premier, **trois
+tirages d'écart**. Ce n'est pas un obstacle : sous un mélange de
+Fisher-Yates, l'échantillonneur consomme un nombre FIXE de sorties par
+tirage, donc l'état avance d'un nombre connu de pas. Le nombre exact est
+inconnu (le bonus ou un autre jeu peuvent consommer aussi) — on le balaie
+de 20 à 40 plutôt que de le supposer.
+
+Le gain est réel : un générateur ne se réinitialise pas entre deux tirages,
+donc les deux jeux de contraintes portent sur **une seule chaîne 2-adique**.
+Chaque tirage impose 22 bits, deux en imposent **44** — contre 2¹⁷ = 131 072
+triplets (A, C, s₀) mod 64. Sous H₀ il en survit 2¹⁷/2⁴⁴, c'est-à-dire zéro
+avec dix ordres de grandeur de marge.
+
+| | témoins positifs | témoins négatifs | données réelles |
+|---|---|---|---|
+| survivants | **64** (deux LCG) | 0 dans **20/20** | **0**, pour tout d de 20 à 40 |
+
+Et la réplication indépendante tient : sur 1381026 pris seul, la meilleure
+relation affine mod 16 explique **4/19** paires (null 4,50 ± 0,76) et
+**0 triplet** survit — exactement comme sur 1381023.
+
+**« LCG modulo une puissance de deux + Fisher-Yates » est donc écarté par
+les deux tirages conjointement** — un test que ni l'archive triée ni un
+tirage isolé ne permettaient.
+
+Ce qui reste demande une **réduction de réseau**, pas plus de tirages :
+l'échantillonneur multiply-shift filtre les bits de poids fort, où le levier
+2-adique n'a aucune prise. C'est là que des tirages ordonnés **consécutifs**
+vaudraient le plus : la chaîne d'état y est la plus contrainte.
