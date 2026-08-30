@@ -891,3 +891,81 @@ hypothèses H1–H3. Une cagnotte dont la loi serait moins dispersée
 rapprocherait les deux membres, jusqu'à l'égalité du témoin. Ce qui ne
 dépend d'aucune hypothèse, en revanche, c'est le sens de l'inégalité et le
 fait que la règle adaptative n'a besoin d'aucun paramètre estimé.
+
+---
+
+## Théorème O — la parcimonie renverse la loi d'identification (`h44_parcimonie.py`)
+
+Le théorème du §42 établit que le rapport signal sur bruit de l'identification
+décroît en `m^(−1/4)`, exactement l'exposant par lequel le plafond
+d'omniscience croît (§41) — d'où la compensation qui ferme la piste A au §48.
+Ce théorème-ci montre que cet exposant n'est pas une propriété de `m`. C'est
+une propriété de la **densité** de la déviation, et son signe change.
+
+**Énoncé.** Test du χ² sur `m` cellules, seuil à `z` écarts-types d'un null
+simulé. La statistique a pour moyenne `m` et pour écart-type `√(2m)` sous H₀,
+donc une déviation reste sous le seuil tant que sa non-centralité vérifie
+
+    ‖C‖² / σ²  ≤  z·√(2m)
+
+où `σ` est l'erreur d'estimation d'**une** cellule. Si la déviation est portée
+par `s` cellules d'amplitude commune `c`, alors `‖C‖² = s·c²`, et le rapport
+signal sur bruit **par cellule** vaut exactement
+
+    (c/σ)²  =  z·√(2m) / s
+
+**Corollaire (le point neutre).** En posant `s = m^β` :
+
+    c/σ  ∝  m^(1/4 − β/2)
+
+- `β = 1` (déviation **dense**, toutes les cellules actives) → `m^(−1/4)`.
+  C'est le §42, et c'est le seul cas qu'il a traité : `h31.make_eps` tire une
+  déviation **isotrope**.
+- `β = 1/2` → exposant **nul**. C'est la frontière.
+- `β = 0` (`s` fixé, déviation **creuse**) → `m^(+1/4)`. L'identification
+  devient *plus facile* à mesure que la famille grandit, parce que le seuil de
+  détection laisse passer une amplitude totale croissante et que le nombre de
+  cellules qui se la partagent, lui, ne bouge pas.
+
+**Corollaire (le plafond réalisable).** Le plafond d'omniscience croît en
+`m^(1/4)` (§41) et la part captée en `SNR^γ` avec `γ = 0,721` mesuré au §42.
+Donc
+
+    réalisable  ∝  m^(1/4 + γ·(1/4 − β/2))
+
+`β = 1` donne **+0,070**, à comparer au **+0,0616** que le §42 publie : le
+cadre reconstruit la loi du dossier à partir de la seule identité ci-dessus.
+`β = 0` donne **+0,43** — le plafond réalisable ne se retourne pas, il croît.
+
+**Vérification, machine du §42 inchangée.** `h44` reprend `h31.captured` mot
+pour mot — même sélection des `K` meilleures cellules, même `K/m = 1/8`, même
+estimateur de fréquence — et ne change QUE la loi de la déviation. `s = 32`,
+`N = 20 000`, seuil `z = 4,33` d'un null simulé :
+
+| m | part captée, dense | part captée, creuse |
+|---|---|---|
+| 64 | 0,681 | 0,624 |
+| 256 | 0,520 | 0,696 |
+| 1 024 | 0,389 | 0,811 |
+| 4 096 | 0,314 | **0,920** |
+
+Exposant mesuré : **−0,189** (dense) contre **+0,095** (creux). Le premier
+donne un plafond réalisable en `m^(+0,061)` — c'est le `+0,0616` du §42 à
+trois décimales, et c'est le contrôle qui autorise à lire le second, qui vaut
+`m^(+0,345)`.
+
+**Portée, et il faut la dire exactement.** Les familles que le §45 a mesurées
+sont creuses, et de très loin : les paires cachées portent 50 entrées non
+nulles sur 6 400 (SNR par cellule **3,13**), le tenseur quadratique 80 sur
+252 800 (SNR par cellule **6,20**) — contre 0,83 pour les familles denses à
+`m = 80`. Une cellule active y est à trois ou six écarts-types du bruit : elle
+est reconnaissable **une par une**. Le §48 localise le maximum de la piste A
+en supposant la loi du cas dense ; ce maximum est donc celui d'un couple
+(famille, estimateur) et non une propriété du problème.
+
+**Ce que le théorème ne dit pas.** Il ne touche pas au théorème d'invariance :
+`E[hits] = k/4` pour toute grille sous un tirage échangeable, et tout ce qui
+précède suppose une archive contaminée par construction. Il ne dit rien de
+l'archive réelle, où les 3 311 tests du registre restent négatifs. Et il ne
+rapproche pas la piste A de la marge de l'opérateur : il déplace un plafond de
+quelques pour cent face à un taux de retour de base de 58,9 % (§56).

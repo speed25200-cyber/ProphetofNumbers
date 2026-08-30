@@ -3666,6 +3666,12 @@ Ce n'est pas la même affirmation, et c'est la seconde qui tient.
 
 ## 42. La pénalité d'identification a sa propre loi d'échelle (`h31_identification_echelle.py`)
 
+> **Portée restreinte au §59.** La loi `m^(−1/4)` établie ici est celle des
+> déviations **denses** — `h31.make_eps` tire une déviation isotrope. Pour une
+> déviation creuse l'exposant **change de signe**, et les familles que le §45
+> mesure sont creuses. Le §59 le démontre, le mesure, et refait le +0,0616
+> de cette section comme contrôle.
+
 Le §41 démontre que le plafond d'**omniscience** croît en `m^{1/4}`, puis
 affirme — sans le démontrer — que le plafond **réalisable** « croît puis
 décroît, et qu'il existe donc un ordre optimal pour l'adversaire ». Cette
@@ -4049,6 +4055,13 @@ protocole existe pour empêcher.
 
 ## 45. La pénalité d'identification, mesurée famille par famille (`h26_identification.py`)
 
+> **Amendé au §59.** L'identificateur linéaire employé ici (`IdentLin`,
+> variante `raw`) applique la matrice empirique **entière** à des familles dont
+> 99 % des entrées sont du bruit pur. Un seuillage par entrée, calibré sans
+> rien savoir de la règle, capte ×1,64 de plus — positif sur les cinq archives
+> testées. Les parts captées de cette section sont donc celles d'un estimateur
+> nommé, pas celles de la famille.
+
 Le sommaire alignait cinq plafonds, et quatre portaient la même réserve en
 toutes lettres : borne d'**omniscience**, pénalité d'identification non
 mesurée (§3 quater, §40). Le §3 bis ne l'avait chiffrée que pour la famille
@@ -4380,6 +4393,12 @@ vingt-cinq minutes, et l'app les accumule seule depuis le §34.
 **Registre : inchangé.** `h37` ne teste pas l'archive — il démontre.
 
 ## 48. Où la courbe se retourne, et le maximum de toute la piste A (`h38_maximum_realisable.py`)
+
+> **Déplacé au §59.** Le maximum de +1,28 % calculé ici est celui d'un couple
+> (famille, estimateur). Le point « paires cachées » passe de 1,32 % à 2,16 %
+> avec un estimateur adapté à la parcimonie, ce qui porte le maximum de la
+> piste A à **au moins +2,16 %**. Le point quadratique, où le gain
+> d'alignement mesuré est de ×8,57 contre ×2,28, n'est pas refait.
 
 Le §45 établit que le plafond réalisable se retourne — 0,53 puis 0,99 puis
 1,30 puis **0,71** — mais il ne le **localise** pas. Tant que le maximum
@@ -5688,3 +5707,277 @@ Le prix du ticket est maintenant **saisissable** mais toujours pas **su**. Le
 câblage ne l'invente pas : il rend l'app capable d'employer la réponse dès
 qu'elle sera lue, et honnête sur ce qu'elle suppose en attendant. C'est la
 seule chose qu'un dossier puisse faire d'une observation qu'il n'a pas encore.
+
+## 59. Le mur de la piste A est un mur d'estimateur (`h44_parcimonie.py`)
+
+Trois sections ferment la piste A — prédire les numéros — par une paire de
+lois d'échelle qui se compensent : le plafond d'omniscience croît en `m^(1/4)`
+(§41), le SNR d'identification décroît en `m^(−1/4)` (§42), la courbe se
+retourne et le maximum réalisable vaut **+1,28 %** (§48).
+
+Le point aveugle tient en une ligne de `h31` :
+
+```python
+v = rng.normal(size=m); v -= v.mean(); v *= norm / rms(v)
+```
+
+**La déviation du §42 est isotrope.** Toutes les cellules portent du signal,
+aucune n'est vide. C'est le cas **dense**, et c'est le pire pour
+l'identification : il n'y a rien à éliminer.
+
+Or les familles que le §45 mesure ne sont pas denses. Les paires cachées
+portent **50 entrées non nulles sur 6 400**. Le tenseur quadratique, **80 sur
+252 800**. Et l'identificateur que le §45 leur applique — `IdentLin`, variante
+`raw`, `score = Ĉ @ xc` — emploie la matrice empirique **entière**, dont
+6 350 entrées ne contiennent que du bruit. Sa variante `amax` n'en garde
+qu'une par ligne. Les deux bouts, jamais le milieu.
+
+### L'énoncé, en trois lignes
+
+Une déviation reste sous le seuil du χ² tant que `‖C‖²/σ² ≤ z·√(2m)`. Portée
+par `s` cellules d'amplitude `c`, cela donne le SNR **par cellule** :
+
+> **`(c/σ)² = z·√(2m) / s`**
+
+Deux régimes, et ils ne diffèrent que par ce qu'on met dans `s` :
+
+| | `s` | `(c/σ)²` | exposant |
+|---|---|---|---|
+| dense | `m` | `z√2/√m` | **`m^(−1/4)`** — c'est le §42 |
+| creux | fixé | `z√(2m)/s` | **`m^(+1/4)`** |
+
+L'exposant **change de signe**. Le point neutre est `s = √m` (Théorème O).
+
+| famille | m | s | SNR par cellule |
+|---|---|---|---|
+| dense (rémanence, marginal) | 80 | 80 | 0,83 |
+| paires cachées | 6 400 | 50 | **3,13** |
+| quadratique | 252 800 | 80 | **6,20** |
+
+Une cellule active des familles réelles est à trois ou six écarts-types du
+bruit. Elle est reconnaissable **une par une** — le fait que le cas dense
+interdit, et que le §42 n'a pas eu l'occasion de voir.
+
+### La machine du §42, une seule ligne changée
+
+`h31.captured` est repris mot pour mot — même sélection des `K` meilleures
+cellules, même `K/m = 1/8`, même estimateur de fréquence. Seule la loi de la
+déviation change. `s = 32`, `N = 20 000`, `z = 4,33` d'un null simulé :
+
+| m | part captée, dense | part captée, creuse |
+|---|---|---|
+| 64 | 0,681 | 0,624 |
+| 256 | 0,520 | 0,696 |
+| 1 024 | 0,389 | 0,811 |
+| 4 096 | 0,314 | **0,920** |
+
+Exposant **−0,189** (dense) contre **+0,095** (creux).
+
+> **Le contrôle qui autorise à lire la seconde colonne.** L'exposant dense
+> donne un plafond réalisable en `m^(+0,061)`. Le §42 publie **+0,0616**. La
+> transcription refait donc le dossier à trois décimales, et ce qui suit n'est
+> pas un réglage.
+
+Aucun estimateur nouveau n'intervient ici : la **même** procédure, appliquée à
+une déviation creuse plutôt qu'isotrope, ne se dégrade pas. Le §42 n'a pas
+mesuré une loi de l'identification — il a mesuré **la loi de l'identification
+des familles denses**.
+
+### Là où l'estimateur commence vraiment à compter
+
+Dans le modèle ci-dessus le joueur **classe** les cellules par leur
+estimation : toute transformation croissante donne le même classement, donc
+rétrécir ou seuiller n'y changerait rigoureusement rien.
+
+Le §45 n'est pas dans ce cas. Sa matrice n'est pas classée, elle est
+**appliquée** : `score = Ĉ @ xc`, et chacune des 6 400 entrées verse sa part
+de bruit dans les 80 coordonnées du score. Une transformation par entrée n'est
+alors plus inoffensive. L'alignement se lit sur le cosinus entre la matrice
+employée et la vraie :
+
+| famille | m | s | cos brut | cos seuillé | gain |
+|---|---|---|---|---|---|
+| paires cachées | 6 400 | 50 | 0,2666 | 0,6086 | **×2,28** (τ = 3) |
+| quadratique | 252 800 | 80 | 0,1097 | **0,9397** | **×8,57** (τ = 4) |
+
+Le gain **croît avec m**, exactement comme l'énoncé le prédit : le nombre
+d'entrées à jeter croît, `s` ne bouge pas. À `m = 252 800`, un seuillage par
+entrée récupère un alignement de **0,94** là où la matrice brute plafonne à
+0,11.
+
+### Sur une archive contaminée réelle, en marche avant
+
+Famille « paires cachées » du §45, générateur `c1.gen_conditional` importé
+sans réécriture, `d = 0,0071` (l'amplitude de frontière consignée par c1,
+jamais recalculée), `K = 10`, cinq archives de 70 560 tirages, warmup 20 000,
+marche avant stricte via `lab.walk_forward`. Le seuil n'est pas ajusté sur la
+vérité : `σ̂` vient de l'écart médian absolu des entrées de la matrice — une
+statistique de ce que le joueur a sous les yeux.
+
+| identificateur | E[hits] | avantage | part captée |
+|---|---|---|---|
+| base (grille fixe) | 2,4959 | — | (théorème : 2,5000) |
+| **oracle** | 2,5810 | +0,0851 | 1,000 |
+| brut (le §45) | 2,5171 | +0,0213 | 0,247 ± 0,033 |
+| seuillé τ = 2,5 | 2,5302 | +0,0343 | **0,404 ± 0,012** |
+
+Les niveaux absolus varient beaucoup d'une archive à l'autre. La comparaison
+qui porte le résultat est donc **appariée** — même archive, même oracle, deux
+identificateurs :
+
+> par archive : **+0,202  +0,255  +0,058  +0,162  +0,110**
+> moyenne **+0,157 ± 0,034**, positif sur **les cinq**.
+
+### Ce que le maximum du §48 devient
+
+**Un contrôle échoue ici, et il décide de ce qu'on a le droit de conclure.** La
+variante brute est censée être celle du §45, qui publie 0,41 ; on obtient
+0,247, soit **40 % d'écart**, et la cause n'est pas établie. Les niveaux ne se
+transportent donc pas — seul le **rapport** ×1,64 se transporte, appliqué au
+0,41 publié :
+
+| famille | m | plafond | captée §45 | réalisable §45 | **corrigé** |
+|---|---|---|---|---|---|
+| rémanence uniforme | 1 | 0,53 % | 1,00 | 0,53 % | — |
+| marginal | 80 | 1,33 % | 0,64 | 0,85 % | — |
+| **paires cachées** | 6 400 | 3,21 % | 0,41 | 1,32 % | **2,16 %** |
+| quadratique | 252 800 | 6,27 % | 0,11 | 0,69 % | non mesuré |
+
+> Ce seul point déplace le maximum de la piste A de **+1,28 %** à **au moins
+> +2,16 %**, puisque le maximum est un maximum sur les points.
+
+Et c'est le point quadratique, non mesuré ici, où le gain serait le plus grand
+— la section précédente y mesure un gain d'alignement de ×8,57 contre ×2,28.
+Le mesurer demande de refaire le protocole de h24 ; ce fichier le **désigne**
+plutôt que de prétendre l'avoir fait.
+
+### Ce que ceci ne fait pas
+
+**Cela ne casse pas le théorème d'invariance.** `E[hits] = k/4` pour toute
+grille sous un tirage échangeable. Tout ce qui précède se passe sur des
+archives **contaminées par construction** ; sur l'archive réelle, les tests du
+registre restent négatifs.
+
+**Cela ne bat pas la marge.** Le maximum passe de +1,28 % à au moins +2,16 %,
+contre une marge de l'opérateur de 41 % (§56). Il manque toujours un facteur
+**vingt**, et aucune des deux quantités n'a bougé assez pour que les courbes
+se croisent.
+
+**Ce que cela fait.** Cela retire au dossier le droit de dire que le mur est
+une propriété de la **nature** du problème. Le §48 écrivait un maximum ; ce
+maximum était celui d'un couple **(famille, estimateur)**, et l'estimateur
+n'était pas le bon pour les familles concernées.
+
+### Limites
+
+1. Un seul point est refait. Le quadratique, où le gain serait le plus grand,
+   est désigné et non mesuré.
+2. Le seuillage **dur** par entrée n'est pas optimal — le seuillage doux et la
+   moyenne a posteriori sous un a priori de parcimonie feraient mieux. Ce qui
+   est établi est une **borne inférieure** sur ce qu'un bon estimateur capte.
+3. L'écart de 40 % entre la variante brute mesurée ici et celle du §45 n'est
+   pas expliqué. Seul le rapport est transporté, ce qui est la lecture
+   conservatrice, mais l'écart reste une dette.
+4. La section sur la machine du §42 hérite de sa limite n° 3 : le joueur y
+   estime sur les mêmes données que le test, ce qui la rend **majorante**. La
+   mesure sur archive contaminée, elle, est en marche avant stricte.
+
+**Registre : inchangé.** `h44` ne teste pas l'archive — il démontre et mesure
+sur des contaminations connues.
+
+## 60. Le détecteur qui manquait à la famille linéaire (`h45_detecteur_creux.py`)
+
+Le §59 a une conséquence symétrique sur la **détection**, et elle se lit dans
+le registre sans rien exécuter.
+
+La famille quadratique de h24 a été testée **deux fois**, avec deux
+statistiques qui ne visent pas la même chose : `h24.quad_diffus` (somme des
+carrés des 252 800 cellules, optimale contre un biais **dense**) et
+`h24.quad_max` (max |Z| sur les mêmes cellules, optimale contre un biais
+**concentré**).
+
+La famille linéaire, elle, n'a été testée **qu'une fois** : `c1.matrix_real`
+(`‖Ĉ‖²_F`, p = 0,787) et `d2.t2_lagscan` (le même `T2` balayé sur 306 lags,
+p = 0,784). Les deux sont des statistiques de **somme**. Leur note dit qu'elles
+« couvrent toute matrice de couplage, dérangements compris » — vrai au sens de
+la **consistance**, faux au sens de la **puissance**. Aucune statistique de
+maximum n'existait pour la famille linéaire : une case vide du produit
+(famille × forme du détecteur).
+
+### Le croisement, en trois lignes
+
+La somme détecte quand `s·(c/σ)² ≥ z√(2m)`, donc quand `c/σ ≥ √(z√(2m)/s)`. Le
+maximum détecte quand une cellule dépasse le maximum du null, `≈ √(2 ln m)` —
+**indépendant de `s`**. Les deux exigences se croisent en
+
+> **`s* = z·√(2m) / (2 ln m) = 28`** cellules, pour `m = 6 400`, `z = 4,33`.
+
+| s | la somme exige | le maximum exige | qui gagne |
+|---|---|---|---|
+| 1 | 22,13 σ | 4,19 σ | **maximum** |
+| 5 | 9,90 | 4,19 | **maximum** |
+| 10 | 7,00 | 4,19 | **maximum** |
+| 20 | 4,95 | 4,19 | **maximum** |
+| 28 | 4,18 | 4,19 | somme |
+| 50 | 3,13 | 4,19 | somme |
+| 6 400 | 0,28 | 4,19 | somme |
+
+> **Et voici pourquoi le trou n'a jamais sauté aux yeux.** Les paires cachées
+> de c1 ont `s = 50` : elles tombent du côté où le détecteur existant est le
+> bon. La famille de contamination choisie pour mesurer la puissance était
+> précisément dans le régime qui innocente la statistique employée.
+
+Le trou porte donc sur les couplages **très** creux — une, deux, dix paires
+(source → numéro) au lieu de cinquante. Rien dans le dossier ne les exclut, et
+rien ne les avait cherchés avec le bon instrument.
+
+### Les deux détecteurs manquants, exécutés
+
+Deux tests pré-enregistrés, null par **permutation de l'ordre des tirages**
+(300 réplicats) : les 70 560 tirages sont conservés tels quels, seul le
+chaînage `t → t+1` est détruit. C'est le null exact de l'hypothèse visée, et
+il est plus conservateur qu'un SRS puisqu'il préserve toute structure
+intra-tirage.
+
+| test | statistique | observé | null | p |
+|---|---|---|---|---|
+| `h45.matrix_max` | max \|C\|/sd(C) sur 6 400 cellules | 3,4545 | 3,9029 ± 0,2949 | **0,977** |
+| `h45.matrix_hc` | Higher Criticism sur les mêmes | 1,4586 | 2,3611 ± 3,5953 | **0,781** |
+
+Les deux sont **conformes**, et l'observé est en dessous du null dans les deux
+cas. Le registre passe de m = 3 325 à **3 327** ; son plus petit `p` reste
+2,0 × 10⁻⁴ pour un seuil de Holm de 1,5 × 10⁻⁵.
+
+Deux notes de méthode. Les 6 400 cellules ne sont **pas** indépendantes —
+chaque tirage porte exactement 20 numéros — donc les `p` gaussiens qui
+alimentent HC sont mal calibrés cellule par cellule ; cela n'a aucune
+conséquence, car HC n'est ici qu'un **nombre** dont la calibration vient
+entièrement de la loi de permutation, qui subit les mêmes contraintes. Et le
+null de HC est très dispersé (sd 3,60 pour une moyenne 2,36) : son `z` n'est
+pas interprétable, seul le `p` empirique l'est.
+
+### Une erreur de protocole, et sa réparation
+
+Le galop d'essai de ce fichier **a consigné ses deux lignes au registre** — à
+40 réplicats au lieu de 300. Le registre est append-only et partagé ; il n'est
+pas réécrit à la main. La réparation est celle que le dossier a déjà employée
+au §38 : `lab.dedupe()`, qui ne garde que la **dernière** consignation de
+chaque `id` et a écrasé les deux lignes d'essai par les deux lignes à 300
+réplicats. Le fichier porte désormais un garde-fou explicite — en mode essai,
+il n'écrit rien et sort.
+
+### Ce que cela ferme, et ce que cela n'atteint pas
+
+**Fermé.** La famille linéaire est désormais couverte par une somme (c1, d2),
+un maximum et un Higher Criticism — la même couverture que la famille
+quadratique depuis h24.
+
+**Ce que ce n'est pas.** Deux tests conformes n'établissent pas l'absence de
+couplage : ils établissent qu'aucun couplage assez fort pour être vu **à cette
+puissance** n'est présent. La puissance n'est pas mesurée ici, et c'est la
+limite principale — le dossier exige d'ordinaire un témoin positif, et il
+faudrait une contamination très creuse (`s` de 1 à 10) pour le fournir. Sans
+lui, ces deux lignes valent comme **couverture de famille**, pas comme borne.
+
+**Ce que cela ne change pas.** Le théorème d'invariance tient. Ce qui a bougé
+est la **carte de ce qui a été cherché**, pas le résultat de la recherche.
