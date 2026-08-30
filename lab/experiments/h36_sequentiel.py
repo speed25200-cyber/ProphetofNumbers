@@ -614,10 +614,10 @@ say(f"""
        dès que J dépasse un seuil proche de S : on retrouve R2. (2) La
        carte est presque BANG-BANG — un balayage fin de 160×160 états ne
        trouve {"que les n intermédiaires " + str(sorted(inter)) + " sur une bande étroite"
-              if inter else "AUCUN n intermédiaire"} : la contribution de
-       chaque grille disjointe au log-rendement a le même signe, donc la
-       décision est « toutes les treize ou rien », et l'information utile
-       est la frontière J₀(W) ci-dessous. (3) Tout est lisible à l'écran :
+              if inter else "AUCUN n intermédiaire"} : hors cette frontière,
+       la contribution de chaque grille disjointe au log-rendement a le
+       même signe, la décision est « toutes les treize ou rien », et
+       l'information utile est la frontière J₀(W) ci-dessous. (3) Tout est lisible à l'écran :
        W, J, p, c — α absent, comme pour R2. La politique de but (B3) et la
        politique de croissance, deux objectifs étrangers, convergent vers
        la même forme : seuil de cagnotte croissant quand le capital baisse.""")
@@ -807,9 +807,9 @@ for alpha_v in (0.08, 0.295, 1.0, 3.0):
     mu_v = alpha_v * S
     gap1 = G_KELLY - 1000
     gap2 = G_KELLY - 20000
-    if Vt[1000] <= 0:
-        say(f"   {alpha_v:<8.3g} abandon — à ce prix du temps, la stratégie ne "
-            "vaut plus d'être tentée depuis CHF 1 000")
+    if Vt[1000] < 1e-4:
+        say(f"   {alpha_v:<8.3g} quasi-abandon (V = {Vt[1000]:.1e}) — à ce prix "
+            "du temps, la stratégie ne vaut plus d'être tentée depuis CHF 1 000")
         continue
     p_mc, se_p, t_mc, _ = mc_goal(pol, 1000, M_GOAL, alpha_v, 120_000, RNG)
     band.append(pol[1000] * mu_v / gap1)

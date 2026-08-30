@@ -33,8 +33,11 @@ Ce fichier fait donc trois choses, dans cet ordre :
 Il ne teste pas l'archive. Comme h1, h14 et h17, il prouve et il corrige :
 aucune entrée n'est ajoutée au registre.
 
-Contrainte d'environnement : scipy n'est pas installé (h16 l'importe et
-n'est donc plus rejouable ici). Tout ce qui suit tient en numpy et en
+Contrainte d'environnement au moment d'écrire ce fichier : scipy n'était
+pas installé, et h16 — qui l'importe — n'était donc pas rejouable. Il l'a
+été plus tard dans la même session par un autre travail ; la note est
+gardée telle quelle, datée, plutôt que réécrite après coup. Rien ici n'en
+dépend : tout ce qui suit tient en numpy et en
 `math`, et chaque loi dont on a besoin est simulée plutôt que tabulée —
 règle n° 1 du labo.
 """

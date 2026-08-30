@@ -22,7 +22,8 @@ l'a borné.
 Ce fichier le borne. Il ne teste pas l'archive : comme h1, h14, h17, h25,
 h30 et h31, il démontre.
 
-Environnement : scipy absent — numpy seul, toute loi simulée.
+Environnement au moment d'écrire : scipy absent (installé depuis, dans la
+même session) — numpy seul, toute loi simulée.
 """
 
 import math

@@ -4941,3 +4941,138 @@ toutes disclosées, aucune découverte à la clé.
 
 **Registre : 3 entrées, piste C, lisibles sans Holm. Zéro significatif — et
 cette fois sans avoir eu à nommer ce qu'on cherchait.**
+
+## 53. Le contrôle séquentiel : la cagnotte comme processus, le capital comme état (`h36_sequentiel.py`)
+
+Tout ce que le dossier a construit au-dessus de l'invariance décide **un
+tirage à la fois**. Or la cagnotte est un **processus** (§28) : elle monte de
+`r` par tirage et tombe avec probabilité `q`. Le joueur choisit à chaque
+tirage entre agir et attendre, et personne n'avait posé cela comme ce que
+c'est — un problème de contrôle markovien.
+
+### Ce que vaut « attendre » : exactement zéro, et c'est démontré
+
+L'objection qui motivait la question — « ne pas jouer aujourd'hui pour jouer
+demain avec un capital intact » — supposerait que jouer consomme l'occasion
+de demain. Il ne la consomme pas : les profits sont additifs, et si l'action
+ne touchait pas la transition de la cagnotte, l'optimum serait **myope**,
+donc exactement le seuil de bascule. Le témoin qui coupe ce canal le confirme
+**au tirage près**. Le théorème M gagne ainsi un étage.
+
+**Mais l'action touche la transition par un canal unique que le calcul
+statique ne peut pas voir : gagner éteint la cagnotte.** Jouer ajoute `n·p`
+au taux de chute et détruit, avec cette probabilité, la valeur future du
+processus. La condition de Bellman tient en une ligne :
+
+```
+jouer en t  ⟺  J_t > S + (1−q)·h(t+1)     avec h ≥ 0
+```
+
+> Le seuil séquentiel est donc **toujours au-dessus** du seuil statique,
+> jamais en dessous, et l'écart est gouverné par `n·p/q` — **la part du taux
+> de chute que le joueur s'inflige à lui-même.**
+
+| joueur | `n·p/q` | seuil optimal | coût d'ignorer |
+|---|---|---|---|
+| une grille parmi la foule | 0,052 | ≈ S | **0,131 %** — le §29 tient |
+| 13 grilles, 67 % du taux de chute | 0,67 | **CHF 8 651** (S + 0,39 μ) | **10,2 %** |
+
+Deux lectures opposées, et les deux comptent. Pour un joueur isolé, c'est un
+**renforcement** du §5 bis, désormais appuyé sur une raison nommée. Pour
+quelqu'un qui jouerait les treize grilles en pesant lourd dans le taux de
+chute, c'est une **correction** : s'en tenir au seuil statique laisse un
+dixième du profit.
+
+Et la règle corrigée est **sans α** : comparer `n·p` au taux de chutes
+observé — le comptage que le §36 fait déjà tenir à l'app — et ne relever le
+seuil que si ce rapport est visible.
+
+### Le théorème du compteur d'essais
+
+Second état : la réserve `W`, avec le prix plancher du ticket — on n'achète
+pas une fraction de ticket. Objectif : atteindre le régime de Kelly avant la
+ruine. La réduction qui résout tout est l'invariance elle-même : **chaque
+ticket gagne avec probabilité `p` quel que soit le niveau de cagnotte où il
+est tiré.**
+
+> **Théorème du compteur d'essais.** Pour *toute* politique — niveaux visés,
+> nombre de grilles, géométrie, ordre des mises —
+> `P(atteindre G avant la ruine) ≤ 1 − (1−p)^{W₀/c}`, et la borne est
+> **atteinte** par la politique audacieuse-en-cagnotte : ne tirer un ticket
+> que lorsque la cagnotte affichée suffit à elle seule à boucler l'objectif.
+>
+> Le capital est un compteur d'essais. Une politique ne choisit pas leur
+> nombre, seulement le **niveau de cagnotte** où chaque essai est dépensé.
+
+La borne ne contient **pas α** : 12,1 % depuis CHF 1 000, 72,5 % depuis
+CHF 10 000. *Recoupé pour ce rapport : 12,102 % et 72,471 %.*
+
+Son prix est le temps — viser le plancher de Kelly n'arrive qu'à 3,5·10⁻⁷ des
+tirages, une occasion tous les 38 ans. En facturant le temps, on obtient une
+frontière plutôt qu'un chiffre : 12,2 % en 2 800 ans, 10,3 % en 14 mois,
+8,2 % en 105 jours.
+
+**La forme de la politique est le résultat actionnable, et elle renverse le
+§30.** Plus le capital est loin du but, plus il faut être **audacieux en
+cagnotte** — viser haut, tirer rarement, mise minimale — et redescendre vers
+le seuil ordinaire en approchant. Sous le plancher de capital, la bonne
+réponse n'est donc **pas** de miser plus gros à chaque occasion : c'est de
+miser aussi petit que possible sur des occasions plus rares et plus hautes.
+
+Le nombre de grilles ne change pas la probabilité — mêmes essais — il divise
+seulement la durée par 13. Et le théorème classique refait surface là où on
+l'attend : à fort prix du temps, la politique optimale tire **sous** le seuil
+de faveur, des paris d'espérance négative achetés contre du temps.
+L'audace de Dubins-Savage n'avait pas disparu du problème ; elle attendait
+qu'on facture le temps.
+
+### La géométrie ne dépend pas de l'état — et le prouver a exigé de reproduire d'abord la bascule
+
+Le théorème de bascule du §26 est **reproduit** sur un rang à gain fixe :
+sous-équitable, concentrer gagne partout ; sur-équitable, étaler gagne
+×12,8. *Une intuition corrigée en route : la première version attendait
+« étaler près du but, concentrer loin » par la seule courbure de l'objectif.
+La table a répondu concentrer sur toute la colonne sous-équitable —
+l'érosion du capital entre deux gains stérilise les volées tardives.*
+
+Mais le rang qui compte est **partagé**, et le partage tue la bascule :
+13 grilles disjointes touchent `J/(1+W)` avec probabilité `13p` ; 13 tickets
+empilés touchent `13J/(13+W)` avec probabilité `p`. **Empiler ne grossit pas
+le pot, il le partage avec soi-même.** Le disjoint domine dans tous les
+états, à tous les `λ` jusqu'à 5 inclus.
+
+> **Conclusion pour l'app, actionnable par sa négation : NON, les douze
+> grilles ne doivent pas changer de géométrie selon la cagnotte. Disjointes
+> partout.** La bascule est réelle — le témoin la reproduit — mais elle n'a,
+> dans ce jeu, aucun état où s'exercer : le régime convexe ne concerne que
+> des rangs à gain fixe non partagés, or le rang joué au-dessus du seuil est
+> le pot progressif, et sous le seuil la politique optimale est de ne rien
+> miser.
+
+### Ce qui survit à l'incertitude sur α
+
+**Sans α** : la règle d'admission (corrigée par `n·p/q` **observé**, un
+comptage et non une estimation), la borne du compteur d'essais et la
+politique qui l'atteint, le nombre de grilles optimal et sa frontière, et la
+géométrie disjointe dans tous les états. **Avec α** : les rythmes seuls —
+combien d'occasions, combien de temps.
+
+> Le **point** de la frontière qu'on occupe dépend de α ; la **forme** de la
+> politique n'en dépend pas.
+
+### Limites, et une confession de méthode
+
+Tout repose sur H1–H3 du §28 et hérite de leurs réserves. Les rangs
+intermédiaires sont ignorés — ils ne peuvent qu'adoucir (§50). Le `q` de
+référence est celui du §36, pas une mesure, et c'est pourquoi la règle est
+rendue en `n·p/q`. Tout est par franc misé.
+
+*La première rédaction annonçait l'écart séquentiel « presque gratuit, de
+second ordre » **avant** de l'avoir mesuré — il vaut 10,2 % pour un joueur à
+treize grilles. La même faute une ligne plus loin a été purgée en rendant le
+texte dépendant des valeurs calculées. Deux rappels que pré-écrire une
+conclusion est exactement ce que `lab.preregister` interdit aux tests, et que
+la discipline vaut aussi pour la prose.*
+
+**Registre : inchangé.** Comme `h1`, `h14`, `h17`, `h25` et `h38`, `h36` ne
+teste pas l'archive — il prouve, et il corrige.

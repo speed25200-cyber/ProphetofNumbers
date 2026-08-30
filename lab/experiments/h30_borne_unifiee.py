@@ -26,7 +26,8 @@ n'existe.
 
 Il ne teste pas l'archive. Comme h1, h14, h17 et h25, il prouve.
 
-Environnement : scipy absent, tout est en numpy et en `math`, et chaque loi
+Environnement au moment d'écrire : scipy absent (installé depuis, dans la
+même session). Tout est en numpy et en `math`, et chaque loi
 dont on a besoin est simulée plutôt que tabulée — règle n° 1 du labo.
 """
 

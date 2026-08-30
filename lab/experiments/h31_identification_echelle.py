@@ -30,7 +30,8 @@ ordres » de « elle se referme d'elle-même ».
 Ce fichier mesure cet exposant. Il ne teste pas l'archive : comme h1, h14,
 h17, h25 et h30, il démontre.
 
-Environnement : scipy absent — numpy seul, et toute loi est simulée.
+Environnement au moment d'écrire : scipy absent (installé depuis, dans la
+même session) — numpy seul, et toute loi est simulée.
 """
 
 import math

@@ -20,7 +20,8 @@ n'est vraie que des familles testées. Ce fichier la rend vraie de TOUTES.
 
 Il ne teste pas l'archive : il ajuste et il maximise.
 
-Environnement : scipy absent — numpy seul.
+Environnement au moment d'écrire : scipy absent (installé depuis, dans la
+même session) — numpy seul.
 """
 
 import math
