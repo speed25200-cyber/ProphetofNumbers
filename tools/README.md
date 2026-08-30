@@ -245,3 +245,145 @@ qui survivrait au premier tirage entier a une probabilité C(80,20)⁻¹ ≈
 
 `--selftest` fabrique dix tirages liés par un décalage témoin et exige de le
 retrouver : **48/48**, chacun rendant exactement le décalage témoin.
+
+---
+
+# sweep_keys — l'échantillonneur qui consomme QUATRE-VINGTS sorties
+
+Tous les échantillonneurs ci-dessus consomment **vingt** sorties : un numéro
+par sortie. Aucun n'en consomme quatre-vingts. Or
+
+```sql
+SELECT numero FROM boules ORDER BY RANDOM() LIMIT 20
+```
+
+et son équivalent en une ligne dans n'importe quel langage —
+`argsort(rand(80))[:20]`, `sorted(range(80), key=lambda _: rng())[:20]` —
+tirent **une clé par numéro du bocal** et gardent les vingt plus petites.
+C'est un idiome extrêmement répandu, et il était couvert nulle part.
+
+Il est invisible pour tous les autres outils, et pour une raison de fond :
+
+* les attaques algébriques (h4 à h21) supposent vingt sorties consécutives
+  reliées par une récurrence — ici les vingt numéros publiés dépendent des
+  quatre-vingts clés à la fois, et rien ne relie deux numéros voisins ;
+* les balayages précédents rejettent une graine dès que le **premier** numéro
+  ne tombe pas juste — ce qui n'a aucun sens ici, puisque le premier numéro
+  publié est celui dont la clé est la plus petite parmi les quatre-vingts, et
+  ne peut donc être jugé qu'une fois les quatre-vingts tirées.
+
+```sh
+cc -O3 -march=native -pthread -o sweep_keys sweep_keys.c
+./sweep_keys --selftest
+./sweep_keys 0 4294967296  <o1..o20>
+```
+
+Douze familles × deux conventions (clés croissantes ou décroissantes). Le
+test vérifie que les vingt numéros publiés sont exactement ceux de plus
+petite clé, **et dans l'ordre des clés**.
+
+Pas de sortie anticipée possible : il faut les quatre-vingts clés avant de
+pouvoir juger. Le balayage coûte donc ≈ 57 min par tirage pour 2³² graines
+et 24 combinaisons sur quatre cœurs, contre 2 min pour `sweep_order`.
+
+`--selftest` : **24/24**, chacune rendant exactement une graine — le témoin,
+seul parmi trois millions.
+
+---
+
+# sweep_rand — trois angles morts, dont un qui rendait les autres FAUX
+
+Trois familles et un échantillonneur manquaient, et ce sont trois des
+chemins les plus fréquentés du logiciel ordinaire.
+
+## 1. Le vrai `rand()` de la glibc
+
+`sweep_order` nomme une famille « LCG32 glibc » : s → 1103515245·s + 12345
+mod 2³¹. C'est le TYPE_0 de la glibc, qu'on n'obtient qu'en réduisant
+explicitement l'état à huit octets. **Le `rand()` qu'on obtient en tapant
+`srand(); rand();` sur Linux n'est pas un LCG** : c'est une récurrence
+additive décalée, r[i] = r[i−3] + r[i−31], dont le LCG ne sert qu'à remplir
+la table. 992 bits d'état au lieu de 31, pas la même sortie, pas la même
+trace. Balayer l'un ne dit rien de l'autre.
+
+C'était l'omission la plus grave du dossier : « le `rand()` du C » est la
+première chose qu'écrit quiconque n'a pas réfléchi au sujet — exactement le
+profil recherché. Les quatre tailles de table sont couvertes (TYPE_1 à
+TYPE_4, soit `initstate` à 32, 64, 128 et 256 octets).
+
+## 2. Les LCG à module premier
+
+Toutes les attaques algébriques du labo vivent dans Z/2^k : valuation
+2-adique, inverses modulo une puissance de deux, racines de Hensel. Un
+générateur de Lehmer — s → a·s mod (2³¹−1) — n'offre **aucune** de ces
+prises. MINSTD est pourtant `minstd_rand` du C++11 et le générateur de
+référence de tous les manuels. Ajoutés : 16807, 48271, plus RANDU (65539) et
+le LCG de Borland/Delphi.
+
+## 3. L'échantillonneur par flottant — et pourquoi il invalidait le reste
+
+Les quatre échantillonneurs existants consomment **un** mot par numéro. Or
+
+```java
+int n = (int)(Math.random() * 80) + 1;
+```
+
+est de très loin la façon la plus répandue d'écrire « un numéro au hasard »
+en Java — et `nextDouble()` consomme **deux** appels à `next()` :
+
+    d = ((next(26) << 27) + next(27)) / 2⁵³
+
+Un balayage qui consomme un mot par numéro se **désynchronise donc dès le
+premier**, et meurt en croyant avoir éliminé la graine. Les sorties sont les
+mêmes, la graine est la bonne, et le test répond non.
+
+C'est le pire type d'angle mort : celui qui rend un résultat négatif faux
+sans jamais rien signaler. Les deux échantillonneurs par flottant sont donc
+appliqués aux **vingt** familles, y compris les douze déjà balayées.
+
+## Économie
+
+L'amorçage de la glibc coûte 341 pas là où un LCG en coûte un. Pour ne pas
+le payer six fois, chaque graine est amorcée une fois et ses sorties passent
+par un **tampon paresseux** : les six échantillonneurs lisent le même flux,
+qui ne se remplit qu'à la demande. Une graine fausse mourant au premier
+numéro, le tampon dépasse rarement deux entrées.
+
+Les couples (famille 0-11, échantillonneur 0-3) sont affichés « déjà
+couvert » et non rebalayés.
+
+## Validation — contre les implémentations RÉELLES
+
+L'autotest interne ne prouve que la cohérence du programme avec lui-même.
+Comme pour `sweep_mt`, chaque transcription est donc confrontée à
+l'implémentation d'origine :
+
+| confronté à | ce qui est vérifié | résultat |
+|---|---|---|
+| `rand()` de la glibc | 280 sorties, 7 graines dont 0, 2³¹ et 2³²−1 | 0 écart |
+| `random()` + `initstate` | 270 sorties, tailles 32/64/256 o | 0 écart |
+| `java.util.Random` (JVM) | tirage par `nextDouble()`, avec rejet | graine retrouvée |
+| `java.util.Random` (JVM) | tirage par Fisher-Yates `nextDouble()` | graine retrouvée |
+| `std::minstd_rand` | tirage par modulo, C++11 | graine retrouvée |
+| `std::minstd_rand0` | tirage par Fisher-Yates | graine retrouvée |
+| arithmétique flottante | `(w·80)>>53` contre `(int)(d*80)` | 0 écart / 4·10⁶ |
+
+Les deux dernières lignes méritent un mot. La forme entière `(w·80)>>53` ne
+va **pas** de soi : `w·80` demande jusqu'à 60 bits, que la mantisse de 53
+bits d'un `double` ne porte pas, et l'arrondi pourrait franchir un entier.
+La borne critique est w ≡ 0 mod 2⁴⁹ — testée explicitement à ±3 près, où
+l'arrondi est le plus tendu. Aucun écart.
+
+Cette confrontation a aussi corrigé deux étiquetages faux, du même genre que
+celui qu'avait attrapé `sweep_mt` : MINSTD était amorcé `graine mod (m−1) + 1`
+et RANDU forçait le bit de poids faible. Dans les deux cas la **couverture**
+était complète — mais une touche aurait rendu une graine décalée, c'est-à-dire
+inutilisable pour qui aurait voulu la vérifier.
+
+Enfin, le critère de l'autotest a dû être corrigé. Exiger que la première
+graine compatible soit le témoin est un critère **faux** : RANDU et glibc
+TYPE_0 vivent modulo 2³¹, MINSTD modulo 2³¹−1, si bien que deux graines
+distinctes de [0, 2³²) mènent au même état et sont légitimement toutes deux
+compatibles. La seule question qui compte est : le témoin survit-il ?
+
+`--selftest` : **70/70**.
