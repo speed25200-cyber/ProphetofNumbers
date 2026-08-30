@@ -415,9 +415,14 @@
       <div class="cell-note">Borne d'omniscience, pire famille</div>
     </div>
     <div class="cell">
-      <div class="cell-label">Ce qu'un joueur pourrait réellement en tirer</div>
+      <div class="cell-label">Ce qu'un joueur pourrait réellement en tirer, en choisissant ses numéros</div>
       <div class="cell-value">≈ +1,0 %</div>
       <div class="cell-note">Mesuré sur la famille marginale&nbsp;: il doit d'abord identifier le biais</div>
+    </div>
+    <div class="cell is-flagged">
+      <div class="cell-label">En choisissant le MOMENT plutôt que les numéros</div>
+      <div class="cell-value">+29,5 %</div>
+      <div class="cell-note">Par franc misé, en ne jouant qu'au-dessus du seuil de bascule&nbsp;; borne basse +8&nbsp;% sur un seul relevé</div>
     </div>
     <div class="cell is-flagged">
       <div class="cell-label">Avantage que l'app affiche sur des données équitables</div>
@@ -425,7 +430,7 @@
       <div class="cell-note">Entièrement artefactuel</div>
     </div>
   </div>
-  <p class="readout-caption">Rendement, en hits par grille de 10 numéros, rapporté à la base 2,50.</p>
+  <p class="readout-caption">Les trois premiers chiffres sont des rendements en hits par grille de 10 numéros, rapportés à la base 2,50. Le quatrième est d'une autre nature&nbsp;: il ne vient pas des numéros mais du moment, et c'est le seul endroit du dossier où l'espérance change de signe.</p>
 
   <section>
     <h2>La prédiction est plafonnée à zéro, pas «&nbsp;difficile&nbsp;»</h2>
@@ -1661,6 +1666,90 @@
         appliquait un filtre de divisibilité valable seulement à espacement pair. Sur des tirages
         consécutifs, le meilleur schéma possible, l'attaque ne trouvait donc jamais rien — sans que
         rien ne le signale.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Le seul endroit où l'espérance change de signe — et de combien</h2>
+    <div class="col">
+      <p>
+        Toute la partie précédente porte sur le CHOIX des numéros, et la réponse y est zéro. Reste
+        une variable dont aucun théorème ne dit rien&nbsp;: le <em>moment</em>. Dès que la cagnotte
+        progressive dépasse mise ÷ P(k sur k), la cagnotte seule rembourse la mise — le pari devient
+        favorable, quel que soit le barème des rangs intermédiaires, qui ne peuvent qu'ajouter.
+      </p>
+      <p>
+        La question était&nbsp;: quand ce moment arrive, il vaut combien&nbsp;? La réponse a une
+        forme fermée qui n'était pas prévisible. Une cagnotte qui monte d'un pas fixe et retombe
+        quand elle est remportée est sans mémoire&nbsp;; son excédent au-dessus de n'importe quel
+        seuil vaut donc toujours sa moyenne µ. D'où un rendement conditionnel de <strong>1 +
+        µ/S</strong> — et µ/S est très exactement le nombre qu'on lisait jusqu'ici comme une
+        <em>distance</em> au seuil.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      La même quantité mesure la distance au point de bascule et le profit disponible une fois ce
+      point franchi.
+    </div>
+
+    <div class="col">
+      <p>
+        Et ce rapport ne dépend pas du nombre de joueurs. Si la cagnotte reçoit une fraction α de la
+        mise collectée, µ/S vaut α&nbsp;: plus de joueurs la font monter plus vite <em>et</em> la
+        font tomber plus souvent, exactement dans la même proportion. <strong>Le gain conditionnel
+        est la part de la mise que l'opérateur verse dans la cagnotte, et rien d'autre.</strong>
+      </p>
+      <p>
+        Le seuil de bascule est aussi l'optimum, pas un pis-aller&nbsp;: attendre une cagnotte plus
+        grosse augmente le gain par occasion mais raréfie les occasions plus vite encore, et le point
+        d'équilibre tombe exactement sur le seuil.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Gain espéré par franc misé, en ne jouant qu'au-dessus du seuil</caption>
+        <thead>
+          <tr><th>mise</th><th>cagnotte relevée</th><th>seuil de bascule</th><th>gain conditionnel</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>5 numéros</td><td>CHF 355</td><td>CHF 1 551</td><td>+22,9&nbsp;%</td></tr>
+          <tr class="is-key"><td>6 numéros</td><td>CHF 2 287</td><td>CHF 7 753</td><td><strong>+29,5&nbsp;%</strong></td></tr>
+          <tr><td>7 numéros</td><td>CHF 1 540</td><td>CHF 40 979</td><td>+3,8&nbsp;%</td></tr>
+          <tr><td>8 numéros</td><td>CHF 9 292</td><td>CHF 230 115</td><td>+4,0&nbsp;%</td></tr>
+          <tr><td>10 numéros</td><td>CHF 495 713</td><td>CHF 8,9 M</td><td>+5,6&nbsp;%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        L'incertitude est cette fois bien mieux tenue qu'ailleurs dans ce dossier&nbsp;: le gain est
+        <em>linéaire</em> en µ, là où la fréquence de franchissement en dépendait exponentiellement.
+        Avec un seul relevé, l'intervalle à 95&nbsp;% va de <strong>+8&nbsp;%</strong> à +1 165&nbsp;% —
+        la borne basse est positive.
+      </p>
+      <p>
+        L'objection du partage entre gagnants se dissout d'elle-même. Elle tuerait la stratégie s'il
+        fallait s'attendre à plus d'un demi-gagnant par tirage&nbsp;; mais ce nombre est aussi le taux
+        auquel la cagnotte tombe, et une cagnotte qui atteint visiblement des milliers de francs
+        tombe une fois toutes les dizaines de tirages. La condition de survie de la stratégie et la
+        condition d'existence d'une cagnotte progressive sont la même condition.
+      </p>
+      <p>
+        <strong>La réserve, et elle est sérieuse.</strong> Une part de cagnotte de 29,5&nbsp;% serait
+        anormalement généreuse&nbsp;: 1 à 5&nbsp;% est l'usage. Trois explications restent ouvertes —
+        un seul relevé est très bruité&nbsp;; la cagnotte affichée n'est peut-être pas purement
+        progressive&nbsp;; ou le ticket ne coûte pas un franc, auquel cas tous les seuils se
+        multiplient d'autant. Les trois se lèvent avec les mêmes données&nbsp;: une série de relevés,
+        et le prix du ticket.
+      </p>
+      <p>
+        Enfin, rien de tout cela ne prédit un numéro. Le gain vient du <em>moment</em>, pas du choix
+        des numéros&nbsp;; l'invariance sort intacte. Et à ce moment-là, c'est la géométrie du
+        portefeuille qui dit comment répartir les grilles.
       </p>
     </div>
   </section>
