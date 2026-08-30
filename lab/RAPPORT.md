@@ -4394,11 +4394,13 @@ vingt-cinq minutes, et l'app les accumule seule depuis le §34.
 
 ## 48. Où la courbe se retourne, et le maximum de toute la piste A (`h38_maximum_realisable.py`)
 
-> **Déplacé au §59.** Le maximum de +1,28 % calculé ici est celui d'un couple
-> (famille, estimateur). Le point « paires cachées » passe de 1,32 % à 2,16 %
-> avec un estimateur adapté à la parcimonie, ce qui porte le maximum de la
-> piste A à **au moins +2,16 %**. Le point quadratique, où le gain
-> d'alignement mesuré est de ×8,57 contre ×2,28, n'est pas refait.
+> **Discuté au §59, puis CONFIRMÉ au §61.** Le §59 annonçait que ce maximum
+> montait à +2,16 % avec un estimateur adapté à la parcimonie ; le §61 montre
+> que le plafond d'omniscience du même point tombe de 44 % face aux détecteurs
+> ajoutés au §60, et que le net vaut 1,20 %. Le §61 balaie de plus l'axe de la
+> parcimonie, que cette section ne balayait pas, et y trouve le maximum **au
+> bord, en s = m** — c'est-à-dire exactement ici. Le chiffre de cette section
+> tient ; ce qu'elle ignorait, c'est pourquoi.
 
 Le §45 établit que le plafond réalisable se retourne — 0,53 puis 0,99 puis
 1,30 puis **0,71** — mais il ne le **localise** pas. Tant que le maximum
@@ -5710,6 +5712,15 @@ seule chose qu'un dossier puisse faire d'une observation qu'il n'a pas encore.
 
 ## 59. Le mur de la piste A est un mur d'estimateur (`h44_parcimonie.py`)
 
+> **CORRIGÉ AU §61, et sur sa conclusion même.** Le gain d'estimateur mesuré
+> ici (×1,64, apparié, positif sur cinq archives) tient. La conclusion qu'on en
+> tire — « le maximum de la piste A passe à au moins +2,16 % » — est **fausse** :
+> elle multiplie une part captée améliorée par un plafond d'omniscience calculé
+> contre le χ² seul, alors que le §60 venait d'ajouter deux détecteurs qui font
+> tomber ce plafond de 44 % à `s = 50`. Le net vaut **1,20 %** contre 1,32 %
+> publié : le mur n'a pas bougé. Les tableaux ci-dessous restent exacts ; c'est
+> leur mise en produit qui ne l'était pas.
+
 Trois sections ferment la piste A — prédire les numéros — par une paire de
 lois d'échelle qui se compensent : le plafond d'omniscience croît en `m^(1/4)`
 (§41), le SNR d'identification décroît en `m^(−1/4)` (§42), la courbe se
@@ -5981,3 +5992,130 @@ lui, ces deux lignes valent comme **couverture de famille**, pas comme borne.
 
 **Ce que cela ne change pas.** Le théorème d'invariance tient. Ce qui a bougé
 est la **carte de ce qui a été cherché**, pas le résultat de la recherche.
+
+## 61. L'axe manquant, balayé — et le §59 corrigé (`h46_axe_parcimonie.py`)
+
+Les deux sections précédentes tirent en sens opposés sur la même quantité :
+
+- **§59** — une déviation **creuse** est bien plus facile à identifier. *La
+  parcimonie aide le joueur.*
+- **§60** — la famille linéaire a gagné un maximum et un Higher Criticism, et
+  la frontière d'Ingster–Donoho–Jin dit qu'ils mordent **exactement** dans le
+  régime creux. *La parcimonie nuit à l'adversaire.*
+
+Le net n'était pas calculé. Il l'est ici, et **il va contre la section qui l'a
+motivé.**
+
+### L'axe que le dossier ne balayait pas
+
+Le §41 fait croître `m`. Le §42 fait croître `m`. Le §48 maximise sur `m`.
+Aucun ne fait varier `s`, le nombre de cellules **actives** — il vaut toujours
+implicitement `m`, puisque `h31.make_eps` tire une déviation isotrope. Or les
+deux facteurs du produit du §48 dépendent de `s`, et en sens opposés.
+
+`m = 6 400`, `N = 70 560`, plafond à 50 % de puissance, seuil `z = 4,33` d'un
+null simulé pour chacun des trois détecteurs du registre :
+
+| s | plafond χ² | plafond 3 dét. | détecteur liant | avantage oracle | part captée | **réalisable** |
+|---|---|---|---|---|---|---|
+| 2 | 0,1066 | 0,0305 | HC | 1,41 | 0,971 | 1,37 |
+| 10 | 0,1120 | 0,0344 | HC | 3,64 | 0,831 | 3,02 |
+| 40 | 0,0950 | 0,0516 | HC | 10,55 | 0,773 | 8,16 |
+| **50** | 0,0972 | 0,0542 | HC | 12,13 | 0,754 | 9,15 |
+| 80 | 0,0950 | 0,0617 | HC | 17,74 | 0,699 | 12,40 |
+| 200 | 0,0818 | 0,0786 | HC | 35,35 | 0,636 | 22,47 |
+| 800 | 0,0812 | 0,0800 | χ² | 71,97 | 0,370 | 26,61 |
+| 2 400 | 0,0800 | 0,0800 | χ² | 113,78 | 0,242 | 27,57 |
+| **6 400** | 0,0838 | 0,0829 | χ² | 109,24 | 0,274 | **29,90** |
+
+> **Le résultat est négatif, et il faut le dire ainsi.** L'hypothèse qui a
+> motivé ce fichier — que le maximum serait *intérieur*, la parcimonie ouvrant
+> une porte que le §48 aurait manquée — est **fausse**. Le maximum est au
+> bord, en `s = m`, exactement là où le §48 se tenait.
+
+La raison se lit dans les deux colonnes du milieu. De `s = m` à `s = 2`, la
+part captée monte de 0,27 à **0,97** — le §59 avait raison sur ce point — mais
+l'avantage de l'oracle s'effondre de 109 à **1,4**, un facteur 78. Une
+déviation creuse est bien plus facile à lire, **mais il y a bien moins à y
+lire** : le seuil de détection borne l'amplitude **totale**, et la concentrer
+sur peu de cellules n'en crée aucune.
+
+Le §48 avait donc raison de se tenir où il se tenait. **Il ne le savait pas** :
+il n'avait pas balayé cet axe, et rien dans son texte ne dit pourquoi `s = m`
+serait le bon choix. La différence entre avoir raison et savoir pourquoi est
+ce que cette section ajoute.
+
+### Ce que les détecteurs du §60 coûtent à l'adversaire
+
+| s | perte d'amplitude | détecteur liant |
+|---|---|---|
+| 2 | **71,4 %** | HC |
+| 10 | 69,3 % | HC |
+| 50 | **44,3 %** | HC |
+| 200 | 4,0 % | HC |
+| 800 et au-delà | ≈ 0 % | χ² |
+
+Ils ne mordent que dans le régime creux — précisément ce que la frontière
+d'Ingster–Donoho–Jin annonce, et précisément le seul régime que le χ² ne
+couvrait pas. (Les valeurs autour de zéro, y compris un −0,0 %, sont le bruit
+de bissection : les deux plafonds y coïncident.)
+
+### Le net au point de fonctionnement réel — et le §59 est faux
+
+Les paires cachées ont `s = 50` sur `m = 6 400`. C'est là que le §45 mesure
+0,41 et le §41 un plafond de 3,21 %, d'où le 1,32 % du §48.
+
+| lecture | plafond | captée | réalisable |
+|---|---|---|---|
+| §48, telle que publiée | 3,21 % | 0,41 | **1,32 %** |
+| §59 seul (meilleur estimateur) | 3,21 % | 0,67 | 2,16 % |
+| **§59 + §60 — le net** | **1,79 %** | 0,67 | **1,20 %** |
+
+> **Le §59 annonçait « au moins +2,16 % » et concluait que le mur avait bougé
+> de 69 %. C'était faux.** Il comparait un numérateur amélioré à un
+> dénominateur périmé : le plafond de 3,21 % est calculé contre le χ² **seul**,
+> et contre les trois détecteurs désormais au registre l'amplitude admissible à
+> `s = 50` tombe de 44,3 %. Le même raisonnement qui rend une déviation creuse
+> plus **lisible** la rend plus **détectable**.
+
+**Le net vaut 1,20 % contre 1,32 % publié — soit −9 %. Le mur n'a pas bougé ;
+il s'est très légèrement resserré.**
+
+### Ce qui reste du §59, et ce qui tombe
+
+**Reste.** Le gain d'estimateur mesuré en marche avant sur cinq archives
+contaminées — ×1,64, apparié, positif sur les cinq. C'est une mesure, elle
+tient, et elle vaut là où une matrice est **appliquée**. Le Théorème O tient
+aussi : l'exposant de la loi d'identification change bien de signe avec la
+parcimonie.
+
+**Tombe.** La conclusion qu'on en tirait. Le plafond de la piste A ne passe pas
+à +2,16 %. Le §59 a trouvé un vrai gain sur un facteur et l'a multiplié par un
+autre facteur qui, entre-temps, avait cessé d'être valide — et c'est sa propre
+section suivante qui l'avait invalidé.
+
+### Ce que cela ne fait pas
+
+**Le théorème d'invariance n'est pas touché, et il ne peut pas l'être.**
+`E[hits] = Σ_{i∈G} P(i tiré) = k/4` dès que `P(i tiré) = 1/4` pour tout `i` :
+c'est la linéarité de l'espérance, pas une conjecture. Tout ce fichier
+travaille **sous l'hypothèse que cette uniformité est fausse** — la seule
+manière d'attaquer l'énoncé, et ce que les 3 327 tests du registre font depuis
+le début, sans succès à ce jour.
+
+### Limites
+
+1. `m` est fixé à 6 400. Le maximum **conjoint** sur `(m, s)` demanderait le
+   même balayage à plusieurs `m` ; ce fichier établit que l'axe existe et
+   qu'il ne recèle pas de maximum caché, pas la position du maximum conjoint.
+2. La part captée est celle de la règle du §42 — classement **direct** des
+   cellules, où seuiller ne change rien au classement. Le gain d'estimateur du
+   §59 n'entre donc pas dans ce tableau : les deux résultats sont
+   complémentaires, non cumulables tels quels.
+3. Le joueur estime sur les mêmes données que le test (limite n° 3 du §42,
+   héritée) : les chiffres sont **majorants**.
+4. La frontière d'Ingster–Donoho–Jin est asymptotique. Elle sert ici à dire
+   **où regarder**, jamais à fournir un nombre : tous les plafonds sont mesurés
+   par bissection sur un null simulé.
+
+**Registre : inchangé.** `h46` ne teste pas l'archive — il balaye un modèle.

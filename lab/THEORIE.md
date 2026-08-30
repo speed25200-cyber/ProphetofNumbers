@@ -954,6 +954,15 @@ donne un plafond réalisable en `m^(+0,061)` — c'est le `+0,0616` du §42 à
 trois décimales, et c'est le contrôle qui autorise à lire le second, qui vaut
 `m^(+0,345)`.
 
+**Portée, et le §61 l'a restreinte.** Le théorème dit vrai : l'exposant de la
+loi d'identification change bien de signe avec la parcimonie. Mais il ne suffit
+pas à déplacer le plafond, et c'est le §61 qui l'a montré en balayant l'axe
+`s` : le même argument qui rend une déviation creuse plus **lisible** la rend
+plus **détectable**, et l'avantage total qu'elle peut cacher s'effondre bien
+plus vite que la part captée ne monte. Le produit — plafond × part captée — est
+maximal au **bord dense**, `s = m`. Ce théorème gouverne donc la lecture d'un
+biais, jamais son ampleur.
+
 **Portée, et il faut la dire exactement.** Les familles que le §45 a mesurées
 sont creuses, et de très loin : les paires cachées portent 50 entrées non
 nulles sur 6 400 (SNR par cellule **3,13**), le tenseur quadratique 80 sur
