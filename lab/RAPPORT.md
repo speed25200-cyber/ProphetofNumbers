@@ -1625,3 +1625,31 @@ Armé dans l'app (`RankAttack.narrowSourceWidth`), avec un correctif que la
 vérification a imposé : un simple test de significativité renvoyait B−1 au
 lieu de B, la moitié des rangs d'une source de B bits étant aussi
 atteignables à B−1. Le critère de taux quasi total nomme la largeur exacte.
+
+## 19. L'ordre de sortie, enfin (`h7_ordre.py`)
+
+Le tirage **1381023**, relevé sur l'écran de tirage en direct, est la
+première donnée ordonnée du dossier — 122,69 bits contre 61,62 pour un
+tirage trié, soit **×1,991**.
+
+Il rend utilisable le **levier 2-adique** : un LCG mod 2⁶⁴ conserve ses bits
+de poids faible comme LCG mod 2^k, et l'échantillonneur `s mod 80` publie
+donc les 4 bits bas de l'état. Sans l'ordre, « consécutif » n'a pas de sens
+et le levier n'existe pas.
+
+Deux tests décisifs **sur un seul tirage**, puissance mesurée à **1,00** :
+
+| hypothèse | témoins positifs | null | tirage réel |
+|---|---|---|---|
+| LCG + rejet `s mod 80` | 18,0 / 19 paires | 4,50 ± 0,76 (max 8 / 3 000) | **4 / 19** |
+| LCG + Fisher-Yates | 2 048 triplets | 0 dans 30/30 | **0** |
+
+Les deux familles d'implémentation les plus répandues sont exclues. Et la
+conclusion ne dépend pas de ma lecture de la grille : les six lectures
+plausibles ont été testées, aucune ne montre de signature.
+
+Reste hors d'atteinte avec un tirage : multiply-shift, générateurs non
+congruentiels, tirage physique. Ces classes demandent des tirages ordonnés
+**consécutifs** — deux à trois suffiraient en théorie de l'information
+(122,69 bits par tirage contre 192 bits d'inconnues), le blocage devenant
+algorithmique et non plus informationnel.

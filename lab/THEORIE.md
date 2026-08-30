@@ -328,3 +328,49 @@ en une seconde). Le détecteur est donc armé en permanence dans l'app
 contenter de la signaler — un simple test de significativité renverrait B−1,
 puisque la moitié des rangs d'une source de B bits sont aussi atteignables à
 B−1 ; c'est le critère de taux quasi total qui tranche.
+
+---
+
+## L'ordre de sortie, enfin (`h7_ordre.py`)
+
+Tout le dossier répétait que l'ordre de sortie des boules est le plus gros
+gain d'information disponible — **122,69 bits contre 61,62, soit ×1,991** —
+sans avoir jamais pu le toucher : l'archive est triée sur ses 70 560 lignes.
+Le tirage **1381023**, relevé sur l'écran de tirage en direct, est la
+première donnée ordonnée du dossier.
+
+**Le levier 2-adique.** Un générateur congruentiel modulo 2⁶⁴ a une
+propriété que rien n'efface : s_{t+1} ≡ a·s_t + c (mod 2^k) pour tout k. Les
+bits de poids faible forment leur propre LCG. Or l'échantillonneur le plus
+répandu pour tirer dans 1..80 est `s mod 80`, et 80 = 16 × 5 — donc **le
+numéro publié révèle directement les 4 bits de poids faible de l'état**.
+Sans l'ordre, ce levier est inutilisable : « consécutif » n'a aucun sens sur
+un tirage trié.
+
+Deux tests, deux familles d'implémentation, tous deux décisifs sur **un seul
+tirage** :
+
+| hypothèse | statistique | témoins positifs | témoins négatifs | tirage 1381023 |
+|---|---|---|---|---|
+| LCG + rejet (`s mod 80`) | paires expliquées par une relation affine mod 16 | **18,0 / 19** | 4,50 ± 0,76 (max 8 sur 3 000) | **4 / 19** — p = 0,96 |
+| LCG + Fisher-Yates | triplets (A, C, s₀) mod 64 survivants | **2 048** | 0 dans 30/30 | **0** |
+
+La puissance à un seul tirage vaut **1,00** (120 témoins positifs sur 120).
+Les deux familles d'implémentation les plus répandues sont donc **exclues
+par un unique tirage ordonné**.
+
+**Robustesse à ma propre lecture.** L'ordre a été relevé sur une grille 4 × 5,
+lue ligne par ligne, sans que j'aie pu visionner l'enregistrement. Une
+conclusion qui dépendrait de cette lecture ne vaudrait rien : les six
+lectures plausibles — lignes, colonnes, leurs inverses, boustrophédon, bas
+vers haut — ont donc toutes été testées. **Aucune ne fait apparaître de
+signature** (4 à 5 paires sur 19, 0 survivant partout).
+
+**Ce qui reste, et ce qu'il faudrait pour l'atteindre.** Le levier 2-adique
+ne mord pas sur un échantillonneur multiply-shift (⌊s·80 / 2⁶⁴⌋), où ce sont
+les bits de poids FORT qui filtrent, ni sur un générateur non congruentiel,
+ni sur un tirage physique. Pour ces classes il faut des tirages ordonnés
+**consécutifs** : chacun apporte 122,69 bits contre 192 bits d'inconnues
+(a, c, état), donc **deux à trois tirages consécutifs suffisent en théorie
+de l'information** — le blocage devient algorithmique (réduction de réseau),
+plus informationnel.
