@@ -3858,3 +3858,124 @@ plafond « pendant » — un facteur 4 à 8.
    périodogramme à 0,01 écart-type par tirage.
 
 **Registre : inchangé.** `h32` ne teste pas l'archive — il démontre.
+
+## 44. La foule inconnue : ce que l'anti-foule peut prouver (`h29_partage.py`)
+
+Le §16 laissait la troisième pierre dans un état inconfortable. L'espérance
+bouge sous partage — c'est un théorème, et c'est le seul endroit du dossier
+où elle bouge sans rien supposer du générateur — mais l'ampleur annoncée
+(×1,77 à ×2,67) reposait sur un modèle de popularité **écrit à la main**,
+jamais mesuré sur ce jeu et non mesurable, la répartition des mises n'étant
+pas publiée. `h29` sort de l'impasse par le haut : que reste-t-il quand on ne
+suppose **rien** de la foule ?
+
+### Le jeu, et son théorème
+
+Le joueur choisit une loi sur les grilles, la nature choisit la répartition
+de `N` tickets adverses, le rang partagé paie `J/(1+co-gagnants)`. Le groupe
+des permutations des 80 numéros laisse le tirage invariant, la garantie est
+concave, et la moyenne d'orbite de toute stratégie est l'uniforme :
+
+> **La grille uniformément aléatoire est exactement minimax.**
+
+La clef est un lemme d'une ligne : pour une grille uniforme, `P(g ⊆ d)` est
+le même pour tout tirage `d`, donc conditionner au gain **ne déforme pas le
+tirage**. Le mécanisme de `h3` — « mes numéros sont déjà dans D, une foule
+qui les aime a une longueur d'avance » — disparaît en moyenne, et
+`E[gain] = J·p·E[1/(1+W)]` avec `D` uniforme, `p` en facteur exact. La
+famine Monte-Carlo qui a piégé ce dossier trois fois est ainsi évitée **par
+construction**, pas par prudence.
+
+### La valeur, encadrée puis atteinte
+
+La nature minimise `E[1/(1+W)]` sous `E[W] = N·p = m` : la minorante convexe
+interpolée aux entiers donne la borne universelle `L(m)` (= `1 − m/2` pour
+`m ≤ 1`), la foule i.i.d. uniforme donne la majorante exacte, et l'écart est
+`≤ m²/6`.
+
+Dans un jeu réduit — 8 numéros, 3 tirés, grilles de 2, foule de 3 — les 4 060
+foules énumérées donnent la valeur **exactement** à la prédiction
+pré-enregistrée `p·L(3p) = 141/1568`, atteinte par les foules en triples
+disjoints : *la nature optimale étale, elle aussi*.
+
+*Recoupé indépendamment pour ce rapport, en arithmétique de fractions
+exactes et par une énumération écrite à part : `p = 3/28`, garantie minimax
+de l'uniforme `= 141/1568` au chiffre près, foule optimale `{01, 23, 45}`,
+disjointe. Deux implémentations sans rien en commun tombent sur la même
+fraction.*
+
+Et une grille **déterministe**, furtive comprise, n'a pour garantie que
+`J·p/(1+N)` : la nature pose ses `N` tickets dessus. **Le pire cas ne lit pas
+les numéros ; il lit la prévisibilité.** « Éviter la foule » n'est pas
+prouvable — « être imprévisible » l'est, et vaut un facteur `(1+N)·v(N)` de
+garantie, soit ×88 681 à la mise 10 pour `N ≈ 9·10⁴`.
+
+### Ce qui survit au pire cas, et ce qui n'y survit pas
+
+Pour un portefeuille, la symétrisation laisse un degré de liberté : le
+**motif de recouvrements**, tiré ensuite par permutation uniforme privée. Sur
+les 4 060 foules du jeu réduit, `disjoint ≥ chevauchant ≥ doublon` **point
+par point** (marges +0,014 et +0,070). La géométrie de `h13` traverse donc le
+minimax mot pour mot ; le choix des numéros, non.
+
+> **Corollaire produit, et il est sévère.** Une carte anti-foule **publiée**
+> — la même grille furtive servie à tous les utilisateurs — fabrique le
+> doublon massif qu'elle prétend fuir. Seule la rotation privée est immunisée.
+
+Et parmi les foules i.i.d., la pire est la foule **uniforme** (par convexité) :
+tout biais psychologique — dates, chiffre 7 — ne peut qu'**aider** le joueur
+uniformisé, qui l'encaisse sans avoir à le modéliser.
+
+### Ce que chaque connaissance achète
+
+Pour le joueur uniformisé, la moyenne `m` seule encadre le multiplicateur de
+partage dans `[L(m), ≈1)` ; la **fréquence de chute `q` seule** l'encadre
+dans `(1−q, 1−q/2]`. Tout ce que la répartition de la foule peut encore
+jouer pèse donc **moins de `q/2`** — au régime que le §29 estime (λ ≈ 0,01),
+moins d'un demi pour cent.
+
+Et le rang plein, le seul qui porte une grosse cagnotte, est précisément
+celui où `q` est petit : **la promesse anti-foule s'effondre exactement là où
+l'argent est.** Le reste — la place dans la fourchette, jusqu'au *signe* de
+« furtive bat populaire » — exige la répartition. Sous le modèle de `h3`
+(illustration étiquetée comme telle, recoupée à ses nombres publiés : λ 2,66
+contre 2,7 ; ×1,81 contre ×1,77 ; ×2,78 contre ×2,67), la rotation capte
+**73 %** de l'avantage modélisé, en logarithme, **sans le modèle**.
+
+### L'observable, honnêtement
+
+`q ≈ N·p` (§29) est le cas sans agglutination d'une identité générale :
+`q ≤ N·p`, et l'écart `γ = N·p/q = E[gagnants | chute]` est le premier indice
+de concentration de la foule qui soit **observable**. Comme `μ·p/c = α·γ`,
+cela offre au `α̂ = 29,5 %` « anormalement généreux » du §29 une **quatrième
+explication** qui ne contredit aucune des trois autres.
+
+Mais l'unique relevé ne contraint rien : les cinq `μ̂·p` s'étalent de ×7,85,
+**plus serré que la médiane du pur bruit** (cinq exponentielles i.i.d.
+simulées : ×14,5 ; `p = 0,57`). Puissance mesurée : une agglutination ×8 est
+invisible sur un relevé (9 %), vue à ~10 relevés (99,9 %) ; ×3 à une
+trentaine. C'est la série que le §28 réclame déjà, avec un dividende de plus :
+les chutes comptées donnent `q̂`, donc `N ≥ q̂/p` **sans aucune hypothèse de
+répartition**.
+
+### Ce qui a été consigné, et l'entorse
+
+Quatre lignes au registre. Le test de cohérence est la seule à porter un `p`,
+et sa statistique a été **prototypée avant le scellement du jeton** — entorse
+à la règle n° 2, signalée dans les notes du registre, et de valeur
+confirmatoire nulle de toute façon. Deux autres erreurs corrigées en route :
+un témoin négatif qui ne pouvait pas sonner (une « fausse » borne qui était
+vraie), et une dominance d'abord affirmée « aux co-gains près » quand la
+preuve point par point était plus simple.
+
+### Réserve, et la conclusion pour la carte « Furtif »
+
+Rien ici ne prédit un numéro, et l'invariance sort **renforcée** : c'est le
+lemme d'uniformité qui rend la garantie calculable. Le régime du barème et le
+prix du ticket restent inconnus.
+
+La carte doit devenir une **rotation scellée** : garder la construction de
+`h13`, lui appliquer une permutation uniforme des 80 numéros tirée en privé,
+et reléguer le penchant anti-dates au rang de pari conditionnel qu'il a
+toujours été. Le conditionnel du §9 n'était pas un pis-aller — c'était le
+théorème qui manquait.
