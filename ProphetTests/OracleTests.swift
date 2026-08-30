@@ -204,6 +204,56 @@ final class OracleTests: XCTestCase {
         XCTAssertNil(RankAttack.solve(Array(syntheticHistory(count: 8).reversed())))
     }
 
+    func testNarrowSourceIsDetectedAndFairSourceIsNot() {
+        // Le détecteur de LARGEUR : il ne suppose aucune récurrence, donc il
+        // voit ce que l'attaque algébrique ne peut pas. Un tirage consomme
+        // 61,62 bits ; si la source n'en fournit que B, les rangs atteignables
+        // ne sont que 2^B sur 2^61,6 — à B = 53 (un double, donc
+        // `Math.random()`), la densité tombe à 1/392.
+        func narrowHistory(bits: Int, count: Int = 60) -> [Draw] {
+            var seed: UInt64 = 0xDEAD_BEEF_1234_5678
+            var draws: [Draw] = []
+            for i in 1...count {
+                seed = seed &* 6364136223846793005 &+ 1
+                let k = seed >> UInt64(64 - bits)          // k < 2^bits
+                let r = k.multipliedFullWidth(by: RankAttack.modulus)
+                let rank = bits >= 64 ? r.high
+                    : (r.high << UInt64(64 - bits)) | (r.low >> UInt64(bits))
+                draws.append(Draw(drawNumber: 80_000 + i,
+                                  drawDate: "2026-08-30T12:00:00+02:00",
+                                  numbers: RankAttack.unrank(rank),
+                                  boost: 2, bonus: 9))
+            }
+            return draws
+        }
+
+        // TÉMOINS POSITIFS : trois largeurs, toutes détectées — et NOMMÉES
+        // exactement. Un simple test de significativité renverrait B−1, car
+        // la moitié des rangs d'une source de B bits sont aussi atteignables
+        // à B−1 (via k pair) ; c'est le critère de taux quasi total qui
+        // tranche.
+        for bits in [32, 48, 53] {
+            XCTAssertEqual(RankAttack.narrowSourceWidth(narrowHistory(bits: bits)), bits,
+                           "une source de \(bits) bits doit être vue ET nommée")
+        }
+        // TÉMOIN NÉGATIF : un historique pseudo-aléatoire consomme ses bits
+        // pleins et ne doit rien déclencher.
+        XCTAssertNil(RankAttack.narrowSourceWidth(syntheticHistory(count: 200)))
+        XCTAssertNil(RankAttack.narrowSourceWidth(syntheticHistory(count: 200, seed: 13_579)))
+        // Et un historique trop court ne doit rien affirmer.
+        XCTAssertNil(RankAttack.narrowSourceWidth(syntheticHistory(count: 10)))
+
+        // La brique elle-même : un rang tiré d'une source 53 bits est
+        // atteignable à 53 bits, un rang quelconque ne l'est presque jamais.
+        var seed: UInt64 = 4242
+        var honest = 0
+        for _ in 0..<400 {
+            seed = seed &* 6364136223846793005 &+ 1
+            if RankAttack.reachable(seed % RankAttack.modulus, bits: 53) { honest += 1 }
+        }
+        XCTAssertLessThan(honest, 10, "densité attendue 1/392 : ~1 sur 400")
+    }
+
     func testRecoveryReportsThePredictionWhenItSolves() {
         // Le chemin complet, tel que l'écran le voit.
         let history = lcgHistory(a: 6364136223846793005, c: 1442695040888963407, count: 40)

@@ -362,6 +362,60 @@ def main():
         print(f"     {label:<58} {val:>16}   {'ok' if good else 'ÉCHEC'}")
         ok &= good
 
+    # 8. Le détecteur de LARGEUR de source, et ses assertions Swift.
+    def reachable(r, b):
+        if b >= 62:
+            return True
+        two_b = 1 << b
+        k_min = (r * two_b + MOD - 1) // MOD
+        return k_min < two_b and rank_of(k_min, b, True) == r
+
+    def narrow_width(ranks):
+        n = len(ranks)
+        if n < 24:
+            return None
+        widths = (24, 31, 32, 48, 53, 56, 60, 61)
+        share = {b: (1 << b) / MOD for b in widths}
+        rate = {b: sum(1 for r in ranks if reachable(r, b)) / n for b in widths}
+        for b in widths:
+            if share[b] < 0.8 and rate[b] >= 0.9:
+                return b
+        for b in widths:
+            p, sd = share[b], math.sqrt(n * share[b] * (1 - share[b]))
+            if rate[b] * n > n * p + 8 * max(sd, 1):
+                return b
+        return None
+
+    def narrow_ranks(bits, count=60):
+        seed = 0xDEADBEEF12345678
+        out = []
+        for _ in range(count):
+            seed = (seed * 6364136223846793005 + 1) & M64
+            k = seed >> (64 - bits)
+            out.append((k * MOD) >> bits)
+        return out
+
+    print("\n8. détecteur de largeur de source :")
+    checks = []
+    for bits in (32, 48, 53):
+        got = narrow_width(narrow_ranks(bits))
+        checks.append((f"source {bits} bits détectée", got == bits, str(got)))
+    for count, seed, label in ((200, 20260824, "200 tirages"),
+                               (200, 13579, "200 tirages, autre graine"),
+                               (10, 20260824, "10 tirages (trop court)")):
+        got = narrow_width(synthetic_ranks(count, seed))
+        checks.append((f"témoin négatif, {label} : silence", got is None,
+                       "silence" if got is None else f"FAUX {got}"))
+    seed, honest = 4242, 0
+    for _ in range(400):
+        seed = (seed * 6364136223846793005 + 1) & M64
+        if reachable(seed % MOD, 53):
+            honest += 1
+    checks.append(("densité honnête à 53 bits (~1 sur 400)", honest < 10, str(honest)))
+    for label, good, val in checks:
+        print(f"     {label:<58} {val:>16}   {'ok' if good else 'ÉCHEC'}")
+        ok &= good
+
     print(f"\n{'=' * 74}")
     print("VERDICT :", "RankAttack se comporte comme annoncé"
           if ok else "AU MOINS UNE BRIQUE EST FAUSSE")

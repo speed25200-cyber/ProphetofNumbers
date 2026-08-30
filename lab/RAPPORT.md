@@ -1604,3 +1604,24 @@ cette classe, et l'app le capture déjà.
 `RankAttack.swift` est câblé avant le balayage de graines : il coûte des
 millisecondes, couvre exactement l'angle mort du balayage, et **afficherait
 les 20 numéros du prochain tirage** s'il résolvait un jour.
+
+## 18. Le budget d'entropie du tirage (`h6_granularite.py`)
+
+Complément exact de l'attaque algébrique : ce test ne suppose **aucune
+récurrence**, il ne mesure que la **largeur de la source**.
+
+Un tirage honnête consomme 61,6165 bits (M = C(80,20)). Une source de B bits
+ne rend atteignables que 2^B rangs sur 2^61,6 — à 53 bits (un double, donc
+`Math.random()`), la densité tombe à **1/392**. Témoins : 2 000/2 000 rangs
+atteignables sur des archives fabriquées à 32, 48 et 53 bits ; densité
+théorique exacte sur des archives honnêtes.
+
+**Sur l'archive réelle :** le rang maximal vaut 2^61,6165 — toute source de
+moins de 61 bits est **exclue** pour le mapping `s mod M`. Pour `⌊u·M⌋` :
+**190 rangs atteignables à 53 bits pour 180 attendus (+0,76 σ)**. Source
+pleine, sans ambiguïté.
+
+Armé dans l'app (`RankAttack.narrowSourceWidth`), avec un correctif que la
+vérification a imposé : un simple test de significativité renvoyait B−1 au
+lieu de B, la moitié des rangs d'une source de B bits étant aussi
+atteignables à B−1. Le critère de taux quasi total nomme la largeur exacte.

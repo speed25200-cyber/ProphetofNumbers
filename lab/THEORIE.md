@@ -288,3 +288,43 @@ n'importe quel état de 64 bits. Elle tourne à chaque tirage pour quelques
 millisecondes, et **si elle résout un jour, l'écran affiche les 20 numéros du
 prochain tirage.** C'est une arme armée en permanence sur la seule brèche que
 les mathématiques laissent ouverte.
+
+---
+
+## Le budget d'entropie du tirage (`h6_granularite.py`)
+
+L'attaque algébrique de h4 suppose une **récurrence** (un LCG, une sortie
+inversible). Il existe un test complémentaire qui ne suppose **rien** sur la
+récurrence et ne mesure qu'une chose : la **largeur de la source**.
+
+Un tirage honnête consomme les 61,6165 bits de M = C(80,20). Si
+l'implémentation écrit `unrank(⌊u·M⌋)` où `u` est un double — `Math.random()`
+en JavaScript, `random.random()` en Python — alors u ne porte que **53 bits**
+et les rangs atteignables ne sont que 2⁵³ valeurs sur 2⁶¹˙⁶ : une densité de
+**1/392**. Un rang est atteignable à B bits si et seulement si
+
+    k_min = ⌈r·2^B / M⌉   vérifie   ⌊k_min·M / 2^B⌋ = r
+
+Le pouvoir de séparation est total, et il n'y a pas de zone grise :
+
+| source | atteignables sur 2 000 | attendu si source honnête |
+|---|---|---|
+| 32 bits | **2 000** | 0,0 |
+| 48 bits | **2 000** | 0,2 |
+| 53 bits | **2 000** | 5,1 |
+
+Et sur des rangs honnêtes, les taux retombent exactement sur 2^B/M (0,00215
+observé contre 0,00255 théorique à 53 bits).
+
+**Sur les 70 560 tirages réels :** le rang maximal vaut 2^61,6165, ce qui
+**exclut** toute source de moins de 61 bits pour le mapping `s mod M`. Et
+pour le mapping `⌊u·M⌋`, on observe **190 rangs atteignables à 53 bits pour
+180 attendus (+0,76 σ)** — la signature exacte d'une source pleine.
+
+Un déclenchement aurait été majeur : l'espace d'états serait tombé de 2^61,62
+à 2^B, mettant la prédiction exacte à portée d'un simple balayage (2³² tient
+en une seconde). Le détecteur est donc armé en permanence dans l'app
+(`RankAttack.narrowSourceWidth`), et il **nomme** la largeur plutôt que de se
+contenter de la signaler — un simple test de significativité renverrait B−1,
+puisque la moitié des rangs d'une source de B bits sont aussi atteignables à
+B−1 ; c'est le critère de taux quasi total qui tranche.

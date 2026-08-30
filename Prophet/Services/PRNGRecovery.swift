@@ -411,6 +411,25 @@ enum PRNGRecovery {
                 predicted: sol.predicted)
         }
 
+        // Détecteur de LARGEUR de source. Il ne suppose aucune récurrence, donc
+        // il voit ce que l'attaque algébrique ne peut pas : une source trop
+        // étroite (un double de 53 bits, un entier de 32) laisse 99,7 % des
+        // rangs inatteignables, et l'espace d'états s'effondre.
+        if let width = RankAttack.narrowSourceWidth(ordered) {
+            return RecoveryResult(
+                candidatesTested: ordered.count, familiesTested: 1, samplersTested: 1,
+                bestPrefix: 0, bestFamily: "source \(width) bits", bestSampler: "rang combinatoire",
+                bestSeedLabel: "—", expectedPrefix: 0,
+                solved: false,
+                solvedDescription: "",
+                elapsed: 0, targetDraw: targetDraw.drawNumber,
+                orderAvailable: ordered.contains { $0.hasDrawOrder },
+                mode: "granularité (rang)",
+                verdict: "Source trop étroite",
+                detail: "Un tirage consomme 61,62 bits (M = C(80,20)). Les rangs observés ne sont atteignables que par une source de \(width) bits : l'espace d'états s'effondre de 2^61,62 à 2^\(width), ce qui met la prédiction exacte à portée d'un balayage. Ce test ne suppose rien sur la récurrence du générateur.",
+                predicted: [])
+        }
+
         let ts: UInt64 = {
             guard let d = Zurich.parseISO(targetDraw.drawDate) else { return 0 }
             return UInt64(max(0, d.timeIntervalSince1970))

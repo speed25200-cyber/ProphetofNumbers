@@ -35,7 +35,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import lab
-from h4_rangs import rank_of, unrank, M, candidates
+from ranks import rank_of, unrank, M, candidates
 
 T0 = time.time()
 M64 = (1 << 64) - 1

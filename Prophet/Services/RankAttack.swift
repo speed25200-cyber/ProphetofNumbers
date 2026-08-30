@@ -351,6 +351,64 @@ enum RankAttack {
         return nil
     }
 
+    // MARK: Largeur de la source — un détecteur qui ne suppose aucune récurrence
+
+    /// Le rang r est-il de la forme ⌊k·M / 2^B⌋ pour un entier k < 2^B ?
+    ///
+    /// C'est le test de GRANULARITÉ. Un tirage honnête consomme les 61,62 bits
+    /// de M ; si la source n'en fournit que B, les rangs atteignables ne sont
+    /// que 2^B valeurs sur 2^61,6 et un rang réel évite tous les autres. À
+    /// B = 53 — un double, c'est-à-dire `Math.random()` en JavaScript ou
+    /// `random.random()` en Python — la densité tombe à 1/392 : sur quelques
+    /// centaines de tirages, la séparation est totale.
+    ///
+    /// Contrairement à `solve`, ce test ne suppose RIEN sur la récurrence du
+    /// générateur — ni LCG, ni xorshift, ni rien. Il ne mesure que la largeur
+    /// de la source, et se déclencherait donc là où l'attaque algébrique est
+    /// muette. Le labo l'a séparé sur témoins : 2 000/2 000 sur des archives
+    /// fabriquées à 32, 48 et 53 bits, densité théorique exacte sur des
+    /// archives honnêtes (`lab/experiments/h6_granularite.py`).
+    static func reachable(_ r: UInt64, bits b: Int) -> Bool {
+        guard b < 62 else { return true }          // 2^62 > M : tout est atteignable
+        let twoB = UInt64(1) << UInt64(b)
+        let prod = r.multipliedFullWidth(by: twoB)
+        let q = M128.divide(hi: prod.high, lo: prod.low, by: modulus)
+        let kMin = q.remainder == 0 ? q.quotient : q.quotient &+ 1
+        guard kMin < twoB else { return false }
+        return rankOf(kMin, b: b, floorMapping: true) == r
+    }
+
+    /// Largeur de source détectée, ou nil si le tirage consomme ses bits pleins.
+    ///
+    /// Un déclenchement serait majeur : l'espace d'états s'effondrerait de
+    /// 2^61,62 à 2^B, et la prédiction exacte redeviendrait une question de
+    /// force brute — 2^32 tient en une seconde.
+    static func narrowSourceWidth(_ draws: [Draw]) -> Int? {
+        let ranks = draws.compactMap { rank($0.numbers) }
+        guard ranks.count >= 24 else { return nil }
+        let n = Double(ranks.count)
+        let widths = [24, 31, 32, 48, 53, 56, 60, 61]
+        var rate: [Int: Double] = [:]
+        var share: [Int: Double] = [:]
+        for b in widths {
+            share[b] = Double(UInt64(1) << UInt64(b)) / Double(modulus)
+            rate[b] = Double(ranks.filter { reachable($0, bits: b) }.count) / n
+        }
+        // Sous une source de B bits, le taux vaut EXACTEMENT 1 à B, et ~1/2 à
+        // B−1 (un rang atteignable à B−1 l'est aussi à B, via k pair). Exiger
+        // un taux quasi total nomme donc la bonne largeur, là où un simple
+        // test de significativité renverrait B−1.
+        for b in widths where share[b]! < 0.8 && rate[b]! >= 0.9 { return b }
+        // Filet de sécurité : une source qui n'est pas exactement une
+        // puissance de deux peut rester très au-dessus du hasard sans
+        // atteindre 1. On la signale quand même, au seuil de 8 σ.
+        for b in widths {
+            let p = share[b]!, sd = (n * p * (1 - p)).squareRoot()
+            if rate[b]! * n > n * p + 8 * max(sd, 1) { return b }
+        }
+        return nil
+    }
+
     // MARK: Entrée
 
     /// Tente de résoudre le générateur à partir des tirages, du plus ancien au
