@@ -1223,6 +1223,72 @@
   </section>
 
   <section>
+    <h2>La brèche : prédire les vingt numéros exacts</h2>
+    <div class="col">
+      <p>
+        L'invariance suppose que le tirage est <em>uniforme</em>. Un générateur dont on retrouve
+        l'état n'est pas uniforme conditionnellement à ce qu'on sait — il est
+        <strong>déterministe</strong>. C'est la seule voie qui vise la prédiction littérale, et
+        aucun théorème ne l'interdit.
+      </p>
+      <p>
+        Le levier est arithmétique. Un tirage de 20 parmi 80 a un rang combinatoire dans
+        [0, M) avec M = C(80,20) ≈ <strong>2<sup>61,6165</sup></strong>. Si l'implémentation
+        «&nbsp;dérange&nbsp;» une seule sortie de 64 bits — un schéma très répandu —, le rang
+        publié révèle 61,62 des 64 bits d'état&nbsp;: <strong>il n'en manque que 2,38</strong>.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Six états candidats par tirage. On ne cherche plus la graine — on résout le générateur.
+    </div>
+
+    <div class="col">
+      <p>
+        Trois tirages consécutifs donnent 216 triplets, et pour chacun le multiplicateur et
+        l'incrément d'un LCG se résolvent en deux lignes, puis se confirment sur vingt tirages —
+        une fausse solution y survit avec probabilité 10<sup>−370</sup>. Le pas du générateur n'a
+        même pas besoin d'être connu&nbsp;: un pas de <em>j</em> laisse un LCG de multiplicateur
+        a<sup>j</sup>, donc tous les pas fixes sont couverts d'office.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Familles ouvertes par le rang — témoins du labo</caption>
+        <thead>
+          <tr><th>famille</th><th>mécanisme</th><th>témoins récupérés</th><th>prédiction exacte</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>LCG 2⁶⁴ / 2⁶³ / 2⁶²</td><td>résolution algébrique de (a, c)</td><td>6/6</td><td>6/6</td></tr>
+          <tr><td>splitmix64, xorshift64*</td><td>sortie inversible → état</td><td>4/4</td><td>4/4</td></tr>
+          <tr><td>java.util.Random</td><td>LCG 48 bits, 2¹⁶ énumérés</td><td>2/2</td><td>2/2</td></tr>
+          <tr class="is-key"><td>archive réelle, 70 560 tirages</td><td>toutes familles</td><td>aucune</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Douze témoins positifs sur douze, tous avec prédiction exacte du tirage suivant, en
+        quelques millisecondes&nbsp;; zéro fausse récupération sur vingt archives équitables&nbsp;;
+        et aucune famille ne colle sur les tirages réels. L'attaque est désormais câblée
+        <em>avant</em> le balayage de graines, dont elle couvre exactement l'angle mort — celui-ci
+        ne peut trouver qu'une graine minuscule, elle atteint n'importe quel état de 64 bits. Elle
+        tourne à chaque tirage, et <strong>si elle résout un jour, l'écran affiche les vingt
+        numéros du prochain tirage</strong>.
+      </p>
+      <p>
+        Ses angles morts sont nommés plutôt que tus&nbsp;: MT19937 par rang exigerait 6³¹²
+        combinaisons&nbsp;; un générateur dont l'état est plus large que la sortie n'est pas
+        inversible&nbsp;; et surtout, si le tirage n'est <em>pas</em> le dérangement d'une sortie
+        unique — rejet, Fisher-Yates, tirage physique —, toute cette classe est muette. L'ordre de
+        sortie des boules la rouvrirait, et l'app le capture déjà.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Le mur, pierre par pierre</h2>
     <div class="col">
       <p>
