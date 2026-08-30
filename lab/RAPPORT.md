@@ -6419,7 +6419,7 @@ Le dossier couvre **deux** architectures de générateur, et deux seulement :
 
 | | régime | où il est traité |
 |---|---|---|
-| **A** | tourne en continu depuis toujours, graine inconnue | h4–h20 (algébrique), `sweep48` (2⁴⁸, **jamais terminé**) |
+| **A** | tourne en continu depuis toujours, graine inconnue | h4–h20 (algébrique), §34 : 12 familles sur [0, 2³²) **et les 2⁴⁸ complets** de `java.util.Random` |
 | **B** | ré-amorcé **à chaque tirage** sur une quantité connue | §63, fermé |
 | **C** | ré-amorcé **une fois**, puis court en continu | *personne* |
 
@@ -6503,8 +6503,17 @@ réel documenté d'insider est exclu par un test que le dossier avait déjà pas
 **Non fermé.** La puissance vaut **1 dans** le produit balayé et **0 en
 dehors** : une famille absente (AES-CTR, ChaCha, un matériel), un
 échantillonneur absent, une convention de graine absente, ou une dérive de plus
-de 600 s sur l'heure de démarrage échapperaient. Et le **régime A reste ouvert
-par défaut de calcul, pas par mesure** : 2⁴⁸ n'a jamais été parcouru.
+de 600 s sur l'heure de démarrage échapperaient.
+
+> **Erratum.** Une première rédaction affirmait ici que « le régime A reste
+> ouvert par défaut de calcul : 2⁴⁸ n'a jamais été parcouru ». C'est **faux**,
+> et la confusion portait sur deux outils différents. Le brute-force naïf de
+> `sweep48.c` (20,9 jours-cœur) n'a effectivement jamais tourné — mais
+> `sweep_java48.c` couvre le **même** espace par une attaque 2-adique qui
+> ramène 2,8 × 10¹⁴ pas à 4 × 10⁹, et le §34 l'a exécutée : **0 touche sur les
+> 2⁴⁸ états complets.** Ce qui reste hors de portée est un espace de graines
+> de 2⁶⁴ ou plus **sans structure exploitable** — et là, aucune machine ne
+> remplace un théorème.
 
 **Sources :** [Hot Lotto fraud scandal](https://en.wikipedia.org/wiki/Hot_Lotto_fraud_scandal) · [The Register — lottery-hacking sysadmin](https://www.theregister.com/2017/08/23/florida_judge_gives_lottery_scammer_more_private_time/)
 

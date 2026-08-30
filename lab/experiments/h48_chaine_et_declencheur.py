@@ -5,8 +5,13 @@ Deux regimes fermes, un ouvert
 Le dossier couvre deux architectures de generateur, et deux seulement :
 
   A. TOURNE EN CONTINU depuis toujours, graine inconnue. C'est h4 a h20 pour
-     la resolution algebrique, et sweep48/sweep_mt/sweep_order/sweep_modern
-     pour l'enumeration (2^48 etats, 20,9 jours-coeur, jamais mene a terme).
+     la resolution algebrique, et sweep_order/sweep_mt/sweep_linked/
+     sweep_java48 pour l'enumeration. Le §34 l'a effectivement PARCOURU :
+     12 familles x 4 echantillonneurs sur [0, 2^32), et les 2^48 etats
+     COMPLETS de java.util.Random par l'attaque 2-adique qui ramene
+     2,8e14 pas a 4e9. Resultat : 0 touche partout. Le brute-force naif de
+     sweep48.c (20,9 jours-coeur) n'a jamais tourne et n'a plus a tourner —
+     un algorithme l'a rendu inutile.
   B. RE-AMORCE A CHAQUE TIRAGE sur une quantite connue. C'est le §63 (h47) :
      8 familles x 4 echantillonneurs x 6 conventions x 7 decalages,
      91 869 120 essais, maximum de recouvrement 15, p = 0,896.
@@ -353,7 +358,10 @@ say(f"""   Les trois regimes d'implementation sont desormais couverts :
    NON FERMÉ. La puissance vaut 1 DANS le produit balaye et ZERO en dehors :
    une famille absente (AES-CTR, ChaCha, un materiel), un echantillonneur
    absent, une convention de graine absente, ou une derive de plus de 600 s
-   sur l'heure de demarrage echapperaient. Et le regime A reste ouvert par
-   defaut de calcul, pas par mesure : 2^48 n'a jamais ete parcouru.
+   sur l'heure de demarrage echapperaient. Le regime A, lui, n'est PAS ouvert
+   par defaut de calcul : le §34 l'a parcouru, 2^48 compris, par une reduction
+   algebrique et non par la force brute. Ce qui reste hors de portee, c'est un
+   espace de graines de 2^64 ou plus SANS structure exploitable — la, aucune
+   machine ne remplace un theoreme.
 
    ({time.time() - T0:.1f} s)""")
