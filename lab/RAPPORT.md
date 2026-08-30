@@ -1676,3 +1676,46 @@ Réplication indépendante sur 1381026 seul : 4/19 paires affines (null
 deux tirages conjointement.** Ce qui reste (multiply-shift, générateurs non
 congruentiels, tirage physique) demande une réduction de réseau, pas plus de
 tirages — mais des tirages **consécutifs** y vaudraient le plus.
+
+## 21. Les premières cagnottes observées (`h9_cagnottes.py`)
+
+Le §5 bis établissait le seul seuil capable de changer le SIGNE de
+l'espérance — jackpot ≥ mise / P(k/k) — et concluait : « ce que l'archive ne
+peut pas dire : à quelle fréquence le seuil est franchi. Elle ne contient
+aucun montant de jackpot. » Une capture de `jeux.loro.ch` du 30 août 2026 à
+09h17 (tirage 1381028 en cours) lève ce point pour la première fois.
+
+| mise | cagnotte | seuil par franc | fraction | facteur manquant |
+|---|---|---|---|---|
+| 5 | CHF 355 | CHF 1 551 | 22,9 % | ×4,4 |
+| **6** | **CHF 2 287** | **CHF 7 753** | **29,5 %** | **×3,4** |
+| 7 | CHF 1 540 | CHF 40 979 | 3,8 % | ×26,6 |
+| 8 | CHF 9 292 | CHF 230 115 | 4,0 % | ×24,8 |
+| 10 | CHF 495 713 | CHF 8 911 711 | 5,6 % | ×18,0 |
+
+Les seuils sont recalculés depuis C(20,k)/C(80,k) plutôt que repris : ils
+concordent exactement avec ceux du §5 bis.
+
+**Établi.** Aucune mise n'est favorable au moment du relevé, et la plus
+proche l'est à moins d'un tiers. Fait structurel, pas ponctuel : le seuil
+croît ×5 750 de la mise 5 à la mise 10 quand les cagnottes affichées ne
+croissent que ×1 396 — **les petites mises sont donc systématiquement les
+plus proches du point d'équilibre**, ce qui découle de la combinatoire seule.
+
+**Non établi.** La fréquence de franchissement demande une SÉRIE : une
+observation donne une distance, pas une dynamique.
+`lab/jackpots_observed.csv` accueille la série.
+
+**Réserve.** Le seuil est par franc misé ; le prix du ticket n'est pas
+lisible sur la capture, donc si un ticket coûte plus d'un franc les
+fractions ci-dessus se divisent d'autant.
+
+## 22. Trois tirages ordonnés (`h8_ordre_joint.py`)
+
+Le tirage **1381028** porte le total à trois — écarts 0, 3 et 5 depuis
+1381023 — soit **66 bits de contrainte 2-adique** contre 2¹⁷ triplets
+candidats. Survivants attendus sous H₀ : **1,8 × 10⁻¹⁵**.
+
+Observé : **0 survivant, pour tout nombre de sorties par tirage de 20 à 40**,
+là où les témoins positifs en donnent 64 et les témoins négatifs 0 dans
+20/20 cas. La conclusion de §20 se renforce d'un tirage supplémentaire.

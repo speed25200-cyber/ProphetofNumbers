@@ -406,3 +406,24 @@ Ce qui reste demande une **réduction de réseau**, pas plus de tirages :
 l'échantillonneur multiply-shift filtre les bits de poids fort, où le levier
 2-adique n'a aucune prise. C'est là que des tirages ordonnés **consécutifs**
 vaudraient le plus : la chaîne d'état y est la plus contrainte.
+
+### Le seuil de jackpot, enfin comparé à quelque chose (`h9_cagnottes.py`)
+
+Le théorème du seuil — jackpot ≥ mise / P(k/k) rend le pari favorable quel
+que soit le barème des rangs intermédiaires — était calculable mais n'avait
+jamais eu de montant réel à comparer. Premier relevé, 30 août 2026 :
+
+| mise | cagnotte | seuil / franc | fraction | facteur manquant |
+|---|---|---|---|---|
+| 5 | 355 | 1 551 | 22,9 % | ×4,4 |
+| **6** | **2 287** | **7 753** | **29,5 %** | **×3,4** |
+| 7 | 1 540 | 40 979 | 3,8 % | ×26,6 |
+| 8 | 9 292 | 230 115 | 4,0 % | ×24,8 |
+| 10 | 495 713 | 8 911 711 | 5,6 % | ×18,0 |
+
+Un corollaire structurel en sort, qui ne dépend pas de ce relevé
+particulier : le seuil croît ×5 750 de la mise 5 à la mise 10, les cagnottes
+affichées ×1 396 seulement. **Les petites mises sont donc systématiquement
+les plus proches du point d'équilibre** — la combinatoire l'impose. Si le
+seuil doit être franchi un jour, ce sera sur une mise de 5 ou 6, pas sur
+celle qui affiche le plus gros montant.
