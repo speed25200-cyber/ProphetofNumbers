@@ -7032,3 +7032,76 @@ générateur s'il en existe un de la bonne famille. Ce qu'il change est que
 l'app dit désormais **ce que sa propre collecte vaut**, et à quelle échéance :
 *« palier suivant à 7 consécutifs — 35 min de collecte — il ouvrirait les
 familles additives. »* Une instruction, pas un décompte.
+
+## 71. Le théorème étendu au Fisher-Yates, et l'échange qu'il révèle (`h52_fuite_fisher_yates.py`)
+
+Le §68 établit la fuite pour **un seul** échantillonneur : le rejet modulo 80.
+Le §69 a calculé qu'un Fisher-Yates ne fuit que 22 bits par tirage, mais
+personne n'avait écrit l'attaque correspondante — le dossier ne savait donc
+pas si un Fisher-Yates lui échappe.
+
+### Le théorème, écrit pour un module quelconque
+
+> `j = out mod n` entraîne **`out ≡ j (mod 2^v₂(n))`**
+
+Le §68 est le cas `n = 80`, `v₂ = 4`. Un Fisher-Yates tire modulo `80 − i` au
+pas `i`, et **dix pas sur vingt ne publient rien du tout** — leurs modules sont
+impairs. Le seul pas modulo 64 = 2⁶ en publie six, soit **27 % du total à lui
+seul.**
+
+### L'échange, et il n'est pas dans le sens attendu
+
+Le rejet modulo 80 consomme un nombre **inconnu** de mots — d'où la descente
+avec énumération des motifs de rejet du §68 et sa couverture partielle
+déclarée. Le Fisher-Yates partiel en consomme **exactement vingt**, un par
+pas : la correspondance mot ↔ numéro est **certaine**.
+
+| | bits/tirage | couverture | méthode |
+|---|---|---|---|
+| rejet modulo 80 (§68) | **80** | 46–99 % | descente + élagage, 12,5 s |
+| **Fisher-Yates** (ici) | 22 | **100 %** | **une seule élimination, 0,03 s** |
+
+> Quatre fois moins de bits, mais une couverture **totale** et une attaque
+> **quatre cents fois plus rapide**. Un implémenteur qui choisirait le
+> Fisher-Yates pour « faire propre » diviserait la fuite par 3,6 — et rendrait
+> l'attaque **exacte**.
+
+### Le témoin
+
+| famille | bits | tirages | équations | retrouvé | temps |
+|---|---|---|---|---|---|
+| xorshift32 | 32 | 2 | 44 | **oui** | 0,00 s |
+| xorshift64 | 64 | 3 | 66 | **oui** | 0,01 s |
+| xorshift96 | 96 | 5 | 110 | **oui** | 0,02 s |
+| xorshift128 | 128 | 6 | 132 | **oui** | **0,03 s** |
+
+Quatre sur quatre, depuis un état tiré au hasard dans tout son espace.
+
+### Sur l'archive
+
+La plus longue suite de tirages **ordonnés consécutifs** du dossier vaut
+**2** (1381030, 1381031), soit 44 bits publiés.
+
+| famille | requis | testable | états compatibles |
+|---|---|---|---|
+| xorshift32 | 2 | **oui** | **0** |
+| xorshift64 | 3 | non | — |
+| xorshift96 | 5 | non | — |
+| xorshift128 | 6 | non | — |
+
+> **La limite n'est pas mathématique, elle est de collecte.** Six tirages
+> ordonnés consécutifs — **trente minutes** — rendraient xorshift128 testable
+> sous Fisher-Yates. L'app en accumule un toutes les cinq minutes depuis le
+> §38, et le §70 affiche désormais l'échéance.
+
+### Ce que la paire (§68, §71) établit ensemble
+
+Les deux échantillonneurs modulaires courants sont désormais couverts, pour
+**toute graine**, sur les familles F₂-linéaires. Ce qui reste hors d'atteinte
+n'a pas changé et ne changera pas par la collecte : le **multiply-shift** (zéro
+bit linéaire — territoire du réseau, déjà traité au §24 pour les LCG), les
+sorties **brouillées non linéairement** (PCG, xoshiro `**` et `++`,
+splitmix64), et tout **CSPRNG**.
+
+**Registre :** `h52.fuite_fisher_yates`, 0 état compatible, m = 3 335, zéro
+significatif.
