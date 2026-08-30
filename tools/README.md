@@ -387,3 +387,248 @@ distinctes de [0, 2³²) mènent au même état et sont légitimement toutes deu
 compatibles. La seule question qui compte est : le témoin survit-il ?
 
 `--selftest` : **70/70**.
+
+---
+
+# sweep_modern — les familles hors récurrence affine, et les variantes oubliées
+
+## Ce que §34 laissait ouvert, et ce qui n'avait pas à l'être
+
+§34 nomme lui-même sa limite : « un générateur dont l'état ne suit aucune
+récurrence affine ». La formule est juste, mais elle range dans le même sac
+deux choses très différentes.
+
+Il y a ce qui est **hors de portée du calcul** — une source matérielle, un
+chiffrement à clé de 128 ou 256 bits, un état de 19 937 bits. Aucune analyse
+de sorties publiques ne le tranchera, et §34 a raison de le dire.
+
+Et il y a ce qui n'est hors du cadre affine que par sa *récurrence*, tout en
+restant **amorcé par un entier de 32 bits**. Un générateur à compteur, une
+construction ARX, un mélangeur non linéaire : le balayage de graines ne
+demande rien à la structure de l'état, seulement que l'espace des amorçages
+soit énumérable. Le pas est plus cher — un bloc ChaCha20 coûte vingt tours là
+où un LCG coûte une multiplication — et c'est tout.
+
+Ces familles-là n'avaient jamais été incluses. Ce n'était pas un choix, c'était
+un oubli : `sweep_order` s'était arrêté aux douze familles qu'on rencontre en
+lisant du code de loterie, et les familles modernes y sont représentées par
+xoshiro et PCG parce que ce sont celles qui ressemblent le plus à un LCG.
+
+## Le catalogue — quarante familles × quatre échantillonneurs
+
+```sh
+cc -O3 -march=native -pthread -o sweep_modern sweep_modern.c
+./sweep_modern --kat        # confrontation des flux à des références publiées
+./sweep_modern --selftest   # 160 combinaisons, chacune retrouve son témoin
+./sweep_modern --list
+./sweep_modern --stream <famille> <graine> <n>
+./sweep_modern [--fams 0-30] 0 4294967296  <o1..o20>
+```
+
+| indices | familles |
+|---|---|
+| 0-3 | Philox4x32-10 et ThreeFry4x32-20 (Random123), clé = graine ou compteur = graine |
+| 4-9 | ChaCha8 / ChaCha12 / ChaCha20, deux amorçages : clé = graine, et le `seed_from_u64` de `rand_core` (celui de `StdRng::seed_from_u64` en Rust) |
+| 10-18 | sfc64, jsf64, wyrand, romuTrio, romuDuoJr, xoshiro256+, xoshiro256++, pcg64 `srandom(g,0)`, pcg64 flux par défaut — **32 bits de poids fort** |
+| 19-27 | les mêmes, **32 bits de poids faible** |
+| 28-30 | jsf32, pcg32 `srandom(g,0)`, pcg32 `srandom(g,54)` |
+| 31-39 | les neuf familles 64 bits, réduites sur le **mot natif de 64 bits** |
+
+Les quatre échantillonneurs sont ceux de `sweep_order.c`, repris sans
+modification : modulo + rejet, multiply-shift + rejet, Fisher-Yates
+modulaire, Fisher-Yates multiply-shift. Le protocole aussi : ordre de sortie,
+et **aucune confirmation** sur un second tirage — §34 documente pourquoi
+l'exiger serait une faute.
+
+**Trois conventions de troncature, et c'est le genre d'angle mort qui rend un
+zéro faux.** `sweep_order` prend systématiquement les 32 bits de poids fort
+d'un générateur 64 bits. C'est une convention, pas une loi. Or
+
+```c
+n = rng() % 80;          // sur les 64 bits entiers
+n = (uint32_t)rng() % 80; // sur les 32 bits de poids faible
+n = (rng() >> 32) % 80;   // ce que sweep_order balaie
+```
+
+sont **trois générateurs différents** du point de vue du balayage : une
+graine juste sous l'une des conventions meurt au premier numéro sous les deux
+autres. Les neuf familles 64 bits sont donc présentes trois fois. Les
+familles 31 à 39 ne sont pas un cinquième échantillonneur : ce sont les deux
+mêmes réductions, `u mod m` et `(u·m) >> w`, à la largeur native `w = 64`.
+
+**Le piège de la borne 64** que §34 documente pour `nextInt` ne se présente
+pas ici : aucun des quatre échantillonneurs ne traite les puissances de deux
+à part, `u % m` et `(u·m) >> w` s'appliquent uniformément, m = 64 au
+dix-septième pas compris. Il est évité par construction et non par vigilance
+— et il reste ouvert pour les échantillonneurs qui, eux, le font, que
+`sweep_java48` couvre du côté de Java.
+
+## Vérification des flux — la leçon la plus chère de §34, appliquée
+
+Un autotest interne ne prouve que la cohérence du programme avec lui-même.
+Une transcription fausse mais cohérente rend « rien trouvé » avec l'assurance
+d'un résultat : c'est ce qui était arrivé au `_randbelow` de CPython, dont
+la divergence tombait pile sur n = 64, au dix-septième numéro.
+
+`--kat` confronte donc **chaque** flux à une implémentation extérieure au
+programme, et affiche la provenance de chacune.
+
+| flux | référence extérieure |
+|---|---|
+| Philox4x32 (7 et 10 tours) | fichier officiel `tests/kat_vectors` de Random123 — 4 vecteurs |
+| ThreeFry4x32 (13, 20 et 72 tours) | idem — 5 vecteurs |
+| ChaCha20, blocs 0 et 1 | RFC 8439 §2.3.2, vecteurs 1 à 3 |
+| splitmix64 | valeurs de référence de Vigna (`splitmix64.c`), via `rand_xoshiro` |
+| xoshiro256+ et xoshiro256++ | valeurs de référence de Vigna, via `rand_xoshiro` |
+| romuDuoJr | `test.c` de `eqv/rand_romu`, transcription du code de Mark Overton |
+| wyrand | `wyhash.h` de wangyi-fudan, compilé |
+| pcg32 `srandom(42,54)` | sortie publiée de `pcg32-demo` (`imneme/pcg-c-basic`) |
+| **les quarante familles, graine 1234567** | six mots chacune, produits par une implémentation tierce : caisses Rust `rand_chacha` 0.3 et `rand_xoshiro` 0.6 compilées et exécutées, `randomgen` 2.3 (Philox, ThreeFry, SFC64, JSF, Romu, PCG32, PCG64), `pcg-c-basic` compilé |
+
+`--kat` : **62/62**.
+
+**Une divergence attrapée, et elle n'était pas là où on l'attendait.** Le
+premier recoupement de Philox contre `randomgen` a échoué — mais de quatre
+mots exactement : le flux du programme, décalé d'un bloc, redonnait celui de
+`randomgen`. La raison est que numpy et `randomgen` **incrémentent le
+compteur avant** de produire un bloc, si bien que leur premier bloc est celui
+d'indice 1 au sens de Random123. Le fichier `kat_vectors`, qui fixe le bloc
+0, a tranché : c'est le programme qui suit la convention de l'article, et
+`randomgen` qui décale. Sans référence publiée, la « correction » évidente
+aurait été d'aligner le programme sur `randomgen` — et le balayage aurait
+alors porté, en silence, sur un générateur décalé d'un bloc.
+
+**Et une erreur de harnais, attrapée par la forme de la panne.** En voulant
+rembobiner le compteur de `randomgen` d'un cran (ctr₀ ← 0xFFFFFFFF), on
+oublie que ce compteur est un entier de 128 bits : la retenue se propage vers
+ctr₁ et l'état obtenu n'est pas celui qu'on croit. Les quatre familles à
+compteur ont alors divergé, et elles seules — les trente-six autres
+passaient. C'est ce motif qui a désigné le harnais plutôt que le programme.
+
+## L'autotest
+
+`--selftest` fabrique, pour chacune des 160 combinaisons, un tirage à partir
+d'une graine témoin (1 234 567, volontairement placée loin du début de la
+plage balayée) et exige de la retrouver : **160/160**, chacune rendant
+**exactement une** graine compatible.
+
+Un contrôle positif supplémentaire a été passé en ligne de commande, sur le
+chemin de code exact du balayage réel et non sur celui de l'autotest, avec
+une graine témoin placée en **haut** de la plage (4 294 967 290) : familles
+ChaCha20 (clé = graine et `seed_from_u64`) × échantillonneurs 0 et 3,
+**4/4**, chacune rendant exactement la graine témoin.
+
+## Une non-concordance entre le code et cette page, et sa correction
+
+Elle mérite d'être racontée, parce qu'elle est du genre exact que ce dossier
+existe pour interdire.
+
+Les familles 31 à 39 ont été écrites, compilées et validées — mais dans une
+**copie de travail** de la source, gardée hors du dépôt pour ne pas remplacer
+le binaire sous un balayage déjà lancé. Cette page, elle, a été rédigée
+d'après la copie de travail. Pendant un moment, `tools/sweep_modern.c` rendait
+donc `--kat` 53/53, `--selftest` 124/124 et trente et une familles, tandis que
+cette page en annonçait 62, 160 et quarante.
+
+Rien de faux n'avait été mesuré : les 62 et les 160 avaient bien été observés,
+sur un binaire qui n'était pas celui du dépôt. C'est précisément ce qui rend
+l'écart dangereux — il ne se voit pas en relisant les chiffres, seulement en
+recompilant. La correction a consisté à installer la source complète, à
+remplacer le binaire par `mv` (et non par une écriture directe, qui échoue
+avec `ETXTBSY` sur un exécutable en cours), puis à revérifier sur le binaire
+livré : **62/62** et **160/160**, familles 0 à 39.
+
+La règle qu'on en tire : un « rien trouvé » ne vaut que si le binaire qui l'a
+produit est celui que la source du dépôt reconstruit. Les tableaux ci-dessous
+disent donc, tirage par tirage, **quel binaire a couvert quoi**.
+
+## Ce qui a été balayé, ce qui tourne, et ce qui ne l'a pas été
+
+Les garanties de protocole sont, elles, **complètes** : `--kat` 62/62,
+`--selftest` 160/160, contrôle positif en ligne de commande 4/4.
+
+Le balayage est une campagne longue — ≈ 34 min de temps machine par tirage
+pour les familles 0-30 sur quatre cœurs à 2,8 GHz, ≈ 6 min pour 31-39, soit
+≈ 3 h 20 pour les cinq tirages. Il **n'est pas terminé** : l'état ci-dessous
+est un instantané, daté, et non un total. Il se relit dans les journaux de
+balayage, qui portent l'heure de début et de fin de chaque tirage.
+
+| tirage | familles balayées sur [0, 2³²) | état | graines compatibles |
+|---|---|---|---|
+| 1381023 | 0-30 ; 31-39 non lancé | **en cours** — 5/31 familles closes | **0** |
+| 1381026 | — | **non lancé** | — |
+| 1381028 | — | **non lancé** | — |
+| 1381030 | — | **non lancé** | — |
+| 1381031 | — | **non lancé** | — |
+
+Aucune touche à ce stade, sur aucune famille et aucun échantillonneur.
+
+**Quel binaire a couvert quoi.** Le tirage 1381023 a été lancé avec le binaire
+à 31 familles et poursuit sur son inode d'origine : il ne couvre donc que les
+familles 0-30, et les familles 31-39 lui sont appliquées par une passe
+complémentaire distincte. Les quatre autres tirages sont lancés après le
+remplacement du binaire et couvrent 0-39 d'un seul tenant. Les familles 0 à 30
+sont **bit-à-bit identiques** entre les deux binaires : la vérification a été
+faite deux fois, sur les flux (`--stream` sur sept familles) et sur le
+balayage lui-même (sortie complète sur [0, 300 000), 31 familles × 4
+échantillonneurs — `diff` vide).
+
+**Pour reprendre le balayage là où il s'arrête**, la commande est celle du
+haut de section ; l'espace se découpe en tranches `[lo, hi)` sans aucune
+communication entre elles, et `--fams` restreint aux familles voulues.
+
+## Coût, mesuré
+
+Deux mesures, sur quatre cœurs Xeon à 2,8 GHz :
+
+* **catalogue entier, familles 0-30, 2²⁴ graines : 7,55 s** de temps
+  d'horloge (28,77 s CPU, soit 3,8× de rendement parallèle). Extrapolé à
+  2³² : **31 min par tirage**.
+* **profil par famille**, 2²⁰ graines sur un fil, extrapolé à 2³² sur quatre
+  fils : de **35 s** (wyrand, pcg32) à **174 s** (ChaCha20 amorcé par
+  `seed_from_u64`), somme **2 007 s = 33,5 min** pour les familles 0-30 ;
+  les neuf familles 31-39 coûtent ≈ 40 s chacune, soit ≈ 6 min. Un tirage
+  complet, familles 0-39 : **≈ 40 min**. Les cinq tirages : **≈ 3 h 20**.
+
+Le tampon de mots y est pour beaucoup : les quatre échantillonneurs lisent le
+même flux, rempli une seule fois par graine. Comme une graine fausse meurt au
+premier numéro (probabilité 1/80), un seul bloc ChaCha suffit presque
+toujours — sans ce partage, ChaCha serait payé quatre fois.
+
+Le temps d'horloge réellement observé est supérieur à ces projections, parce
+que les vérifications et les mesures de cette page ont tourné sur la même
+machine que le balayage.
+
+## Ce qui reste ouvert, et il faut le nommer
+
+Ce balayage ferme une région, pas la question. Restent hors de portée :
+
+* **Les graines de plus de 32 bits non dérivées d'une horloge.** ChaCha
+  accepte une clé de 256 bits, Philox une clé de 64, sfc64 un état de 256.
+  Balayer [0, 2³²) écarte tout schéma dont la graine tombe dans cette plage —
+  numéro de tirage, seconde d'époque, compteur, petite graine fixe — et rien
+  au-delà. Un `ChaCha20Rng::from_entropy()` reste entier.
+* **Les fenêtres d'horloge en millisecondes et en nanosecondes.** §34 les a
+  balayées pour les douze familles de `sweep_order` (± 7 jours en
+  millisecondes, ± 1 s en nanosecondes). Elles ne l'ont **pas** été pour les
+  familles ajoutées ici, faute d'horodatage des cinq tirages dans le dossier :
+  `draws_ordered.csv` ne porte que l'identifiant et la source. L'outil prend
+  une plage `[lo, hi)` arbitraire, donc l'extension ne demande qu'un ancrage
+  temporel — et ≈ 9 min de calcul par fenêtre et par tirage.
+* **Les échantillonneurs que ce programme ne connaît pas.** Il reprend les
+  quatre de `sweep_order`. Ne sont donc pas couverts, pour ces quarante
+  familles : l'échantillonneur par flottant (`(int)(rng()*80)`, deux appels
+  par numéro — celui dont `sweep_rand` montre qu'il *invalide* un résultat
+  négatif obtenu en consommant un mot par numéro), l'échantillonneur à
+  quatre-vingts clés (`ORDER BY RANDOM()`, couvert par `sweep_keys` pour
+  douze familles seulement), et ceux qui traitent les puissances de deux à
+  part — le piège de la borne 64.
+* **Le flux (`stream`) des générateurs qui en ont un.** pcg32 est balayé sur
+  trois flux (l'increment par défaut dans `sweep_order`, puis
+  `srandom(g, 0)` et `srandom(g, 54)`), pcg64 sur trois également. Il en
+  existe 2⁶³ et 2¹²⁷. De même, ChaCha est balayé à nonce nul.
+* **Et, inchangé depuis §34, un générateur dont l'état est hors de portée du
+  calcul** — source matérielle, chiffrement à clé longue, éponge. Aucune
+  analyse de sorties publiques ne le tranchera, quelle qu'en soit la
+  profondeur. C'est le cas le plus probable pour un opérateur certifié, et
+  c'est la vraie borne du dossier.

@@ -596,6 +596,61 @@ for key, fn, lbl in (("T1", t1_overlap, "T1 recouvrement lag-1 (c1)"),
 
 
 # --------------------------------------------------------------------------
+# 4 bis. Chasse à l'artefact — déclenchée par la règle pré-enregistrée
+# --------------------------------------------------------------------------
+
+rule("4 bis. CHASSE À L'ARTEFACT")
+
+Z_MAX_OBS = max(abs(RES[k][1]) for k in ("Q1", "Q2", "Q3"))
+KEY_MAX = max(("Q1", "Q2", "Q3"), key=lambda k: abs(RES[k][1]))
+
+
+def q_of(mask, key):
+    Z = pair_z(mask)
+    zz = Z * Z
+    return {"Q1": float(zz.sum()), "Q2": float(np.abs(Z).max()),
+            "Q3": float(zz[INPAIR].sum())}[key]
+
+
+if Z_MAX_OBS <= 3.0:
+    say(f"\n  Non déclenchée : le plus grand |z| des trois vaut {Z_MAX_OBS:.2f} "
+        f"({KEY_MAX}), sous le seuil de 3")
+    say("  déclaré au pré-enregistrement. Le traitement réservé à S1 (§20) et V3")
+    say("  (§23) — moitiés, huitièmes, placebo par permutation — n'a pas lieu")
+    say("  d'être, et le dire est la moitié du protocole : une chasse lancée")
+    say("  après coup sur un z ordinaire fabrique des sous-groupes à volonté.")
+else:
+    say(f"\n  DÉCLENCHÉE : {KEY_MAX} sort à z = {RES[KEY_MAX][1]:+.2f}. Traitement")
+    say("  de §20 (S1) et §23 (V3) : réplication sur les moitiés puis les")
+    say("  huitièmes, et placebo par PERMUTATION de l'ordre des tirages réels.")
+
+    REPS_CH = 20 if DRY else 80
+    for nparts, lbl in ((2, "moitiés"), (8, "huitièmes")):
+        L = len(REAL) // nparts
+        nl = lab.calibrate(lambda m, k=KEY_MAX: q_of(m, k), L, reps=REPS_CH, seed=555 + nparts)
+        say(f"\n  {lbl} (n = {L}) — null simulé à CETTE taille : "
+            f"{nl.mean:.4f} ± {nl.sd:.4f}")
+        zs = []
+        for i in range(nparts):
+            v = q_of(REAL[i * L:(i + 1) * L], KEY_MAX)
+            zs.append(nl.z(v))
+            say(f"    part {i+1}/{nparts} : {v:.4f}   z = {nl.z(v):+.2f}")
+        say(f"    même signe que l'observé sur "
+            f"{sum(1 for z in zs if z * RES[KEY_MAX][1] > 0)}/{nparts} parts")
+
+    say(f"\n  placebo par permutation (null de f1 : détruit l'ORDRE, conserve")
+    say(f"  EXACTEMENT la loi jointe des tirages), {REPS_CH} réplicats :")
+    _arch = lab.Archive(a.ids, a.ts, a.nums, a.boost, a.bonus, REAL)
+    nlp = lab.calibrate_perm(lambda arch, k=KEY_MAX: q_of(arch.mask, k), _arch,
+                             reps=REPS_CH, seed=777)
+    say(f"    null permuté {nlp.mean:.4f} ± {nlp.sd:.4f}   contre SRS "
+        f"{NULL[KEY_MAX].mean:.4f} ± {NULL[KEY_MAX].sd:.4f}")
+    say(f"    z sous permutation : {nlp.z(RES[KEY_MAX][0]):+.2f}   "
+        f"(SRS : {RES[KEY_MAX][1]:+.2f})   ratio des sd "
+        f"{nlp.sd / NULL[KEY_MAX].sd:.3f}")
+
+
+# --------------------------------------------------------------------------
 # 5. Puissance — contaminations d'amplitude connue par construction
 # --------------------------------------------------------------------------
 
@@ -633,6 +688,7 @@ def measure(m_mod, R, theta, reps, family="tiers", full=False):
         hots.append(ho)
     return dict(m=m_mod, R=R, theta=theta, family=family, reps=reps,
                 adv=float(np.mean(advs)), hot=float(np.mean(hots)),
+                se=float(np.std(advs, ddof=1) / math.sqrt(reps)) if reps > 1 else float("nan"),
                 z={k: float(np.mean(v)) for k, v in zs.items()},
                 pw={k: det[k] / reps for k in det}, pw_any=det_any / reps)
 
@@ -685,17 +741,17 @@ say("    raison d'etre du sous-bloc, et elle est mesuree, pas argumentee.")
 
 say("\n5c. DIFFUS CONTRE ISOLE — pourquoi Q1 et Q2 ne sont pas redondantes")
 say("    a nombre de cellules touchees decroissant, amplitude compensee :")
-say("\n" + HDR)
+say(f"\n  {'regles':<12}{'cellules':>9}{'theta':>7}{'avantage':>11}"
+    f"{'z(Q1)':>9}{'z(Q2)':>9}{'pwQ1':>7}{'pwQ2':>7}")
 TAB_C = []
 for (mm, rr, th) in (((80, 2, 0.08), (8, 1, 0.20)) if DRY else
                      ((80, 2, 0.08), (20, 1, 0.14), (4, 1, 0.25), (1, 1, 0.40))):
     r = measure(mm, rr, th, max(3, REPS_POWER // 2), "tiers")
     r["label"] = f"m={mm} R={rr}"
     TAB_C.append(r)
-    say(f"  {r['label']:<12}" + f"{r['theta']:>6.2f}{r['adv']:>+11.4f}"
-        f"{r['z']['Q1']:>+10.1f}{r['z']['Q2']:>+10.1f}"
-        f"{r['pw']['Q1']:>8.0%}{r['pw']['Q2']:>8.0%}")
-say("    (colonnes : theta, avantage, z(Q1), z(Q2), pw Q1, pw Q2)")
+    say(f"  {r['label']:<12}{mm*rr:>9}{r['theta']:>7.2f}{r['adv']:>+11.4f}"
+        f"{r['z']['Q1']:>+9.1f}{r['z']['Q2']:>+9.1f}"
+        f"{r['pw']['Q1']:>7.0%}{r['pw']['Q2']:>7.0%}")
 say("    Une regle unique et forte est invisible de Q1 — un exces de 40 sur une")
 say("    somme dont l'ecart-type vaut ~660 — et franche pour Q2. Reciproquement")
 say("    160 regles faibles allument Q1 et laissent Q2 dans sa loi du maximum.")
@@ -727,13 +783,16 @@ CONFIGS = ((("tiers", 40, 2), ("tiers", 80, 2)) if DRY else
            (("tiers", 20, 1), ("tiers", 40, 1), ("tiers", 80, 1),
             ("tiers", 20, 2), ("tiers", 40, 2), ("tiers", 80, 2),
             ("tiers", 80, 4), ("membre", 40, 2), ("membre", 80, 2)))
-GRID_SWEEP = (0.06, 0.09) if DRY else (0.04, 0.055, 0.07, 0.085)
+GRID_BY_FAM = ({"tiers": (0.06, 0.09), "membre": (0.03, 0.06)} if DRY else
+               {"tiers": (0.050, 0.065, 0.080, 0.095),
+                "membre": (0.020, 0.030, 0.040, 0.055)})
+GRID_SWEEP = GRID_BY_FAM["tiers"]        # pour la trace du pre-enregistrement
 
 say(f"\n  {'famille':>8}{'m':>4}{'R':>3}{'theta':>7}{'chauds':>8}{'avantage':>11}{'%':>8}"
     f"{'pwQ1':>7}{'pwQ2':>7}{'pwQ3':>7}{'pw v':>7}")
 BEST, SWEEP = None, []
 for (fam, mm, rr) in CONFIGS:
-    for th in GRID_SWEEP:
+    for th in GRID_BY_FAM[fam]:
         r = measure(mm, rr, th, REPS_SWEEP, fam)
         SWEEP.append(r)
         say(f"  {fam:>8}{mm:>4}{rr:>3}{th:>7.3f}{r['hot']:>8.2f}{r['adv']:>+11.4f}"
@@ -752,7 +811,19 @@ say(f"  theta = {BEST['theta']:.3f} — puissance {BEST['pw_any']:.0%} sur {BEST
 say(f"\n  Re-mesure a l'enveloppe sur {REPS_EDGE} archives (le balayage a {REPS_SWEEP}")
 say("  ne separe pas 33 % de 50 %) :")
 EDGE = measure(BEST["m"], BEST["R"], BEST["theta"], REPS_EDGE, BEST["family"], full=True)
-say(f"    avantage {EDGE['adv']:+.4f} +- {0.0:.0f} hits, soit {EDGE['adv']/2.5:+.2%}")
+if EDGE["pw_any"] >= 0.5:
+    lower = [t for t in GRID_BY_FAM[BEST["family"]] if t < BEST["theta"]]
+    say(f"    la re-mesure donne {EDGE['pw_any']:.0%} : l'enveloppe du balayage etait")
+    say(f"    trop haute (3 archives ne separent pas 33 % de 50 %). On redescend d'un")
+    say(f"    cran, et c'est le report honnete du bruit d'estimation, pas un choix.")
+    if lower:
+        EDGE = measure(BEST["m"], BEST["R"], max(lower), REPS_EDGE,
+                       BEST["family"], full=True)
+    else:
+        say("    ATTENTION : plus bas point de la grille deja detecte — le plafond")
+        say("    ci-dessous est SUR-ESTIME.")
+say(f"    theta retenu {EDGE['theta']:.3f}")
+say(f"    avantage {EDGE['adv']:+.4f} +- {EDGE['se']:.4f} hits, soit {EDGE['adv']/2.5:+.2%}")
 say(f"    puissance mesuree {EDGE['pw_any']:.0%}   "
     f"(Q1 {EDGE['pw']['Q1']:.0%}, Q2 {EDGE['pw']['Q2']:.0%}, Q3 {EDGE['pw']['Q3']:.0%})")
 say(f"    z moyens : Q1 {EDGE['z']['Q1']:+.1f}  Q2 {EDGE['z']['Q2']:+.1f}  "

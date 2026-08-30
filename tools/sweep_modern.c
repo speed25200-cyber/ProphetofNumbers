@@ -244,7 +244,9 @@ typedef struct {
     const char *name;
     int  engine;
     int  param;   // nombre de tours (ChaCha / Philox / ThreeFry) ou flux (pcg32)
-    int  low;     // 1 = on prend les 32 bits de POIDS FAIBLE d'une sortie 64 bits
+    int  low;     // 0 = 32 bits de POIDS FORT d'une sortie 64 bits (convention
+                  //     de sweep_order) ; 1 = 32 bits de POIDS FAIBLE ;
+                  //     2 = le mot NATIF de 64 bits, sans troncature.
 } famdesc;
 
 // L'ordre de ce tableau est l'index de famille utilisé par --fams et --stream.
@@ -280,6 +282,21 @@ static const famdesc FAM[] = {
     /* 28 */ { "jsf32",                 E_JSF32,        0, 0 },
     /* 29 */ { "pcg32 srandom(g,0)",    E_PCG32,        0, 0 },
     /* 30 */ { "pcg32 srandom(g,54)",   E_PCG32,       54, 0 },
+    // Mode NATIF : le mot de 64 bits entier alimente la réduction, sans
+    // troncature préalable. Ce n'est pas un cinquième échantillonneur mais
+    // les deux mêmes réductions — u mod m et (u·m) >> w — appliquées à la
+    // largeur w = 64 du générateur. `sweep_order` fixait w = 32 en tronquant
+    // aux bits de poids fort ; `rng() % 80` sur un générateur 64 bits n'est
+    // ni cette réduction-là ni celle des variantes ^L.
+    /* 31 */ { "sfc64 ^64",              E_SFC64,        0, 2 },
+    /* 32 */ { "jsf64 ^64",              E_JSF64,        0, 2 },
+    /* 33 */ { "wyrand ^64",             E_WYRAND,       0, 2 },
+    /* 34 */ { "romuTrio ^64",           E_ROMUTRIO,     0, 2 },
+    /* 35 */ { "romuDuoJr ^64",          E_ROMUDUOJR,    0, 2 },
+    /* 36 */ { "xoshiro256+ ^64",        E_XOSHIRO256P,  0, 2 },
+    /* 37 */ { "xoshiro256++ ^64",       E_XOSHIRO256PP, 0, 2 },
+    /* 38 */ { "pcg64 srandom(g,0) ^64", E_PCG64_SRAND,  0, 2 },
+    /* 39 */ { "pcg64 etat=g incD ^64",  E_PCG64_DEFINC, 0, 2 },
 };
 #define NFAM ((int)(sizeof FAM / sizeof FAM[0]))
 
@@ -366,7 +383,7 @@ static void eng_init(int f, uint64_t seed, estate *st) {
     st->blk = 0;
 }
 
-static uint32_t eng_next(int f, estate *st) {
+static uint64_t eng_next_wide(int f, estate *st) {
     const famdesc *F = &FAM[f];
     uint64_t r64;
     switch (F->engine) {
@@ -387,14 +404,14 @@ static uint32_t eng_next(int f, estate *st) {
             memcpy(st->blkout, out, sizeof out);
             st->bn = 4; st->bi = 0; st->blk++;
         }
-        return st->blkout[st->bi++];
+        return (uint64_t)st->blkout[st->bi++];
     }
     case E_CHACHA_D: case E_CHACHA_R:
         if (st->bi >= st->bn) {
             chacha_block(st->key, st->blk, F->param, st->blkout);
             st->bn = 16; st->bi = 0; st->blk++;
         }
-        return st->blkout[st->bi++];
+        return (uint64_t)st->blkout[st->bi++];
     case E_SFC64: {
         uint64_t t = st->a + st->b + st->d; st->d++;
         st->a = st->b ^ (st->b >> 11);
@@ -421,7 +438,7 @@ static uint32_t eng_next(int f, estate *st) {
         c = d + e;
         d = e + a;
         st->a = a; st->b = b; st->c = c; st->d = d;
-        return d;
+        return (uint64_t)d;
     }
     case E_WYRAND: {
         st->a += 0x2d358dccaa6c78a5ULL;
@@ -465,10 +482,24 @@ static uint32_t eng_next(int f, estate *st) {
     default: {  // E_PCG32 — pcg-c-basic : sortir depuis l'ANCIEN état
         uint64_t old = st->a;
         st->a = old * PCG32_MULT + st->b;
-        return pcg32_out(old);
+        return (uint64_t)pcg32_out(old);
     }
     }
-    return F->low ? (uint32_t)r64 : (uint32_t)(r64 >> 32);
+    return r64;
+}
+
+// Réduction à 32 bits, telle que sweep_order la pratique. Sert au balayage
+// des familles 0 à 30, à --stream et au KAT du catalogue ; les familles en
+// mode natif (low == 2) lisent eng_next_wide directement.
+static inline uint32_t eng_next(int f, estate *st) {
+    uint64_t r = eng_next_wide(f, st);
+    switch (FAM[f].engine) {
+    case E_PHILOX_K: case E_PHILOX_C: case E_THREEFRY_K: case E_THREEFRY_C:
+    case E_CHACHA_D: case E_CHACHA_R: case E_JSF32: case E_PCG32:
+        return (uint32_t)r;                       // flux nativement 32 bits
+    default:
+        return (FAM[f].low == 1) ? (uint32_t)r : (uint32_t)(r >> 32);
+    }
 }
 
 // Les familles à compteur amorcées par le compteur rangent la graine dans
@@ -487,11 +518,17 @@ static void eng_init_full(int f, uint64_t seed, estate *st) {
 // ChaCha20 coûte vingt tours, et une graine fausse meurt au premier numéro
 // (probabilité 1/80), donc un bloc suffit presque toujours.
 
-typedef struct { int fam; estate st; uint32_t w[MAXW]; int n; } wbuf;
+typedef struct { int fam; int m64; estate st; uint64_t w[MAXW]; int n; } wbuf;
 
-static inline uint32_t wb_get(wbuf *b, int i) {
-    while (b->n <= i) b->w[b->n++] = eng_next(b->fam, &b->st);
+static inline uint64_t wb_get(wbuf *b, int i) {
+    while (b->n <= i)
+        b->w[b->n++] = b->m64 ? eng_next_wide(b->fam, &b->st)
+                              : (uint64_t)eng_next(b->fam, &b->st);
     return b->w[i];
+}
+static inline void wb_reset(wbuf *b, int f, uint64_t seed) {
+    b->fam = f; b->m64 = (FAM[f].low == 2); b->n = 0;
+    eng_init_full(f, seed, &b->st);
 }
 
 // ---------------------------------------------------------------------------
@@ -504,10 +541,11 @@ static int match_order(int s, wbuf *b, const uint8_t *target) {
         uint64_t lo = 0, hi = 0;
         int got = 0, steps = 0;
         while (got < DRAWN && steps < 400) {
-            uint32_t u = wb_get(b, steps);
+            uint64_t u = wb_get(b, steps);
             steps++;
-            uint32_t n = (s == 0) ? (u % POOL)
-                                  : (uint32_t)(((uint64_t)u * POOL) >> 32);
+            uint32_t n = (s == 0) ? (uint32_t)(u % POOL)
+                       : b->m64  ? (uint32_t)(((u128)u * POOL) >> 64)
+                                 : (uint32_t)((u * POOL) >> 32);
             int bt = (int)n;
             uint64_t bit = (bt < 64) ? (1ULL << bt) : (1ULL << (bt - 64));
             uint64_t *w = (bt < 64) ? &lo : &hi;
@@ -522,8 +560,10 @@ static int match_order(int s, wbuf *b, const uint8_t *target) {
     for (int i = 0; i < POOL; i++) arr[i] = (uint8_t)(i + 1);
     for (int i = 0; i < DRAWN; i++) {
         uint32_t m = (uint32_t)(POOL - i);
-        uint32_t u = wb_get(b, i);
-        uint32_t p = (s == 2) ? (u % m) : (uint32_t)(((uint64_t)u * m) >> 32);
+        uint64_t u = wb_get(b, i);
+        uint32_t p = (s == 2) ? (uint32_t)(u % m)
+                   : b->m64  ? (uint32_t)(((u128)u * m) >> 64)
+                             : (uint32_t)((u * m) >> 32);
         int j = i + (int)p;
         uint8_t t = arr[i]; arr[i] = arr[j]; arr[j] = t;
         if (arr[i] != target[i]) return 0;
@@ -533,16 +573,16 @@ static int match_order(int s, wbuf *b, const uint8_t *target) {
 
 static void produce(int f, int s, uint64_t seed, uint8_t *out) {
     static __thread wbuf b;
-    b.fam = f; b.n = 0;
-    eng_init_full(f, seed, &b.st);
+    wb_reset(&b, f, seed);
     memset(out, 0, DRAWN);
     if (s == 0 || s == 1) {
         uint64_t lo = 0, hi = 0; int got = 0, steps = 0;
         while (got < DRAWN && steps < 4000) {
-            uint32_t u = wb_get(&b, steps);
+            uint64_t u = wb_get(&b, steps);
             steps++;
-            uint32_t n = (s == 0) ? (u % POOL)
-                                  : (uint32_t)(((uint64_t)u * POOL) >> 32);
+            uint32_t n = (s == 0) ? (uint32_t)(u % POOL)
+                       : b.m64   ? (uint32_t)(((u128)u * POOL) >> 64)
+                                 : (uint32_t)((u * POOL) >> 32);
             int bt = (int)n;
             uint64_t bit = (bt < 64) ? (1ULL << bt) : (1ULL << (bt - 64));
             uint64_t *w = (bt < 64) ? &lo : &hi;
@@ -556,8 +596,10 @@ static void produce(int f, int s, uint64_t seed, uint8_t *out) {
     for (int i = 0; i < POOL; i++) arr[i] = (uint8_t)(i + 1);
     for (int i = 0; i < DRAWN; i++) {
         uint32_t m = (uint32_t)(POOL - i);
-        uint32_t u = wb_get(&b, i);
-        uint32_t p = (s == 2) ? (u % m) : (uint32_t)(((uint64_t)u * m) >> 32);
+        uint64_t u = wb_get(&b, i);
+        uint32_t p = (s == 2) ? (uint32_t)(u % m)
+                   : b.m64   ? (uint32_t)(((u128)u * m) >> 64)
+                             : (uint32_t)((u * m) >> 32);
         int j = i + (int)p;
         uint8_t t = arr[i]; arr[i] = arr[j]; arr[j] = t;
         out[i] = arr[i];
@@ -580,10 +622,8 @@ static void *worker(void *arg) {
     job *j = (job *)arg;
     static __thread wbuf b;
     for (int s = 0; s < NSAMP; s++) { j->hits[s] = 0; j->first[s] = 0; }
-    b.fam = j->fam;
     for (uint64_t seed = j->lo; seed < j->hi; seed++) {
-        b.n = 0;
-        eng_init_full(j->fam, seed, &b.st);
+        wb_reset(&b, j->fam, seed);
         for (int s = 0; s < NSAMP; s++) {
             if (match_order(s, &b, j->target)) {
                 if (j->hits[s] == 0) j->first[s] = seed;
@@ -682,9 +722,19 @@ static const uint32_t CATKAT[NFAM][6] = {
     { 0xb3a4501fu, 0x830bdc15u, 0x7a4d860eu, 0x04754792u, 0x9ea85432u, 0xe34d992eu },   /* 28 */
     { 0x7ab4835bu, 0xd1e80b47u, 0x1231f2c8u, 0xfdfe1529u, 0xd60f5b34u, 0xbfa2d375u },   /* 29 */
     { 0xa735ba6du, 0x756904bfu, 0x8e7ffca7u, 0xa85c0d0eu, 0xd3b2be73u, 0x6ec5328bu },   /* 30 */
+    { 0x1d1c7177u, 0xcbb9b762u, 0xc5255716u, 0x92e573e8u, 0x3bf40b91u, 0x28ad9966u },   /* 31 */
+    { 0x099f1967u, 0xd05f98e8u, 0xd32ba4c5u, 0xf85557a1u, 0x460995c1u, 0xa709f639u },   /* 32 */
+    { 0xbe7b4617u, 0xb5cac5f0u, 0x14e5da3fu, 0x3f9c477cu, 0x56eb5ae8u, 0x40166888u },   /* 33 */
+    { 0x599ed017u, 0xa79fefe4u, 0x34fbc2b1u, 0xbecd6b83u, 0xa294d622u, 0xc62a1c68u },   /* 34 */
+    { 0x599ed017u, 0x31816313u, 0xe306a474u, 0xc31c5c31u, 0xc32190b2u, 0xa82249d6u },   /* 35 */
+    { 0x995dc758u, 0xb8e71a4cu, 0x9c42fc45u, 0x2b8a74ccu, 0x0eeba288u, 0x95e09cb4u },   /* 36 */
+    { 0x0610e053u, 0x70c979e2u, 0xfb95f99fu, 0x03890aaeu, 0x536acabdu, 0x1f1a58ffu },   /* 37 */
+    { 0x960cebc4u, 0x81240d93u, 0x8133ed74u, 0x27094e4fu, 0x09088d34u, 0x7e49006eu },   /* 38 */
+    { 0x5ee9531fu, 0x81435e78u, 0x958c5212u, 0xa9453d5du, 0x143566d8u, 0x6174a69au },   /* 39 */
 };
 static const int CATSKIP[NFAM] = { 4,4,4,4, 0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,
-                                   0,0,0,0,0,0,0,0,0, 0,0,0 };
+                                   0,0,0,0,0,0,0,0,0, 0,0,0,
+                                   0,0,0,0,0,0,0,0,0 };
 
 static int kat_fail = 0, kat_run = 0;
 static void kat_line(const char *what, const char *src, int ok) {
