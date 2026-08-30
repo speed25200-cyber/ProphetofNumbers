@@ -5332,6 +5332,14 @@ c'est A qui vaut et le seuil monte.
 
 ## 56. Le barème, lu (`h42_bareme_reel.py`)
 
+> **Confirmé et corrigé au §62.** Le prix du ticket déduit ici — `c > CHF 1,20`,
+> donc `c = 2` — est **confirmé par le règlement officiel** : la déduction était
+> juste et `c = 2` cesse d'être une hypothèse. En revanche la limite n° 3
+> ci-dessous est **fausse** : elle calcule l'espérance de l'option EXTRA en lui
+> appliquant la loi hypergéométrique de la grille de base, ce qui donne 365 à
+> 557 % de taux de retour selon la mise. La colonne EXTRA n'obéit pas à cette
+> loi. Sa conclusion (« elle n'est pas gratuite ») est vraie, mais par accident.
+
 Le §50 s'est achevé sur une phrase :
 
 > « Un document lèverait `w_h` exactement et rendrait `h34` obsolète : zéro
@@ -5485,6 +5493,11 @@ l'être.
 > vient d'une capture d'écran. Le §50 l'avait écrit avant de l'obtenir.
 
 ## 57. Le seuil refait sur l'observé, et le maillon qui se déplace (`h43_seuil_observe.py`)
+
+> **Limite n° 1 levée au §62.** `c = 2` n'est plus une hypothèse : le règlement
+> officiel le donne. La sensibilité déclarée plus bas — « à `c = 2,50` le seuil
+> passe à 10 261 » — est sans objet. Le seuil statique vaut **CHF 6 385**, et le
+> maillon faible de la chaîne reste `q`, comme cette section le concluait.
 
 Le §55 s'est achevé sur une phrase qui désignait sa propre faiblesse :
 
@@ -6119,3 +6132,186 @@ le début, sans succès à ce jour.
    par bissection sur un null simulé.
 
 **Registre : inchangé.** `h46` ne teste pas l'archive — il balaye un modèle.
+
+## 62. Le prix du ticket, obtenu — et une erreur du §56
+
+Le §56 avait déduit du barème que le taux de retour `E/c ≤ 1` force
+**`c > CHF 1,1971`**, donc qu'un ticket à un franc est arithmétiquement exclu,
+et avait pris `c = 2` comme « seule valeur ronde compatible donnant un retour
+plausible ». Le §9 l'appelait depuis **la dernière inconnue de toute la chaîne
+financière**.
+
+### Ce que dit le règlement
+
+Le règlement officiel de Loto Express (`loex-v13-1-fr.pdf`, Loterie Romande)
+donne :
+
+> **« L'enjeu unitaire LOTO EXPRESS est de CHF 2.- »**
+>
+> « L'enjeu unitaire EXTRA est de CHF 2.- et s'ajoute à l'enjeu unitaire LOTO
+> EXPRESS en cas de participation à l'option EXTRA. »
+>
+> « L'enjeu unitaire BOOST est de CHF 2.- et s'ajoute à l'enjeu unitaire LOTO
+> EXPRESS en cas de participation à l'option BOOST. »
+
+**Sourçage, et il faut être précis.** Le PDF n'a pas pu être lu directement :
+`jeux.loro.ch` est bloqué par le proxy de sortie de cet environnement, comme
+il l'était déjà pour l'API (§11). Le chiffre provient de **deux recherches
+indépendantes** dont les résultats citent ce document. C'est une source de
+seconde main, plus solide qu'une déduction mais moins qu'une lecture directe :
+la vérification à un coup d'œil sur l'application reste souhaitable.
+
+### Ce que cela change
+
+**La déduction du §56 était juste.** `c = 2` cesse d'être une hypothèse. Tout
+ce qui en dépendait devient une mesure :
+
+| quantité | statut au §56 | statut maintenant |
+|---|---|---|
+| taux de retour de base | 58,9 % *sous hypothèse* | **58,9 %, mesuré** |
+| seuil exact, mise 6 | CHF 6 385 *sous hypothèse* | **CHF 6 385** |
+| seuil statique (§57) | « seule hypothèse restante : `c` » | **plus aucune hypothèse** |
+| marge de l'opérateur | 41 % *sous hypothèse* | **41 %** |
+
+La sensibilité que le §57 déclarait en limite n° 1 — « à `c = 2,50` le seuil
+passe à 10 261 » — devient sans objet. Le seuil statique de bascule à la mise 6
+vaut **CHF 6 385**, sans conditionnel.
+
+### Une erreur du §56, et elle est de méthode
+
+Le §56 écrivait, en limite n° 3 :
+
+> « Son espérance seule vaut 9,99 CHF à la mise 6, ce qui exclut qu'elle soit
+> gratuite. »
+
+**Ce calcul est invalide.** Il applique la loi hypergéométrique de la grille de
+base à la colonne EXTRA. Passé sur les cinq mises, il donne :
+
+| mise | E[extra] sous la loi de base | taux de retour implicite |
+|---|---|---|
+| 5 | 11,13 | 557 % |
+| 6 | 9,99 | 500 % |
+| 7 | 9,17 | 459 % |
+| 8 | 8,24 | 412 % |
+| 10 | 7,29 | 365 % |
+
+Cinq taux de retour supérieurs à 100 % : aucun opérateur ne tient. **La colonne
+EXTRA n'obéit donc pas à la loi de la grille de base** — l'option tire ses
+propres numéros ou conditionne ses gains autrement, et lui appliquer la loi de
+base est une faute, pas une approximation.
+
+La conclusion du §56 (« elle n'est pas gratuite ») se trouve être **vraie** —
+le règlement dit CHF 2 — mais elle l'était par accident. Un raisonnement faux
+qui atteint la bonne réponse reste un raisonnement faux, et il aurait donné une
+mauvaise réponse à la question suivante.
+
+### Ce qui reste ouvert sur EXTRA
+
+Son prix est connu (CHF 2, additionnels). Sa **loi** ne l'est pas : il faudrait
+lire dans le règlement comment ses gains sont conditionnés avant de pouvoir
+dire s'il est rentable de la prendre. Aucun chiffre du dossier n'en dépend
+aujourd'hui.
+
+**Sources :** [Règlement Loto Express — Loterie Romande](https://jeux.loro.ch/media/q5gbegrw/loex-v13-1-fr.pdf) · [Règlements des jeux | LoRo](https://jeux.loro.ch/reglements)
+
+## 63. La graine que personne n'avait essayée : celle qu'on connaît (`h47_graine_connue.py`, `tools/sweep_time.c`)
+
+Tous les balayages du dossier — `sweep48`, `sweep_java48`, `sweep_mt`,
+`sweep_order`, `sweep_modern` — énumèrent un espace de graines **inconnues** :
+2⁴⁸ états, **20,9 jours-cœur**, jamais mené à terme faute de GPU. Tous
+supposent que la graine est un secret qu'il faut deviner.
+
+Aucun n'a essayé le contraire, qui est le mode de défaillance le plus répandu
+de tout le logiciel : **`srand(time(NULL))`**. Une graine dérivée de l'horloge
+ou d'un compteur n'a pas à être devinée — elle est écrite dans l'archive :
+
+- le numéro de tirage est **strictement consécutif**, 1 309 614 → 1 380 173 ;
+- l'horodatage unix tombe sur une **grille exacte de 300 s** (70 548 / 70 560).
+
+L'espace de recherche passe de 2⁴⁸ à **quarante-deux graines par tirage**. Ce
+qui demandait trois semaines-cœur tient en deux minutes.
+
+> Le §7 de l'audit notait déjà que l'horodatage ne porte aucun canal de rejet,
+> *parce que* la grille est trop propre. Personne n'en avait tiré la
+> conséquence inverse : une grille aussi propre rend la graine horaire
+> parfaitement **prédictible**, donc parfaitement **testable**.
+
+### La statistique, et pourquoi elle n'est pas binaire
+
+On ne demande pas une reproduction exacte mais le **recouvrement** entre le
+tirage engendré et le tirage réel. Une famille correcte avec une convention
+légèrement fausse donnerait 16 ou 18 sur 20 ; l'exiger à 20 la manquerait.
+
+Sous H₀ le recouvrement suit une **hypergéométrique(80, 20, 20) exacte** :
+moyenne 5, écart-type 1,76. Le null de chaque essai est donc en forme close, et
+la comparaison terme à terme de l'histogramme vaut calibration.
+
+### Le témoin positif
+
+Une archive de 400 tirages est fabriquée avec `java.util.Random(ts)` et un
+Fisher-Yates partiel, par une réimplémentation **indépendante** de celle du C.
+
+> **`max 20 — java.util.Random / fy_partiel / ts+0` — 400 sur 400 tirages.**
+
+Le balayage retrouve le générateur planté sur *chaque* tirage et nomme
+correctement la famille, l'échantillonneur et la convention. (Une première
+version en trouvait 4 264 sur 400 : le remplissage de secours des
+échantillonneurs à rejet répétait un numéro présent dans la cible, et le
+recouvrement le comptait plusieurs fois. Corrigé en intersection
+d'**ensembles** — c'est le témoin qui a révélé le défaut.)
+
+### Le balayage
+
+8 familles × 4 échantillonneurs × 6 conventions de graine × 7 décalages, sur
+les 70 560 tirages : **91 869 120 essais.**
+
+| | |
+|---|---|
+| familles | java.util.Random, glibc `random()`, MT19937, MSVC `rand()`, Numerical Recipes, minstd 16807, splitmix64, glibc LCG |
+| échantillonneurs | Fisher-Yates partiel et complet, rejet modulo, rejet flottant |
+| conventions | `ts+d`, `id+d`, `ts/300+d`, `(ts^id)+d`, `(ts+id)+d`, `ts*1000+d` |
+| décalages | `d` de −3 à +3 |
+
+| ov | observé | attendu | écart |
+|---|---|---|---|
+| 5 | 21 430 303 | 21 431 296 | −0,00 % |
+| 10 | 361 255 | 361 974 | −0,20 % |
+| 12 | 8 282 | 8 376 | −1,12 % |
+| 13 | 800 | 778 | +2,83 % |
+| 14 | 46 | 50,4 | −8,78 % |
+| **15** | **4** | **2,26** | +82 % |
+
+L'histogramme colle à la loi exacte à **moins de 0,3 %** dans tout le corps.
+Maximum observé **15**, attendu 2,26 essais à ce niveau :
+
+> **p = 1 − exp(−2,26) = 0,896.** Registre m = 3 328, seuil de Holm
+> 1,55 × 10⁻⁵. **Conforme.**
+
+Il aurait fallu `ov ≥ 17` pour `p = 10⁻³`, `ov ≥ 18` pour `p = 8,8 × 10⁻⁶`, et
+un `ov = 20` — une reproduction exacte — vaudrait `p = 2,6 × 10⁻¹¹`.
+
+### Ce que cela ferme, et ce que cela ne ferme pas
+
+**Fermé.** La classe des implémentations qui ré-amorcent leur générateur sur
+l'horloge ou sur un compteur — la plus courante en pratique, et celle
+qu'aucun balayage du dossier n'atteignait — pour 8 familles, 4 échantillonneurs
+et 6 conventions. Le témoin établit que le balayage voit ce genre de chose
+quand il est là.
+
+**Non fermé, et il faut être précis.**
+
+1. La puissance vaut **1 dans** le produit balayé et **0 en dehors**. Une
+   famille absente (AES-CTR, ChaCha, un matériel), un échantillonneur absent,
+   une convention absente (millisecondes exactes, chaîne formatée, sel) ne sont
+   pas testés.
+2. Le décalage est borné à ±3 unités. Une graine prise à la seconde de
+   *déclenchement* avec plus de trois secondes de dérive échapperait.
+3. Un générateur qui **tourne en continu** n'est pas visé ici — c'est le
+   domaine de h4 à h20 et de `sweep48`. Ce fichier ne couvre que le
+   **ré-amorçage par quantité connue**.
+
+**Ce que cela ne fait pas.** Le théorème d'invariance n'est pas touché. Un
+générateur reproductible ne le ferait pas *tomber* : il rendrait le tirage
+**prévisible**, ce qui est une autre chose — l'espérance resterait `k/4` pour
+qui ne connaît pas la graine. C'était la seule voie ouverte vers une prédiction
+réelle ; elle est ici fermée sur cette région, et l'archive n'y montre rien.
