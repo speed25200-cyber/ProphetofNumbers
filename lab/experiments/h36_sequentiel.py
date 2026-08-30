@@ -319,28 +319,48 @@ for alpha_v in (0.08, 0.295, 1.0, 3.0, 11.65):
         f"{d_fr / (alpha_v * S):<8.4f} {d_fr:>10,.0f}   {1 - rho_s_v / rho_o_v:>10.3%}")
 
 say(f"""
-   Lecture, et c'est un renforcement du dossier plus qu'une correction.
+   Et la ligne qui décrit un utilisateur de l'app — UNE grille parmi la
+   foule (n = 1, q = 1/400, soit n·p/q = {P / Q_BASE:.3f}) :""")
+say("\n   α        Δ/μ      Δ (francs)   perte du seuil statique")
+one_grid = {}
+for alpha_v in (0.08, 0.295, 1.0, 3.0):
+    m_s_v = math.ceil(1 / (alpha_v * Q_BASE))
+    m_o_v, rho_o_v, ok_v, r_v = solve_dp_admission(alpha_v, Q_BASE, 1)
+    assert ok_v
+    rho_s_v = eval_threshold_renewal(m_s_v, alpha_v, Q_BASE, 1)
+    d_fr = m_o_v * r_v - S
+    one_grid[alpha_v] = (d_fr / (alpha_v * S), 1 - rho_s_v / rho_o_v)
+    say(f"   {alpha_v:<8.3g} {d_fr / (alpha_v * S):<8.4f} {d_fr:>10,.0f}   "
+        f"{1 - rho_s_v / rho_o_v:>10.3%}")
+
+worst1 = max(v[1] for v in one_grid.values())
+say(f"""
+   Lecture, en trois temps.
 
    1. La politique optimale du contrôle markovien EST une politique de
-      seuil (vérifié par certificat, pas supposé), et son seuil coïncide
-      avec celui du §29 dès que n·p/q → 0 — le régime d'un joueur parmi la
-      foule, qui est celui de l'app. Le théorème M gagne donc un étage :
-      « miser ssi le pari est favorable » est optimal aussi en séquentiel,
-      parce que jouer n'empêche pas de rejouer.
+      seuil (vérifié par certificat de Bellman, pas supposé). L'intuition
+      qui motivait la question — « ne pas jouer aujourd'hui pour jouer
+      demain avec un capital intact » — est nulle en espérance, et le
+      calcul dit pourquoi : jouer n'empêche pas de rejouer. Si l'action ne
+      touchait pas la transition, le seuil du §29 serait EXACTEMENT optimal
+      en séquentiel (témoin A1, égalité au tirage près).
 
-   2. La SEULE correction séquentielle est l'auto-extinction : ne pas
-      éteindre soi-même la cagnotte qu'on exploite. Elle relève le seuil de
-      Δ ≈ (1−q)·n·p·h — quelques pourcents de S dans le pire balayage — et
-      l'ignorer coûte au plus {loss_static:.1%} de profit par tirage aux paramètres
-      du dossier. La règle robuste, insensible à α : JOUER AU SEUIL DU
-      §5 bis, sauf si vos propres mises sont une part visible du taux de
-      chute (n·p/q non négligeable) — alors exiger quelques pourcents de
-      plus que S.
+   2. Mais l'action touche la transition par UN canal : gagner éteint la
+      cagnotte. Le seuil séquentiel vaut S plus la valeur future détruite
+      en cas de gain, TOUJOURS au-dessus de S, jamais en dessous. Pour le
+      joueur à une grille, ignorer ce supplément coûte au pire {worst1:.2%} du
+      profit sur tout le balayage de α : le §29 tient, et c'est un
+      renforcement. Pour un joueur dont les grilles sont une part VISIBLE
+      du taux de chute (n·p/q ≳ 0,5), le supplément monte à des dixièmes
+      de μ et le seuil statique laisse jusqu'à moitié du profit sur la
+      table. La règle, sans α : comparer n·p au taux de chutes observé
+      (celui que §36 fait déjà compter à l'app) ; tant que le rapport est
+      petit, jouer au seuil du §5 bis ; sinon relever le seuil de la
+      fraction de μ donnée par la colonne Δ/μ.
 
-   3. L'intuition « attendre que la cagnotte monte » est fausse pour la
-      raison exacte que le calcul montre : elle vaudrait quelque chose si
-      jouer consommait l'occasion de demain. Il ne la consomme que par le
-      canal du gain — et ce canal est mesuré ci-dessus.""")
+   3. Attendre PLUS que ce seuil corrigé est une erreur, exactement comme
+      au §29 : la seule valeur d'attente qui existe en séquentiel est celle
+      de ne pas s'auto-éteindre, et elle est entièrement contenue dans Δ.""")
 
 
 # ==========================================================================
