@@ -4820,3 +4820,124 @@ pas du code, c'est trois observations** — le prix du ticket, le règlement du
 jeu, et cent minutes de boost avant clôture. Chacune transformerait une
 hypothèse en donnée, et donc un chiffre non câblable en chiffre câblable.
 Aucune ne demande une ligne de calcul supplémentaire.
+
+## 52. Le codeur qui n'a pas besoin qu'on lui dise quoi chercher (`h35_codage_universel.py`)
+
+Toutes les voies de piste A partagent une servitude : nommer la régularité
+d'avance, puis payer sa place au registre. Les §41 à §48 ont montré ce que
+cette servitude coûte — le plafond d'un biais indétectable croît en `m^{1/4}`
+avec la taille de la famille, et il existe une infinité de familles jamais
+nommées.
+
+Le **codage universel** échappe à cette structure : un compresseur converge
+vers l'entropie de la source, quelle qu'elle soit dans la classe qu'il
+mélange, sans qu'on lui dise quoi chercher. Et l'unité est déjà celle du
+dossier — sous H₀ un tirage coûte 61,6165 bits, et tout bit économisé est un
+taux de Kelly. `f4` avait fait un pas, mais ses 174 paris étaient des modèles
+**nommés**, à inclinaison figée.
+
+### La classe, et pourquoi les indicatrices
+
+Le rang combinatoire est écarté : changer un numéro déplace le rang de
+quantités énormes, et aucun contexte sur ses chiffres ne correspond à un
+biais physique. Les indicatrices rendent de faible complexité exactement ce
+que le monde sait produire.
+
+**22 codeurs KT** — prior Beta(1/2, 3/2), de moyenne 1/4, la valeur H₀ — sur
+des contextes structurels : profondeurs 0 à 12 de l'histoire propre,
+partagées sur les 80 numéros (tous les ordres de Markov ≤ 12, cousin à regret
+quasi identique de CTW) ; un bit isolé aux lags 2 à 12 ; fenêtres glissantes
+512 et 4 096 pour les défauts transitoires ; par-numéro pour la marginale ; et
+le canal du bonus, seul membre hérité d'une famille déjà nommée et déclaré
+comme tel. **5 133 paramètres**, profondeur dictée par le budget de données
+(1 378 événements par feuille), pas par les données.
+
+Le couplage referme la contrainte des 20-parmi-80 : `Q(S) = Π_{i∈S} w_i /
+e₂₀(w)`, la loi de maximum d'entropie à champ donné. Alors `E[e_t | passé] = 1`
+**exactement, quel que soit l'état d'apprentissage** : la validité ne dépend
+pas de la qualité du modèle, seulement du fait que `θ` est fonction du passé
+strict.
+
+> **Une conséquence structurelle qui a d'abord été un bug.** Le membre `sh-d0`
+> a un `θ` constant sur les 80 numéros, et le couplage est invariant
+> d'échelle : son facteur vaut 1 à chaque pas. **La classe contient donc le
+> codeur H₀ lui-même**, comme tout vrai compresseur universel — et le mélange
+> est planchonné à `1/22 = 10^{−1,342}`. Une division par zéro l'a révélé, et
+> le plancher a été **déclaré avant** la lecture du réel : c'est la leçon du
+> plancher de `f4` (§12.2), appliquée cette fois dans le bon ordre.
+
+### Vérifié avant d'être appliqué, puis mordu par ses témoins
+
+Sur 200 000 tirages uniformes à champs fixes, la moyenne de `e_t` vaut 1 à
++2,00 σ, −0,52 σ et +1,18 σ. Le codeur complet, apprentissage compris, sur
+4 archives SRS de 70 560 : pire dérive 2,34 σ, sups à 10^{+0,86} au plus
+contre un seuil de Ville à 10^{+1,30}, et une **redondance de
+−6,24·10⁻⁵ bit/tirage** — le prix mesuré du droit de ne pas nommer la
+famille. L'anti-fuite est décisif et non déclaratif : futur réécrit à partir
+de `t₀`, les log-facteurs du passé sont **bit à bit identiques**.
+
+| témoin positif (T = 20 000) | mord à | manque |
+|---|---|---|
+| marginale | Δp = +0,019 (2/2) | +0,009 |
+| rémanence | ε = 0,05 (2/2) | ε = 0,02 |
+| écho au lag 8 | ε = 0,05 (2/2) | — |
+| transitoire L = 500 | Δp = +0,098, **tôt comme tard** | — |
+| **modulation périodique pure en temps** | **jamais (0/2 à δ = 0,30)** | — |
+
+Deux lignes méritent leur commentaire. Le transitoire mord **placé tard comme
+placé tôt** : les redémarrages par blocs effacent la pénalité de position que
+le §12.5 avait mesurée. Et le dernier est un **angle mort assumé puis
+mesuré** : la classe ne contient aucun contexte exogène en `t`, donc une
+modulation purement temporelle lui échappe. Un témoin qui doit échouer, et
+qui échoue, borne une classe mieux qu'une phrase.
+
+### Le chiffre
+
+| | valeur |
+|---|---|
+| taux de Kelly sur les 70 560 tirages | **−6,18·10⁻⁵ bit/tirage** |
+| bits extraits des 4,35 Mbit de l'archive | **−4,4** |
+| valeur finale du mélange | 10^{−1,314} — *collée au plancher* |
+| sup du mélange, sup des redémarrages | **10^{+0,000}, atteints au pas 0** |
+
+La richesse ne repasse **jamais** au-dessus de sa valeur initiale. Zéro bit.
+Le diagnostic par modèle raconte la même chose que la théorie : les finals
+s'ordonnent presque exactement par le nombre de paramètres, la redondance de
+Krichevsky-Trofimov et rien d'autre.
+
+*Recoupé pour ce rapport : `log₁₀(1/22) = −1,342` contre 10^{−1,314} annoncé,
+soit bien le plancher ; et −6,18·10⁻⁵ × 70 560 = −4,36 bits.*
+
+### Trois lectures, dont une que personne n'avait chiffrée
+
+**Le prix de l'universalité est négatif.** Le mélange **nommé** de `f4` perd
+−3,33·10⁻³ bit/tirage ; l'universel **adaptatif** en perd **54 fois moins**.
+Un codeur qui apprend qu'il n'y a rien cesse de payer ; une grille
+d'inclinaisons figées paie jusqu'au bout. Et cette économie ne coûte rien en
+puissance au même ordre de contamination. Sur cette source et à cet horizon,
+ne pas avoir à deviner la famille est **gratuit, et même rentable**.
+
+**Une borne empirique pour le §13.2, sans supposer de récurrence.** Une classe
+de 5 133 paramètres couvrant marginale, Markov ≤ 12, lags isolés, transitoires
+et canal du bonus extrait **0 bit** des 4,35 Mbit — exactement ce que « un
+état de 64 bits et plus n'y laisse rien » prédit.
+
+**Et la limite de la promesse.** « Universel » veut dire universel *dans sa
+classe*. Pas de contexte exogène en temps — mesuré par l'angle mort de
+période 2 ; pas d'interaction intra-tirage, donc le couplage quadratique du
+§40 est hors classe ; pas de lag au-delà de 12, donc le couplage à lag 204 du
+§19 non plus. La sémantique est par lot, et les courbes de puissance ont deux
+réplicats par point : des ordres de grandeur, pas des fréquences.
+
+### Une entorse, disclosée
+
+Le spécialiste des transitoires a été ajouté après qu'un témoin simulé eut
+montré la classe initiale aveugle — alors qu'une passe de mise au point avait
+déjà vu 8 000 tirages réels, qui ne montraient rien. La motivation vient de la
+simulation et le résultat réel est nul de toute façon, mais le jeton définitif
+a été scellé **après** ce regard, et cela se dit. C'est la troisième entorse à
+la règle n° 2 consignée dans cette campagne, avec celles du §44 et du §49 —
+toutes disclosées, aucune découverte à la clé.
+
+**Registre : 3 entrées, piste C, lisibles sans Holm. Zéro significatif — et
+cette fois sans avoir eu à nommer ce qu'on cherchait.**

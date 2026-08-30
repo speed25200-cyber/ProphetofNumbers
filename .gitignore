@@ -21,3 +21,6 @@ __pycache__/
 
 # Sorties intermediaires du labo
 lab/experiments/*.npy
+
+# Fichiers de PID des balayages du labo
+*.pid

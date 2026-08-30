@@ -233,10 +233,8 @@ def mc_cycles_admission(m, alpha, q, n, n_cycles, rng, phantom=False):
         g2 = rng.geometric(q1, k_up)                  # durée au-dessus de m
         fall_age = m + g2 - 1
         own = rng.random(k_up) < ((1 - q) * n * P / q1 if not phantom else 0.0)
-        rew_up = -n * C * g2 + np.where(own, r * fall_age, 0.0) * n * P / (n * P) \
-            if False else -n * C * g2 + np.where(own, r * fall_age, 0.0)
         length[~early] = m + g2
-        reward[~early] = rew_up
+        reward[~early] = -n * C * g2 + np.where(own, r * fall_age, 0.0)
     rho_hat = reward.sum() / length.sum()
     resid = reward - rho_hat * length
     se = float(np.std(resid)) / (float(np.mean(length)) * math.sqrt(n_cycles))
@@ -294,10 +292,15 @@ assert abs(rho_opt / rho_renew - 1) < 1e-9 and abs(z_mc) < 4
 loss_static = 1 - rho_static_true / rho_opt
 say(f"""
        Et le prix de l'ignorer : jouer au seuil statique dans la vraie
-       dynamique coûte {loss_static:.2%} de profit par tirage. Le décalage existe,
-       il a un signe et une cause (l'auto-extinction), et il est presque
-       gratuit de le négliger — parce qu'au voisinage d'un optimum, une
-       erreur de seuil est de second ordre.""")
+       dynamique coûte {loss_static:.2%} de profit par tirage à ces paramètres.
+       Une confession de méthode : la première rédaction de ce paragraphe
+       annonçait ce coût « presque gratuit, de second ordre » AVANT de
+       l'avoir mesuré. Le calcul a corrigé le texte : de second ordre, il
+       ne l'est que si n·p/q est petit — or aux paramètres de référence de
+       h25 (q = 1/400), les 13 grilles d'un seul joueur représentent 67 %
+       du taux de chute, et le coût est de dix pour cent. Le tableau
+       suivant dit où l'approximation statique est bonne, au lieu de le
+       présumer.""")
 
 say("""
    A3. LA RÈGLE, SOUS L'INCERTITUDE SUR α — et sur la part du joueur dans
@@ -382,7 +385,6 @@ def solve_goal_dp(theta, alpha, m_goal, xs, nq=32, max_sweeps=200, tol=1e-12):
     mu = alpha * S
     u = (np.arange(1, nq + 1) - 0.5) / nq
     V = np.zeros(m_goal)                  # V[M], M = 0..m_goal−1 ; but = 1
-    Mvec = np.arange(m_goal)
     offs = []
     for x in xs:
         J_q = mu * (x - np.log1p(-u))     # quantiles de x·μ + Exp(μ)
@@ -423,7 +425,8 @@ def mc_goal(policy_x, m0, m_goal, alpha, n_rep, rng):
 
     Le nombre de tickets jusqu'à la prochaine victoire est Geom(p) QUEL QUE
     SOIT le niveau visé (l'invariance encore) ; seuls le temps d'attente et
-    le saut en dépendent. Rend P(but), E[tirages], et l'erreur-type de P.
+    le saut en dépendent. Rend P(but), son erreur-type, E[tirages], et
+    l'erreur-type du temps.
     """
     mu = alpha * S
     w_of = np.exp(policy_x) / N_GRIDS                 # tirages par ticket, par stock
@@ -455,7 +458,7 @@ def mc_goal(policy_x, m0, m_goal, alpha, n_rep, rng):
             M[winners] = np.minimum(M_new, m_goal - 1)
     p_hat = float(success.mean())
     se = math.sqrt(max(p_hat * (1 - p_hat), 1e-12) / n_rep)
-    return p_hat, se, float(t_used.mean())
+    return p_hat, se, float(t_used.mean()), float(np.std(t_used)) / math.sqrt(n_rep)
 
 
 X_GRID = np.concatenate([np.linspace(0.4, 6.0, 29),
@@ -472,7 +475,7 @@ say(f"       écart max au théorème sur 5 stocks : {err0:.1e} "
 assert err0 < 1e-9
 say(f"       P(atteindre G) depuis CHF 1 000 : {V0[1000]:.4f} — et depuis "
     f"CHF 10 000 : {V0[10000]:.4f}")
-say(f"       La borne est SANS α : 1 − (1−p)^(W₀/c). Mais son prix est le
+say(f"""       La borne est SANS α : 1 − (1−p)^(W₀/c). Mais son prix est le
        temps : viser J ≥ {G_KELLY:,.0f} n'arrive qu'à {math.exp(-G_KELLY / MU_HAT):.1e} des tirages
        (à α̂), soit une occasion tous les {1 / math.exp(-G_KELLY / MU_HAT) / DRAWS_PER_DAY / 365:,.0f} ans. Le théorème est
        vrai et inutilisable tel quel — d'où le temps facturé.""")
@@ -484,16 +487,20 @@ say("""
 say("\n   θ            P(but) MC     E[durée] MC      politique J*(W) en francs (W = 1k / 5k / 20k)")
 frontier = []
 for theta in (0.0, 1e-8, 1e-7, 1e-6, 1e-5):
-    Vt, argt, swt = solve_goal_dp(theta, ALPHA_HAT, M_GOAL, X_GRID)
+    if theta == 0.0:
+        Vt, argt = V0, arg0
+    else:
+        Vt, argt, _ = solve_goal_dp(theta, ALPHA_HAT, M_GOAL, X_GRID)
     pol_x = X_GRID[argt]
-    p_mc, se_p, t_mc = mc_goal(pol_x, 1000, M_GOAL, ALPHA_HAT, 60_000, RNG)
+    p_mc, se_p, t_mc, se_t = mc_goal(pol_x, 1000, M_GOAL, ALPHA_HAT, 60_000, RNG)
     frontier.append((theta, p_mc, t_mc, pol_x))
     v_pred = Vt[1000]
     v_mc = p_mc - theta * t_mc
     say(f"   {theta:<12.0e} {p_mc:.4f}±{se_p:.4f} {t_mc:>12,.0f}   "
         f"J* = {pol_x[1000] * MU_HAT:>9,.0f} / {pol_x[5000] * MU_HAT:>9,.0f} / "
         f"{pol_x[20000] * MU_HAT:>9,.0f}   [V: DP {v_pred:.4f} vs MC {v_mc:.4f}]")
-    assert abs(v_mc - v_pred) < 6 * (se_p + 1e-6)
+    if v_pred > 0:
+        assert abs(v_mc - v_pred) < 6 * (se_p + theta * se_t) + 1e-6
 
 say("""
        Les deux voies se recoupent à chaque ligne (le DP par quadrature et
@@ -513,10 +520,7 @@ say("""
        P(but) ; seule la durée est divisée par 13. Vérifié par MC sur la
        politique θ=10⁻⁶ :""")
 pol_ref = frontier[3][3]
-p_a, se_a, t_a = mc_goal(pol_ref, 1000, M_GOAL, ALPHA_HAT, 60_000, RNG)
-mu = ALPHA_HAT * S
-w1 = np.exp(pol_ref)                                  # 1 ticket par tirage favorable
-cum1 = np.concatenate(([0.0], np.cumsum(w1[1:])))
+p_a, se_a, t_a, _ = mc_goal(pol_ref, 1000, M_GOAL, ALPHA_HAT, 60_000, RNG)
 say(f"       13/tirage : P = {p_a:.4f} ± {se_a:.4f}, durée {t_a:,.0f} tirages ;"
     f" 1/tirage : même P (mêmes essais), durée ×13 = {13 * t_a:,.0f} par construction.")
 
@@ -711,7 +715,7 @@ for alpha_v in (0.08, 0.295, 1.0, 3.0):
     mu_v = alpha_v * S
     gap1 = G_KELLY - 1000
     gap2 = G_KELLY - 20000
-    p_mc, se_p, t_mc = mc_goal(pol, 1000, M_GOAL, alpha_v, 30_000, RNG)
+    p_mc, se_p, t_mc, _ = mc_goal(pol, 1000, M_GOAL, alpha_v, 30_000, RNG)
     say(f"   {alpha_v:<8.3g} {pol[1000] * mu_v / gap1:<14.3f} "
         f"{pol[20000] * mu_v / gap2:<15.3f} {p_mc:.4f} ± {se_p:.4f}   "
         f"(durée {t_mc / DRAWS_PER_DAY:,.0f} jours)")

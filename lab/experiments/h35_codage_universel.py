@@ -157,6 +157,15 @@ MODELS = [
     # déclaré d'avance pour qu'un défaut bref ait un spécialiste dans la
     # classe ; les redémarrages par blocs le paient localement, pas sur
     # toute l'archive.
+    #
+    # ENTORSE DISCLOSÉE (règle n°2, même statut que celle de h29) : ce
+    # membre a été ajouté APRÈS que le témoin transitoire simulé eut montré
+    # la classe initiale aveugle (delta=0,60 manqué), et une passe de mise
+    # au point --fast avait alors déjà vu les 8 000 premiers tirages réels
+    # (mélange 10^-1,17, sups nuls — rien). L'ajout est motivé par une
+    # SIMULATION, pas par l'archive, et le résultat réel final est nul de
+    # toute façon ; mais le jeton définitif a été scellé après ce regard,
+    # et cela se dit.
     ("pn-d0-w512",   "pn", 0,  512),
     ("bonus",        "bo", None, None),
     ("bonus-w4096",  "bo", None, 4096),
@@ -480,7 +489,7 @@ def verify_full_coder_h0(R):
         sups_mix.append(log_mix.max() / LN10)
         sups_rst.append(float(l10r.max()))
         say(f"   archive H0 n°{r + 1} (T={Tsim}) : pire |z| des moyennes de "
-            f"facteurs = {worst:.2f} sigma (21 modèles) ;")
+            f"facteurs = {worst:.2f} sigma ({len(zs)} modèles non dégénérés) ;")
         say(f"      redondance du mélange = {red_bits:+.3e} bit/tirage ; "
             f"sup mélange 10^{sups_mix[-1]:+.3f} ; sup redémarrages "
             f"10^{sups_rst[-1]:+.3f}  (Ville : 10^{LOG10_VILLE:+.3f})")

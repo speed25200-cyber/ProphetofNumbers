@@ -109,16 +109,26 @@ doctrine) : UNE archive complète coûte 65 s de statistique en chrono isolé
 moments croisés y), et ~100 s en régime soutenu sur plusieurs heures — le
 chiffre de PLANIFICATION est le second, mesuré sur un pilote de 10 nulls,
 pas le premier. 400 nulls comme h24 coûteraient ~11 h pour le null seul ;
-le plan complet d'ici (null + puissance + balayage + enveloppe) tient en
-~5 h avec :
+le budget d'exécution réellement disponible pour ce run était d'environ
+3 h, et le plan y tient par trois réductions DÉCLARÉES :
 
-  1. REPS_NULL = 100 au lieu de 400 — l'écart-type du null est estimé à
-     ±7 % au lieu de ±3,5 %, le plancher du p empirique passe de 1/401 à
-     1/101 = 0,0099. Déclaré, pas dissimulé.
+  1. REPS_NULL = 40 au lieu de 400 — l'écart-type du null est estimé à
+     ±11 % au lieu de ±3,5 %, le plancher du p empirique passe de 1/401 à
+     1/41 = 0,024. C'est la réduction la plus lourde du dossier, et elle
+     est déclarée : les seuils de détection (donc la puissance, donc le
+     plafond) portent cette incertitude d'échelle ; la re-mesure à
+     l'enveloppe sur REPS_EDGE archives en absorbe une partie.
   2. Des grilles de puissance resserrées autour de la frontière de détection
-     repérée par pilote (grilles figées AVANT le run officiel).
+     repérée par pilote (10 nulls + 4 archives contaminées, hors registre),
+     figées AVANT le run officiel.
   3. La table d'index d'union (1,0 Go) est reconstruite à chaque run (~60 s)
      plutôt que mise en cache sur disque.
+
+Ce run confronte aussi une PRÉDICTION posée avant lui : le §41 (h30) dérive
+plafond = ‖a‖·(2m)^{1/4}·√(z/N) et en tire « le plafond de l'ordre 3 vaut
+entre 8,9 % et 14,2 % ». La mesure d'ici passe par une voie indépendante
+(contamination et détection réelles, pas la loi d'échelle) : si elle tombe
+hors de la fourchette, c'est la loi qui est fausse.
 
 Limites déclarées
 =================
