@@ -2577,3 +2577,42 @@ C'est donc un résultat négatif sur la MÉTHODE, pas sur l'archive, et il est
 consigné pour qu'on ne le refasse pas. Les espaces d'états que ce test aurait
 pu atteindre sont de toute façon ceux que les balayages de §34 couvrent
 exhaustivement — et bien mieux.
+
+## 35. Les générateurs à sortie inversible (`h21_sortie_inversible.py`)
+
+§25 testait trois modèles de source sous le rang ordonné, et les trois
+supposent une récurrence **affine** de l'état — c'est ce qui permet d'y
+résoudre (a, c). Un générateur à sortie *inversible* échappe entièrement à ce
+cadre : splitmix64 avance son état par une simple addition s → s + γ, avec
+γ = 0x9E3779B97F4A7C15 fixé et public, mais sa sortie est un mélange non
+affine ; xorshift64\* avance par des décalages-xor. Le solveur de §25, qui
+cherche une relation affine entre les valeurs publiées, ne peut rien en
+faire. Or ce sont précisément les générateurs qu'on choisit aujourd'hui quand
+on veut du rapide et du moderne sans dépendance.
+
+**Le levier est brutal, et il n'y a rien à résoudre.** Un tirage ordonné
+publie 122,69 bits, assez pour contenir deux sorties de 64 bits (théorème des
+deux états). Si la sortie est inversible, chaque moitié se retourne en un
+état exact. Le test tient alors en une identité **publique** :
+
+    splitmix64    s₂ − s₁ doit valoir γ
+    xorshift64*   s₂ doit valoir xorshift(s₁)
+
+Aucune constante à deviner, aucune énumération, un seul tirage suffit. Sur
+~40 candidats de rang, la probabilité qu'un faux passe vaut 40·2⁻⁶⁴ ≈ 2·10⁻¹⁸.
+
+| | résultat |
+|---|---|
+| contrôle des inversions (16 000 + 8 000 allers-retours) | 0 échec |
+| témoins positifs (2 générateurs × 2 réductions × 2 ordres) | **8/8 détectés** |
+| témoins négatifs (ordres uniformes) | **0/120** |
+| les cinq tirages ordonnés réels | **0 hypothèse compatible** |
+
+**Une erreur attrapée par le contrôle d'aller-retour.** L'inverse de
+y = x ^ (x >> s) accumule les décalages à pas CONSTANT —
+x = y ^ (y>>s) ^ (y>>2s) ^ … — et non par doublement. La version à
+doublement a l'air parfaitement plausible et elle est fausse partout ; elle
+faisait échouer 16 000 allers-retours sur 16 000. Sans ce contrôle, le test
+aurait rendu « rien trouvé » sur les données réelles avec l'assurance d'un
+résultat, et c'est exactement la panne que les témoins existent pour
+attraper.
