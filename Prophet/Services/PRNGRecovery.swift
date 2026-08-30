@@ -109,6 +109,67 @@ struct Xorshift32: StreamGenerator {
     }
 }
 
+// Les familles MODERNES, ajoutées après la campagne de balayage de
+// `tools/sweep_order.c`. Elles n'étaient couvertes par aucune attaque du
+// dossier, alors qu'elles sont aujourd'hui les plus répandues dans le code
+// récent — et elles s'amorcent toutes, par convention de leurs auteurs, en
+// dérivant l'état d'un splitmix64 appliqué à la graine.
+@inline(__always) private func rotl64(_ x: UInt64, _ k: UInt64) -> UInt64 {
+    (x << k) | (x >> (64 - k))
+}
+@inline(__always) private func rotl32(_ x: UInt32, _ k: UInt32) -> UInt32 {
+    (x << k) | (x >> (32 - k))
+}
+
+struct Xoshiro256SS: StreamGenerator {
+    var a: UInt64, b: UInt64, c: UInt64, d: UInt64
+    init(seed: UInt64) {
+        var sm = SplitMix64(s: seed)
+        a = sm.next64(); b = sm.next64(); c = sm.next64(); d = sm.next64()
+    }
+    mutating func next32() -> UInt32 {
+        let r = rotl64(b &* 5, 7) &* 9
+        let t = b << 17
+        c ^= a; d ^= b; b ^= c; a ^= d
+        c ^= t; d = rotl64(d, 45)
+        return UInt32(truncatingIfNeeded: r >> 32)
+    }
+}
+
+struct Xoshiro128SS: StreamGenerator {
+    var a: UInt32, b: UInt32, c: UInt32, d: UInt32
+    init(seed: UInt64) {
+        var sm = SplitMix64(s: seed)
+        let u = sm.next64(), v = sm.next64()
+        a = UInt32(truncatingIfNeeded: u); b = UInt32(truncatingIfNeeded: u >> 32)
+        c = UInt32(truncatingIfNeeded: v); d = UInt32(truncatingIfNeeded: v >> 32)
+    }
+    mutating func next32() -> UInt32 {
+        let r = rotl32(b &* 5, 7) &* 9
+        let t = b << 9
+        c ^= a; d ^= b; b ^= c; a ^= d
+        c ^= t; d = rotl32(d, 11)
+        return r
+    }
+}
+
+struct Xoroshiro128Plus: StreamGenerator {
+    var a: UInt64, b: UInt64
+    init(seed: UInt64) {
+        var sm = SplitMix64(s: seed)
+        a = sm.next64(); b = sm.next64()
+    }
+    mutating func next32() -> UInt32 {
+        let s0 = a
+        var s1 = b
+        let r = s0 &+ s1
+        s1 ^= s0
+        a = rotl64(s0, 24) ^ s1 ^ (s1 << 16)
+        b = rotl64(s1, 37)
+        return UInt32(truncatingIfNeeded: r >> 32)
+    }
+}
+
 extension Xorshift32: SeedableGenerator {
     init(rawSeed: UInt32) { self.init(s: rawSeed) }
     static var stateBits: Int { 32 }
@@ -527,6 +588,9 @@ enum PRNGRecovery {
         sweep("xorshift128+", heavy: false) { Xorshift128Plus(seed: $0) }
         sweep("splitmix64", heavy: false) { SplitMix64(s: $0) }
         sweep("PCG32", heavy: false) { Pcg32(state: $0) }
+        sweep("xoshiro256**", heavy: false) { Xoshiro256SS(seed: $0) }
+        sweep("xoshiro128**", heavy: false) { Xoshiro128SS(seed: $0) }
+        sweep("xoroshiro128+", heavy: false) { Xoroshiro128Plus(seed: $0) }
         sweep("Mersenne Twister", heavy: true) { MT19937(seed: UInt32(truncatingIfNeeded: $0)) }
 
         let elapsed = Date().timeIntervalSince(started)
@@ -545,12 +609,12 @@ enum PRNGRecovery {
             detail = "Un générateur reproduit le tirage #\(targetDraw.drawNumber) en entier et confirme le #\(nextDraw.drawNumber) en continuant le flux : \(solvedDescription). C'est un défaut critique du générateur, à signaler à l'exploitant avant toute autre chose."
         } else {
             verdict = "Aucun état reconstruit"
-            detail = "\(tested) états testés : balayage exhaustif des espaces 2³¹ et 2³² (LCG glibc et MSVC, xorshift32) plus la recherche de graine sur 8 familles et 3 échantillonneurs. Le meilleur candidat reproduit \(max(0, bestPrefix)) numéros sur 20, contre \(String(format: "%.1f", expected)) attendus par pur hasard : aucun signal. Toute la classe des générateurs à état court est écartée."
+            detail = "\(tested) états testés : balayage exhaustif des espaces 2³¹ et 2³² (LCG glibc et MSVC, xorshift32) plus la recherche de graine sur 11 familles et 3 échantillonneurs, des LCG historiques (glibc, MSVC, java.util.Random) aux familles modernes (xoshiro256**, xoshiro128**, xoroshiro128+, PCG32). Le meilleur candidat reproduit \(max(0, bestPrefix)) numéros sur 20, contre \(String(format: "%.1f", expected)) attendus par pur hasard : aucun signal. Toute la classe des générateurs à état court est écartée."
         }
 
         return RecoveryResult(
             candidatesTested: tested,
-            familiesTested: 8,
+            familiesTested: 11,
             samplersTested: Sampler.allCases.count,
             bestPrefix: max(0, bestPrefix),
             bestFamily: bestFamily,

@@ -364,6 +364,78 @@ def main():
           f"12 tirages p = {p_fix:.2e}  {'ok' if b else 'ÉCHEC'}")
     ok &= a
 
+    # 1 septies. Les trois familles modernes ajoutées à PRNGRecovery.swift,
+    # transcrites depuis le Swift et confrontées aux valeurs de référence
+    # produites par `tools/sweep_order.c` (compilé et exécuté). Une constante
+    # de rotation fausse — 7 au lieu de 45, 9 au lieu de 11 — donnerait un
+    # générateur d'apparence saine mais incapable de retrouver quoi que ce
+    # soit : exactement le genre d'erreur qui ne se voit pas sans référence.
+    M64 = (1 << 64) - 1
+    M32 = (1 << 32) - 1
+
+    def _smnext(st):
+        st = (st + 0x9E3779B97F4A7C15) & M64
+        z = st
+        z = ((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9) & M64
+        z = ((z ^ (z >> 27)) * 0x94D049BB133111EB) & M64
+        return st, z ^ (z >> 31)
+
+    def _rl64(x, k):
+        return ((x << k) | (x >> (64 - k))) & M64
+
+    def _rl32(x, k):
+        return ((x << k) | (x >> (32 - k))) & M32
+
+    seed = 0x0123456789ABCDEF
+    st = seed
+    vv = []
+    for _ in range(4):
+        st, v = _smnext(st)
+        vv.append(v)
+    A, B, C, D = vv
+    o256 = []
+    for _ in range(5):
+        r = (_rl64((B * 5) & M64, 7) * 9) & M64
+        t = (B << 17) & M64
+        C ^= A; D ^= B; B ^= C; A ^= D; C ^= t; D = _rl64(D, 45)
+        o256.append(r >> 32)
+
+    st = seed
+    st, u = _smnext(st)
+    st, v = _smnext(st)
+    A, B, C, D = u & M32, (u >> 32) & M32, v & M32, (v >> 32) & M32
+    o128 = []
+    for _ in range(5):
+        r = (_rl32((B * 5) & M32, 7) * 9) & M32
+        t = (B << 9) & M32
+        C ^= A; D ^= B; B ^= C; A ^= D; C ^= t; D = _rl32(D, 11)
+        o128.append(r)
+
+    st = seed
+    st, A = _smnext(st)
+    st, B = _smnext(st)
+    oxo = []
+    for _ in range(5):
+        s0, s1 = A, B
+        r = (s0 + s1) & M64
+        s1 ^= s0
+        A = _rl64(s0, 24) ^ s1 ^ ((s1 << 16) & M64)
+        B = _rl64(s1, 37)
+        oxo.append(r >> 32)
+
+    REF = {
+        "xoshiro256**": [2730664992, 100410832, 1650359295, 463789510, 3741983874],
+        "xoshiro128**": [1038917469, 3889024309, 3818883509, 328341858, 2220985983],
+        "xoroshiro128+": [3941436066, 3003168496, 1196682349, 924613345, 3111143280],
+    }
+    got = {"xoshiro256**": o256, "xoshiro128**": o128, "xoroshiro128+": oxo}
+    a = all(got[k] == REF[k] for k in REF)
+    print()
+    for k in REF:
+        print(f"1 septies. {k:<15} contre la référence C : "
+              f"{'ok' if got[k] == REF[k] else 'ÉCHEC ' + str(got[k])}")
+    ok &= a
+
     # 1 ter. testRestartMixtureSeesALateDefectThatACumulativeBetCannot :
     # même arithmétique, même graine, même LCG que le test Swift — forme
     # martingale par BLOCS (h2) : au 1er pas du bloc j, S += w_j = 1/(j(j+1)),
