@@ -5076,3 +5076,103 @@ la discipline vaut aussi pour la prose.*
 
 **Registre : inchangé.** Comme `h1`, `h14`, `h17`, `h25` et `h38`, `h36` ne
 teste pas l'archive — il prouve, et il corrige.
+
+## 54. Le triplet — la dernière case du produit cartésien (`h40_triplet.py`)
+
+Les trois champs publiés ont chacun leur dossier, mais toujours **deux à la
+fois** : le contenu conditionné au boost (`d5`), le bonus seul et contre le
+tirage (`d7`, `d7b`, `h19`, `h22`), le boost seul (`b2`), le boost contre le
+passé et l'horloge (`c3`, §49).
+
+Le registre a été relu **entrée par entrée** : la seule qui mentionne les deux
+mots, `c2.apprentissage`, est une prédiction en marche avant, pas un test du
+couple. **L'interaction à trois n'apparaissait nulle part** — et ce n'est pas
+une case vide par hasard. Le §32 a établi que le bonus est toujours l'un des
+vingt numéros tirés : une **désignation**, pas un tirage. Si le boost et cette
+désignation sortent du même flux, le lien serait invisible à tout ce qui
+précède, puisqu'il ne touche aucune loi marginale.
+
+### La décomposition qui délimite le test
+
+Toute statistique brute du couple (bonus, boost) se décompose en une part qui
+passe par le **contenu** du tirage — le territoire de `d5`, déjà dépensé — et
+une part qui passe par la **désignation** conditionnellement au tirage. Chaque
+trait du bonus est donc centré par sa moyenne **exacte** sur les vingt numéros
+qui le portent : un lien contenu↔boost, quel qu'il soit, laisse ces contrastes
+à espérance rigoureusement nulle.
+
+> La case se remplit **sans re-dépenser la précédente**. L'orthogonalité à
+> `d5` est acquise par construction, pas par mesure.
+
+### La forme, imposée par la puissance
+
+Les strates de boost 5 et 10 comptent environ 1 750 tirages chacune : six
+tests par strate auraient été le test d'anniversaire du §34 — élégant, sans
+dents. Six contrastes **plein échantillon** à la place, null exact par
+permutation des étiquettes de boost comme dans `d5`, 2 000 réplicats :
+
+| statistique | z | p |
+|---|---|---|
+| rang de la désignation (linéaire) | +1,30 | 0,194 |
+| valeur relative au tirage | +1,14 | 0,258 |
+| parité | +1,15 | 0,253 |
+| χ² rang × boost (20×6) | −0,73 | 0,463 |
+| bonus dans le tirage suivant, modulé | −0,02 | 0,985 |
+| résidus mod 8 | +0,39 | 0,680 |
+
+**Max |z| = 1,30** contre une loi du max à 1,59 ± 0,58 : **p = 0,662**,
+conforme.
+
+### Et cette fois le rien a des dents
+
+| contamination | ε = 2 % | ε = 5 % | 80 % de puissance |
+|---|---|---|---|
+| désignation extrême sur boost ≥ 5 | 37 % | **100 %** | **ε ≈ 0,041** |
+| diffus | 35 % | 100 % | — |
+| canal des bits | 22 % | 97 % | — |
+| sériel | 13 % | 92 % | — |
+
+Témoin négatif à 4,5 % de fausse alarme ; témoins pleine force entre +79 et
++3 490 σ, **chacun sur son canal et muet ailleurs**. Là où `d5`, avec les
+mêmes 70 560 tirages, ne voyait un lien de 5 % qu'à 72 %, le contraste ciblé
+sur la désignation atteint 100 % — c'est le bénéfice d'avoir retranché le
+contenu.
+
+### Ce qu'un lien aurait valu
+
+Le bonus est **post-clôture** : sa valeur directe est nulle par construction
+(§49). L'enjeu était **forensique** — une désignation corrélée au boost aurait
+signé un flux partagé et transporté les attaques d'état du §25 sur l'archive
+entière au lieu de cinq tirages. Le seul canal à valeur directe, le lien
+sériel modulé, plafonnerait sous les +0,02 % que `d7b` a mesurés pour sa
+version pleine archive. **Un lien indétectable ici est donc aussi
+inexploitable**, et le seuil du boost reste `ε ≈ 0,134` (§4), sans commune
+mesure.
+
+### Une erreur attrapée à la répétition générale
+
+Le protocole a exercé tout le chemin — branche « résidu » comprise — sur une
+archive synthétique à lien planté, **avant** de toucher l'appariement réel. La
+répétition a montré un verdict « conforme » imprimé pour un `p` au plancher de
+simulation (5·10⁻⁴, au-dessus du seuil de Holm) : la règle « candidate à
+recalibrer » était dans le jeton scellé, mais **pas dans le code**. Corrigée
+avant le run réel — qui n'en a pas eu besoin.
+
+*Une correction de design, avant tout scellement : la première version prenait
+des statistiques brutes (bonus mod 8 × boost non centré), qui se confondent
+avec le canal contenu×boost déjà dépensé par `d5`. Le centrage intra-tirage
+l'a réparée.*
+
+### Limites
+
+Le null suppose l'échangeabilité de la série des boost — mesurée nulle par
+`b2` (p = 0,74 et 0,39). Le contraste linéaire concentre ~60 % de sa variance
+sur `boost = 10`, ce qui est voulu (l'exploitabilité vit là) mais rend un lien
+confiné aux boosts faibles moins visible ; le χ² omnibus couvre le non
+monotone. Le test est aveugle à un lien de désignation ne touchant ni rang, ni
+valeur relative, ni parité, ni `mod 8`, ni le tirage suivant — portée
+délimitée **par mesure**, via les quatre témoins.
+
+**Registre : 145 entrées, m = 3 325, zéro significatif. Le produit cartésien
+des trois champs publiés est clos** — marginales, paires, et désormais le
+triplet.
