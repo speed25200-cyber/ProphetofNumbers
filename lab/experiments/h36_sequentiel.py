@@ -513,12 +513,17 @@ for theta in (0.0, 1e-8, 1e-7, 1e-6, 1e-5):
         Vt, argt, _ = solve_goal_dp(theta, ALPHA_HAT, M_GOAL, X_GRID)
     pol_x = X_GRID[argt]
     p_mc, se_p, t_mc, se_t = mc_goal(pol_x, 1000, M_GOAL, ALPHA_HAT, 60_000, RNG)
-    frontier.append((theta, p_mc, t_mc, pol_x))
+    frontier.append((theta, p_mc, t_mc, pol_x, Vt))
     v_pred = Vt[1000]
     v_mc = p_mc - theta * t_mc
+
+    def _jstr(M):
+        # dans la région d'abandon (V = 0), l'argmax n'est pas une politique
+        return f"{pol_x[M] * MU_HAT:>9,.0f}" if Vt[M] > 0 else "  abandon"
+
     say(f"   {theta:<12.0e} {p_mc:.4f}±{se_p:.4f} {t_mc:>12,.0f}   "
-        f"J* = {pol_x[1000] * MU_HAT:>9,.0f} / {pol_x[5000] * MU_HAT:>9,.0f} / "
-        f"{pol_x[20000] * MU_HAT:>9,.0f}   [V: DP {v_pred:.4f} vs MC {v_mc:.4f}]")
+        f"J* = {_jstr(1000)} / {_jstr(5000)} / "
+        f"{_jstr(20000)}   [V: DP {v_pred:.4f} vs MC {v_mc:.4f}]")
     if v_pred > 0:
         assert abs(v_mc - v_pred) < 6 * (se_p + theta * se_t) + 1e-6
 
@@ -533,6 +538,25 @@ say("""
        de capital, la bonne réponse n'est pas de miser plus gros à chaque
        occasion, c'est de miser AUSSI PETIT que possible sur des occasions
        PLUS RARES ET PLUS HAUTES.""")
+
+# Le classique ressuscité : sous forte pression de temps, le DP tire-t-il
+# SOUS le seuil de faveur ? (l'audace de Dubins-Savage, achetée au prix du temps)
+Vt5, pol5 = frontier[-1][4], frontier[-1][3]
+sub = np.flatnonzero((Vt5 > 0) & (pol5 < 1 / ALPHA_HAT))
+if sub.size:
+    say(f"""
+       Et le théorème classique refait surface là où on l'attend : à
+       θ = 10⁻⁵, sur {sub.size:,} niveaux de capital (de {sub.min():,} à {sub.max():,} francs),
+       la politique optimale tire SOUS le seuil de faveur (J* < S) — des
+       paris d'espérance négative, achetés parce que l'occasion favorable
+       coûte plus de temps que le prix qu'on lui donne. « Sous jeu
+       défavorable, audacieux » : la solution de Dubins-Savage n'avait pas
+       disparu du problème, elle attendait qu'on facture le temps.""")
+else:
+    say("""
+       À noter : même à θ = 10⁻⁵, aucun état ne fait tirer sous le seuil
+       de faveur — l'audace sous-équitable de Dubins-Savage ne réapparaît
+       pas dans la plage explorée.""")
 
 say("""
    B4. LE NOMBRE DE GRILLES NE CHANGE PAS LA PROBABILITÉ — que le temps.
@@ -552,8 +576,8 @@ say("""
        nombre de grilles disjointes n ∈ {0..13}, et le n optimal se calcule
        sur l'écran, sans α :
 
-           n*(W, J) = argmax_n [ n·p·ln(1 + (J−n)/W·... ) ]  — exactement :
-           g_n = n·p·ln((W−n+J)/W) + (1−n·p)·ln((W−n)/W)""")
+           n*(W, J) = argmax_n g_n,
+           g_n = n·p·ln((W − n·c + J)/W) + (1 − n·p)·ln((W − n·c)/W)""")
 
 
 def n_star(W, J):
@@ -578,14 +602,25 @@ for W in (1_000, 3_000, 8_000, 17_000, 34_000, 100_000, 1_000_000):
         cells.append(f"{n:>2}" if n else " 0")
     say(f"   {W:>9,}   " + "        ".join(cells))
 
-say("""
-       Trois lignes de lecture. (1) Au capital de §30 et au-delà, n* = 13 dès
-       le seuil : on retrouve R2. (2) Sous le plancher, n* DÉCROÎT — jusqu'à
-       0 : un joueur de log-croissance à petit capital ne joue plus qu'aux
-       cagnottes hautes, et une seule grille. La politique de but (B3) et la
-       politique de croissance, deux objectifs étrangers, convergent vers la
-       même forme : seuil de cagnotte croissant quand le capital baisse.
-       (3) Tout est lisible à l'écran : W, J, p, c — α absent, comme pour R2.""")
+# la carte est-elle bang-bang ? balayage fin de la frontière
+inter = set()
+for W in np.geomspace(800, 120_000, 160):
+    for jm in np.geomspace(1.0, 8.0, 160):
+        n, _ = n_star(float(W), jm * S)
+        if 0 < n < N_GRIDS:
+            inter.add(n)
+say(f"""
+       Trois lignes de lecture. (1) Au capital de §30 et au-delà, n* = 13
+       dès que J dépasse un seuil proche de S : on retrouve R2. (2) La
+       carte est presque BANG-BANG — un balayage fin de 160×160 états ne
+       trouve {"que les n intermédiaires " + str(sorted(inter)) + " sur une bande étroite"
+              if inter else "AUCUN n intermédiaire"} : la contribution de
+       chaque grille disjointe au log-rendement a le même signe, donc la
+       décision est « toutes les treize ou rien », et l'information utile
+       est la frontière J₀(W) ci-dessous. (3) Tout est lisible à l'écran :
+       W, J, p, c — α absent, comme pour R2. La politique de but (B3) et la
+       politique de croissance, deux objectifs étrangers, convergent vers
+       la même forme : seuil de cagnotte croissant quand le capital baisse.""")
 
 # seuil J en dessous duquel même 1 grille détruit la croissance, par W
 say("   Seuil de cagnotte J₀(W) au-delà duquel une grille au moins devient")
@@ -611,25 +646,34 @@ for W in (2_000, 5_000, 17_000, 34_000, 10_000_000):
 
 rule("C. LA GÉOMÉTRIE SELON L'ÉTAT — le témoin d'abord, le rang partagé ensuite")
 
-say("""   Le théorème de bascule (§26) : objectif convexe → concentrer les
-   grilles, concave → étaler. En séquentiel, l'objectif effectif au stock M
-   est U(M) — convexe loin du but, concave près de lui — donc la géométrie
-   optimale devrait dépendre de l'état. VRAI sur un rang à gain fixe, et le
-   témoin le montre ; FAUX sur le rang partagé, parce qu'empiler y revient
-   à partager le pot avec soi-même.
+say("""   Le théorème de bascule (§26) : un objectif convexe préfère concentrer
+   les grilles, un concave les étaler, et le SIGNE de l'espérance décide
+   lequel s'applique. En séquentiel, l'état — cagnotte et capital — fixe à
+   la fois le signe du jeu et la distance au but : la géométrie devrait
+   donc dépendre de l'état. Elle en dépend, sur un rang à gain FIXE (C1) ;
+   elle n'en dépend PAS sur le rang partagé (C2), parce qu'empiler y
+   revient à partager le pot avec soi-même.
 
-   C1. TÉMOIN POSITIF — rang à gain fixe g par ticket (non partagé), volée
-   de 13 tickets : empilés, prob p, saut +13g ; disjoints, prob 13p, saut
-   +g. Même espérance. P(gain net ≥ Δ avant ruine), stock 300 francs,
-   g = 30 :""")
+   Une intuition corrigée en route, et il faut la raconter : la première
+   version de ce témoin attendait « étaler près du but, concentrer loin »,
+   par la seule courbure de U. La table a répondu CONCENTRER sur toute la
+   colonne : dans un jeu sous-équitable, l'érosion du capital entre deux
+   gains stérilise les volées tardives dès que le saut étalé ne reboucle
+   pas l'objectif — c'est l'audace de Dubins-Savage, et elle vaut même tout
+   près du but. Le critère n'est pas la distance seule : c'est « LE SAUT
+   ÉTALÉ SUFFIT-IL, d'où l'on tirera encore ? » — une fonction jointe du
+   signe du jeu et de l'état. Le témoin ci-dessous le montre dans les deux
+   sens.
 
-g_fix = 30.0
+   C1. TÉMOIN — rang à gain fixe g par ticket (non partagé), volée de 13
+   tickets, stock 300 francs, objectif +Δ avant ruine. Empilés : prob p,
+   saut +13g ; disjoints : prob 13p, saut +g. Même coût, même espérance.""")
 
 
-def u_fixed_rank(m0, gap, stacked, m_cap=4000):
+def u_fixed_rank(m0, gap, g_prize, stacked):
     """P(atteindre +gap avant la ruine) en jouant CE rang en boucle — petit
     DP exact par balayages de victoires (mêmes principes qu'en B)."""
-    jump = int(13 * g_fix) if stacked else int(g_fix)
+    jump = int(13 * g_prize) if stacked else int(g_prize)
     p_win = P if stacked else N_GRIDS * P
     cost = 13
     goal = m0 + int(gap)
@@ -647,21 +691,43 @@ def u_fixed_rank(m0, gap, stacked, m_cap=4000):
     return V[m0]
 
 
-say("\n   Δ (objectif)   empilées      disjointes    préférée")
-flips = []
-for gap in (15, 60, 200, 390, 800):
-    u_st = u_fixed_rank(300, gap, True)
-    u_dj = u_fixed_rank(300, gap, False)
-    pref = "CONCENTRER" if u_st > u_dj else "étaler"
-    flips.append(u_st > u_dj)
-    say(f"   {gap:<14} {u_st:<13.5f} {u_dj:<13.5f} {pref}")
-assert (not flips[0]) and flips[-1], flips
-say("""
-   La bascule est là, et elle dépend de l'état : près du but l'étalement
-   gagne (13 fois plus de chances de faire le petit saut qui suffit), loin
-   du but seule la concentration peut encore l'atteindre. La machinerie
-   détecte donc bien une préférence pour la concentration quand elle
-   existe. Maintenant, le rang qui compte :""")
+N_VOLLEYS = (300 - 13) // 13 + 1                      # volées finançables : 23
+closed_st = 1 - (1 - P) ** N_VOLLEYS                  # « toutes volées vivantes »
+closed_dj = 1 - (1 - N_GRIDS * P) ** N_VOLLEYS
+say("\n   g (rang)    RTP      Δ (objectif)   empilées      disjointes    préférée")
+cases = [(30, 15), (30, 200), (12000, 5000), (12000, 12500)]
+prefs = []
+for g_prize, gap in cases:
+    u_st = u_fixed_rank(300, gap, g_prize, True)
+    u_dj = u_fixed_rank(300, gap, g_prize, False)
+    prefs.append(u_st > u_dj)
+    rtp = g_prize * P
+    say(f"   {g_prize:<11,} {rtp:<8.2%} {gap:<14,} {u_st:<13.5f} {u_dj:<13.5f} "
+        + ("CONCENTRER" if u_st > u_dj else "ÉTALER"))
+# formes fermées (seconde voie) là où chaque victoire boucle l'objectif :
+u_st_check = u_fixed_rank(300, 15, 30, True)          # saut 390 ≥ Δ+13k partout
+assert abs(u_st_check - closed_st) < 1e-12
+u_st_sup = u_fixed_rank(300, 5000, 12000, True)
+u_dj_sup = u_fixed_rank(300, 5000, 12000, False)
+assert abs(u_st_sup - closed_st) < 1e-12 and abs(u_dj_sup - closed_dj) < 1e-12
+say(f"""
+   Recoupement par forme fermée (là où toute victoire boucle l'objectif,
+   P = 1 − (1−p_gain)^23) : empilées {closed_st:.5f}, disjointes {closed_dj:.5f} —
+   le DP les retrouve au zéro machine.
+
+   La bascule du §26 est donc REPRODUITE, et son axe est bien celui que le
+   théorème nommait : le SIGNE du jeu. Sous-équitable (g = 30), la
+   concentration gagne — y compris tout près du but, l'érosion aidant :
+   c'est la branche audacieuse. Sur-équitable (g = 12 000), l'étalement
+   gagne — à Δ = 5 000 par la probabilité ×13, et même à Δ = 12 500, où le
+   saut étalé ne boucle plus d'un coup, parce que chaque gain ré-arme un
+   stock assez gros pour regagner : la timidité est robuste en régime
+   favorable. Or dans CE jeu, le signe est indexé par l'état : sous le
+   seuil de cagnotte le pari est défavorable, au-dessus favorable. Sur un
+   rang à gain fixe, la géométrie optimale DÉPENDRAIT donc de l'état,
+   exactement comme la mission le conjecturait. Maintenant, le rang qui
+   compte :""")
+assert prefs == [True, True, False, False], prefs
 
 say("""   C2. LE RANG PARTAGÉ. À une occasion de cagnotte J, avec W autres
    gagnants ~ Poisson(λ) : 13 grilles DISJOINTES touchent J/(1+W) avec
@@ -702,11 +768,16 @@ for lam in (0.0, 0.006, 0.065, 0.3, 0.65, 2.0, 5.0):
         + ("   disjoint partout" if worst >= 0 else "   EMPILER quelque part"))
 
 say(f"""
-   Le disjoint domine dans TOUS les états tant que λ reste celui d'une
-   cagnotte qui s'accumule (λ ≪ 1, §29 : λ ≈ 0,01). Il faudrait une foule
-   de plusieurs gagnants PAR TIRAGE pour qu'empiler paie quelque part — le
-   même régime dégénéré où κ s'effondre et où le partage tue la stratégie
-   entière (§29) : une cagnotte qui tombe si souvent n'existe pas.
+   Le disjoint domine dans TOUS les états, et c'est PLUS fort que ce que
+   la prudence annonçait : même à λ = 5 — cinq gagnants par tirage, un
+   régime où une cagnotte progressive ne peut plus exister (§29 : κ s'y
+   effondre et le partage y tue la stratégie entière bien avant) — l'écart
+   se resserre sans jamais changer de signe. La raison est structurelle :
+   quand les deux sauts bouclent l'objectif, seule la probabilité compte,
+   et elle vaut 13 contre 1 ; quand ils ne le bouclent pas, la part d'un
+   empilement (13J/(13+W)) ne dépasse assez celle d'une grille disjointe
+   (J/(1+W)) que pour une foule nombreuse — où le théorème H a déjà réduit
+   l'écart d'espérance sans le renverser.
 
    Conclusion pour l'app, et elle est actionnable par sa négation : NON,
    les douze grilles ne doivent PAS changer de géométrie selon la cagnotte.
@@ -729,13 +800,19 @@ say("""   Balayage final : les REGLES aux bornes de l'intervalle du §29
    (α de 0,08 à 11,65), à politique de but θ·E[t] facturé (θ = 10⁻⁶) :""")
 say("\n   α        J*(W=1k)/gap   J*(W=20k)/gap   P(but) depuis 1k (borne 1−(1−p)^M : {:.4f})"
     .format(1 - (1 - P) ** 1000))
+band = []
 for alpha_v in (0.08, 0.295, 1.0, 3.0):
     Vt, argt, _ = solve_goal_dp(1e-6, alpha_v, M_GOAL, X_GRID)
     pol = X_GRID[argt]
     mu_v = alpha_v * S
     gap1 = G_KELLY - 1000
     gap2 = G_KELLY - 20000
-    p_mc, se_p, t_mc, _ = mc_goal(pol, 1000, M_GOAL, alpha_v, 30_000, RNG)
+    if Vt[1000] <= 0:
+        say(f"   {alpha_v:<8.3g} abandon — à ce prix du temps, la stratégie ne "
+            "vaut plus d'être tentée depuis CHF 1 000")
+        continue
+    p_mc, se_p, t_mc, _ = mc_goal(pol, 1000, M_GOAL, alpha_v, 120_000, RNG)
+    band.append(pol[1000] * mu_v / gap1)
     say(f"   {alpha_v:<8.3g} {pol[1000] * mu_v / gap1:<14.3f} "
         f"{pol[20000] * mu_v / gap2:<15.3f} {p_mc:.4f} ± {se_p:.4f}   "
         f"(durée {t_mc / DRAWS_PER_DAY:,.0f} jours)")
@@ -745,7 +822,8 @@ say(f"""
    §36 en l'étendant au séquentiel :
 
    SANS α (lisible à l'écran, robuste à tout l'intervalle du §29) :
-     - la règle d'admission « jouer ssi J ≥ S » (A, exacte quand n·p/q → 0) ;
+     - la règle d'admission « jouer ssi J ≥ S » (A, exacte quand n·p/q → 0,
+       et corrigée par n·p/q OBSERVÉ sinon — pas par α) ;
      - la borne P(atteindre Kelly) = 1 − (1−p)^(W₀/c) et la politique
        audacieuse-en-cagnotte qui l'atteint : « viser J ≥ ce qui manque » —
        le seuil se lit sur l'écart au but, pas sur un paramètre estimé ;
@@ -754,10 +832,12 @@ say(f"""
 
    AVEC α (les rythmes — combien d'occasions, combien de temps) :
      - la fréquence des occasions à chaque niveau (théorème J), donc les
-       DURÉES de la frontière de B3 et le choix fin du niveau J*(W) quand on
-       facture le temps. Même là, la dépendance est douce : J*/gap reste
-       dans une bande étroite sur tout le balayage — parce que viser
-       « à peu près ce qui manque » domine dès que le temps compte un peu.
+       DURÉES de la frontière de B3 — d'un ordre de grandeur à l'autre
+       selon α — et le niveau fin J*(W) quand on facture le temps : sur ce
+       balayage, J*(1k)/gap court de {min(band):.2f} à {max(band):.2f}. Le POINT de la
+       frontière qu'on occupe dépend de α ; la FORME de la politique
+       (seuil croissant quand le capital baisse, mise minimale) n'en
+       dépend pas.
 
    Et rien de tout ceci ne prédit un numéro : chaque essai reste une
    Bernoulli(p), E[hits] = k/4 dans tous les états — c'est même la raison
