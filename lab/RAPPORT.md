@@ -4776,3 +4776,47 @@ des couvertures et corrige ; il n'interroge pas l'archive.
 > Le barème n'est pas identifié, mais **il n'a jamais été l'inconnue utile**.
 > L'inconnue utile est le scalaire `ρ` ; il est borné par la comptabilité ; et
 > la borne fait descendre le seul seuil qui fasse changer l'espérance de signe.
+
+## 51. Trois résultats, trois fois la décision de ne rien câbler
+
+Cette campagne a produit trois nombres qui rendraient l'affichage de l'app
+plus favorable, et trois fois rien n'a été câblé. Ce n'est pas de la
+timidité, et il vaut mieux dire une fois pourquoi que de le répéter en note
+de bas de page.
+
+| § | ce qui est démontré | ce que câbler donnerait | pourquoi rien n'est câblé |
+|---|---|---|---|
+| 38 | le boost abaisse le seuil d'un facteur `B` | bascule à `S/B` au lieu de `S` | suppose que le boost multiplie **aussi la cagnotte** — hypothèse nommée non vérifiée (§31) |
+| 44 | la grille uniforme est minimax sous partage | rotation privée des 80 numéros | détruirait le classement de l'essaim — arbitrage à deux côtés, non tranchable ici |
+| 50 | `ρ ≥ 24,5 %`, seuil à `(1−ρ)·S` | bascule à CHF 5 853 au lieu de 7 753 | suppose `R ≥ 0,65`, ticket à 1 franc, `θ` commun, H1–H3 |
+
+**Deux de ces trois cas partagent une asymétrie, et c'est elle qui décide.**
+Aux §38 et §50, la règle affichée aujourd'hui est une condition
+**suffisante** : elle manque des tirages favorables, mais elle n'en annonce
+jamais un qui ne le serait pas. Les deux corrections proposées vont dans le
+même sens — rendre l'affichage plus agressif sur la foi d'hypothèses que le
+dossier a explicitement nommées comme non vérifiées.
+
+C'est exactement l'échange que ce dossier existe pour refuser. Tout le §7
+raconte ce qu'il en coûte : l'app affichait autrefois un avantage de +18 à
++34 % qui était entièrement artefactuel, et le corriger a été le résultat le
+plus utile de tout le travail. Gagner quelques occasions supplémentaires au
+prix d'une annonce non fondée serait revenir en arrière par un autre chemin.
+
+Le §44 est d'une autre nature : là, les deux options se valent en principe et
+l'arbitrage dépend d'une quantité — la corrélation entre les grilles des
+utilisateurs et celles de la foule — que rien ici ne mesure. Ne pas trancher
+est alors la seule position tenable.
+
+> **Le principe, énoncé une fois.** Un résultat théorique qui déplacerait un
+> seuil affiché ne se câble que si la démonstration ne repose que sur des
+> quantités observables. Le seuil actuel `J ≥ c/p` en est une : `J` est à
+> l'écran, `p` est une combinatoire exacte, `c` se lit sur un ticket. Le
+> seuil `(1−ρ)·c/p` n'en est pas une tant que `ρ` repose sur un taux de
+> retour supposé.
+
+Et cela donne à la liste du §9 sa hiérarchie réelle : **ce qui manque n'est
+pas du code, c'est trois observations** — le prix du ticket, le règlement du
+jeu, et cent minutes de boost avant clôture. Chacune transformerait une
+hypothèse en donnée, et donc un chiffre non câblable en chiffre câblable.
+Aucune ne demande une ligne de calcul supplémentaire.
