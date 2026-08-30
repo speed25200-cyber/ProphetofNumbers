@@ -1502,7 +1502,7 @@ espérance k/4).
 
 ### 13.5 Registre final
 
-**113 tests consignés, m = 3 313, seuil de Holm 1,509·10⁻⁵. Zéro
+**114 tests consignés, m = 3 328, seuil de Holm 1,502·10⁻⁵. Zéro
 significatif.** Le plus petit p du dossier reste 2,0·10⁻⁴ (`audit.paires`).
 
 ## 14. La théorie, développée puis vérifiée (`h1_theoremes.py`, `THEORIE.md`)
@@ -2248,7 +2248,7 @@ loi du gain ne dépend pas de la grille. En langage de celui-ci : *choisir
 des numéros ne produit aucun X*. La variable est dégénérée, l'écart de
 Jensen est nul, il n'y a littéralement rien à voir. Aucune statistique sur
 les numéros chauds, froids, les retards ou les paires ne peut créer un écart
-de Jensen là où la loi ne varie pas — c'est pourquoi les 3 313 tests du
+de Jensen là où la loi ne varie pas — c'est pourquoi les 3 328 tests du
 registre ne pouvaient **pas** trouver autre chose que zéro.
 
 **Le boost, sa loi exacte, et ce que sa visibilité vaudrait.** Sur les 70 560
@@ -2316,3 +2316,67 @@ coup :
   entrer dans A. C'est la réponse générale à « l'ordre de sortie
   aiderait-il ? » : il n'aide que s'il permet de *prédire*, jamais parce
   qu'il informe.
+
+## 32. Le canal du bonus (`h19_canal_bonus.py`)
+
+h12 a établi que l'ordre de sortie vaut deux fois le tirage trié. Mais
+l'ordre n'existe que sur cinq tirages capturés à la main, quand l'archive en
+compte 70 560 — triés, donc muets sur l'ordre. Sauf qu'il reste un champ.
+
+**Le fait structurel, vérifié sur les 70 560 tirages.** Le `bonus` est
+**toujours** l'un des vingt numéros tirés — 70 560 sur 70 560, là où
+l'indépendance en prédirait 17 640. Ce n'est donc pas un tirage
+supplémentaire mais une **désignation** parmi les vingt. Et si cette
+désignation suit une règle de position — « la dernière boule sortie », la
+convention la plus répandue — alors le bonus est une sortie *ordonnée* du
+générateur, disponible sur toute l'archive.
+
+d7 avait testé la *valeur* du bonus (loi marginale, mémoire sérielle,
+appartenance au tirage suivant, rang dans le tirage trié). Tout cela regarde
+le bonus comme un numéro. Ce fichier le regarde comme une **sortie**, ce qui
+est une question différente et jamais posée.
+
+**Le levier, et l'objection que les témoins ont démentie.** Si le bonus est
+la valeur brute d'un échantillonneur « s mod 80 », alors (bonus − 1) mod 16
+publie exactement les quatre bits de poids faible de l'état, et une relation
+affine r_{t+1} = A·r_t + C mod 2^k doit tenir sur les 70 559 transitions.
+L'objection évidente est que le rejet des doublons fait varier le nombre de
+sorties consommées, donc A = a^g avec lui. **C'est ce que j'avais écrit, et
+c'est faux** : modulo une puissance de deux, l'ordre multiplicatif de a
+divise 2^(k−2), donc a^g ne prend que quelques valeurs quel que soit g. Un
+unique couple (A, C) attrape la plus fréquente.
+
+| témoin (20 000 tirages) | mod | expliqué | null (permutation) | z |
+|---|---|---|---|---|
+| bonus = s mod 80, avec rejet | 16 | 40,6 % | 6,69 % ± 0,08 | **+433** |
+| bonus = s mod 80, avec rejet | 80 | 8,45 % | 1,53 % ± 0,02 | **+290** |
+| bonus = ⌊s·80/2⁶⁴⌋, avec rejet | 16 | 6,79 % | 6,69 % ± 0,07 | +1,3 |
+| bonus = élément de permutation | 16 | 6,85 % | 6,77 % ± 0,10 | +0,8 |
+| uniforme | 16 | 6,57 % | 6,71 % ± 0,08 | −1,8 |
+
+La portée du test est donc délimitée **par mesure et non par argument** : il
+voit tout bonus qui est une valeur brute modulaire, avec ou sans rejet ; il
+est aveugle à un bonus tiré des bits de poids fort, et à un bonus qui est un
+contenu de tableau plutôt qu'une sortie.
+
+**Sur l'archive : rien.** Cinq modules × trois décalages, null par
+permutation à 200 réplicats par cellule. Le plus grand écart est +3,10 σ
+(module 16, décalage 1), soit p = 9,6·10⁻⁴ pour la cellule et p = 0,014
+après correction sur les quinze — très au-dessus du seuil de Holm du
+registre entier. Consigné sous `h19.bonus_affine`, verdict conforme.
+
+**Ce que la règle du bonus vaudrait, et la mesure qui la tranche.** Savoir
+laquelle des vingt boules est sortie en dernier ajoute log₂ 20 = 4,32 bits
+par tirage, soit 37 kilo-octets d'information d'ordre sur l'archive entière.
+Ce n'est pas assez pour reconstituer l'ordre complet (65,94 bits contre
+122,69) mais c'est assez pour **ancrer une sortie du générateur par tirage à
+une position connue** — exactement ce qu'il faut aux attaques de §25 pour se
+transporter sur 70 560 tirages au lieu de cinq.
+
+> **La mesure tient en une ligne.** Pour chacun des cinq tirages ordonnés
+> déjà capturés, relever le numéro bonus et regarder sa position dans
+> l'ordre de sortie. Cinq fois la même position — la vingtième, ou la
+> première — et la règle est établie. Des positions dispersées, et le bonus
+> est un choix uniforme qui ne porte aucun ordre. L'archive locale s'arrête
+> au tirage 1 380 173 et les tirages ordonnés commencent à 1 381 023 : le
+> recoupement ne peut pas se faire hors ligne.
