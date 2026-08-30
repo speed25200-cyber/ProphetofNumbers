@@ -799,7 +799,11 @@ Trois choses que ce seuil **n'est pas**, à ne pas confondre :
   grille.
 - C'est une condition **suffisante**, pas nécessaire. Le vrai seuil est plus
   bas — d'autant plus bas que les rangs intermédiaires sont généreux — mais
-  il n'est pas calculable sans eux.
+  il n'est pas calculable sans eux. *Le barème a depuis été relevé (§56) : le
+  seuil exact vaut `(c − E[base])/p`, soit environ **41 %** du seuil suffisant
+  ci-dessus, et le prix du ticket n'est pas un franc mais `> CHF 1,20`. La
+  table de cette section reste celle de la condition suffisante, telle qu'elle
+  a été posée avant la donnée.*
 - Il ne rend pas le pari bon *en dessous*. En dessous, on ne sait rien de
   plus qu'avant : l'espérance reste négative d'un montant inconnu.
 
@@ -1044,15 +1048,20 @@ lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
 
 **Ce qui est ouvert aujourd'hui**, dans l'ordre où cela coûte quelque chose :
 
-1. **Obtenir le règlement du jeu** (§50). C'est devenu la demande la moins
-   chère et la plus rentable du dossier : un document publié lèverait le
-   barème exactement, rendrait la borne du §50 obsolète et fixerait `R`.
-   Rien n'indique qu'il soit inaccessible — il n'est simplement pas dans
-   l'API, ce qui n'est pas la même chose.
-2. **Relever le prix du ticket** (§36). C'est la seule donnée manquante dont
-   une décision dépende : le seuil de bascule vaut `c/p`, et sans `c` la
-   règle qui décide s'il faut jouer n'est pas calculable. Tout le dossier est
-   « par franc misé » faute de ce nombre, qui se lit d'un coup d'œil.
+1. ~~**Obtenir le règlement du jeu** (§50)~~ — **fait** (§56). Le barème a
+   été relevé sur les cinq mises. C'était la demande la moins chère et la
+   plus rentable du dossier, et elle l'est restée : elle a rendu obsolète
+   toute la comptabilité du §50 et abaissé les seuils de bascule à 41 % de
+   ce que le dossier employait, sans un seul calcul nouveau.
+2. **Relever le prix du ticket** (§36, §56). Devenue **la dernière inconnue**
+   de toute la chaîne financière. Le §56 la borne par le bas — le barème
+   force `c > CHF 1,20`, ce qui **exclut le ticket à un franc** que tout le
+   dossier supposait — mais la valeur exacte reste à lire, et tous les seuils
+   lui sont proportionnels en `(c − E)/p` : à `c = 2,50` au lieu de 2, le
+   seuil de la mise 6 passe de 6 385 à 10 261. Elle se lit d'un coup d'œil.
+2 bis. **Relever le prix et la portée de l'option EXTRA** (§56). Son espérance
+   seule vaut 9,99 CHF à la mise 6 : elle n'est pas gratuite, et son coût
+   n'est pas lisible sur les captures.
 3. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
    propose aujourd'hui aucune taille de mise. Quand elle en proposera une,
    elle doit la recalculer à chaque occasion sur la cagnotte à l'écran — ce
@@ -4610,6 +4619,12 @@ conformes après Holm.
 
 ## 50. Le barème encerclé : non publié n'est pas inconnaissable (`h34_bareme.py`)
 
+> **Dépassé par le §56.** Le barème a depuis été relevé. Cette section est
+> conservée telle quelle : sa borne `ρ ≥ 0,245` s'est révélée **vraie** sur
+> les cinq mises et lâche d'un facteur 2,1, et son théorème de collapse a été
+> **mesuré**. On ne réécrit pas une borne qui a tenu — on montre ce qu'elle
+> valait quand la donnée est arrivée.
+
 Le §5 s'arrête sur un aveu : aucun barème réel dans le dépôt, l'API ne publie
 que les jackpots k/k. Tout le volet financier contourne le trou par une
 condition suffisante — « rangs intermédiaires ≥ 0 » — et le §30 chiffre le
@@ -5270,3 +5285,157 @@ suppose que le joueur **s'ajoute** au marché observé : s'il y est déjà compt
 c'est A qui vaut et le seuil monte.
 
 **Registre : inchangé.** `h41` ne teste pas l'archive — il compose.
+
+## 56. Le barème, lu (`h42_bareme_reel.py`)
+
+Le §50 s'est achevé sur une phrase :
+
+> « Un document lèverait `w_h` exactement et rendrait `h34` obsolète : zéro
+> relevé, zéro modèle, la demande la moins chère du dossier. »
+
+Le document est arrivé — cinq tableaux de gains relevés sur `jeux.loro.ch` le
+30 août 2026 à 22:16, plus un second relevé de cagnottes treize heures après
+le premier. `lab/bareme_observed.csv` et `lab/jackpots_observed.csv` les
+portent. Cette section fait exactement ce que cette phrase annonçait, et rien
+de plus : elle lit, vérifie, recalcule.
+
+### Le contrôle qui valide la transcription — et qui est aussi le résultat
+
+Le risque n'est pas statistique, il est **de lecture** : ces chiffres viennent
+de captures d'écran lues à l'œil. Relire le tableau ne prouve rien. Mais les
+cinq tableaux ont été lus séparément, et un opérateur égalise son taux de
+retour entre les mises. Si les cinq espérances tombent ensemble, la
+transcription est bonne **et** l'égalisation est démontrée. Si l'une décroche,
+un chiffre est faux.
+
+| mise | E[gain de base] | P(k/k) | 1/P |
+|---|---|---|---|
+| 5 | 1,1711 | 6,449 × 10⁻⁴ | 1 551 |
+| 6 | 1,1765 | 1,290 × 10⁻⁴ | 7 753 |
+| 7 | 1,1971 | 2,440 × 10⁻⁵ | 40 979 |
+| 8 | 1,1668 | 4,346 × 10⁻⁶ | 230 115 |
+| 10 | 1,1761 | 1,122 × 10⁻⁷ | 8 911 711 |
+
+Étendue : **2,57 %**. Cinq tableaux mal lus ne se seraient pas rejoints.
+
+Et c'est en même temps une mesure. Le §50 avait **démontré**, sur 4 081
+barèmes admissibles, que chaque décision du dossier ne dépend que du scalaire
+total et non de la forme du barème — donc que le « classement des mises par
+espérance » de `b2` était vide par identité comptable. Le théorème de collapse
+est ici **observé** sur le barème réel.
+
+### Le prix du ticket : un franc est arithmétiquement exclu
+
+Le taux de retour vaut `E/c` et ne peut pas dépasser 1. La mise 7 rend donc
+
+> **`c > CHF 1,1971`**
+
+Tout le dossier lisait « par franc misé » faute de mieux, et cette lecture par
+défaut est **fausse** : à `c = 1` l'opérateur perdrait de l'argent sur chaque
+mise avant même de servir la cagnotte. Ce n'est pas une hypothèse, c'est une
+déduction à partir du barème.
+
+| prix supposé | taux de retour de base |
+|---|---|
+| CHF 1,00 | 117,8 % — exclu |
+| CHF 1,50 | 78,5 % |
+| **CHF 2,00** | **58,9 %** |
+| CHF 2,50 | 47,1 % |
+| CHF 3,00 | 39,3 % |
+
+La suite prend `c = 2`, seule valeur ronde compatible donnant un retour
+plausible pour une loterie. C'est **la dernière hypothèse** de toute la chaîne
+financière, et elle se lève d'un coup d'œil sur le prix affiché.
+
+### Les rangs intermédiaires, exacts
+
+Le §50 les bornait par comptabilité : `ρ ≥ 0,245` sous hypothèses nommées.
+
+| mise | rang plein | rangs intermédiaires | ρ = interm/c | borne §50 |
+|---|---|---|---|---|
+| 5 | 0,2322 | 0,9389 | **0,469** | ≥ 0,245 ✔ |
+| 6 | 0,1290 | 1,0475 | **0,524** | ≥ 0,245 ✔ |
+| 7 | 0,0488 | 1,1483 | **0,574** | ≥ 0,245 ✔ |
+| 8 | 0,0435 | 1,1234 | **0,562** | ≥ 0,245 ✔ |
+| 10 | 0,0112 | 1,1649 | **0,582** | ≥ 0,245 ✔ |
+
+La borne **tient sur les cinq mises**, et elle était conservatrice d'un
+facteur **2,1** à la mise 6. C'est le comportement attendu d'une borne :
+vraie, et lâche.
+
+### Le seuil, sans plus aucune condition suffisante
+
+Le pari est favorable quand `E[base] + p·J ≥ c`, soit
+
+> **`J* = (c − E[base]) / p`**
+
+Plus rien n'est jeté : ni les rangs intermédiaires, ni le gain fixe du rang
+plein. Le §5 bis donnait une condition **suffisante** en ignorant tout cela ;
+voici la condition **nécessaire et suffisante**.
+
+| mise | seuil §5 bis (`c/p`) | seuil **exact** | rapport | cagnotte 30/08 22:16 | fraction |
+|---|---|---|---|---|---|
+| 5 | 3 101 | **1 285** | 0,414 | 245 | 19,1 % |
+| 6 | 15 506 | **6 385** | 0,412 | 3 035 | **47,5 %** |
+| 7 | 81 959 | **32 902** | 0,401 | 3 838 | 11,7 % |
+| 8 | 460 229 | **191 727** | 0,417 | 13 051 | 6,8 % |
+| 10 | 17 823 422 | **7 342 190** | 0,412 | 498 218 | 6,8 % |
+
+Le seuil réel vaut environ **41 %** du seuil suffisant employé depuis le §5
+bis. La mise 6 est à **48 %** de son point de bascule, contre les 29,5 %
+qu'annonçait le §21 sur le premier relevé. Le §21 avait vu juste sur la
+structure : les petites mises sont systématiquement les plus proches, et la
+mise 6 domine.
+
+### Deux relevés : l'accumulation mesurée, et la première chute
+
+155 tirages séparent les deux relevés (09:17 → 22:16, un toutes les cinq
+minutes).
+
+| mise | 09:17 | 22:16 | variation | accumulation `r` |
+|---|---|---|---|---|
+| 5 | 355 | 245 | −110 | **chute observée** |
+| 6 | 2 287 | 3 035 | +748 | 4,83 CHF/tirage |
+| 7 | 1 540 | 3 838 | +2 298 | 14,83 CHF/tirage |
+| 8 | 9 292 | 13 051 | +3 759 | 24,25 CHF/tirage |
+| 10 | 495 713 | 498 218 | +2 505 | 16,16 CHF/tirage |
+
+Deux acquis, et le second est le plus rare. **L'accumulation est mesurée** :
+4,83 CHF par tirage à la mise 6, là où le §36 supposait 5,72 faute de mieux —
+16 % d'écart. Et **une chute a été observée**, la première du dossier. Le §36
+a montré que l'information sur la loi de la cagnotte arrive au rythme des
+chutes et non des relevés : celle-ci est donc la première unité d'information
+sur `q`, et il en faut une dizaine pour situer le paramètre à un facteur 3
+près.
+
+### Ce que cette section remplace, et ce qu'elle confirme
+
+**Remplace.** Le §50 tout entier — sa comptabilité, sa borne `ρ ≥ 0,245`, son
+espace admissible, son catalogue de 72 tables. Il existait pour contourner
+l'absence du barème, il l'avait annoncé, et il a eu raison de le dire.
+
+**Confirme.** Le théorème de collapse du §50, mesuré. La structure du §21. Et
+la méthode : une borne honnête, posée sans le barème, n'a été ni fausse ni
+inutile — elle a simplement été dépassée par une donnée, comme une borne doit
+l'être.
+
+### Limites
+
+1. **Transcription à l'œil** depuis des captures. Le contrôle des cinq
+   espérances la valide indirectement ; il ne la remplace pas.
+2. **`c = 2` est une hypothèse**, et tous les seuils lui sont proportionnels
+   en `(c − E)/p` — donc très sensibles : à `c = 2,50`, le seuil de la mise 6
+   passe de 6 385 à **10 261**.
+3. **L'option EXTRA n'est pas traitée** : son prix et sa portée ne sont pas
+   lisibles sur les captures. Son espérance seule vaut 9,99 CHF à la mise 6,
+   ce qui exclut qu'elle soit gratuite.
+4. Le relevé est à **BOOST ×1** ; le boost multiplie les gains et déplacerait
+   tout ce tableau (§31).
+5. Le **numéro de tirage** du second relevé n'est pas lisible sur la capture :
+   il est déduit (1 381 028 + 155) et marqué d'un « ? » dans le CSV pour cela.
+   Rien ici n'en dépend au-delà du pas de temps.
+
+**Registre : inchangé.** `h42` ne teste pas l'archive — il lit et recalcule.
+
+> Le plus grand gain pratique de la session ne vient d'aucun théorème : il
+> vient d'une capture d'écran. Le §50 l'avait écrit avant de l'obtenir.
