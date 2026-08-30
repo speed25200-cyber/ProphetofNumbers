@@ -6,7 +6,7 @@ Réponse courte, en cinq nombres :
 |---|---|
 | Amélioration possible par une meilleure **prédiction** | **0 %** — c'est un théorème, pas un résultat empirique |
 | Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+6,3 %** de rendement (§40) |
-| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≈ +1,0 %** sur la famille mesurée |
+| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≤ +1,6 %**, toutes familles mesurées (§45) |
 | Avantage que l'app affichait sur des données équitables | **+18 % à +34 %**, entièrement artefactuel — **corrigé** (§8 bis) |
 | Avantage de la maison, pour comparaison | **−25 % à −35 %** |
 
@@ -4134,3 +4134,223 @@ résistent (+1,30 % contre +0,99 %). C'est le tenseur qui s'effondre.
 
 **Registre : quatre consignations sans `p`** — aucune statistique n'a été
 calculée sur l'archive réelle, et le `m` de Holm ne bouge pas.
+
+## 46. La franchise au second ordre, et l'égalité qui interdit de comparer sous H₀ (`h28_franchise.py`)
+
+Le théorème C bornait la franchise de l'assurance gratuite par
+`2·√(T ln N)·20/T = 0,2718` hit/tirage ; `f3` en mesurait **0,016**. Un
+facteur 17 entre une borne et sa réalisation est un aveu : la borne ne décrit
+pas le mécanisme. `2·√(T ln N)` est la garantie pire cas de Hedge, payée
+contre un adversaire qui choisirait les pertes après avoir vu les poids. Ici
+l'« adversaire » est un tirage hypergéométrique.
+
+### Le piège, découvert en dérivant plutôt qu'en mesurant
+
+Sous H₀ toutes les règles ont la même espérance de hits — invariance — donc
+comparer des agrégateurs sur les hits ne peut rien montrer. On croit alors
+que le **regret** les sépare. C'est encore faux :
+
+> **Théorème d'égalité.** Pour tout agrégateur dont les poids et la grille
+> sont prévisibles, `E[S_agg] = 0` par invariance, donc
+> `E[franchise] = E[max_h S_h]/T` — **le même plancher pour tous.**
+
+La franchise n'appartient pas à l'agrégateur : elle appartient au
+**comparateur**, le maximum a posteriori de 26 marches corrélées. C'est la
+malédiction du vainqueur, encore, à un endroit où personne ne l'attendait.
+Vérifié : sur 32 archives SRS à T = 20 000, les différences appariées entre
+cinq règles sont toutes compatibles avec zéro (max |z| = 1,20 ; une vraie
+différence de 0,0056 hit/tirage aurait été vue à 3 σ).
+
+**Sous H₀, la franchise ne se réduit pas : elle se paie, à l'identique, par
+toute règle honnête.** Le plan initial de cette expérience — comparer les
+franchises sous H₀ — était donc condamné avant d'être exécuté, et c'est la
+dérivation qui l'a montré, pas la mesure.
+
+### La borne C′
+
+La famille de second ordre d'AdaHedge remplace `T` par `V_T`, la variance
+cumulée des pertes sous les poids courants. Dérivée de bout en bout — gap
+borné par l'étendue, Bernstein sur `δ_t`, télescopage par concavité, sortie
+d'échauffement, récurrence sur `Δ²` — chaque fait revérifié numériquement à
+chaque pas :
+
+```
+R_T ≤ 2,3971·√(V_T·ln N) + 2·ln N + 6 + 2Δ₀
+```
+
+**valide par réalisation** : `V_T` est mesuré sur la trajectoire même, sans
+aucune hypothèse sur la loi des tirages.
+
+| | valeur |
+|---|---|
+| regret fractionnaire réalisé, archive réelle | **0,01253** |
+| borne C′ | **0,0255** (pur) / 0,0257 (déployé) |
+| borne C (premier ordre) | 0,2718 |
+| resserrement | **×10,7**, marge ×2,0 au lieu de ×21,7 |
+
+Zéro violation sur l'archive réelle, 32 archives à T = 20 000 et 6 archives
+complètes (marge minimale ×1,99) ; zéro violation des faits intermédiaires
+sur 710 098 pas. **Témoin positif** : une borne sciemment fausse,
+`0,5·√(V ln N)`, est violée **32/32** — le banc a des dents.
+
+D'où vient le resserrement : `v̄` mesuré vaut 0,0046–0,0064 contre 1/4 au
+pire cas. La combinatoire exacte le prédit depuis le partage de top-20 mesuré
+entre têtes (5,916/20, recoupant le 5,92 de `f6`) : prédit 0,006428, mesuré
+0,006439. **La corrélation des têtes ne compte que pour ~6 %** — l'essentiel
+est que l'adversaire est un tirage, pas un adversaire.
+
+### Une confusion du théorème C, corrigée au passage
+
+La borne de Hedge porte sur l'agrégateur **fractionnaire** (`Σ w·pertes`) ;
+l'app joue le **top-20 du mélange de champs**. Le théorème C écrivait la
+borne de l'un en face de la franchise de l'autre. Mesurés séparément :
+fractionnaire 0,0125, mélange 0,0162. Même espérance sous H₀ — les deux sont
+prévisibles — mais objets distincts sous la borne, qui ne couvre que le
+premier. La conformité du second est un **fait mesuré, pas démontré**, et de
+même pour le mélange 2 % uniforme du code déployé.
+
+### Cinq agrégateurs, un oracle, et le verdict
+
+Moyenne uniforme, FTL, FTRL entropique, AdaHedge pur, AdaHedge déployé —
+mêmes têtes, mêmes champs, `leak_check` propre sur les trois architectures.
+Sur l'archive réelle : 0,0147 / 0,0179 / 0,0192 / 0,0164 / 0,0162. Le Hedge à
+taux fixe optimisé **après coup** — un oracle, donc une borne inférieure et
+non un concurrent — donne 0,0115. L'écart d'AdaHedge à l'oracle vaut
+**0,001 hit/tirage**, loin sous le bruit (sd ≈ 0,006).
+
+### La seule unité où la franchise compte : le seuil de détection
+
+| avance (hit/tirage) | uniforme | FTL | FTRL | AH pur | déployé |
+|---|---|---|---|---|---|
+| +0,017 | 0/4 | 0/4 | 0/4 | 0/4 | 0/4 |
+| +0,046 | 0/4 | 0/4 | 3/4 | 2/4 | 2/4 |
+| **+0,098** | 3/4 | **4/4** | **4/4** | **4/4** | **4/4** |
+| +0,192 | 4/4 | 4/4 | 4/4 | 4/4 | 4/4 |
+
+Les quatre règles qui suivent le leader détectent 4/4 dès +0,098 ; l'uniforme
+seulement dès +0,192 — **deux fois pire**, alors que sa franchise réalisée
+sous H₀ était plus *basse*. La réponse à « une franchise divisée par deux
+abaisse-t-elle le seuil ? » est donc **non** : la franchise sous H₀ ne peut
+pas différer (théorème d'égalité), et ce qui abaisse le seuil est la
+franchise sous l'**alternative** — à +0,098, l'uniforme capte 61 %
+(franchise 0,038) là où le déployé capte 95 % (0,005).
+
+### Ce que C′ change au fond
+
+Capter une avance `ε` est garanti dès que la borne par tirage passe sous `ε`.
+Le théorème C exigeait `T ≳ 2 819 337` tirages pour `ε = 0,043` — et `f3`
+**mesure** la détection à T = 20 000, un démenti par ×140. C′ exige
+`T ≳ 17 348` : la garantie rejoint enfin la mesure.
+
+> La théorie ne promettait pas moins que la pratique par lâcheté de
+> l'algorithme, mais par lâcheté de la borne.
+
+**Verdict : AdaHedge tel que déployé est déjà optimal ici, et il n'y a rien à
+gagner à en changer.** C'est un résultat négatif, et il est mesuré.
+
+### Deux erreurs de fabrication, et leur leçon
+
+Un chiffre écrit à la main — « 0,2723 » — s'était glissé dans une note
+destinée au registre : le run a été tué avant toute écriture et le chiffre
+remplacé par sa valeur calculée, 0,2718. La règle « aucun nombre hors
+exécution » a mordu sur son auteur. Et la répétition générale affichait des
+« parts captées » à dix chiffres — division par une avance par réplicat
+proche de zéro, remplacée par le rapport des moyennes.
+
+**Registre : quatre consignations sans `p`** — des vérifications et des
+mesures, pas des chasses au biais. Zéro significatif, inchangé.
+
+## 47. L'ordre de sortie : un plafond infini en détection, nul en exploitation (`h37_ordre_et_avantage.py`)
+
+L'archive est **triée** sur ses 70 560 lignes. Conséquence que personne
+n'avait formulée : contre toute hypothèse portant sur l'**ordre** des boules,
+elle n'a pas une puissance faible — elle a une puissance **exactement
+nulle**, la statistique n'étant pas calculable. Par la loi du §41, une
+famille invisible a un plafond **infini**, et l'espace ordonné compte
+2^122,69 issues contre 2^61,62 pour l'espace trié. Sur ce critère, c'est un
+trou bien plus grand que le troisième ordre.
+
+### Le théorème qui le vide
+
+> Le gain d'un ticket ne dépend du tirage que par le nombre de numéros cochés
+> qui en font partie — donc par l'**ensemble** tiré, jamais par l'ordre de
+> sortie. Toute déviation d'ordre pur laisse donc l'espérance de gain de
+> toute grille **rigoureusement inchangée**.
+
+La démonstration tient en une ligne : `E[gain] = Σ_S P(S)·gain(S)`, et une
+déviation d'ordre pur ne touche aucun `P(S)`. Dans le langage du §41, le
+vecteur d'avantage de cette famille est le vecteur **nul**, et le plafond
+`‖a‖·(2m)^{1/4}·√(z/N)` vaut zéro quel que soit `m`, aussi grand soit-il.
+
+**Vérifié plutôt que supposé.** Sur 200 000 tirages dont l'ordre est biaisé à
+90 % — les petits numéros poussés vers le début — mais dont l'ensemble reste
+uniforme par construction :
+
+| statistique | observé | null simulé | z |
+|---|---|---|---|
+| loi de la **première boule** | 1 733 738 | 73 ± 12 | **+145 333** |
+| χ² des 80 marginales d'**ensemble** | 57,2 | 59,8 ± 8,9 | **−0,30** |
+| le même, ordre libre (témoin négatif) | 54,8 | 59,8 ± 8,9 | −0,56 |
+
+Un générateur peut donc être massivement défaillant dans son ordre sans qu'un
+joueur y gagne ou y perde un centime, et sans qu'aucune des 39 voies du
+dossier ne puisse le voir.
+
+*Le null est simulé et non tabulé : écrire « attendu 79 » aurait été l'erreur
+même que le §1 de l'audit a commise une fois, les 80 comptes d'ensemble
+sommant à 20N par construction. Il vaut 59,8 ± 8,9.*
+
+### Par où l'ordre peut malgré tout payer
+
+Le théorème ferme la voie directe et en laisse exactement deux :
+
+- **L'ordre comme symptôme.** Un biais d'ordre n'est pas exploitable mais
+  révèle que la source n'est pas ce qu'on croit — et une source défaillante
+  dans son ordre l'est peut-être ailleurs. Instrument de diagnostic à haute
+  sensibilité, deux fois plus d'information par tirage.
+- **L'ordre comme levier algébrique.** C'est la voie des §17 à §35 : un
+  tirage ordonné publie 122,69 bits, assez pour contenir deux sorties de
+  64 bits, ce qui rend la récupération d'état linéaire au lieu de
+  combinatoire. Un générateur récupéré rendrait le tirage suivant
+  déterministe conditionnellement — **l'invariance ne s'appliquerait plus du
+  tout**, faute d'uniformité. Ce n'est pas un avantage marginal, c'est la fin
+  du théorème.
+
+```
+un biais d'ordre        ->  plafond d'exploitation NUL (théorème ci-dessus)
+un générateur récupéré  ->  plafond illimité, invariance caduque
+```
+
+**L'ordre ne vaut rien par ce qu'il révèle, et tout par ce qu'il permettrait
+de prédire.**
+
+### Conséquence pour la collecte, et elle inverse une priorité
+
+| tirages ordonnés | durée | plafond de détection relatif |
+|---|---|---|
+| 100 | 12 h | ×56,2 |
+| 1 000 | 5 j | ×17,8 |
+| 10 000 | 49 j | ×5,6 |
+| 70 560 | 346 j | ×2,1 |
+
+Il faudrait **315 553 tirages ordonnés — 4,2 ans** — pour que la loi de
+position soit contrainte aussi finement que les marginales le sont
+aujourd'hui. C'est un mauvais investissement : des années pour fermer une
+famille dont le plafond d'exploitation est nul par théorème.
+
+Les capturer pour la récupération d'état en est un excellent : le §27 a
+établi que **cinq consécutifs suffisent** aux trois modèles de source, soit
+vingt-cinq minutes, et l'app les accumule seule depuis le §34.
+
+### Limites
+
+1. Le théorème suppose que le gain ne dépend que du nombre de hits. Vrai d'un
+   barème de keno, et déjà utilisé au §26 — mais c'est une hypothèse sur le
+   **produit**, pas un théorème.
+2. La voie du symptôme suppose qu'un défaut d'ordre soit corrélé à un défaut
+   d'ensemble. Plausible, non démontré, et le dossier n'a aucun moyen de
+   l'établir.
+3. Le calendrier applique la loi d'échelle du §41, dont seule la structure en
+   **rapports** est transportable.
+
+**Registre : inchangé.** `h37` ne teste pas l'archive — il démontre.
