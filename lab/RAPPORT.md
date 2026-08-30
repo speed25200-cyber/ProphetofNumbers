@@ -1040,29 +1040,24 @@ lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
 | 5 | la géométrie des douze grilles | préférence de couverture, optimum atteint à 0,000 % près à la mise 5 |
 | 6 | `pAllHit`, champ mort et faux d'un facteur 22 | supprimé de `SuggestedGrid` ; le nom ne subsiste que comme paramètre légitime de `JackpotLaw` |
 | 7 | l'argument « Furtif » mis au conditionnel | fait |
+| 8 | `advance(k)` : décroissance par tirage écoulé et non absorbé (§38) | `Swarm.swift`, protocole + 15 têtes + ancrage dans `process()` |
 
 **Ce qui est ouvert aujourd'hui**, dans l'ordre où cela coûte quelque chose :
 
-1. **Câbler `advance(k)` dans `Swarm.swift`** (§38). C'est le seul défaut de
-   code encore actif : les têtes décroissent par tirage absorbé et non
-   écoulé, et le top-20 affiché après une coupure ne partage que 10 numéros
-   sur 20 avec celui qu'un essaim informé aurait produit. Le diff complet est
-   spécifié dans `h23`, la correction est mesurée côté labo (+2,0 numéros),
-   il ne manque que la transcription Swift et ses deux vérificateurs.
-2. **Relever le prix du ticket** (§36). C'est la seule donnée manquante dont
+1. **Relever le prix du ticket** (§36). C'est la seule donnée manquante dont
    une décision dépende : le seuil de bascule vaut `c/p`, et sans `c` la
    règle qui décide s'il faut jouer n'est pas calculable. Tout le dossier est
    « par franc misé » faute de ce nombre, qui se lit d'un coup d'œil.
-3. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
+2. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
    propose aujourd'hui aucune taille de mise. Quand elle en proposera une,
    elle doit la recalculer à chaque occasion sur la cagnotte à l'écran — ce
    qui bat de 37 % la meilleure fraction figée possible, et ne demande aucun
    paramètre estimé.
-4. **Laisser l'instrument du bonus accumuler** (§37). Cinq tirages ordonnés
+3. **Laisser l'instrument du bonus accumuler** (§37). Cinq tirages ordonnés
    concordants établiraient une règle de position, une trentaine
    établiraient l'uniformité. L'app en collecte un toutes les cinq minutes
    depuis §34 ; il n'y a rien à faire d'autre qu'attendre.
-5. **Trancher le boost avant clôture** (§4, §16). Le seul point du dossier
+4. **Trancher le boost avant clôture** (§4, §16). Le seul point du dossier
    où une réponse positive changerait le *signe* de l'espérance. A priori
    négatif, instrument câblé, non tranché.
 
@@ -3103,11 +3098,26 @@ tirage 1 381 032 ne garde que **11 des 20 numéros affichés** (rho 0,705).
 Les deux valent exactement 5,0000 hits — la différence est que l'un sort d'un
 essaim qui sait qu'il n'a pas vu trois jours de tirages.
 
-Côté Swift, rien n'a été édité : le diff complet — protocole `SwarmHead`,
-quatorze têtes, et le point d'ancrage dans `SwarmEngine.process()` qui
-calcule `hole = drawNumber − lastDrawNumber − 1` avant la boucle
-d'absorption — est spécifié dans `h23`, à passer par `verif_swift.py` et
-`verif_logique.py` au câblage.
+**Et le correctif est désormais câblé côté Swift.** `SwarmHead` porte
+`advance(_ elapsed: Int)`, les **quinze** classes de têtes l'implémentent, et
+`SwarmEngine.process()` calcule `hole = drawNumber − lastDrawNumber − 1` en
+tête de boucle, avant l'évaluation comme avant l'absorption. Chaque formule
+est celle que `swarm_py` porte déjà et que les 36 coupures ont validée :
+forme fermée pour Bayes, EWMA, Hawkes, ACP et les deux pressions ; `gap +=
+elapsed` pour Weibull, Hazard et GapZ ; file de `SpectralHead` portée en
+vecteurs pour qu'un tirage espéré fractionnaire y entre comme un tirage
+observé ; et abstention déclarée pour Markov, Streak, Copair et Adjacency,
+dont le conditionnement porte sur l'identité du tirage précédent, lequel
+n'existe plus après un trou.
+
+Vérifications passées : `verif_swift.py` rend **0 nœud de syntaxe invalide
+introduit** ; `verif_logique.py` rend le verdict complet satisfait ; les
+quinze conformités au protocole sont énumérées et aucune n'est sans
+`advance`. Et la propriété qui rend le câblage sûr est celle que `h23` avait
+établie en Python : **sans trou, la sortie est inchangée** — `hole` vaut 0
+sur des tirages consécutifs, et le jeu d'essai des tests Swift est
+précisément consécutif (`drawNumber: 10_000 + i`), donc leurs assertions
+portent sur un comportement identique au bit près.
 
 **Limites nommées.** La « vérité » de l'expérience est l'état informé, pas un
 état optimal : le principe « absorber l'espérance » est un choix honnête

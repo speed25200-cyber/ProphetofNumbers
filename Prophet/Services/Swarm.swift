@@ -21,6 +21,13 @@ protocol SwarmHead: AnyObject {
     var blurb: String { get }
     var tag: HeadTag { get }
     func absorb(_ drawn: Set<Int>)
+    // h23 : `elapsed` tirages se sont écoulés SANS être observés. Les têtes
+    // à mémoire doivent vieillir du temps écoulé et non du nombre de
+    // tirages absorbés — sans quoi un trou dans le flux est traité comme
+    // s'il ne s'était rien passé, et l'état « récent » date en réalité du
+    // dernier tirage vu. Mesuré : après un trou de 849 tirages, le top-20
+    // ne partage plus que 10 numéros sur 20 avec celui d'un essaim informé.
+    func advance(_ elapsed: Int)
     func field() -> [Double]
 }
 
@@ -58,6 +65,20 @@ final class BayesHead: EvolvingHead {
         }
     }
 
+    // Absorber `elapsed` tirages ESPÉRÉS : chaque numéro y sort avec la
+    // probabilité de base. La somme géométrique se met en forme fermée,
+    // donc le coût ne dépend pas de la taille du trou.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let g = 1 - 1 / max(2, memory)
+        let gk = pow(g, Double(elapsed))
+        let m = (1 - gk) / (1 - g)
+        for i in 0..<poolN {
+            a[i] = gk * a[i] + pBase * m
+            b[i] = gk * b[i] + (1 - pBase) * m
+        }
+    }
+
     func field() -> [Double] {
         var out = [Double](repeating: 0, count: poolN)
         for i in 0..<poolN { out[i] = a[i] / (a[i] + b[i]) }
@@ -90,6 +111,13 @@ final class EwmaHead: EvolvingHead {
         }
     }
 
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let l = 2 / (max(2, memory) + 1)
+        let r = pow(1 - l, Double(elapsed))
+        for i in 0..<poolN { e[i] = pBase + r * (e[i] - pBase) }
+    }
+
     func field() -> [Double] { e }
 }
 
@@ -117,6 +145,17 @@ final class HawkesHead: EvolvingHead {
         let d = exp(-0.6931 / max(0.5, memory))
         for i in 0..<poolN {
             s[i] = s[i] * d + (drawn.contains(i + 1) ? jump : 0)
+        }
+    }
+
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let d = exp(-0.6931 / max(0.5, memory))
+        let dk = pow(d, Double(elapsed))
+        // Excitation espérée d'un tirage non observé : `jump` avec la
+        // probabilité de base, sommé géométriquement sur le trou.
+        for i in 0..<poolN {
+            s[i] = s[i] * dk + jump * pBase * (1 - dk) / (1 - d)
         }
     }
 
@@ -154,6 +193,14 @@ final class WeibullHead: SwarmHead {
         }
     }
 
+    // L'écart est un compte de tirages écoulés : il avance du trou entier.
+    // Les tables apprises (moyenne et effectif par numéro) ne bougent pas —
+    // on n'a rien observé, donc rien à apprendre.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        for i in 0..<poolN { gap[i] += elapsed }
+    }
+
     func field() -> [Double] {
         var out = [Double](repeating: 0, count: poolN)
         for i in 0..<poolN {
@@ -189,6 +236,11 @@ final class HazardHead: SwarmHead {
         }
     }
 
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        for i in 0..<poolN { gap[i] += elapsed }
+    }
+
     func field() -> [Double] {
         var out = [Double](repeating: 0, count: poolN)
         for i in 0..<poolN {
@@ -222,6 +274,11 @@ final class GapZHead: SwarmHead {
         }
     }
 
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        for i in 0..<poolN { gap[i] += elapsed }
+    }
+
     func field() -> [Double] {
         var out = [Double](repeating: 0, count: poolN)
         for i in 0..<poolN {
@@ -240,7 +297,12 @@ final class SpectralHead: SwarmHead {
     private let short: Int
     private let long: Int
     private let momentum: Bool
-    private var queue: [Set<Int>] = []
+    // h23 : la file porte des vecteurs de hits et non des ensembles, pour
+    // qu'un tirage ESPÉRÉ — fractionnaire, pBase sur chaque numéro — puisse
+    // y entrer comme un tirage observé. Les sommes glissantes sont
+    // maintenues exactement comme avant, par soustraction de l'élément
+    // sortant.
+    private var queue: [[Double]] = []
     private var shortSum = [Double](repeating: 0, count: poolN)
     private var longSum = [Double](repeating: 0, count: poolN)
 
@@ -260,17 +322,33 @@ final class SpectralHead: SwarmHead {
     }
 
     func absorb(_ drawn: Set<Int>) {
-        queue.append(drawn)
-        for n in drawn {
-            shortSum[n - 1] += 1
-            longSum[n - 1] += 1
+        var v = [Double](repeating: 0, count: poolN)
+        for n in drawn { v[n - 1] = 1 }
+        push(v)
+    }
+
+    // Un trou pousse des tirages espérés. Au-delà de `long` il ne reste
+    // aucun tirage observé dans l'une ou l'autre fenêtre : pousser
+    // davantage ne changerait plus rien, d'où le min.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let v = [Double](repeating: pBase, count: poolN)
+        for _ in 0..<min(elapsed, long) { push(v) }
+    }
+
+    private func push(_ v: [Double]) {
+        queue.append(v)
+        for i in 0..<poolN {
+            shortSum[i] += v[i]
+            longSum[i] += v[i]
         }
         if queue.count > short {
-            for n in queue[queue.count - 1 - short] { shortSum[n - 1] -= 1 }
+            let old = queue[queue.count - 1 - short]
+            for i in 0..<poolN { shortSum[i] -= old[i] }
         }
         if queue.count > long {
             let old = queue.removeFirst()
-            for n in old { longSum[n - 1] -= 1 }
+            for i in 0..<poolN { longSum[i] -= old[i] }
         }
     }
 
@@ -319,6 +397,16 @@ final class MarkovHead: SwarmHead {
         if recent.count > k { recent.removeFirst() }
     }
 
+    // Cette tête conditionne sur l'IDENTITÉ des k derniers tirages. Après
+    // un trou, ces tirages ne sont plus les k derniers : le
+    // conditionnement n'existe plus et la tête s'abstient — `field()` rend
+    // alors la probabilité de base — plutôt que d'inventer un passé. La
+    // table apprise, elle, reste : elle n'est pas conditionnée au temps.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        recent.removeAll()
+    }
+
     private func presence(_ n: Int) -> Int {
         var c = 0
         for s in recent where s.contains(n) { c += 1 }
@@ -351,6 +439,13 @@ final class StreakHead: SwarmHead {
         }
     }
 
+    // Une série de sorties consécutives est rompue par tout tirage non
+    // observé : on ne peut pas savoir si elle s'est poursuivie.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        streak = [Double](repeating: 0, count: poolN)
+    }
+
     func field() -> [Double] { streak }
 }
 
@@ -378,6 +473,14 @@ final class CopairHead: SwarmHead {
         for n in nums { counts[n - 1] += 1 }
         nDraws += 1
         lastDraw = nums
+    }
+
+    // Le graphe de paires est une table longue : elle survit au trou. Ce
+    // qui ne survit pas, c'est « les partenaires du DERNIER tirage » —
+    // le dernier tirage observé n'est plus le précédent.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        lastDraw = []
     }
 
     func field() -> [Double] {
@@ -438,6 +541,15 @@ final class AcpHead: SwarmHead {
         t += 1
     }
 
+    // Seule la moyenne courante vieillit. Les axes d'Oja sont le produit
+    // de pas d'apprentissage, et il n'y a rien à apprendre d'un tirage non
+    // observé : ni `pc1`, ni `pc2`, ni le compteur `t` ne bougent.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let r = pow(1 - 0.04, Double(elapsed))
+        for i in 0..<poolN { meanV[i] = pBase + r * (meanV[i] - pBase) }
+    }
+
     private func oja(_ pc: inout [Double], _ x: [Double]) {
         var norm = 0.0
         for v in pc { norm += v * v }
@@ -483,6 +595,7 @@ final class AntiHead: SwarmHead {
     var blurb: String { "Inverse de \(base.name) — sonde le biais miroir." }
 
     func absorb(_ drawn: Set<Int>) { base.absorb(drawn) }
+    func advance(_ elapsed: Int) { base.advance(elapsed) }
     func field() -> [Double] { base.field().map { -$0 } }
 }
 
@@ -523,6 +636,14 @@ final class AdjacencyHead: SwarmHead {
         last = drawn
     }
 
+    // Comme Markov et Copair : le conditionnement porte sur le tirage
+    // PRÉCÉDENT, qui n'existe plus après un trou. La table auto-calibrée
+    // survit ; le voisinage de référence, non.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        last = []
+    }
+
     func field() -> [Double] {
         var out = [Double](repeating: pBase, count: poolN)
         guard !last.isEmpty else { return out }
@@ -547,6 +668,15 @@ final class RowPressureHead: SwarmHead {
         var count = [Double](repeating: 0, count: 10)
         for n in drawn { count[(n - 1) % 10] += 1 }
         for r in 0..<10 { rows[r] += 0.12 * (count[r] - rows[r]) }
+    }
+
+    // Le tirage espéré met exactement drawK/10 par rangée : la moyenne
+    // mobile revient donc exponentiellement vers son attendu.
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let r = pow(1 - 0.12, Double(elapsed))
+        let expRow = Double(drawK) / 10
+        for k in 0..<10 { rows[k] = expRow + r * (rows[k] - expRow) }
     }
 
     func field() -> [Double] {
@@ -580,6 +710,15 @@ final class PressureHead: SwarmHead {
         }
         for d in 0..<8 { dec[d] += 0.12 * (dCount[d] - dec[d]) }
         for p in 0..<2 { par[p] += 0.12 * (pCount[p] - par[p]) }
+    }
+
+    func advance(_ elapsed: Int) {
+        guard elapsed > 0 else { return }
+        let r = pow(1 - 0.12, Double(elapsed))
+        let dExp = Double(drawK) / 8
+        let pExp = Double(drawK) / 2
+        for d in 0..<8 { dec[d] = dExp + r * (dec[d] - dExp) }
+        for p in 0..<2 { par[p] = pExp + r * (par[p] - pExp) }
     }
 
     func field() -> [Double] {
@@ -847,6 +986,22 @@ final class SwarmEngine {
         for (i, draw) in batch.enumerated() {
             let nums = draw.numbers
             let drawn = Set(nums)
+
+            // h23 — LE POINT D'ANCRAGE. Si des tirages séparent celui-ci du
+            // dernier absorbé, on fait d'abord passer ce temps : les têtes
+            // à mémoire vieillissent du nombre de tirages ÉCOULÉS et non du
+            // nombre de tirages vus. Sans cela un trou est traité comme s'il
+            // ne s'était rien passé — mesuré à 10 numéros de top-20 sur 20
+            // conservés après un trou de 849 tirages.
+            // `max(0, …)` par prudence : l'ordre croissant est garanti en
+            // amont, mais une régression d'ordonnancement ne doit pas faire
+            // reculer les compteurs d'écart.
+            let hole = lastDrawNumber == Int.min
+                ? 0 : max(0, draw.drawNumber - lastDrawNumber - 1)
+            if hole > 0 {
+                for head in heads { head.advance(hole) }
+                for j in 0..<Self.pool { gap[j] += hole }
+            }
 
             // Classement « avant le dernier tirage » (movers) : figé AVANT
             // l'évaluation, pour que les poids n'aient pas vu son issue.
