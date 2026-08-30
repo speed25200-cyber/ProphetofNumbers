@@ -2616,3 +2616,53 @@ faisait échouer 16 000 allers-retours sur 16 000. Sans ce contrôle, le test
 aurait rendu « rien trouvé » sur les données réelles avec l'assurance d'un
 résultat, et c'est exactement la panne que les témoins existent pour
 attraper.
+
+---
+
+## 36. L'échantillonneur qui consomme quatre-vingts sorties (`tools/sweep_keys.c`)
+
+Tous les échantillonneurs du dossier — les quatre de `sweep_order`, les cinq
+de `sweep_mt`, ceux de `h20` — consomment **vingt** sorties : un numéro par
+sortie. En relisant la liste, une évidence : **aucun n'en consomme
+quatre-vingts.**
+
+Or l'idiome le plus court pour tirer vingt numéros sur quatre-vingts est
+
+```sql
+SELECT numero FROM boules ORDER BY RANDOM() LIMIT 20
+```
+
+et ses équivalents d'une ligne — `argsort(rand(80))[:20]`,
+`sorted(bocal, key=lambda _: rng())[:20]`. Ils tirent **une clé par numéro du
+bocal** et gardent les vingt plus petites. Rien dans le dossier ne pouvait
+les voir, et pour une raison de fond, pas par oubli :
+
+* les attaques algébriques (§14 à §35) supposent vingt sorties consécutives
+  reliées par une récurrence ; ici les vingt numéros publiés dépendent des
+  quatre-vingts clés **à la fois**, et rien ne relie deux numéros voisins ;
+* les balayages (§34) rejettent une graine dès que le **premier** numéro ne
+  tombe pas juste — ce qui n'a aucun sens quand ce premier numéro est celui
+  dont la clé est la plus petite parmi quatre-vingts, et ne peut donc être
+  jugé qu'une fois les quatre-vingts tirées.
+
+C'est ce second point qui coûte : **aucune sortie anticipée n'est possible**.
+Là où `sweep_order` tue une graine fausse en 1,01 pas de générateur, il en
+faut ici quatre-vingts, toujours. Le balayage passe de 2 minutes à ≈ 53
+minutes par tirage pour 2³² graines et 24 combinaisons sur quatre cœurs.
+
+Le test vérifie que les vingt numéros publiés sont exactement ceux de plus
+petite clé, **et dans l'ordre des clés** — le filtre reste donc celui de
+l'ordre, à (80!/60!)⁻¹ ≈ 10⁻³⁷ par graine.
+
+| | résultat |
+|---|---|
+| autotest (12 familles × 2 conventions) | **24/24**, chacune rendant *une seule* graine — le témoin |
+| tirage 1381023, 2³² graines × 24 combinaisons | **0** |
+| tirage 1381028 (source indépendante) | **0** |
+
+Sur ≈ 10¹¹ essais graine×combinaison, l'espérance de faux positifs vaut
+10⁻²⁶ : s'il y avait eu une graine, elle serait sortie, et elle aurait été
+vraie. Le second tirage n'est pas là pour confirmer la statistique, qui n'en
+a pas besoin — il est là contre l'**erreur de recopie** des vingt numéros,
+qui tuerait silencieusement les vingt-quatre combinaisons. Le dossier a déjà
+payé cette leçon une fois (§34).
