@@ -1403,12 +1403,155 @@
   </section>
 
   <section>
+    <h2>L'ordre de sortie, et le théorème des deux états</h2>
+    <div class="col">
+      <p>
+        L'archive publique est triée&nbsp;: elle ne dit pas dans quel ordre les boules sont
+        sorties. Cinq tirages ordonnés ont maintenant été relevés à l'écran et sur le site de
+        l'opérateur, et ils changent l'échelle du problème. Une suite ordonnée de 20 numéros parmi
+        80 a un rang dans [0, M′) avec M′&nbsp;=&nbsp;80!/60!, soit
+        <strong>122,69&nbsp;bits</strong> — contre 61,62 pour l'ensemble trié. Deux fois plus
+        d'information, par tirage.
+      </p>
+      <p>
+        De là sort un énoncé qui n'existait pas tant qu'on n'avait que le tirage trié. Un
+        générateur d'état <em>b</em> bits ne peut pas produire un tirage ordonné en une seule
+        sortie dès que <em>b</em>&nbsp;&lt;&nbsp;122,69&nbsp;: il lui en faut plusieurs. Or le rang
+        les publie <em>toutes</em>. Et connaître deux états consécutifs d'un générateur
+        congruentiel rend la récupération de ses constantes <strong>linéaire</strong> au lieu de
+        combinatoire.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Plus l'état est étroit, plus l'ordre le trahit. Un générateur de 32 bits se résout depuis
+      un seul tirage ordonné.
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Trois modèles de source, chacun passé aux témoins avant l'archive</caption>
+        <thead>
+          <tr><th>source supposée</th><th>tirages nécessaires</th><th>témoins positifs</th><th>faux positifs</th><th>archive réelle</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>LCG 128 bits, 1 sortie</td><td>3 à écart constant</td><td>4/4</td><td>0/6</td><td>rien</td></tr>
+          <tr><td>LCG 64 bits, 2 sorties</td><td>2</td><td>8/8</td><td>0/12</td><td>rien</td></tr>
+          <tr><td>LCG 32 bits, 4 sorties</td><td><strong>1</strong></td><td>8/8</td><td>0/12</td><td>rien</td></tr>
+          <tr class="is-key"><td>5 tirages ordonnés réels</td><td>—</td><td>—</td><td>—</td><td><strong>aucun état compatible</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Les témoins travaillent aux écarts <em>réels</em> de l'archive (0, 3, 5, 7, 8) et non à des
+        écarts commodes&nbsp;: un témoin qui ne travaille pas dans les conditions des données ne
+        prouve rien sur son applicabilité.
+      </p>
+      <p>
+        Une première version de cette attaque échouait sur ses propres témoins tout en produisant,
+        sur les données réelles, un «&nbsp;rien trouvé&nbsp;» d'apparence parfaitement normale. La
+        cause est une obstruction de parité&nbsp;: deux états d'un générateur congruentiel
+        diffèrent toujours d'un nombre <em>pair</em>, si bien que la division 2-adique qui fondait
+        l'attaque sur le tirage trié n'est jamais définie ici — elle rejetait silencieusement le
+        vrai générateur. C'est exactement le genre de panne qu'un témoin négatif seul ne voit pas.
+      </p>
+      <p>
+        Limite mesurée plutôt que tue&nbsp;: cinq tirages ne laissent pas <em>un</em> générateur
+        mais une classe de 8 à 17. Le tirage suivant tombe malgré tout de 8,6·10<sup>36</sup>
+        ordres possibles à au plus dix-sept, et dans trois cas sur quatre la classe est unanime.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>La brèche&nbsp;: là où l'invariance ne protège rien</h2>
+    <div class="col">
+      <p>
+        Le théorème d'invariance dit une chose et une seule&nbsp;: pour <em>toute</em> grille de
+        <em>k</em> numéros, le nombre de bons numéros suit la même loi. C'est un énoncé sur la loi
+        <strong>marginale d'une grille</strong>. Il ne dit rien de la loi <strong>jointe</strong>
+        de plusieurs grilles jouées ensemble — et personne ne joue une grille isolée.
+      </p>
+      <p>
+        La forme fermée de cette loi jointe donne un seuil exact. Deux grilles de <em>k</em>
+        numéros qui se recoupent sur ω numéros sont décorrélées exactement en
+        ω*&nbsp;=&nbsp;<em>k</em>²/80 — qui se trouve être aussi le recouvrement moyen de deux
+        grilles tirées au hasard. En dessous, les grilles se complètent&nbsp;; au-dessus, elles se
+        doublonnent.
+      </p>
+    </div>
+
+    <div class="readout">
+      <div class="cell">
+        <div class="cell-label">Variance du gain total — 8 grilles disjointes</div>
+        <div class="cell-value">0</div>
+        <div class="cell-note">La somme des bons numéros vaut 20, toujours</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Variance du gain total — la même grille jouée 8 fois</div>
+        <div class="cell-value">106,4</div>
+        <div class="cell-note">Même coût, même espérance</div>
+      </div>
+      <div class="cell is-flagged">
+        <div class="cell-label">Chances de toucher le rang plein, disjoint contre identique</div>
+        <div class="cell-value">×8,000</div>
+        <div class="cell-note">Exact, par inclusion-exclusion</div>
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Tant que le gain est fixe, ce facteur huit ne porte que sur la probabilité&nbsp;: huit
+        grilles identiques gagnantes touchent huit fois le prix, l'espérance est la même. Mais dès
+        qu'un rang est <strong>partagé</strong> — un jackpot progressif l'est —, huit tickets
+        gagnants identiques ne touchent plus huit parts pleines mais huit parts d'un pot divisé
+        entre tous les gagnants, tandis que la version disjointe touche une part pleine huit fois
+        plus souvent.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      C'est le premier endroit de tout le dossier où l'espérance bouge — et il ne suppose rien du
+      générateur.
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Rapport des espérances, disjoint contre identique, selon la foule</caption>
+        <thead>
+          <tr><th>autres gagnants attendus</th><th>0</th><th>0,5</th><th>1</th><th>3</th><th>10</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>gain d'espérance</td><td>×8,00</td><td>×6,65</td><td>×5,62</td><td>×3,40</td><td>×1,74</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        L'invariance n'est pas violée&nbsp;: elle suppose que le gain d'une grille ne dépend pas
+        des autres joueurs, et cette hypothèse est fausse dès qu'un rang est partagé. Elle protège
+        la marginale&nbsp;; elle ne protège pas contre l'auto-concurrence.
+      </p>
+      <p>
+        Réserve, et elle est entière&nbsp;: rien de tout cela ne prédit un numéro, et le théorème
+        d'invariance n'a pas été mis en défaut. Le jeu ne devient pas favorable — un jeu donné
+        devient strictement meilleur qu'un autre du même prix. C'est une brèche, pas une porte.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Ce que ce labo ne peut pas trancher</h2>
     <ul class="limits">
       <li>
-        <strong>L'ordre de sortie des boules.</strong> L'archive est triée. Un tirage ordonné
-        porterait ≈ 124 bits contre 61,6 pour l'ensemble trié — le plus gros gain d'information
-        disponible. L'app teste déjà la question à chaque tirage, et jette la réponse.
+        <strong>Le nombre de tirages ordonnés.</strong> Cinq ont été relevés à la main&nbsp;;
+        l'archive publique, elle, reste triée. Cinq suffisent à écarter les sources à état étroit,
+        pas à réduire la classe de solutions à un seul générateur. Chaque tirage ordonné
+        supplémentaire vaut 122,69 bits — c'est la donnée la plus rentable du dossier après les
+        cagnottes.
       </li>
       <li>
         <strong>Le flux en direct.</strong> Réseau fermé depuis l'environnement d'analyse. Le boost
