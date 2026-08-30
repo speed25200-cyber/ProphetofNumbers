@@ -2453,7 +2453,7 @@ universel sur les schémas d'amorçage :
 
 | outil | espace | combinaisons | résultat |
 |---|---|---|---|
-| `sweep_order` | graines [0, 2³²) | 12 générateurs × 4 échantillonneurs | **0** |
+| `sweep_order` | graines [0, 2³²), **sur les cinq tirages** | 12 générateurs × 4 échantillonneurs | **0** |
 | `sweep_order` | millisecondes d'époque ± 7 jours | idem | **0** |
 | `sweep_order` | nanosecondes d'époque ± 1 s | idem | **0** |
 | `sweep_linked` | décalages [0, 2³²), graine = **numéro de tirage + B** | idem, sur 10 tirages étalés sur des mois | **0** |
@@ -2515,6 +2515,18 @@ l'ordre conservé avant d'attaquer. L'accumulation de tirages *consécutifs*
 — la quantité que §27 désigne comme décisive — se fait ainsi toute seule, à
 raison d'un toutes les cinq minutes, sans que personne ait à relever quoi
 que ce soit.
+
+**Un point de défaillance unique, repéré puis levé.** Le balayage 2³² n'avait
+d'abord porté que sur UN tirage ordonné, transcrit à la main depuis une
+capture d'écran — et le filtre agit dès le premier numéro. Si ce premier
+numéro avait été mal lu, les 48 combinaisons seraient mortes au premier pas
+et le « zéro » n'aurait rien voulu dire. Le recoupement est impossible :
+l'archive s'arrête 850 tirages avant, elle ne contient aucun des cinq.
+
+Le balayage a donc été refait sur les **quatre autres** tirages ordonnés.
+Zéro partout. Ou bien aucun des cinq ne sort d'un générateur balayable, ou
+bien les cinq transcriptions sont fausses — ce qui n'est pas crédible. Le
+résultat est désormais robuste à une erreur de lecture sur n'importe lequel.
 
 **Le Mersenne Twister, entièrement.** C'est le générateur le plus répandu du
 logiciel ordinaire — `random` de Python, `mt_rand` de PHP, `RandomState` de
