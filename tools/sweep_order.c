@@ -16,18 +16,24 @@
 // échantillonneur (modulo avec rejet), et contre l'ENSEMBLE des vingt
 // numéros. Ce programme-ci change les trois points :
 //
-//   * il teste huit familles de générateurs et quatre échantillonneurs,
-//     soit trente-deux combinaisons ;
+//   * il teste DOUZE familles de générateurs et quatre échantillonneurs,
+//     soit quarante-huit combinaisons — des LCG historiques (java, MSVC,
+//     glibc) aux familles modernes (xoshiro, xoroshiro, PCG) ;
 //   * il travaille sur l'ORDRE de sortie, pas sur l'ensemble. Le filtre
 //     passe de 1/4 à 1/80 par pas : le balayage est plus rapide ET la
 //     probabilité de faux positif tombe de C(80,20)⁻¹ ≈ 3·10⁻¹⁹ à
 //     (80!/60!)⁻¹ ≈ 1·10⁻³⁷ ;
-//   * il vérifie chaque touche sur un second tirage ordonné avant de la
-//     déclarer.
+//   * il ne CONFIRME PAS sur un second tirage, et c'est délibéré. Dans
+//     l'hypothèse du ré-amorçage, chaque tirage a sa propre graine :
+//     exiger qu'une même graine reproduise deux tirages différents ne teste
+//     pas le ré-amorçage, cela teste un opérateur qui utiliserait la même
+//     graine à chaque fois. Un générateur amorcé par le numéro de tirage
+//     serait trouvé sur le premier tirage puis JETÉ par la confirmation.
+//     Le filtre d'ordre à 10⁻³⁷ la rend de toute façon inutile.
 //
 // Autotest
 // --------
-// `--selftest` fabrique, pour chacune des trente-deux combinaisons, un
+// `--selftest` fabrique, pour chacune des quarante-huit combinaisons, un
 // tirage à partir d'une graine connue, puis balaie et exige de la retrouver.
 // Une attaque qui ne retrouve pas son propre témoin ne prouve rien quand
 // elle ne trouve rien.
@@ -47,12 +53,12 @@
 
 #define POOL 80
 #define DRAWN 20
-#define NGEN 8
+#define NGEN 12
 #define NSAMP 4
 
 // ---------------------------------------------------------------------------
-// Les huit familles de générateurs. Chacune expose un état opaque de 64 bits
-// et rend une sortie de 32 bits par appel — c'est la forme sous laquelle
+// Les douze familles de générateurs. Chacune expose un état opaque et rend
+// une sortie de 32 bits par appel — c'est la forme sous laquelle
 // toutes les bibliothèques standard livrent leur flux, et elle uniformise
 // les échantillonneurs.
 // ---------------------------------------------------------------------------
@@ -61,7 +67,26 @@
 #define JAVA_C 0xBULL
 #define M48    0xFFFFFFFFFFFFULL
 
-typedef struct { uint64_t a, b; } gstate;
+typedef struct { uint64_t a, b, c, d; } gstate;
+
+// Les familles modernes (xoshiro, xoroshiro, PCG64) s'amorcent par
+// convention avec splitmix64 : c'est ce que recommandent leurs auteurs, et
+// ce que font les implémentations de référence. Balayer leur graine de
+// 64 bits revient donc à balayer la sortie de splitmix64.
+static inline uint64_t sm64(uint64_t *x) {
+    *x += 0x9E3779B97F4A7C15ULL;
+    uint64_t z = *x;
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31);
+}
+
+static inline uint64_t rotl64(uint64_t x, int k) {
+    return (x << k) | (x >> (64 - k));
+}
+static inline uint32_t rotl32(uint32_t x, int k) {
+    return (x << k) | (x >> (32 - k));
+}
 
 static inline void gen_init(int g, uint64_t seed, gstate *st) {
     st->b = 0;
@@ -73,7 +98,29 @@ static inline void gen_init(int g, uint64_t seed, gstate *st) {
     case 4: st->a = seed ? seed : 1; break;                 // xorshift64*
     case 5: st->a = seed; break;                            // splitmix64
     case 6: st->a = seed; st->b = 1442695040888963407ULL; break; // pcg32
-    default: st->a = seed; break;                           // LCG 64 MMIX
+    case 7: st->a = seed; break;                            // LCG 64 MMIX
+    case 8: {                                               // xoshiro256**
+        uint64_t x = seed;
+        st->a = sm64(&x); st->b = sm64(&x); st->c = sm64(&x); st->d = sm64(&x);
+        break;
+    }
+    case 9: {                                               // xoshiro128**
+        uint64_t x = seed;
+        uint64_t u = sm64(&x), v = sm64(&x);
+        st->a = u & 0xFFFFFFFFULL; st->b = u >> 32;
+        st->c = v & 0xFFFFFFFFULL; st->d = v >> 32;
+        break;
+    }
+    case 10: {                                              // xoroshiro128+
+        uint64_t x = seed;
+        st->a = sm64(&x); st->b = sm64(&x);
+        break;
+    }
+    default: {                                              // pcg64 (XSL-RR)
+        uint64_t x = seed;
+        st->a = sm64(&x); st->b = sm64(&x); st->c = 1ULL; st->d = 0;
+        break;
+    }
     }
 }
 
@@ -114,9 +161,52 @@ static inline uint32_t gen_next(int g, gstate *st) {
         uint32_t rot = (uint32_t)(old >> 59);
         return (xs >> rot) | (xs << ((-rot) & 31));
     }
-    default:
+    case 7:
         st->a = st->a * 6364136223846793005ULL + 1442695040888963407ULL;
         return (uint32_t)(st->a >> 32);
+    case 8: {                                               // xoshiro256**
+        uint64_t r = rotl64(st->b * 5ULL, 7) * 9ULL;
+        uint64_t t = st->b << 17;
+        st->c ^= st->a; st->d ^= st->b; st->b ^= st->c; st->a ^= st->d;
+        st->c ^= t; st->d = rotl64(st->d, 45);
+        return (uint32_t)(r >> 32);
+    }
+    case 9: {                                               // xoshiro128**
+        uint32_t s0 = (uint32_t)st->a, s1 = (uint32_t)st->b;
+        uint32_t s2 = (uint32_t)st->c, s3 = (uint32_t)st->d;
+        uint32_t r = rotl32(s1 * 5u, 7) * 9u;
+        uint32_t t = s1 << 9;
+        s2 ^= s0; s3 ^= s1; s1 ^= s2; s0 ^= s3; s2 ^= t; s3 = rotl32(s3, 11);
+        st->a = s0; st->b = s1; st->c = s2; st->d = s3;
+        return r;
+    }
+    case 10: {                                              // xoroshiro128+
+        uint64_t s0 = st->a, s1 = st->b;
+        uint64_t r = s0 + s1;
+        s1 ^= s0;
+        st->a = rotl64(s0, 24) ^ s1 ^ (s1 << 16);
+        st->b = rotl64(s1, 37);
+        return (uint32_t)(r >> 32);
+    }
+    default: {                                              // pcg64 XSL-RR
+        // État sur 128 bits porté par deux mots ; multiplication longue.
+        uint64_t lo = st->a, hi = st->b;
+        const uint64_t ML = 0x4385DF649FCCF645ULL, MH = 0x2360ED051FC65DA4ULL;
+        uint64_t l0 = (lo & 0xFFFFFFFFULL) * (ML & 0xFFFFFFFFULL);
+        uint64_t l1 = (lo >> 32) * (ML & 0xFFFFFFFFULL);
+        uint64_t l2 = (lo & 0xFFFFFFFFULL) * (ML >> 32);
+        uint64_t l3 = (lo >> 32) * (ML >> 32);
+        uint64_t mid = l1 + (l0 >> 32) + (l2 & 0xFFFFFFFFULL);
+        uint64_t nlo = (l0 & 0xFFFFFFFFULL) | (mid << 32);
+        uint64_t nhi = l3 + (mid >> 32) + (l2 >> 32) + lo * MH + hi * ML;
+        nlo += 1ULL; if (nlo == 0) nhi++;
+        nhi += 0x5851F42D4C957F2DULL;
+        st->a = nlo; st->b = nhi;
+        uint64_t xorshifted = nhi ^ nlo;
+        unsigned rot = (unsigned)(nhi >> 58);
+        uint64_t out = (xorshifted >> rot) | (xorshifted << ((-rot) & 63));
+        return (uint32_t)(out >> 32);
+    }
     }
 }
 
@@ -193,7 +283,8 @@ static void *worker(void *arg) {
 
 static const char *GEN_NAME[NGEN] = {
     "java.util.Random", "LCG32 MSVC", "LCG32 glibc", "xorshift32",
-    "xorshift64*", "splitmix64", "pcg32", "LCG64 MMIX"
+    "xorshift64*", "splitmix64", "pcg32", "LCG64 MMIX",
+    "xoshiro256**", "xoshiro128**", "xoroshiro128+", "pcg64"
 };
 static const char *SAMP_NAME[NSAMP] = {
     "modulo + rejet", "multiply-shift + rejet", "Fisher-Yates modulo",

@@ -2412,3 +2412,94 @@ treize occasions distinctes.
 ne pas jouer sous le seuil de bascule) et la taille de mise (§30, la fraction
 de Kelly et le capital minimal) — avec la phrase qui résume trente-deux
 voies : *les vingt numéros n'en sont pas un.*
+
+## 34. Le ré-amorçage — la région que toutes les attaques précédentes manquaient (`tools/sweep_order.c`, `sweep_mt.c`, `sweep_java48.c`)
+
+Toutes les attaques du dossier, de §17 à §33, supposent un générateur qui
+**tourne en continu** : l'état à la fin d'un tirage est celui du début du
+suivant. C'est ce qui permet de *résoudre* (a, c) sur plusieurs tirages au
+lieu de les énumérer.
+
+Une implémentation qui **ré-amorce à chaque tirage** les défait toutes d'un
+coup. Et c'est le cas le plus courant en pratique — celui qu'on écrit quand
+on tape `new Random(seed)` au début de la fonction de tirage. Contre lui, la
+seule attaque possible est le balayage de l'espace des graines.
+
+`tools/sweep48.c` faisait cela pour **une** famille, **un** échantillonneur,
+et contre l'**ensemble** des vingt numéros. Trois outils neufs changent les
+trois points.
+
+**L'ordre change tout.** Travailler sur l'ordre de sortie plutôt que sur
+l'ensemble fait passer le filtre de 1/4 à 1/80 par pas. La probabilité qu'une
+graine fausse survive tombe de C(80,20)⁻¹ ≈ 3·10⁻¹⁹ à (80!/60!)⁻¹ ≈
+**1·10⁻³⁷**. Sur 2³² graines et 48 combinaisons, le nombre attendu de faux
+positifs vaut 2·10⁻²⁷ : **toute touche est réelle, et aucune confirmation
+n'est nécessaire.**
+
+**Une erreur de protocole, corrigée.** Les premiers balayages exigeaient
+qu'une graine reproduise *aussi* un second tirage ordonné. C'était une faute
+qui allait précisément contre le but : dans l'hypothèse du ré-amorçage,
+chaque tirage a sa propre graine — c'est la définition même. Un générateur
+réellement amorcé par le numéro de tirage aurait été trouvé sur le premier
+tirage, puis **jeté** par la confirmation. Sans elle, le balayage devient
+universel sur les schémas d'amorçage :
+
+> balayer [0, 2³²) contre UN tirage ordonné écarte d'un coup tout schéma
+> d'amorçage dont la graine tombe dans cette plage — numéro de tirage,
+> numéro plus constante, seconde d'époque, compteur, petite graine fixe. Il
+> n'est pas nécessaire de les énumérer.
+
+**Ce qui a été balayé, et ce qui en est sorti.**
+
+| outil | espace | combinaisons | résultat |
+|---|---|---|---|
+| `sweep_order` | graines [0, 2³²) | 12 générateurs × 4 échantillonneurs | **0** |
+| `sweep_order` | millisecondes d'époque ± 7 jours | idem | **0** |
+| `sweep_order` | nanosecondes d'époque ± 1 s | idem | **0** |
+| `sweep_mt` | graines [0, 2³²) | MT19937 × 2 amorçages × 5 échantillonneurs | **0** |
+| `sweep_java48` | **les 2⁴⁸ états complets** | java.util.Random, Fisher-Yates | **0** |
+
+Les douze familles vont des LCG historiques (java.util.Random, MSVC, glibc)
+aux familles modernes (xoshiro256\*\*, xoshiro128\*\*, xoroshiro128+, pcg32,
+pcg64), en passant par xorshift et splitmix64. Autotest : **48/48**
+combinaisons retrouvent leur témoin, avec exactement une graine compatible à
+chaque fois.
+
+**Les 2⁴⁸ états de java.util.Random, en secondes au lieu de 78 heures.**
+`next(31)` rend `(int)(s >>> 17)`, et `nextInt(bound)` pour une borne qui
+n'est pas une puissance de deux rend `next(31) % bound`. Donc pour une borne
+**paire**, p_i mod 2^v publie **les bits 17 à 20 de l'état** — ni les bits de
+poids faible où vit le levier 2-adique habituel, ni ceux de poids fort où
+vivent les attaques par réseau : ceux du *milieu*, exploitables parce que le
+LCG modulo 2⁴⁸ reste clos modulo 2²¹. D'où une attaque en deux temps :
+énumérer s mod 2²¹ en exigeant ces bits (il reste une trentaine de
+candidats), puis énumérer les 27 bits de poids fort. Le coût passe de
+2,8·10¹⁴ à 4·10⁹ pas, soit un facteur 10⁴. Autotest : 3/3 états témoins
+retrouvés, dont deux hors de portée d'un balayage 2³².
+
+**Le piège de la borne 64**, qu'il fallait voir : `nextInt` traite les
+puissances de deux à part, en prenant les bits de poids *fort*. Une seule
+borne est concernée parmi 80, 79, …, 61 — 64, au dix-septième pas. La phase
+2-adique doit la sauter et la phase de vérification la traiter comme le
+reste ; l'oublier ferait rater le vrai état sans rien signaler.
+
+**Et une transcription fausse, attrapée par la confrontation à CPython.**
+`sweep_mt` reproduit `random.sample` et `random.shuffle` à la ligne près, et
+la validation ne se fait pas contre un autotest interne mais contre CPython
+lui-même : `random.seed(987654)` est exécuté en Python, et le balayage doit
+retrouver 987654 depuis ses sorties. Il la retrouve — après correction d'une
+erreur qu'aucun autotest interne n'aurait pu voir. Le `_randbelow` de CPython
+demande `n.bit_length()` bits et non `(n-1).bit_length()` ; les deux
+coïncident partout sauf quand n est une puissance de deux, et n parcourt ici
+80, 79, …, 61. La divergence tombait pile sur n = 64, au **dix-septième**
+numéro : seize numéros justes, puis une dérive silencieuse.
+
+**Ce que cette campagne laisse ouvert, et il faut le nommer.** Les graines de
+plus de 32 bits non dérivées d'une horloge (2⁶⁴ : hors de portée du calcul).
+L'état complet de 19 937 bits d'un Mersenne Twister (hors de portée de
+l'information : il faudrait 624 sorties consécutives entières, et cinq
+tirages n'en donnent que 630 bits tronqués). Et surtout un générateur dont
+l'état ne suit aucune récurrence affine — chiffrement par bloc, éponge,
+source matérielle. C'est le cas le plus probable pour un opérateur certifié,
+et **aucune analyse de sorties publiques ne peut le trancher, quelle qu'en
+soit la profondeur.**
