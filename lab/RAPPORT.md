@@ -1044,20 +1044,25 @@ lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
 
 **Ce qui est ouvert aujourd'hui**, dans l'ordre où cela coûte quelque chose :
 
-1. **Relever le prix du ticket** (§36). C'est la seule donnée manquante dont
+1. **Obtenir le règlement du jeu** (§50). C'est devenu la demande la moins
+   chère et la plus rentable du dossier : un document publié lèverait le
+   barème exactement, rendrait la borne du §50 obsolète et fixerait `R`.
+   Rien n'indique qu'il soit inaccessible — il n'est simplement pas dans
+   l'API, ce qui n'est pas la même chose.
+2. **Relever le prix du ticket** (§36). C'est la seule donnée manquante dont
    une décision dépende : le seuil de bascule vaut `c/p`, et sans `c` la
    règle qui décide s'il faut jouer n'est pas calculable. Tout le dossier est
    « par franc misé » faute de ce nombre, qui se lit d'un coup d'œil.
-2. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
+3. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
    propose aujourd'hui aucune taille de mise. Quand elle en proposera une,
    elle doit la recalculer à chaque occasion sur la cagnotte à l'écran — ce
    qui bat de 37 % la meilleure fraction figée possible, et ne demande aucun
    paramètre estimé.
-3. **Laisser l'instrument du bonus accumuler** (§37). Cinq tirages ordonnés
+4. **Laisser l'instrument du bonus accumuler** (§37). Cinq tirages ordonnés
    concordants établiraient une règle de position, une trentaine
    établiraient l'uniformité. L'app en collecte un toutes les cinq minutes
    depuis §34 ; il n'y a rien à faire d'autre qu'attendre.
-4. **Trancher le boost avant clôture** (§4, §16). Le seul point du dossier
+5. **Trancher le boost avant clôture** (§4, §16). Le seul point du dossier
    où une réponse positive changerait le *signe* de l'espérance. A priori
    négatif, instrument câblé, non tranché.
 
@@ -4602,3 +4607,172 @@ poussée.
 
 **Registre : +2** (`h33.champ_lag1_boost`, `h33.somme_lag1_boost`), les deux
 conformes après Holm.
+
+## 50. Le barème encerclé : non publié n'est pas inconnaissable (`h34_bareme.py`)
+
+Le §5 s'arrête sur un aveu : aucun barème réel dans le dépôt, l'API ne publie
+que les jackpots k/k. Tout le volet financier contourne le trou par une
+condition suffisante — « rangs intermédiaires ≥ 0 » — et le §30 chiffre le
+prix de cette prudence : le barème déplace la **taille de mise admissible**,
+c'est-à-dire ce qui décide si le gain devient de l'argent.
+
+Personne n'avait posé la question d'avant : ce barème est-il libre, ou déjà
+contraint par ce que le dossier sait ?
+
+### La comptabilité, et l'inégalité qui la ferme
+
+Un franc misé se décompose exactement : `1 = potcost + ρ + marge`, où
+`potcost` est ce que l'opérateur versera aux gagnants du rang plein et `ρ`
+l'espérance des rangs intermédiaires — **le** terme inconnu du §5. Le taux de
+retour d'une licence vaut `R = potcost + ρ`.
+
+Or `potcost` est borné par une quantité que les relevés mesurent **déjà**.
+Avec `γ = E[gagnants | chute] ≥ 1` et un plancher `J₀ ≥ 0` :
+
+```
+potcost = α + q·J₀/(N·c)  ≤  θ = E[J]·p/c        car θ − potcost = (γ−1)·(…) ≥ 0
+```
+
+C'est une **inégalité de foule** : les co-gagnants font paraître la cagnotte
+généreuse sans coûter davantage. Et `θ` est la « fraction du seuil » du §21,
+le gain conditionnel du §29 — le même nombre, lu une troisième fois. Donc
+
+> **ρ ≥ R − θ**, et la part des rangs intermédiaires est contrainte **par
+> différence**.
+
+**Une erreur commise et corrigée, qui aurait coûté un facteur de sécurité
+injustifié.** La première dérivation bornait le *décaissement* de l'opérateur
+et non les *versements* aux gagnants ; les deux diffèrent de `(1−q)` et la
+« borne » se cassait au régime des chutes fréquentes. Le taux de retour compte
+les versements, pour lesquels la borne tient sous les deux conventions
+d'affichage. Vérifié sur 24 régimes simulés : versés/θ ≤ 1 partout à 4 σ, et
+le témoin — le décaissement à λ = 0,65 — **viole** la borne à 1,92·θ. La
+machinerie sait voir une violation.
+
+### θ, et ce qu'un seul instantané contraint
+
+Sous [Hθ] — `θ` commun aux cinq mises, dont le §44 a mesuré la cohérence avec
+le relevé unique (p = 0,57) — les cinq `J_k·p_k` du 30 août sont cinq tirages
+d'une même loi :
+
+```
+0,229   0,295   0,038   0,040   0,056        θ̂ = 0,1315,  θ ≤ 0,405 à 95 %
+```
+
+*Recoupé indépendamment pour ce rapport : les cinq valeurs et leur moyenne se
+reproduisent au chiffre près depuis les combinaisons exactes.*
+
+La couverture de cette borne n'est pas décrétée mais **mesurée** : 0,973 à
+1,000 sur neuf régimes H1–H3, et elle s'effondre à 0,581 sur un témoin où H2
+est violée (âges en mélange de deux régimes). La garantie est une propriété
+de l'absence de mémoire — exactement la réserve du §28.
+
+### La borne, hypothèses incluses dans la phrase
+
+> **SI** `R ≥ 0,65` [HR — la valeur de travail que `b2` utilisait déjà ; aucun
+> chiffre de licence n'est affirmé ici], **SI** le ticket coûte 1 franc [Hc],
+> **sous** [Hθ] et H1–H3, **ALORS ρ ≥ 24,5 % à 95 %.**
+
+| R | 0,50 | 0,60 | **0,65** | 0,70 | 0,75 |
+|---|---|---|---|---|---|
+| ρ_min | 9,5 % | 19,5 % | **24,5 %** | 29,5 % | 34,5 % |
+
+**Sans le pooling [Hθ], la borne est VIDE** — `n = 1` par mise donne
+θ_hi = 11,65 — et il faut le dire dans la même phrase que le résultat.
+
+Variante qui se passe de H1–H3 : si la cagnotte affichée était un montant
+**fixe** (réserve n° 2 du §29), alors `potcost = J·p/c` exactement et
+`ρ ≥ 35,5 %`. La borne survit aux deux lectures de la cagnotte ; c'est la
+stratégie du §29 qui ne survit qu'à la première — et **deux relevés
+successifs les départagent**, un montant fixe ne bougeant pas.
+
+### Le théorème de collapse : la forme du barème ne compte pas
+
+Les contraintes — probabilités hypergéométriques exactes, monotonie, tout
+rang payé rend au moins la mise, `Σπw = ρ` — réduisent la mise 6 de six
+nombres libres à un **polytope de dimension 2** (aucun barème admissible ne
+paie sous 3/6), et en gains entiers à un **catalogue fini de 72 tables**.
+Elles n'identifient jamais le barème. Elles n'en ont pas besoin :
+
+> Sur 4 081 barèmes admissibles, **chaque décision du dossier est fonction du
+> seul scalaire `ρ`** — le seuil et le gain conditionnel par identité exacte,
+> la fraction de Kelly et la croissance **à 0,45 % près**.
+
+La raison est bornée, pas constatée : la variance des rangs intermédiaires
+vaut au plus `ρ²/π₅ = 19,4` contre `p·J′² = 8 547` pour la cagnotte — un
+demi-pour-cent du dénominateur de Kelly.
+
+**Et le §5 se dissout au lieu de se réparer.** `b2` rejoué dans l'espace
+admissible, `potcost` épinglé par les relevés et `R` commun : `E[brut] = R`
+sur chaque barème à 3·10⁻¹⁶ près. Le « classement des mises par espérance »
+de `b2` n'était pas *fragile* — il était **vide par identité comptable**. La
+forme redevient partiellement robuste (7 paires ≥ 95 %, contre zéro pour
+`b2`), toutes par l'écart-type que la cagnotte observée fixe.
+
+*Seconde erreur corrigée : la première statistique de collapse comparait tous
+les barèmes au `ρ` **nominal** et trouvait 15 % d'étendue — qui n'était que la
+tolérance ±0,01 du catalogue, propagée. Elle mesurait un bouton de tolérance,
+pas la forme. Corrigée en comparaison à `ρ(w)` égal.*
+
+### Ce qui descend
+
+| mise | seuil §5 bis | seuil abaissé | fraction avant | après | facteur |
+|---|---|---|---|---|---|
+| 5 | CHF 1 551 | CHF 1 171 | 1,27 % | 3,70 % | ×2,9 |
+| **6** | **CHF 7 753** | **CHF 5 853** | **3,37 %** | **7,73 %** | **×2,3** |
+| 7 | CHF 40 979 | CHF 30 940 | 2,8·10⁻¹² | 1,9·10⁻⁹ | ×678 |
+| 8 | CHF 230 115 | CHF 173 738 | 1,8·10⁻¹¹ | 7,6·10⁻⁹ | ×431 |
+| 10 | CHF 8 911 711 | CHF 6 728 394 | 1,6·10⁻⁸ | 1,3·10⁻⁶ | ×82 |
+
+**Vingt-deux tirages favorables par jour à la mise 6 au lieu de dix.** Le
+facteur est exactement `exp(ρ_min·S/μ̂)` — l'exponentielle du §28, cette fois
+dans le bon sens. *(Recoupé ici : ×2,29 mesuré, ×2,29 prédit.)*
+
+Le gain conditionnel au nouveau seuil reste exactement `μ̂/S = 29,5 %` :
+**l'identité du §29 survit au barème**. Celui-ci ne change pas ce que vaut une
+occasion — il change *où elle commence*, donc combien il y en a.
+
+| scénario (hypothèse dans le nom) | f* | croissance/jour | capital minimal |
+|---|---|---|---|
+| §30, rangs ignorés — borne de tout barème | 2,94·10⁻⁵ | ×1,0 | CHF 34 031 |
+| ρ_min = 0,245 [borne 95 %, hyp. ci-dessus] | 4,78·10⁻⁵ | **×3,6** | **CHF 20 922** |
+| ρ̂₆ = 0,355 [estimation ponctuelle] | 6,20·10⁻⁵ | ×6,7 | CHF 16 129 |
+
+Trois dividendes calculés au passage : la loi jointe exacte des 13 grilles
+disjointes retrouve **×13,02 avec** rangs intermédiaires comme sans —
+l'étalement des §26 et §30 y survit, et la croissance annualisée passe de
++20,0 % à +94,4 % ; le théorème « le seuil est l'optimum » du §29 s'étend mot
+pour mot, l'optimum passant en `x = (1−ρ)/α` ; et en croissance l'optimum est
+un peu au-delà (`x = 3,02`) mais jouer dès la bascule en garde 88 % — la règle
+pratique ne bouge pas.
+
+### La demande la moins chère du dossier
+
+> **Le règlement du jeu.** La réponse à la question du titre est là : rien
+> n'indique que le barème soit *inconnaissable*. Il n'est pas dans l'API, ce
+> qui n'est pas la même chose. Un jeu sous licence publie normalement ses
+> règles, barème compris. **Un document lèverait `w_h` exactement et rendrait
+> toute cette section obsolète** : zéro relevé, zéro modèle.
+
+Viennent ensuite `R` (un chiffre de licence, lecture directe), le prix du
+ticket — qui joue dans les deux sens, `θ ∝ 1/c` faisant *monter* ρ_min à 0,447
+pour un ticket à 2 francs, mais le seuil en francs montant aussi et la
+fraction retombant à 2,4 % — et des relevés **après chute** : à θ̂ constant,
+ρ_min passe de 0,245 (n = 5) à 0,455 (n = 30), et le seuil de la mise 6
+descend vers CHF 3 967.
+
+### Limites
+
+Tout est conditionnel à [HR], balayé et jamais affirmé. [Hθ] porte la borne,
+et un test de cohérence à p = 0,57 n'est pas une preuve. H1–H3 restent le
+socle, et le témoin dit exactement comment la borne ment si la cagnotte a deux
+régimes. Les fractions favorables restent des estimations ponctuelles sur μ̂,
+dont le §28 a chiffré l'incertitude — seul le **facteur** `exp(ρ_min/α̂)` est
+nouveau. Le catalogue montre la finitude, il ne compte pas juste.
+
+**Registre : cinq entrées, aucune ne portant de `p`** — `h34` prouve, mesure
+des couvertures et corrige ; il n'interroge pas l'archive.
+
+> Le barème n'est pas identifié, mais **il n'a jamais été l'inconnue utile**.
+> L'inconnue utile est le scalaire `ρ` ; il est borné par la comptabilité ; et
+> la borne fait descendre le seul seuil qui fasse changer l'espérance de signe.
