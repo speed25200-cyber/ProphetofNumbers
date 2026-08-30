@@ -2456,8 +2456,9 @@ universel sur les schémas d'amorçage :
 | `sweep_order` | graines [0, 2³²) | 12 générateurs × 4 échantillonneurs | **0** |
 | `sweep_order` | millisecondes d'époque ± 7 jours | idem | **0** |
 | `sweep_order` | nanosecondes d'époque ± 1 s | idem | **0** |
-| `sweep_mt` | graines [0, 2³²) | MT19937 × 2 amorçages × 5 échantillonneurs | **0** |
+| `sweep_linked` | décalages [0, 2³²), graine = **numéro de tirage + B** | idem, sur 10 tirages étalés sur des mois | **0** |
 | `sweep_java48` | **les 2⁴⁸ états complets** | java.util.Random, Fisher-Yates | **0** |
+| `sweep_mt` | graines [0, 2³²) | MT19937 × 2 amorçages × 5 échantillonneurs | *en cours* |
 
 Les douze familles vont des LCG historiques (java.util.Random, MSVC, glibc)
 aux familles modernes (xoshiro256\*\*, xoshiro128\*\*, xoroshiro128+, pcg32,
@@ -2493,6 +2494,27 @@ demande `n.bit_length()` bits et non `(n-1).bit_length()` ; les deux
 coïncident partout sauf quand n est une puissance de deux, et n parcourt ici
 80, 79, …, 61. La divergence tombait pile sur n = 64, au **dix-septième**
 numéro : seize numéros justes, puis une dérive silencieuse.
+
+**L'amorçage lié au numéro de tirage**, que cinq tirages du même jour ne
+peuvent pas tester. `sweep_linked` teste la *relation* graine(t) = id(t) + B
+pour tout B de [0, 2³²), confirmée sur dix tirages étalés sur toute
+l'archive — c'est la forme qu'on écrit quand on veut un tirage reproductible
+et vérifiable, `new Random(drawId)`, et elle est invisible pour un balayage
+qui exigerait la même graine à deux tirages différents. Dix tirages liés
+portent la probabilité de faux positif sous 10⁻¹⁸⁰. Résultat : zéro décalage
+compatible, sur les 48 combinaisons.
+
+**Ce que la campagne a rendu à l'app.** Trois familles modernes — xoshiro256\*\*,
+xoshiro128\*\*, xoroshiro128+ — n'étaient couvertes par aucune attaque du
+dossier et sont désormais dans `PRNGRecovery` (l'app passe de 8 à 11
+familles), leurs flux vérifiés contre une référence C compilée. Et surtout,
+l'app **garde** maintenant l'ordre de sortie : elle le recevait à chaque
+tirage puis le perdait à chaque relance, l'historique refetché revenant
+trié. `OrderedDraw` est journalisé et persisté, et `runRecovery` réinjecte
+l'ordre conservé avant d'attaquer. L'accumulation de tirages *consécutifs*
+— la quantité que §27 désigne comme décisive — se fait ainsi toute seule, à
+raison d'un toutes les cinq minutes, sans que personne ait à relever quoi
+que ce soit.
 
 **Ce que cette campagne laisse ouvert, et il faut le nommer.** Les graines de
 plus de 32 bits non dérivées d'une horloge (2⁶⁴ : hors de portée du calcul).
