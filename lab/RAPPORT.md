@@ -2823,3 +2823,285 @@ dont dépend la seule règle qui décide s'il faut jouer.
 
 **Registre : inchangé.** Comme `h1`, `h14` et `h17`, `h25` ne teste pas
 l'archive — il prouve et il corrige.
+
+## 37. La règle du bonus : ce que l'archive ne peut pas dire (`h22_bonus_ordre.py`)
+
+§32 a laissé une question ouverte et l'a formulée en une ligne : le bonus
+étant une désignation de l'une des vingt boules, suit-il une règle de
+POSITION dans l'ordre de sortie — « la dernière », convention la plus
+répandue — ou est-ce un choix uniforme parmi les vingt ? La mesure directe
+demande des tirages ordonnés ; `draws_ordered.csv` en a cinq, sans colonne
+bonus, et l'archive de 70 560 tirages est triée sur ses 70 560 lignes. Elle
+s'arrête à 1 380 173, les tirages ordonnés commencent à 1 381 023 : 850
+tirages d'écart, aucun recoupement possible hors ligne.
+
+Ce fichier ne force pas ce verrou. Il chiffre son épaisseur.
+
+**Le théorème d'identifiabilité, et l'erreur de prémisse qu'il corrige.**
+L'observable d'un tirage archivé est le couple (S, b) : l'ensemble trié et le
+bonus qui lui appartient. Sa loi se factorise en P(S)·P(b en position j | S).
+Si la loi de l'ordre est échangeable conditionnellement à l'ensemble — les
+20! ordres équiprobables — ce second facteur vaut **1/20 exactement**, pour
+toute position. Les deux hypothèses produisent alors la même loi sur (S, b)
+et AUCUNE statistique ne peut les séparer sur des données triées. Ce n'est
+pas un test faible, c'est une non-identifiabilité.
+
+L'objection naturelle est que le tirage par REJET brise cette échangeabilité,
+la probabilité de rejet dépendant des numéros déjà sortis. C'est l'objection
+que j'avais moi-même posée en lançant ce travail, et **elle est fausse tant
+que la loi de base est uniforme** : la probabilité de rejet ne dépend alors
+que du NOMBRE de numéros déjà sortis, jamais de leur identité, et la suite
+acceptée est une permutation uniforme. Rejet uniforme et Fisher-Yates sont la
+même loi. Le fichier le vérifie plutôt que de l'affirmer, en comparant un
+échantillonneur par rejet écrit littéralement à sa forme Plackett-Luce
+vectorisée :
+
+| loi de base | écart max entre les deux | corrélation |
+|---|---|---|
+| uniforme | 0,00173 | −0,07 |
+| biaisée, rms 40 % | 0,00220 | +0,98 |
+
+L'écart maximal ATTENDU entre deux estimations de la même loi vaut 0,00212 :
+les deux échantillonneurs sont indiscernables. Et sous base uniforme, sur
+400 000 tirages, P(bonus = n | n tiré) vaut 0,05000 de moyenne avec un
+écart-type de 0,00073 contre 0,00069 de bruit de comptage pur.
+
+**Ce qui rend la règle visible, et de combien.** Une loi de base NON uniforme
+fait du rejet un échantillonnage successif à probabilités proportionnelles —
+Plackett-Luce — et la dernière boule acceptée est celle de plus petit poids.
+Sur 400 000 tirages à biais d'écart quadratique moyen 30 % :
+
+```
+P(n tiré)             = 0,25 · (1 + 0,878 · ε_n)
+P(bonus = n | n tiré) = 0,05 · (1 + c_j  · ε_n)
+```
+
+avec c₁ = +0,128 pour la première boule, c₂₀ = −0,149 pour la dernière, de
+signe opposé et de module comparable — les deux conventions candidates sont
+aussi peu visibles l'une que l'autre — et Σc_j = 0,000, comme il se doit :
+moyenner sur les positions redonne le choix uniforme. Le point qui décide :
+0,88 contre 0,15. Un biais de base se voit **six fois mieux** dans les
+fréquences marginales que dans la règle du bonus.
+
+**Le test, et son null.** Contraste linéaire `T = Σ_t (w[bonus_t] − moyenne de
+w sur le tirage t)`, `w` = fréquences marginales centrées, standardisé par la
+variance conditionnelle : c'est le test localement le plus puissant contre
+cette alternative. Null par randomisation conditionnelle — ensembles réels
+conservés, bonus retiré uniformément parmi les vingt, 300 réplicats :
+−0,034 ± 1,001, confirmé par un null SRS à 60 réplicats. `calibrate_perm` est
+ici inutilisable, et pour la raison que sa propre documentation nomme :
+permuter l'ordre des tirages laisse chaque couple (ensemble, bonus) intact,
+donc `T` inchangé — le null serait vide, pas conservateur.
+
+**La puissance, et c'est elle le résultat.** Sur les mêmes réplicats, à
+N = 70 560, avec le χ² des 80 marginales pour comparaison (null simulé
+60,2 ± 11,8, et non 79 ± 12,6 : la simulation retrouve d'elle-même le facteur
+0,76 du §1 de l'audit) :
+
+| ε rms | bonus, \|z\| | puissance | borne oracle | χ² marginal, z | puissance χ² |
+|---|---|---|---|---|---|
+| 0,000 | 0,81 | 0 % | 0,00 | −0,1 | 0 % |
+| 0,005 | 0,83 | 0 % | 0,88 | 2,4 | 28 % |
+| 0,010 | 0,88 | 0 % | 0,88 | 8,4 | 100 % |
+| 0,050 | 2,13 | 15 % | 2,18 | 225,7 | 100 % |
+| 0,100 | 4,07 | 85 % | 4,11 | 902,2 | 100 % |
+| 0,400 | 15,00 | 100 % | 15,06 | 15 062,1 | 100 % |
+
+Le témoin à ε = 0,40 est le contrôle positif : à biais massif le test se
+déclenche, il n'est donc pas cassé. La colonne « borne oracle » est un test
+qui CONNAÎTRAIT le biais — indisponible sur données réelles, et donc une
+borne supérieure de tout test de cette famille.
+
+**Sur l'archive : rien, et le rien est cette fois entièrement qualifié.**
+`T = +1,42`, soit `z = +1,45` et `p = 0,153`. χ² marginal observé 53,6 contre
+60,2 ± 11,8. Consigné sous `h22.bonus_ordre_contraste`, verdict conforme.
+
+> Il faudrait un biais de base ε ≈ 0,077 pour que MÊME un test connaissant ce
+> biais atteigne 3 σ sur la règle du bonus. À ce biais, le χ² des 80
+> fréquences marginales — un test antérieur, plus sensible, et conforme —
+> sortirait à **541 σ**. La fenêtre où la question serait décidable est
+> fermée par une mesure déjà faite.
+
+L'archive triée ne peut donc pas trancher la règle du bonus. Ce n'est pas une
+intuition, c'est un calcul de puissance. La portée de cette borne est nommée :
+elle couvre la famille Plackett-Luce, donc tout échantillonneur par rejet,
+biaisé ou non, Fisher-Yates comme cas limite ; elle ne couvre pas une loi
+d'ordre non échangeable construite pour laisser les marginales intactes.
+
+**L'instrument, et son critère ASYMÉTRIQUE.** La mesure ne peut se faire que
+là où l'ordre existe : dans l'app, qui le reçoit et le conserve depuis §34.
+`BonusRule` rend un verdict à trois états, et les deux seuils sont calculés,
+pas choisis.
+
+*Côté règle* — une seule position discordante la réfute. Il faut donc que les
+n positions coïncident toutes, et P(cela | uniforme) = 20^(1−n) passe sous le
+seuil de Holm du registre (1,5·10⁻⁵) à **n = 5** : p = 6,25·10⁻⁶.
+
+*Côté uniformité* — c'est une acceptation, elle exige une borne d'équivalence.
+Une position discordante tue la règle DÉTERMINISTE en un coup, mais laisse
+vivante une règle presque déterministe (« la vingtième dans 90 % des cas »),
+qui vaudrait presque autant. Conclure à l'uniformité, c'est donc rejeter la
+famille « ∃ j : P(position j) ≥ 1/2 » — le seuil où l'énoncé « le bonus est à
+la position j » cesse d'être vrai plus souvent que faux, soit le plus faible
+énoncé qui mérite encore le mot « règle ». Au plus une position peut le
+vérifier : le maximum des comptages est une statistique suffisante et aucune
+correction de multiplicité n'est due. Le plancher vaut **25** tirages
+ordonnés (73 si l'on descend le seuil à 1/4, 557 à 1/10), et sous une
+uniformité vraie le critère se déclenche à **32 tirages en médiane**, 35 au
+80ᵉ centile, 38 au 95ᵉ. Témoin du critère : sous une règle « position 20 dans
+90 % des cas », le verdict « uniforme » est prononcé à tort **0 fois sur
+2 000**.
+
+```
+règle de position établie    n ≥ 5 et les n positions identiques
+bonus uniforme parmi 20      positions non toutes identiques ET
+                             P(Bin(n, 1/2) ≤ max des comptages) ≤ 1,5e-5
+pas encore assez de tirages  sinon
+```
+
+L'asymétrie du critère est aussi une asymétrie de délai : cinq tirages font
+vingt-cinq minutes, trente-cinq en font trois heures. La règle se prouverait
+en une demi-heure, l'uniformité en une demi-journée — et ces durées ne
+supposent rien du résultat, ce sont des délais de MESURE.
+
+**Ce que l'app fait désormais.** Le bonus est conservé à côté de l'ordre pour
+chaque tirage ordonné, avec rattrapage si le bonus arrive après l'ordre ; la
+forensique lit le journal PERSISTÉ et non plus le seul historique en mémoire,
+qui revient trié et remettait le compteur à zéro à chaque relance ; et la
+carte Reconstruction affiche le verdict avec son compte. Une colonne `bonus`
+vide a été ajoutée à `draws_ordered.csv` : la place est prête, aucune valeur
+n'est inventée — 0 des 5 tirages ordonnés n'a son bonus.
+
+Le neuvième test de la forensique reste le seul du dossier qui signale
+l'inverse de l'habitude : ici une déviation par rapport à l'uniforme serait
+une DÉCOUVERTE — 4,32 bits d'ordre par tirage sur toute l'archive — et non
+une anomalie de source.
+
+## 38. Le trou dans le flux, et la mémoire qui ne décroissait pas (`h23_trou_recence.py`)
+
+`prediction.txt` s'ouvre sur un aveu : 849 tirages manquent entre l'archive
+et les cinq relevés manuels, et la note qui le signale conclut aussitôt que
+« ce trou n'invalide rien mais rend les cinq derniers tirages plus influents
+qu'ils ne devraient l'être ». Aucun chiffre ne soutenait ni l'une ni l'autre
+moitié de la phrase. Les deux ont été mesurées, et les deux sont fausses —
+pas dans le même sens.
+
+**La cause d'abord, parce qu'elle est simple.** Toutes les têtes pondérées
+par récence décroissent par tirage ABSORBÉ, jamais par tirage écoulé : dans
+`Swarm.swift` comme dans sa transcription `swarm_py.py`, un pas de
+décroissance par appel d'`absorb`, et `process()` qui n'exploite jamais
+l'écart des `drawNumber`. Un trou de 849 tirages est donc traité comme zéro
+temps écoulé : l'état « récent » du prédicteur déployé était celui d'il y a
+854 tirages — trois jours de jeu — rafraîchi de cinq.
+
+Ce n'est pas resté une déduction. Pour une tête exponentielle de facteur `g`,
+la corrélation de son champ avec l'état de fin d'archive doit valoir `g^j`
+après `j` pas de décroissance, et l'état déployé la donne à `g⁵` :
+
+| tête | corrélation mesurée | prédite à `g⁵` |
+|---|---|---|
+| `ewma.a` | 0,268 | 0,285 |
+| `bayes.c` | 0,974 | 0,975 |
+| `hawkes.a` | 0,214 | 0,222 |
+
+là où l'état de vérité est à `g⁸⁵⁸ ≈ 0` (|corr| ≤ 0,023 partout). La
+décroissance suit les absorptions. C'est le défaut.
+
+**L'ampleur, ensuite.** La géométrie exacte du cas réel — un trou de 849,
+puis cinq tirages aux écarts +849, +852, +854, +856, +857 — a été rejouée à
+36 coupures dans l'archive, là où la vérité existe : le même essaim, cloné au
+même état, ayant tout absorbé sans trou.
+
+| métrique (déployé contre vérité) | médiane | [min ; max] |
+|---|---|---|
+| top-20 commun (identité 20, indépendance 5,0000 exacte) | **10/20** | [5 ; 14] |
+| rho de Spearman sur les 80 numéros | **0,455** | [0,218 ; 0,711] |
+| déplacement moyen de rang | 17,8 | [13,1 ; 22,0] |
+| variation totale des poids AdaHedge | 0,082 | [0,016 ; 0,150] |
+
+Les témoins situent ces chiffres. Un trou de zéro donne l'identité exacte —
+20/20, rho = 1, TV = 0 sur les 36 coupures, assertion dans le code :
+l'appareillage ne fabrique rien. Deux top-20 indépendants se recouvrent à
+5,0000 par théorème. Et un trou de 849 suivi de 849 tirages RÉELS donne
+18/20 et rho 0,961 : dès que les données reviennent, le gel devient presque
+invisible. Le déployé, à 10/20, est à mi-chemin de la décorrélation totale.
+
+« N'invalide rien » reste vrai au seul sens que l'invariance garantit de
+toute façon — 5,0000 hits espérés pour ce top-20 comme pour tout autre. Mais
+la note parlait de l'état des têtes, et là, la moitié de ce que l'app
+affichait n'était pas ce que l'appareil informé aurait affiché.
+
+**La seconde moitié de la note est fausse aussi, et c'est la partie
+instructive.** Les cinq relevés ne sont PAS « plus influents qu'ils ne
+devraient » : absorber cinq tirages déplace le top-20 de 8,0 numéros en
+médiane dans l'état gelé, contre 8,0 dûs dans l'état de vérité — écart des
+médianes **+0,0**. L'influence d'une absorption ne dépend pas de ce que
+l'état croit du temps. Le poids excédentaire est ailleurs : ce sont les 849
+derniers tirages d'archive, gelés à leur poids de récence plein, qui
+impersonnent les 849 manquants. Le diagnostic de la note visait les cinq
+vrais tirages ; le coupable était 849 faux.
+
+L'erreur symétrique a été commise en cours de route et mérite d'être dite :
+la première lecture du témoin « trou + 849 tirages réels » avait fait écrire
+que le dégât venait « du trou, pas du petit nombre de relevés ». C'est la
+conjonction des deux qui coûte, et la lecture a été récrite quand les 36
+coupures l'ont montré.
+
+**La correction, et ce qu'elle rend.** Chaque tête expose désormais
+`advance(k)` — k tirages écoulés sans observation — et `run`/`predict_next`
+acceptent les numéros de tirage : décroissance par tirage ÉCOULÉ, en forme
+fermée pour les états linéaires (absorption de l'espérance du tirage non
+observé), compteurs d'écart avancés du temps écoulé, état conditionné à
+l'identité des derniers tirages déclaré perdu. Sans trou, les sorties sont
+identiques au bit près — vérifié contre les hashes du champ, des poids et du
+top-20 archivé dans `prediction.txt`.
+
+Sur les mêmes 36 coupures : top-20 commun **12/20** [8 ; 16], soit **+2,0
+numéros**, et rho **0,630**, soit **+0,174** ; le déplacement de rang retombe
+de 17,8 à 14,85.
+
+Ce que la correction ne rend pas, elle ne pouvait pas le rendre :
+l'information des 849 tirages non vus — le résiduel de 12 à 20 —, et les
+poids AdaHedge, qui manquent d'évaluations et non de décroissance (TV 0,083
+contre 0,082, inchangée). L'état corrigé ne converge pas vers la vérité ; il
+converge vers « la vérité moins ce qui n'a pas été vu », ce qui est le
+maximum atteignable sans les données. Sur le cas réel, le top-20 corrigé du
+tirage 1 381 032 ne garde que **11 des 20 numéros affichés** (rho 0,705).
+Les deux valent exactement 5,0000 hits — la différence est que l'un sort d'un
+essaim qui sait qu'il n'a pas vu trois jours de tirages.
+
+Côté Swift, rien n'a été édité : le diff complet — protocole `SwarmHead`,
+quatorze têtes, et le point d'ancrage dans `SwarmEngine.process()` qui
+calcule `hole = drawNumber − lastDrawNumber − 1` avant la boucle
+d'absorption — est spécifié dans `h23`, à passer par `verif_swift.py` et
+`verif_logique.py` au câblage.
+
+**Limites nommées.** La « vérité » de l'expérience est l'état informé, pas un
+état optimal : le principe « absorber l'espérance » est un choix honnête
+parmi d'autres, pas un théorème. Les compteurs d'écart corrigés mesurent
+l'absence depuis la dernière sortie OBSERVÉE, bornée par ce qui est
+connaissable. Markov et le voisinage s'abstiennent après un trou plutôt que
+d'inventer un conditionnement. Et rien de tout ceci ne touche à l'espérance
+de hits, dans un sens comme dans l'autre : c'est un dégât de fidélité de
+l'appareil, pas de valeur de la grille — la valeur, elle, est plafonnée par
+le théorème, trou ou pas.
+
+**Au passage, un écart entre §31 et l'écran, constaté en lecture seule.**
+§31 démontre que le boost abaisse le seuil de bascule d'un facteur B
+(favorable dès `J ≥ S/B`, gain conditionnel `B·α`). L'app n'en tient compte
+nulle part : `JackpotLaw.threshold` rend `1/p = S` sans paramètre boost, la
+fraction favorable et le gain conditionnel (`edge = mean/seuil`) sont
+calculés contre `S`, et `GridsView` affiche `J·p` en basculant à 100 ct/CHF.
+Or `LivePayload.nextBoost` porte le boost du tirage ouvert quand l'API
+l'expose, et l'instrument OpenBoost mesure justement cette exposition. Les
+jours où B est connu, l'écran devrait afficher `B·J·p`, basculer à `S/B` et
+annoncer `B·α` — sous l'hypothèse, toujours non vérifiée et nommée au §31,
+que le boost multiplie aussi la cagnotte. À B = 1 en l'absence
+d'information, l'affichage actuel n'est faux que les jours où l'app sait
+mieux. Signalé ici ; `Prophet/` n'a pas été touché sur ce point.
+
+**Registre : 118 tests, zéro significatif.** `h23` consigne trois mesures
+sans p-valeur — `h23.gel` (10,0/20), `h23.influence` (8,0 contre 8,0 dûs,
+hypothèse de la note réfutée) et `h23.correction` (+2,0, adoptée). Comme
+`h1`, `h14`, `h17` et `h25`, il ne teste pas l'archive : il mesure
+l'appareil, et il corrige.
