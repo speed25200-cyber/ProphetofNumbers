@@ -3746,6 +3746,14 @@ L'avantage de la maison est de 25 à 35 %.
    l'exposant +0,06 aussi — et une mesure en marche avant pourrait le rendre
    négatif, ce qui redonnerait raison au §41 pour de mauvaises raisons.
 
+> **C'est exactement ce qui s'est produit.** Le §45 mesure la part captée
+> en marche avant, sur les vraies familles, et trouve le retournement :
+> 0,53 → 0,99 → 1,30 puis **0,71** au tenseur. L'erratum ci-dessus a donc
+> sur-corrigé le §41, dont l'intuition était juste. La limite n° 3 avait
+> nommé la faille et la limite n° 2 avait désigné l'arbitre — « si
+> l'exposant de `h26` diffère du mien, c'est le sien qui fait foi ». Il
+> diffère, et il fait foi.
+
 **Registre : inchangé.** `h31` ne teste pas l'archive — il démontre.
 
 ## 43. Le plafond d'un biais transitoire (`h32_plafond_transitoire.py`)
@@ -4014,3 +4022,115 @@ des deux termes n'est nul, aucun n'est mesuré.
 choix d'implémentation, un arbitrage que ce dossier n'a pas les données pour
 trancher — exactement le genre de décision silencieuse que tout le reste du
 protocole existe pour empêcher.
+
+## 45. La pénalité d'identification, mesurée famille par famille (`h26_identification.py`)
+
+Le sommaire alignait cinq plafonds, et quatre portaient la même réserve en
+toutes lettres : borne d'**omniscience**, pénalité d'identification non
+mesurée (§3 quater, §40). Le §3 bis ne l'avait chiffrée que pour la famille
+marginale — 64 % captés à la frontière, +1,33 % qui tombe à +0,99 %. Voici
+les quatre autres.
+
+Méthode de `c2_apprentissage.py` : des archives à biais **connu par
+construction**, fabriquées par les générateurs mêmes des expériences
+d'origine — `gen_conditional` de `c1`, `gen_lagged` de `d2`, `gen_quad` de
+`h24`, ce dernier **extrait de sa source par l'AST** puisque le fichier
+s'exécute à l'import et aurait écrit au registre. Les amplitudes de frontière
+sont **relues des consignations**, jamais recalculées. Sur chaque archive,
+trois joueurs en marche avant stricte (50 560 tirages, `leak_check` sur les
+neuf prédicteurs) : la grille fixe à 2,50 par théorème ; l'**oracle** qui
+joue la règle ; et l'**identificateur**, qui n'a que le passé et la
+statistique exhaustive de sa famille — la matrice de couplage empirique
+80×80 pour les familles linéaires, et non un classement par fréquence qui
+n'est exhaustif que du cas marginal.
+
+| amplitude (× frontière) | rémanence | paires cachées | lag connu | quadratique |
+|---|---|---|---|---|
+| ~0,5–0,6 | +137 % ± 121 % | +16 % ± 9 % | — | +6 % ± 2 % |
+| **1 (frontière)** | **100 % ± 11 %** | **41 % ± 3 %** | **46 % ± 2 %** | **11 % ± 2 %** |
+| ~2 | 100 % ± 5 % | 94 % ± 2 % | 99 % ± 4 % | 70 % ± 1 % |
+| ~4 et plus | 100 % ± 1 % | 100 % ± 1 % | — | 100 % ± 1 % |
+
+Les témoins encadrent la mesure : sur SRS pur les six joueurs rendent 2,50 à
+l'erreur-type près (2,4881 à 2,5087) ; à grande amplitude toutes les parts
+montent à 100 %, donc aucun identificateur n'est cassé. Et les archives de
+frontière y sont bien : `T1` sort à z = +4,0, `T2` à +3,5, `Q1` à +3,4, juste
+sous le seuil du registre. Les oracles retombent sur les plafonds publiés
+(+0,0794 contre +0,0803 pour `c1`, +0,0851 contre +0,0865 pour `d2`, +0,1576
+contre +0,1567 pour `h24`).
+
+### La table qui remplace les majorants par des nombres atteignables
+
+| famille | omniscience | part captée | **réalisable** |
+|---|---|---|---|
+| rémanence uniforme (`c1`) | +0,53 % | 100 % ± 11 % | +0,53 % |
+| marginal (`c0`, §3 bis) | +1,33 % | 64 % | +0,99 % |
+| paires cachées (`c1`) | +3,21 % | 41 % ± 3 % | **+1,30 %** |
+| lags 1..306 (`d2`, lag connu) | +3,46 % | 46 % ± 2 % | **≤ +1,59 %** |
+| **quadratique (`h24`)** | **+6,27 %** | **11 % ± 2 %** | **+0,71 %** |
+
+**La hiérarchie publiée s'inverse par le haut.** La famille quadratique, qui
+portait le plafond de la piste A à +6,27 % au §40, ne rend que **+0,71 %** à
+un joueur qui doit l'identifier — *au-dessous du marginal*. Le mécanisme est
+monotone en nombre de paramètres : 1 paramètre se devine toujours (100 %),
+6 400 se devinent à moitié (41 %), 252 800 ne se devinent presque plus
+(11 %). À la frontière, les cellules vraies du tenseur sont à |Z| ≈ 3 sous
+une loi du max à ≈ 4,7 : **indiscernables du bruit de leur propre
+estimateur**, et « non détecté » implique alors « non identifiable ».
+
+L'étendue d'un facteur 12 entre plafonds d'omniscience (0,53 → 6,27 %) se
+resserre en un facteur 3 entre plafonds réalisables (0,53 → 1,59 %). **Le
+plafond réalisable de toute la piste A se lit désormais ≤ +1,59 %** — la
+famille des lags, et c'est un majorant puisqu'il est mesuré à lag connu du
+joueur. Un facteur 4 sous le chiffre d'omniscience du sommaire, et toujours
+un ordre de grandeur sous l'avantage de la maison.
+
+### Ce que cette mesure fait à mes §41 et §42 — et j'avais sur-corrigé
+
+Le §41 affirmait que le plafond réalisable « croît puis décroît, et qu'il
+existe donc un ordre optimal pour l'adversaire ». Le §42 a mesuré, dans un
+modèle multinomial abstrait, une croissance monotone en `m^{+0,06}`, et a
+porté un erratum retirant l'affirmation du §41.
+
+**`h26` mesure sur les vraies familles, et le retournement existe** : 0,53 →
+0,99 → 1,30 puis **0,71**. La courbe monte jusqu'aux paires cachées
+(m = 6 400) et retombe au tenseur (m = 252 800). L'intuition du §41 était
+juste ; c'est mon erratum du §42 qui a sur-corrigé.
+
+Le §42 avait nommé la raison de sa propre faiblesse, et c'est celle-là :
+sa limite n° 3 déclarait que le joueur y estimait sur les **mêmes**
+observations que le test, ce qui est strictement plus facile que la marche
+avant, donc que son exposant était un **majorant**. Il l'était. Sa limite
+n° 2 déclarait aussi que si l'exposant de `h26` différait du sien, ce serait
+celui de `h26` qui ferait foi, puisqu'il travaille sur les vraies familles.
+Il diffère, et il fait foi.
+
+> Ce qu'il faut retenir des trois sections ensemble : le plafond
+> d'omniscience croît en `m^{1/4}` (§41, et cela tient), la pénalité
+> d'identification le mange (§42, et cela tient), et elle le mange **plus
+> vite que le modèle abstrait ne le prévoyait** — assez pour retourner la
+> courbe entre 6 400 et 252 800 cellules (§45). Monter en complexité finit
+> par desservir l'adversaire.
+
+Une anticipation reste fausse dans l'autre sens, et il faut le dire : je
+m'attendais à ce que l'inversion frappe dès les paires cachées. Elles
+résistent (+1,30 % contre +0,99 %). C'est le tenseur qui s'effondre.
+
+### Limites
+
+1. « Meilleur identificateur » signifie le meilleur **disponible ici** —
+   plug-in de la statistique exhaustive, meilleure de deux variantes par
+   point. Le biais est légèrement optimiste, donc dans le sens qui
+   **surestime** le réalisable : conservateur pour la conclusion
+   d'effondrement.
+2. La ligne `d2` est mesurée à **lag connu** : +1,59 % est un majorant,
+   départager 306 lags étant strictement plus dur.
+3. L'identificateur quadratique est réajusté aux trois points de contrôle de
+   `c2` quand les linéaires apprennent en ligne. L'écart est chiffré par une
+   variante de contrôle : +0,0038 hits, soit cinq points de part — pas les
+   quatre-vingt-neuf qui manquent au tenseur.
+4. Sous la frontière la part s'effondre vers zéro, mais son **signe** n'est
+   pas résolu à ce budget de réplicats.
+
+**Registre : quatre consignations sans `p`** — aucune statistique n'a été
+calculée sur l'archive réelle, et le `m` de Holm ne bouge pas.

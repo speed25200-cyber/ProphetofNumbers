@@ -1035,8 +1035,11 @@ def show(row):
         f"{row['pw_any']:>7.0%}")
 
 
-GRID_A = (0.20, 0.40) if DRY else (0.15, 0.25, 0.35, 0.50)
-GRID_B = (0.10, 0.25) if DRY else (0.08, 0.15, 0.25, 0.40)
+# grilles figées d'après un pilote de 10 nulls + 4 archives contaminées
+# (frontière de détection ~θ=0,19 pour « tiers » via U2, ~θ=0,16 pour
+# « membre » via U2/U3) — figées AVANT le run officiel
+GRID_A = (0.18, 0.35) if DRY else (0.12, 0.18, 0.25, 0.35)
+GRID_B = (0.12, 0.25) if DRY else (0.08, 0.12, 0.17, 0.25)
 
 say("\n5a. FAMILLE « TIERS » — le triplet (i,j,k) appelle un numéro n hors "
     "du triplet")
@@ -1071,9 +1074,9 @@ say("\n5c. DIFFUS CONTRE ISOLÉ — pourquoi U1 et U2 ne sont pas redondantes")
 say(f"\n  {'règles':<12}{'cellules':>9}{'theta':>7}{'avantage':>11}"
     f"{'z(U1)':>9}{'z(U2)':>9}{'pwU1':>7}{'pwU2':>7}")
 TAB_C = []
-for (mm, rr, th) in (((80, 2, 0.35), (4, 1, 0.90)) if DRY else
-                     ((80, 2, 0.35), (20, 1, 0.55), (4, 1, 0.90),
-                      (1, 1, 1.30))):
+for (mm, rr, th) in (((1, 1, 0.35), (80, 8, 0.15)) if DRY else
+                     ((1, 1, 0.35), (4, 1, 0.35), (80, 2, 0.30),
+                      (80, 8, 0.15))):
     r = measure(mm, rr, th, max(2, REPS_POWER // 2), "tiers")
     r["label"] = f"m={mm} R={rr}"
     TAB_C.append(r)
@@ -1124,12 +1127,15 @@ say("\nMême question que c0, c1 et h24, sur la famille neuve : parmi les")
 say("couplages cubiques que 70 560 tirages n'auraient PAS vus, lequel donne")
 say("le plus gros avantage à qui le connaîtrait ? Structure BALAYÉE.")
 
+# le pilote montre que U2 borne le PAR-CELLULE (δ ∝ θ, indépendant de m et
+# R) pendant que U1 ne voit que m·R·δ² : l'adversaire optimal ÉTALE donc ses
+# règles sous la frontière de U2. Le balayage doit couvrir R grand.
 CONFIGS = ((("tiers", 80, 2), ("membre", 80, 2)) if DRY else
-           (("tiers", 40, 2), ("tiers", 80, 1), ("tiers", 80, 2),
-            ("tiers", 80, 4), ("membre", 40, 2), ("membre", 80, 2)))
-GRID_BY_FAM = ({"tiers": (0.20, 0.40), "membre": (0.10, 0.25)} if DRY else
-               {"tiers": (0.15, 0.25, 0.35, 0.50),
-                "membre": (0.08, 0.15, 0.25, 0.40)})
+           (("tiers", 80, 2), ("tiers", 80, 4), ("tiers", 80, 8),
+            ("membre", 80, 2), ("membre", 80, 4)))
+GRID_BY_FAM = ({"tiers": (0.18, 0.35), "membre": (0.12, 0.25)} if DRY else
+               {"tiers": (0.12, 0.17, 0.24, 0.34),
+                "membre": (0.08, 0.12, 0.17, 0.24)})
 GRID_SWEEP = GRID_BY_FAM["tiers"]
 
 say(f"\n  {'famille':>8}{'m':>4}{'R':>3}{'theta':>7}{'chauds':>8}"
