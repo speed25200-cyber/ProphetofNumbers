@@ -3466,3 +3466,163 @@ fichier lègue, avec une raison de la croire moins urgente : la dilution en
 
 **Registre : 122 entrées, m = 3 318, seuil de Holm 1,507·10⁻⁵, 0
 significatif.** Le plus petit p du dossier reste 2,0·10⁻⁴ (`audit.paires`).
+
+## 41. La loi qui gouverne tous les plafonds (`h30_borne_unifiee.py`)
+
+Le dossier a accumulé cinq plafonds — le plus gros avantage qu'un biais non
+détecté pourrait donner, famille par famille — mesurés séparément, par des
+tests différents, et empilés dans le sommaire sans rien qui les relie :
+
+```
+rémanence uniforme   recouvrement moyen        1 direction     +0,53 %
+marginal             χ² sur 80 cases              80 cases     +1,33 %
+paires cachées       ‖Ĉ‖² sur 6 400            6 400 cases     +3,21 %
+lags 1 à 306         le même, balayé          ~2·10⁶ cases     +3,46 %
+quadratique lag-1    Q1/Q2/Q3                252 800 cases     +6,27 %
+```
+
+Le plafond monte avec la taille de la famille. Personne n'avait dit
+**pourquoi**, ni selon quelle loi, ni où cela s'arrête. Et la question n'est
+pas décorative : si le plafond croît vite, il suffirait de monter en ordre
+pour finir par dépasser l'avantage de la maison, et la piste A ne serait pas
+fermée du tout.
+
+### Le théorème
+
+Le cadre commun, une fois dépouillé de ce qui distingue les cinq expériences.
+Une famille de biais est un espace de déviations `ε` sur `m` cellules. Deux
+quantités s'y opposent, et tout tient à ce qu'elles ne sont pas du même
+degré :
+
+- l'**avantage** que le biais donne au joueur est **linéaire** en `ε` —
+  cocher un numéro poussé de `ε` rapporte proportionnellement à `ε`, donc
+  `A(ε) = ⟨a, ε⟩` pour un vecteur `a` propre à la famille ;
+- la **détectabilité** est **quadratique** — la non-centralité d'un χ² sur
+  les `m` cellules vaut `λ = N‖ε‖²`.
+
+Sous H₀ ce χ² a pour moyenne `m` et pour écart-type `√(2m)`. Le seuil vaut
+donc `m + z√(2m)`, et la puissance atteint 50 % quand `λ = z√(2m)`. **Le
+budget de déviation qu'un seuil laisse passer croît donc comme `√m`** — plus
+la famille est grande, plus son null est dispersé, plus un biais peut s'y
+cacher. C'est le seul endroit où la taille entre, et c'est tout le résultat.
+Cauchy-Schwarz donne alors :
+
+> **Théorème du plafond unifié.**  `plafond = ‖a‖ · (2m)^{1/4} · √(z/N)`
+>
+> avec égalité quand `ε` est colinéaire à `a` — l'adversaire optimal aligne
+> sa déviation sur ce que la grille encaisse, et rien d'autre.
+
+Trois conséquences. Le plafond croît en **m^{1/4}** : multiplier par 10 000
+la taille d'une famille ne multiplie son plafond que par 10. Il décroît en
+`1/√N`, ce qui est la seule façon de le faire baisser. Et le facteur `‖a‖`
+ne dépend **pas** de `m` : c'est lui, non la taille, qui distingue une
+famille utile au joueur d'une famille inutile.
+
+### Vérifié sans réutiliser aucune de ses approximations
+
+La démonstration enchaîne trois approximations — le χ² par ses deux premiers
+moments, la puissance 50 % par l'égalité des moyennes, Cauchy-Schwarz
+atteint. Le plafond est donc **remesuré directement**, par bissection sur
+l'amplitude, dans un modèle multinomial où tout est connu et dont le null est
+simulé :
+
+| m | null χ² simulé | ε plafond | ε · m^{−1/4} |
+|---|---|---|---|
+| 16 | 15,3 ± 5,65 | 0,03479 | 0,017395 |
+| 64 | 63,8 ± 11,28 | 0,05017 | 0,017738 |
+| 256 | 255,5 ± 21,92 | 0,06873 | 0,017181 |
+| 1 024 | 1 025,4 ± 41,50 | 0,09363 | 0,016551 |
+| 4 096 | 4 092,9 ± 89,34 | 0,13562 | 0,016953 |
+
+**Exposant mesuré : +0,2413** contre +0,2500 en théorie ; la colonne
+normalisée est plate à 6 % près sur deux ordres et demi de grandeur.
+
+L'exposant est cependant **légèrement sous** la théorie, et il ne faut pas
+passer dessus. Deux causes, dans le même sens : le χ² est dissymétrique à `m`
+modéré, donc un seuil pris à `z` écarts-types est plus strict que ne le dit
+l'égalité des moyennes ; et surtout la contamination employée — moitié `+ε`,
+moitié `−ε` — est **une direction particulière, non alignée sur `a`**.
+Cauchy-Schwarz n'y est donc pas atteint, et cette section mesure un
+**minorant** du plafond, pas le plafond. La loi d'échelle est vérifiée ; sa
+constante ne l'est pas, et ce fichier n'en a pas besoin puisqu'il ne se sert
+que des **rapports**.
+
+### Les quatre plafonds du dossier, relus par la loi
+
+Ces nombres ont été mesurés par trois fichiers différents, avant que la loi
+n'existe et sans y penser. Ils constituent donc une vérification
+**indépendante** : si la loi est juste, le `‖a‖` qu'on en extrait doit être
+d'ordre 1 et varier peu.
+
+| famille | m | plafond | (2m)^{1/4} | ‖a‖ relatif |
+|---|---|---|---|---|
+| rémanence uniforme (`c1`) | 1 | 0,53 % | 1,19 | 1,19 |
+| marginal (`c0`) | 80 | 1,33 % | 3,56 | 1,00 |
+| paires cachées (`c1`) | 6 400 | 3,21 % | 10,64 | 0,81 |
+| quadratique lag-1 (`h24`) | 252 800 | 6,27 % | 26,67 | 0,63 |
+
+Les `‖a‖` vont de 1,19 à 0,63 — un facteur **1,9** là où les plafonds bruts
+varient d'un facteur **11,8** —, et la décroissance est **monotone**, ce que
+la construction n'imposait pas. La taille de la famille explique donc
+l'essentiel ; le reste est la conversion déviation → avantage.
+
+La rémanence uniforme est l'exception instructive : `m = 1`, une seule
+direction, et c'est pour cela que son plafond est le plus bas du dossier
+malgré le `‖a‖` le plus élevé. Une famille à une seule direction n'a nulle
+part où se cacher — exactement ce que le §3 quater constatait sans
+l'expliquer.
+
+*(Le cinquième plafond, +3,46 % pour les lags 1 à 306, est mis de côté : ce
+n'est pas une famille mais l'union balayée de 306 familles, et son plafond
+inclut une correction de multiplicité qui n'entre pas dans la loi.)*
+
+### Une prédiction falsifiable, posée avant la mesure
+
+L'ordre 3 — un **triplet** appelant un numéro — compte `80 × C(80,3) =
+6 572 800` cellules contre 252 800 pour l'ordre 2, soit un rapport de tailles
+de 26,0 et un rapport de plafonds de **2,26** à `‖a‖` égal.
+
+> **Prédiction : le plafond de l'ordre 3 vaut entre 8,9 % et 14,2 %**, la
+> fourchette venant de la décroissance mesurée de `‖a‖` d'un ordre au suivant.
+
+`h27` mesure l'ordre 3 en ce moment, par une voie qui n'a rien à voir avec
+celle-ci. Si son plafond tombe hors de la fourchette, **c'est la loi qui est
+fausse**, et il faudra le dire.
+
+### Ce qui ferme la piste A — et ce n'est pas ce qu'on croyait
+
+| ordre d | cellules `80·C(80,d)` | (2m)^{1/4} | plafond à ‖a‖ constant |
+|---|---|---|---|
+| 1 | 6 400 | 10,6 | 4,0 % |
+| 2 | 252 800 | 26,7 | 10,0 % |
+| 3 | 6 572 800 | 60,2 | 22,5 % |
+| 4 | 126 526 400 | 126,1 | **47,2 %** |
+| 5 | 1 923 201 280 | 249,0 | 93,1 % |
+
+À `‖a‖` constant, la hiérarchie **franchirait l'avantage de la maison vers
+l'ordre 4**. Ce serait la conclusion alarmante — si `‖a‖` était constant. Il
+ne l'est pas, et c'est ici que la loi cesse d'être rassurante toute seule.
+
+Deux freins, dont un seul est chiffré ici. Le premier est `‖a‖`, qui décroît
+d'un ordre au suivant : une déviation répartie sur des cellules de plus en
+plus fines se convertit de moins en moins bien en avantage, une grille de dix
+numéros ne pouvant encaisser qu'un nombre borné de directions.
+
+Le second est le décisif : la **pénalité d'identification**. Tous ces
+plafonds sont des bornes d'**omniscience** — elles supposent la règle connue.
+Estimer 6,5 millions de coefficients sur 70 560 tirages est sans espoir, et
+le §3 bis a mesuré que même dans le cas marginal, à 80 coefficients, le
+joueur ne capte que 64 % à la frontière de détection. La borne réalisable
+doit donc **retomber** quand `m` grandit.
+
+D'où la contribution réelle de cette section, qui est une prédiction double :
+
+- le plafond d'**omniscience** croît en `m^{1/4}`, sans limite ;
+- le plafond **réalisable** croît puis décroît, et il existe donc un ordre
+  optimal pour l'adversaire, au-delà duquel monter en complexité le dessert.
+
+**La piste A n'est pas fermée par la petitesse des plafonds.** Elle est
+fermée par le fait qu'on ne peut pas apprendre ce qu'on a le droit de cacher.
+Ce n'est pas la même affirmation, et c'est la seconde qui tient.
+
+**Registre : inchangé.** `h30` ne teste pas l'archive — il démontre.
