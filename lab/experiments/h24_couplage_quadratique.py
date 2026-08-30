@@ -60,10 +60,10 @@ Les trois statistiques, une par régime de défaut
   Q3  Σ Z² sur les 6 320 cellules n ∈ {i,j} — la « rémanence quadratique » :
                                             une paire qui rappelle l'un de
                                             ses propres membres. Sous-espace
-                                            80 fois plus petit, donc 4 fois
-                                            plus sensible sur cette
-                                            sous-famille (√ du nombre de
-                                            cellules).
+                                            40 fois plus petit, donc √40 ≈ 6
+                                            fois plus sensible sur cette
+                                            sous-famille — mesuré à 6,1
+                                            (719 contre 118 d'écart-type).
 
 Z[n,(i,j)] est la corrélation, standardisée à √T, entre l'appartenance de n
 au tirage t+1 et la PART DE LA PAIRE (i,j) NON EXPLIQUÉE PAR LES NUMÉROS
@@ -84,10 +84,14 @@ pour la simuler, jamais la tabuler.
 Le null
 =======
 Simulé, sur des archives SRS complètes de 70 560 tirages (règle n° 1). Les
-252 800 cellules ne sont ni indépendantes ni identiquement distribuées (deux
-paires partageant un numéro sont corrélées, et les 6 320 cellules n ∈ {i,j}
-n'ont pas les mêmes moments que les autres) : une loi du χ² tabulée à
-252 800 degrés mentirait, et la loi du max encore davantage.
+252 800 cellules ne sont ni indépendantes ni identiquement distribuées : deux
+paires partageant un numéro sont corrélées, les lignes de la matrice
+résiduelle somment exactement à zéro, et les 6 320 cellules n ∈ {i,j} n'ont
+pas les mêmes moments que les autres. On ne peut donc PAS savoir d'avance de
+combien un χ² tabulé à 252 800 degrés se tromperait — et la mesure, qui est
+le seul moyen de le savoir, répond ici « de peu » (ratio des écarts-types
+1,011 sur Q1, 1,054 sur Q3, section 2). C'est une des rares fois de ce
+dossier où la table n'aurait pas menti, et cela se dit aussi.
 
 La permutation de `lab.calibrate_perm` serait un null valide ici — Q1/Q2/Q3
 dépendent de l'ORDRE — mais elle coûte le même prix et f1 a établi que les
@@ -399,7 +403,8 @@ _i, _j = 3, 41
 _both = _m[:, _i] & _m[:, _j]
 _one = _m[:, _i] ^ _m[:, _j]
 _none = ~(_m[:, _i] | _m[:, _j])
-_v = _both * 1.0 - GAMMA * _one + DELTA * _none
+_v2, _v1, _v0 = v_values()
+_v = _both * _v2 + _one * _v1 + _none * _v0
 _cov = (_m.astype(float) * _v[:, None]).mean(0) - _v.mean() * _m.mean(0)
 _se = _v.std() * _m.astype(float).std(0).mean() / math.sqrt(len(_v))
 say(f"    E[v] = {_v.mean():+.6f}   (bruit à cette taille : ±{_v.std()/math.sqrt(len(_v)):.6f})")
@@ -471,15 +476,25 @@ for k, lbl in (("Q1", "Q1  Σ Z² (252 800 cellules)"),
                ("S1", "S1  forme de la loi de O (d3)")):
     say(f"  {lbl:<34}{NULL[k].mean:>16.5f}{NULL[k].sd:>14.5f}")
 
+_r1 = NULL["Q1"].sd / math.sqrt(2 * 252800)
+_r3 = NULL["Q3"].sd / math.sqrt(2 * 6320)
 say(f"\n  Q1 : moyenne simulée {NULL['Q1'].mean:.0f} pour 252 800 cellules, "
     f"écart-type {NULL['Q1'].sd:.0f}")
 say(f"       si les cellules étaient indépendantes : 252 800 ± "
-    f"{math.sqrt(2*252800):.0f} — ratio des sd {NULL['Q1'].sd/math.sqrt(2*252800):.3f}")
+    f"{math.sqrt(2*252800):.0f} — ratio des sd {_r1:.3f}")
 say(f"  Q3 : {NULL['Q3'].mean:.0f} ± {NULL['Q3'].sd:.0f} pour 6 320 cellules ; "
-    f"indépendance : 6 320 ± {math.sqrt(2*6320):.0f} — ratio {NULL['Q3'].sd/math.sqrt(2*6320):.3f}")
-say("       une loi tabulée aurait donc menti sur les deux, et pas du même facteur —")
-say("       ni même dans le même SENS : la somme des carrés est sous-dispersée sur")
-say("       l'ensemble et SUR-dispersée sur le sous-bloc.")
+    f"indépendance : 6 320 ± {math.sqrt(2*6320):.0f} — ratio {_r3:.3f}")
+if max(abs(_r1 - 1), abs(_r3 - 1)) > 0.15:
+    say("       une loi tabulée aurait donc menti, et pas du même facteur selon le")
+    say("       sous-espace : c'est le piège que d1 avait rencontré sur les triplets.")
+else:
+    say(f"       Et ici — il faut le dire aussi — la loi tabulée n'aurait presque")
+    say(f"       pas menti : {abs(_r1-1):.1%} d'écart sur Q1, {abs(_r3-1):.1%} sur Q3,")
+    say("       là où d1 mesurait 12 749 contre 4 354 (facteur 2,9) sur son agrégat")
+    say("       mod 2. Retirer la part linéaire décorrèle largement les cellules.")
+    say("       La règle n° 1 n'a rien attrapé cette fois ; elle reste la seule façon")
+    say("       de l'avoir SU, et la loi du MAXIMUM (Q2) n'a de toute façon aucune")
+    say("       forme tabulée utilisable sur 252 800 cellules dépendantes.")
 
 say("\n  contre-épreuve du montage de null : T1, T2 et S1 sont recalculés ici depuis")
 say("  zéro, et leurs nulls doivent retomber sur ceux que c1 et d3 ont publiés.")
@@ -735,9 +750,12 @@ for th in GRID_B:
     r = measure(80, 2, th, REPS_POWER, "membre", full=True)
     TAB_B.append(r)
     show(r)
-say("    Q3 mord ici a plus basse amplitude que Q1 : 6 320 cellules au lieu de")
-say("    252 800, donc un seuil 4 fois plus bas en somme de carres. C'est la")
-say("    raison d'etre du sous-bloc, et elle est mesuree, pas argumentee.")
+say(f"    Q3 mord ici a plus basse amplitude que Q1 : 6 320 cellules au lieu de")
+say(f"    252 800, donc un exces a franchir de {Z_REG*NULL['Q3'].sd:.0f} au lieu de "
+    f"{Z_REG*NULL['Q1'].sd:.0f} —")
+say(f"    un facteur {NULL['Q1'].sd/NULL['Q3'].sd:.1f}. C'est la raison d'etre du "
+    f"sous-bloc, et elle est")
+say("    mesuree, pas argumentee.")
 
 say("\n5c. DIFFUS CONTRE ISOLE — pourquoi Q1 et Q2 ne sont pas redondantes")
 say("    a nombre de cellules touchees decroissant, amplitude compensee :")
@@ -752,9 +770,15 @@ for (mm, rr, th) in (((80, 2, 0.08), (8, 1, 0.20)) if DRY else
     say(f"  {r['label']:<12}{mm*rr:>9}{r['theta']:>7.2f}{r['adv']:>+11.4f}"
         f"{r['z']['Q1']:>+9.1f}{r['z']['Q2']:>+9.1f}"
         f"{r['pw']['Q1']:>7.0%}{r['pw']['Q2']:>7.0%}")
-say("    Une regle unique et forte est invisible de Q1 — un exces de 40 sur une")
-say("    somme dont l'ecart-type vaut ~660 — et franche pour Q2. Reciproquement")
-say("    160 regles faibles allument Q1 et laissent Q2 dans sa loi du maximum.")
+_solo = TAB_C[-1]
+_zc = NULL["Q2"].mean + _solo["z"]["Q2"] * NULL["Q2"].sd
+say(f"    Une regle unique et forte est invisible de Q1 : sa cellule sort a "
+    f"|Z| = {_zc:.1f},")
+say(f"    soit {_zc**2:.0f} de plus sur une somme dont l'ecart-type vaut "
+    f"{NULL['Q1'].sd:.0f} — {_zc**2/NULL['Q1'].sd:+.2f} sigma,")
+say(f"    rien. Elle est franche pour Q2 ({_solo['z']['Q2']:+.0f} sigma).")
+say("    Reciproquement 160 regles faibles allument Q1 et laissent Q2 dans sa loi")
+say("    du maximum. Les deux statistiques ne sont pas deux versions de la meme.")
 
 say("\n5d. SPECIFICITE — ce que les tests DEJA au registre voient de la meme chose")
 say(f"\n  {'famille':>10}{'theta':>7}{'z(T1) c1':>11}{'z(T2) c1':>11}{'z(S1) d3':>11}"
