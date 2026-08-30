@@ -553,9 +553,11 @@ pour les familles 0-30 sur quatre cœurs à 2,8 GHz, ≈ 6 min pour 31-39, soit
 est un instantané, daté, et non un total. Il se relit dans les journaux de
 balayage, qui portent l'heure de début et de fin de chaque tirage.
 
+*Instantané au 2026-08-30 17:40 UTC.*
+
 | tirage | familles balayées sur [0, 2³²) | état | graines compatibles |
 |---|---|---|---|
-| 1381023 | 0-30 ; 31-39 non lancé | **en cours** — 5/31 familles closes | **0** |
+| 1381023 | 0-30 ; 31-39 non lancé | **en cours** — 6/31 familles closes | **0** |
 | 1381026 | — | **non lancé** | — |
 | 1381028 | — | **non lancé** | — |
 | 1381030 | — | **non lancé** | — |
