@@ -3747,3 +3747,114 @@ L'avantage de la maison est de 25 à 35 %.
    négatif, ce qui redonnerait raison au §41 pour de mauvaises raisons.
 
 **Registre : inchangé.** `h31` ne teste pas l'archive — il démontre.
+
+## 43. Le plafond d'un biais transitoire (`h32_plafond_transitoire.py`)
+
+Les §41 et §42 établissent deux lois d'échelle en `m`, la taille de la
+famille. Toutes deux, comme `c0`, `c1`, `d2` et `h24` avant elles, partagent
+une hypothèse que **aucune ne dit** : le biais est **stationnaire**, présent
+sur les 70 560 tirages.
+
+Le dossier avait pourtant déjà mesuré, ailleurs, qu'un défaut bref est
+presque invisible — la courbe de détectabilité de la 16ᵉ voie donne
+puissance 0,58 pour une corruption de 200 tirages à +40 %, et 0,00 en
+dessous. Trente fois le plafond stationnaire du §3, invisible une fois sur
+deux. Il y a donc un régime entier que la hiérarchie ne couvre pas.
+
+### La dérivation
+
+Un biais d'amplitude `‖ε‖` présent sur une fenêtre de `L` tirages sur `N` :
+
+- **le signal se concentre** — seuls les `L` tirages de la fenêtre le
+  portent, donc `λ = L‖ε‖²` et non `N‖ε‖²` ;
+- **le seuil monte** — un test qui ignore où est la fenêtre doit les
+  balayer toutes, soit `N/L` fenêtres, ce qui ne coûte que
+  `z_eff ≈ √(z² + 2 ln(N/L))` : la **racine d'un logarithme**.
+
+Le budget d'amplitude passe donc de `z√(2m)/N` à `z_eff√(2m)/L`, soit `N/L`
+fois plus grand à un facteur logarithmique près. D'où **deux** plafonds
+qu'il faut distinguer :
+
+```
+plafond PENDANT la fenêtre   ≈ √(N/L) · plafond stationnaire
+plafond MOYEN sur l'archive  ≈ √(L/N) · plafond stationnaire
+```
+
+Le premier explose quand `L` diminue, le second s'effondre — et ces deux
+phrases décrivent le **même** défaut.
+
+### Vérifié par balayage, avec le null du maximum
+
+| L | fenêtres | null du max | ‖ε‖ plafond | × √(L/N) |
+|---|---|---|---|---|
+| 250 | 80 | 114,0 ± 8,52 | 0,57539 | 0,06433 |
+| 500 | 40 | 109,7 ± 8,51 | 0,37480 | 0,05926 |
+| 1 000 | 20 | 103,9 ± 8,99 | 0,25488 | 0,05699 |
+| 2 000 | 10 | 99,9 ± 9,77 | 0,18447 | 0,05834 |
+| 5 000 | 4 | 91,5 ± 8,56 | 0,09937 | 0,04968 |
+
+**Exposant mesuré : −0,5735** contre −0,5000 en théorie. L'écart est le
+facteur logarithmique du balayage, absent de la loi en puissance : il vaut
+1,211 à `L = 250` contre 1,071 à `L = 5 000`, et il va dans le bon sens.
+
+### Transposé à l'archive
+
+| L | durée réelle | plafond PENDANT | plafond MOYEN |
+|---|---|---|---|
+| 200 | 17 h | **25,0 %** | 0,071 % |
+| 500 | 42 h | 15,8 % | 0,112 % |
+| 2 000 | 7 j | 7,9 % | 0,224 % |
+| 10 000 | 35 j | 3,5 % | 0,501 % |
+| 70 560 | 245 j | 1,3 % | 1,330 % |
+
+Un défaut d'une journée pourrait porter un avantage de l'ordre de **25 %
+pendant cette journée** — vingt fois le plafond stationnaire — sans que rien
+ne le voie.
+
+*Précaution sur le rapprochement avec la 16ᵉ voie, faute de quoi il ferait
+croire à un accord numérique inexistant : les deux « +x % » ne sont **pas**
+la même quantité — celui de `a3` est une amplitude de contamination injectée,
+celui-ci un avantage de joueur. Ce qui concorde est le **régime**, entre deux
+voies sans rien en commun.*
+
+### Ce qui referme le trou : l'identification, cette fois dans le temps
+
+Le plafond « pendant » n'est pas un avantage disponible. Pour l'encaisser, le
+joueur doit savoir **quels** numéros sont biaisés (le problème du §42) *et*
+**quand** la fenêtre a lieu. Or le seul moyen de savoir quand est de le
+détecter — et un biais au plafond n'est détecté, par définition, qu'une fois
+sur deux. Mesuré sur un détecteur **causal**, qui n'a que le passé :
+
+| L | bascule à | jamais détecté | fenêtre restante | **encaissable** |
+|---|---|---|---|---|
+| 250 | 0,69 | 20 % | 32 % | **4,94 %** |
+| 500 | 0,65 | 20 % | 30 % | 3,57 % |
+| 1 000 | 0,76 | 47 % | 24 % | 1,37 % |
+| 2 000 | 0,75 | 28 % | 31 % | 1,92 % |
+| 5 000 | 0,75 | 14 % | 28 % | 0,19 % |
+
+Le détecteur bascule aux trois quarts de la fenêtre, et souvent jamais. **Le
+plafond réellement encaissable retombe à 5 % au plus**, contre 25 % pour le
+plafond « pendant » — un facteur 4 à 8.
+
+> Le trou était réel et grand ; il se referme par le même mécanisme que le
+> §42 — l'impossibilité d'apprendre assez vite ce qu'on a le droit de
+> cacher. Ici l'apprentissage porte sur le **temps** plutôt que sur les
+> numéros, et c'est la troisième fois que ce dossier bute sur la même
+> frontière par une voie différente.
+
+### Limites
+
+0. La colonne « jamais détecté » est bruitée — 60 réplicats — d'où sa
+   non-monotonie apparente. Elle établit l'**ordre de grandeur** du facteur
+   d'abattement, pas sa valeur à chaque `L` : ne pas lire ses variations.
+1. Le facteur logarithmique du balayage est traité comme correction et non
+   intégré à la loi en puissance ; à `L` très petit il finirait par dominer.
+2. La section 4 raisonne **au plafond**, où la puissance vaut 50 % par
+   définition. Un biais plus fort laisserait plus de fenêtre à jouer — mais
+   serait détecté, donc corrigé par l'opérateur : régime hors du cadre.
+3. Le modèle suppose **une** fenêtre. Un défaut récurrent — toutes les nuits,
+   par exemple — serait bien plus détectable, la 17ᵉ voie l'ayant borné par
+   périodogramme à 0,01 écart-type par tirage.
+
+**Registre : inchangé.** `h32` ne teste pas l'archive — il démontre.
