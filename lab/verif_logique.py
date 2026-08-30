@@ -11,6 +11,8 @@ risque de typage le plus probable, est contrôlé séparément, et la syntaxe
 l'est par une grammaire Swift réelle. Ce qui restait non vérifié était la
 justesse numérique — c'est l'objet de ce fichier.
 """
+import math
+import os
 from math import comb as exact_comb
 
 
@@ -537,6 +539,75 @@ def main():
               f"{'ok' if g else 'ÉCHEC'}")
         print(f"    paquet 1/{1/pack:,.0f} contre 1/{1/p_all:,.0f} seule, "
               f"{pack / ceiling:.5f} du plafond   {'ok' if h else 'ÉCHEC'}")
+
+    # 9. Le barème relevé (§56) et les quatre tests de PayTable.
+    #    L'algorithme testé ici est celui de Prophet/Models/PayTable.swift,
+    #    transcrit : somme de log(i) pour log(n!), puis exp de la différence.
+    #    Il est comparé au calcul exact en Fractions, ce que Swift ne peut
+    #    pas faire — c'est donc le contrôle que la version Swift ne peut pas
+    #    s'offrir elle-même.
+    import csv as _csv
+    from fractions import Fraction as _F
+
+    bareme = {}
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "bareme_observed.csv")) as fh:
+        for row in _csv.DictReader(l for l in fh if not l.startswith("#")):
+            bareme.setdefault(int(row["mise"]), {})[int(row["hits"])] = float(row["gain_base"])
+
+    def _logfact(n):
+        return sum(math.log(i) for i in range(2, n + 1))
+
+    def _logC(n, k):
+        return -math.inf if (k < 0 or k > n) else _logfact(n) - _logfact(k) - _logfact(n - k)
+
+    def _prob(k, h):
+        l = _logC(k, h) + _logC(80 - k, 20 - h) - _logC(80, 20)
+        return math.exp(l) if math.isfinite(l) else 0.0
+
+    def _exact_E(k):
+        g = bareme[k]
+        return float(sum(_F(int(v)) * _F(exact_comb(k, h) * exact_comb(80 - k, 20 - h),
+                                         exact_comb(80, 20)) for h, v in g.items()))
+
+    E_swift = {k: sum(v * _prob(k, h) for h, v in g.items()) for k, g in bareme.items()}
+    E_exact = {k: _exact_E(k) for k in bareme}
+    worst_E = max(abs(E_swift[k] - E_exact[k]) / E_exact[k] for k in bareme)
+    mass_worst = max(abs(sum(_prob(k, h) for h in range(k + 1)) - 1) for k in bareme)
+    lo_E, hi_E = min(E_exact.values()), max(E_exact.values())
+    spread = (hi_E - lo_E) / (sum(E_exact.values()) / len(E_exact))
+    price_lo, legacy_up = hi_E, 1 + lo_E
+    p6 = 1 / 7753.0
+    exact_thr = (2 - E_swift[6]) / p6
+    ratio = exact_thr / (2 / p6)
+    edge = 2287 * p6 / 2
+    naive_over_true = (2287 / exact_thr) / edge
+
+    a = worst_E < 1e-10                       # testPayTableExpectationsCollapse...
+    b = mass_worst < 1e-12
+    c = spread < 0.03
+    d = abs(E_swift[6] - 1.1764564549) < 1e-8
+    e = abs(price_lo - 1.1971176275) < 1e-8 and price_lo > 1
+    f = abs(legacy_up - 2.1668190816) < 1e-8
+    g = all(x > price_lo for x in (1.5, 2, 2.5, 3)) and 1 not in (1.5, 2, 2.5, 3)
+    h = abs(exact_thr - 6384.9331) < 1e-3 and abs(ratio - 0.41177) < 1e-4
+    i = abs(edge - 0.1474913) < 1e-6
+    j = abs(naive_over_true - 2 / (2 - 1.1764564549)) < 1e-4
+    ok &= a and b and c and d and e and f and g and h and i and j
+
+    print(f"\n9. Barème relevé (§56) — PayTable.swift")
+    print(f"    log-somme contre Fractions exactes : écart relatif max {worst_E:.2e}   "
+          f"{'ok' if a else 'ÉCHEC'}")
+    print(f"    masse hypergéométrique à 1 près de {mass_worst:.2e}   "
+          f"{'ok' if b else 'ÉCHEC'}")
+    print(f"    collapse : cinq espérances à {spread:.2%}, E[6] = {E_swift[6]:.10f}   "
+          f"{'ok' if c and d else 'ÉCHEC'}")
+    print(f"    ticket : c > {price_lo:.4f} (CHF 1 exclu), règle 100 ct/CHF "
+          f"valide jusqu'à {legacy_up:.4f}   {'ok' if e and f and g else 'ÉCHEC'}")
+    print(f"    seuil exact à c=2 : CHF {exact_thr:,.0f} = {ratio:.1%} du suffisant   "
+          f"{'ok' if h else 'ÉCHEC'}")
+    print(f"    gain conditionnel mu*p/c = {edge:.7f}, le naïf mu/S le "
+          f"surestimerait de x{naive_over_true:.2f}   {'ok' if i and j else 'ÉCHEC'}")
 
     print(f"\n{'=' * 74}")
     print("VERDICT :", "toutes les assertions des tests Swift sont satisfaites"

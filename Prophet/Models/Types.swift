@@ -300,10 +300,11 @@ struct JackpotLawEstimate: Identifiable {
     var favourableLo: Double?
     var favourableHi: Double?
     /// Gain espéré par franc misé en ne jouant QUE au-dessus du seuil.
-    /// Vaut μ/S par absence de mémoire (h16), donc s'estime directement par
-    /// la moyenne des relevés divisée par le seuil — sans passer par r ni q,
-    /// et beaucoup mieux conditionné que `favourable`, qui dépend de μ
-    /// exponentiellement là où celui-ci en dépend linéairement.
+    /// Vaut μ·p/c par absence de mémoire (h16) — la moyenne des relevés
+    /// multipliée par P(k/k) et rapportée au prix du ticket — sans passer
+    /// par r ni q, et beaucoup mieux conditionné que `favourable`, qui
+    /// dépend de μ exponentiellement là où celui-ci en dépend linéairement.
+    /// Sans prix renseigné, c = 1 et l'expression redonne le μ/S du §32.
     var conditionalEdge: Double?
     var edgeLo: Double?
     var edgeHi: Double?

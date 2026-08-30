@@ -39,17 +39,32 @@ enum JackpotLaw {
         return out
     }
 
-    /// Seuil de bascule par franc misé : mise / P(k/k) = 1 / P(k/k).
-    static func threshold(pAllHit: Double) -> Double {
-        pAllHit > 0 ? 1 / pAllHit : .infinity
+    /// Seuil de bascule.
+    ///
+    /// Sans prix de ticket, c'est la condition SUFFISANTE du §5 bis :
+    /// `1 / P(k/k)`, qui suppose le ticket à un franc et jette les rangs
+    /// intermédiaires. Avec un prix, c'est la condition NÉCESSAIRE ET
+    /// SUFFISANTE que le barème relevé permet enfin d'écrire (§56) :
+    /// `(c − E[base]) / P(k/k)`, soit environ 41 % de l'autre à c = 2.
+    static func threshold(pAllHit: Double, ticketPrice: Double = 0,
+                          stake: Int = 0) -> Double {
+        guard pAllHit > 0 else { return .infinity }
+        if ticketPrice > 0,
+           let exact = PayTable.threshold(stake: stake, pAllHit: pAllHit,
+                                          ticketPrice: ticketPrice) {
+            return exact
+        }
+        return 1 / pAllHit
     }
 
     static func estimate(_ log: [JackpotReading], stake: Int,
-                         pAllHit: Double) -> JackpotLawEstimate? {
+                         pAllHit: Double,
+                         ticketPrice: Double = 0) -> JackpotLawEstimate? {
         let rows = log.filter { $0.stake == stake }
             .sorted { $0.drawNumber < $1.drawNumber }
         guard let last = rows.last else { return nil }
-        let seuil = threshold(pAllHit: pAllHit)
+        let seuil = threshold(pAllHit: pAllHit, ticketPrice: ticketPrice,
+                              stake: stake)
         let span = rows.count >= 2 ? rows[rows.count - 1].drawNumber - rows[0].drawNumber : 0
 
         // Accroissements par tirage entre relevés successifs. Une CHUTE est
@@ -88,23 +103,32 @@ enum JackpotLaw {
         }
 
         // Gain conditionnel (h16). Par absence de mémoire, E[J | J ≥ S] =
-        // S + μ, donc jouer uniquement au-dessus du seuil rapporte
-        // exactement μ/S par franc misé. C'est le nombre qui décide s'il
-        // faut miser, et il ne demande ni r ni q — seulement la moyenne des
-        // relevés. Son intervalle vient de 2n·J̄/μ ~ khi-deux(2n), obtenu
-        // ici depuis la même fonction de répartition de Poisson :
+        // S + μ. Le gain d'un ticket joué au-dessus du seuil vaut donc
+        // E[base] + (S + μ)·p, et le seuil est précisément le point où
+        // E[base] + S·p = c : le profit par franc misé se réduit à μ·p/c.
+        // C'est le nombre qui décide s'il faut miser, et il ne demande ni r
+        // ni q — seulement la moyenne des relevés.
+        //
+        // Sans prix de ticket, c = 1 et S = 1/p : la formule redonne μ/S,
+        // qui était l'écriture du §32. Avec le prix, écrire μ/S surestimerait
+        // le gain d'un facteur c/(c − E[base]) — soit ×2,4 à c = 2, parce
+        // que le seuil exact est plus bas SANS que la mise le soit.
+        //
+        // L'intervalle vient de 2n·J̄/μ ~ khi-deux(2n), obtenu ici depuis la
+        // même fonction de répartition de Poisson :
         // P(khi-deux(2n) ≤ x) = P(Poisson(x/2) ≥ n).
         var edge: Double?
         var edgeLo: Double?
         var edgeHi: Double?
-        if seuil.isFinite, seuil > 0 {
+        if seuil.isFinite, pAllHit > 0 {
             let n = rows.count
+            let unit = ticketPrice > 0 ? ticketPrice : 1
             let mean = rows.reduce(0) { $0 + $1.francs } / Double(n)
-            edge = mean / seuil
+            edge = mean * pAllHit / unit
             let hiChi = chiSquareQuantile(0.975, dfHalf: n)
             let loChi = chiSquareQuantile(0.025, dfHalf: n)
-            if hiChi > 0 { edgeLo = 2 * Double(n) * mean / hiChi / seuil }
-            if loChi > 0 { edgeHi = 2 * Double(n) * mean / loChi / seuil }
+            if hiChi > 0 { edgeLo = 2 * Double(n) * mean * pAllHit / hiChi / unit }
+            if loChi > 0 { edgeHi = 2 * Double(n) * mean * pAllHit / loChi / unit }
         }
 
         return JackpotLawEstimate(

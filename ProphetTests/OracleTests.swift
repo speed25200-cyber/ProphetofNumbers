@@ -877,6 +877,88 @@ final class OracleTests: XCTestCase {
         XCTAssertNil(est.favourable)
     }
 
+    func testPayTableExpectationsCollapseAcrossStakes() {
+        // Le barème a été transcrit à l'œil depuis cinq captures d'écran
+        // séparées (lab/bareme_observed.csv, §56). Relire un tableau ne
+        // prouve rien ; ce test-ci, si : l'opérateur égalise son taux de
+        // retour entre les mises, donc les cinq espérances de base doivent
+        // tomber ensemble. Une seule ligne mal saisie les ferait diverger.
+        var values: [Double] = []
+        for k in [5, 6, 7, 8, 10] {
+            guard let e = PayTable.baseExpectation(stake: k) else {
+                return XCTFail("mise \(k) absente du barème")
+            }
+            values.append(e)
+            // La loi hypergéométrique doit d'abord être une loi.
+            let mass = (0...k).reduce(0.0) { $0 + PayTable.probability(stake: k, hits: $1) }
+            XCTAssertEqual(mass, 1, accuracy: 1e-12, "mise \(k) : masse totale")
+        }
+        guard let lo = values.min(), let hi = values.max() else { return XCTFail("vide") }
+        let mean = values.reduce(0, +) / Double(values.count)
+        XCTAssertLessThan((hi - lo) / mean, 0.03,
+                          "les cinq espérances doivent tomber à 3 % près")
+        XCTAssertEqual(PayTable.baseExpectation(stake: 6) ?? 0, 1.1764564549,
+                       accuracy: 1e-8)
+        XCTAssertNil(PayTable.baseExpectation(stake: 9))
+    }
+
+    func testPayTableExcludesTheOneFrancTicketAndBoundsTheLegacyRule() {
+        // Deux déductions, pas deux hypothèses. Le taux de retour vaut E/c et
+        // ne peut pas dépasser 1 : le ticket à un franc que l'app supposait
+        // est arithmétiquement exclu. Et la règle des 100 ct/CHF, qui suppose
+        // ce franc, cesse d'être une condition suffisante au-delà de 1 + E.
+        XCTAssertEqual(PayTable.priceLowerBound, 1.1971176275, accuracy: 1e-8)
+        XCTAssertGreaterThan(PayTable.priceLowerBound, 1,
+                             "un ticket à CHF 1 ferait perdre l'opérateur")
+        XCTAssertEqual(PayTable.legacyRuleValidUpTo, 2.1668190816, accuracy: 1e-8)
+        // Un prix sous la borne doit être refusé, pas arrondi en silence.
+        XCTAssertFalse(PayTable.admissiblePrices.contains(1))
+        for c in PayTable.admissiblePrices {
+            XCTAssertGreaterThan(c, PayTable.priceLowerBound)
+        }
+    }
+
+    func testExactThresholdIsAboutFourTenthsOfTheSufficientOne() {
+        // La condition suffisante du §5 bis jetait les rangs intermédiaires
+        // ET le gain fixe du rang plein. Les compter fait tomber le seuil.
+        let p6 = 1 / 7753.0
+        guard let exact = PayTable.threshold(stake: 6, pAllHit: p6, ticketPrice: 2) else {
+            return XCTFail("seuil absent")
+        }
+        XCTAssertEqual(exact, 6384.9331, accuracy: 1e-3)
+        XCTAssertEqual(exact / (2 / p6), 0.41177, accuracy: 1e-4)
+        // Sans prix, JackpotLaw doit rendre EXACTEMENT l'ancien seuil : le
+        // nouveau régime ne doit rien changer tant que le prix est inconnu.
+        XCTAssertEqual(JackpotLaw.threshold(pAllHit: p6), 7753, accuracy: 1e-9)
+        XCTAssertEqual(JackpotLaw.threshold(pAllHit: p6, ticketPrice: 2, stake: 6),
+                       exact, accuracy: 1e-9)
+        // Une mise hors barème retombe sur la condition suffisante plutôt que
+        // de rendre un seuil faux.
+        XCTAssertEqual(JackpotLaw.threshold(pAllHit: p6, ticketPrice: 2, stake: 9),
+                       7753, accuracy: 1e-9)
+    }
+
+    func testConditionalEdgeUsesThePriceAndNotTheThreshold() {
+        // Le piège que le changement de seuil introduit : mu/S valait le gain
+        // par franc TANT QUE S*p = c. Avec le seuil exact, S*p = c - E, et
+        // écrire mu/S surestimerait le gain d'un facteur c/(c - E) — ici 2,43.
+        // Le gain reste mu*p/c.
+        let p6 = 1 / 7753.0
+        let log = [JackpotReading(drawNumber: 1381028, stake: 6, francs: 2287,
+                                  at: Date())]
+        guard let est = JackpotLaw.estimate(log, stake: 6, pAllHit: p6,
+                                            ticketPrice: 2) else {
+            return XCTFail("aucune estimation")
+        }
+        XCTAssertEqual(est.threshold, 6384.9331, accuracy: 1e-3)
+        XCTAssertEqual(est.conditionalEdge ?? 0, 2287 * p6 / 2, accuracy: 1e-12)
+        XCTAssertEqual(est.conditionalEdge ?? 0, 0.1474913, accuracy: 1e-6)
+        // Le piège lui-même, nommé : ce que le calcul naïf aurait rendu.
+        let naive = 2287 / est.threshold
+        XCTAssertEqual(naive / (est.conditionalEdge ?? 1), 2 / (2 - 1.1764564549),
+                       accuracy: 1e-4)
+    }
+
     func testJackpotLogNeverStoresTheSameDrawTwice() {
         let jacks = [Jackpot(stake: 6, amount: 2287), Jackpot(stake: 10, amount: 495_713)]
         var log = JackpotLaw.record([], drawNumber: 1381028, jackpots: jacks, at: Date())

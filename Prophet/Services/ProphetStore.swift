@@ -14,6 +14,11 @@ final class ProphetStore: ObservableObject {
     @Published var turbo = false
     @Published var journal: DayJournal?
     @Published var journalHold = 1
+    // Prix du ticket, en francs. 0 = non renseigné, et c'est le défaut : le
+    // barème relevé (§56) EXCLUT le franc que l'app supposait — il force
+    // c > CHF 1,20 — mais ne donne pas sa valeur. Tant qu'il vaut 0, la
+    // carte du jackpot retombe sur la condition suffisante des 100 ct/CHF.
+    @Published var ticketPrice: Double = 0
     @Published var forensics: ForensicsReport?
     @Published var recovery: RecoveryResult?
     @Published var recoveryRunning = false
@@ -75,6 +80,7 @@ final class ProphetStore: ObservableObject {
     private static let notifKey = "prophet.notifs.v1"
     private static let turboKey = "prophet.turbo.v1"
     private static let holdKey = "prophet.journal.hold.v1"
+    private static let priceKey = "prophet.ticket.price.v1"
     private static let ticketRetentionDraws = 48
 
     init() {
@@ -87,6 +93,7 @@ final class ProphetStore: ObservableObject {
         turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
         let storedHold = UserDefaults.standard.integer(forKey: Self.holdKey)
         journalHold = storedHold > 0 ? storedHold : 1
+        ticketPrice = UserDefaults.standard.double(forKey: Self.priceKey)
         // Tick à 100 ms : la cadence réelle est décidée par Schedule
         // (12 s loin du tirage → 250 ms en fenêtre chaude, 120 ms en Turbo).
         poll = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -226,6 +233,15 @@ final class ProphetStore: ObservableObject {
     func setJournalHold(_ hold: Int) {
         journalHold = max(1, hold)
         UserDefaults.standard.set(journalHold, forKey: Self.holdKey)
+    }
+
+    /// Renseigne le prix du ticket, ou l'efface avec 0. Un prix au-dessous de
+    /// la borne du barème est refusé : il rendrait le taux de retour de
+    /// l'opérateur supérieur à 1, ce qui n'est pas une opinion mais une
+    /// contradiction (§56).
+    func setTicketPrice(_ price: Double) {
+        ticketPrice = price > 0 && price > PayTable.priceLowerBound ? price : 0
+        UserDefaults.standard.set(ticketPrice, forKey: Self.priceKey)
     }
 
     func loadJournal() async {

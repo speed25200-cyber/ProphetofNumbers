@@ -130,17 +130,23 @@ struct GridsView: View {
     @ViewBuilder
     private func jackpotCard(oracle: OracleResult) -> some View {
         let jacks = store.payload?.jackpots ?? []
-        let rows: [(stake: Int, francs: Double, ret: Double)] = jacks.compactMap { j in
+        // Prix du ticket : 0 = non renseigne. Dans ce cas la carte retombe
+        // exactement sur la condition SUFFISANTE du §5 bis (c = 1, rangs
+        // intermediaires jetes), qui est ce qu'elle affichait jusqu'ici.
+        // Renseigne, elle emploie le seuil EXACT que le barème releve permet
+        // d'ecrire : E[base] + J*p >= c (§56).
+        let price = store.ticketPrice
+        let unit = price > 0 ? price : 1
+        let rows: [(stake: Int, francs: Double, ret: Double, seuil: Double)] = jacks.compactMap { j in
             guard let pack = oracle.stakes.first(where: { $0.stake == j.stake }),
                   let p = pack.grids.first?.basePAllHit else { return nil }
-            return (j.stake, j.francs, j.francs * p * 100)
+            let e = price > 0 ? (PayTable.baseExpectation(stake: j.stake) ?? 0) : 0
+            return (j.stake, j.francs, j.francs * p * 100 / unit,
+                    max(0, 100 * (1 - e / unit)))
         }
         if !rows.isEmpty {
-            let bestStake = rows.max { $0.ret < $1.ret }?.stake
-            // Seuil de rentabilite : tous les rangs intermediaires etant
-            // positifs ou nuls, gain >= jackpot*P(k/k). A 100 ct/CHF le
-            // jackpot seul rembourse la mise, et tout le reste est du profit.
-            let favourable = rows.contains { $0.ret >= 100 }
+            let bestStake = rows.max { $0.ret / max($0.seuil, 1) < $1.ret / max($1.seuil, 1) }?.stake
+            let favourable = rows.contains { $0.ret >= $0.seuil }
             Card {
                 Overline(text: "VALEUR DU JACKPOT")
                 VStack(spacing: 8) {
@@ -163,24 +169,87 @@ struct GridsView: View {
                             }
                             Text(String(format: "%.2f ct/CHF", row.ret))
                                 .font(Typeface.mono(12, weight: .semibold))
-                                .foregroundStyle(row.ret >= 100
+                                .foregroundStyle(row.ret >= row.seuil
                                                  ? Palette.gain
                                                  : (row.stake == bestStake ? Palette.goldSoft : Palette.fg))
                         }
                     }
                 }
-                // Condition SUFFISANTE, et qui ne suppose rien du barème
-                // inconnu — ce que l'app affirmait auparavant sans réserve
-                // (« l'espérance totale reste négative ») n'est donc pas
-                // toujours vrai.
-                Text(favourable
-                     ? "Au-delà de 100 ct/CHF, le jackpot seul rembourse la mise : le pari est favorable, quel que soit le barème des rangs intermédiaires."
-                     : "Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment. Le seuil est 100 ct/CHF : au-delà, le jackpot seul rembourse la mise et le pari devient favorable quel que soit le barème.")
+                ticketPriceRow()
+                // Le seuil affiche depend de ce que l'app sait du prix.
+                // Ce que l'app affirmait auparavant sans reserve
+                // (« l'esperance totale reste negative ») reste faux
+                // au-dessus du seuil, dans les deux regimes.
+                Text(jackpotCaption(favourable: favourable, price: price, rows: rows))
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
                 jackpotLawLine(oracle: oracle, stake: bestStake ?? store.stake)
             }
         }
+    }
+
+    // Le prix du ticket est la DERNIÈRE inconnue de toute la chaîne
+    // financière (§56). Le barème relevé le borne par le bas — le taux de
+    // retour vaut E/c et ne peut pas dépasser 1, donc c > CHF 1,20 — mais ne
+    // donne pas sa valeur. CHF 1 n'est pas proposé : il n'est pas improbable,
+    // il est arithmétiquement exclu.
+    @ViewBuilder
+    private func ticketPriceRow() -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("PRIX DU TICKET")
+                .font(Typeface.mono(9, weight: .semibold))
+                .foregroundStyle(Palette.subtle)
+            HStack(spacing: 0) {
+                ForEach([0.0] + PayTable.admissiblePrices, id: \.self) { v in
+                    Button {
+                        store.setTicketPrice(v)
+                    } label: {
+                        Text(v == 0 ? "—" : String(format: "%.2f", v))
+                            .font(Typeface.mono(11, weight: .semibold))
+                            .foregroundStyle(store.ticketPrice == v ? Palette.accentFg : Palette.muted)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 26)
+                            .contentShape(Rectangle())
+                            .background {
+                                if store.ticketPrice == v {
+                                    Capsule().fill(Palette.goldGradient)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(3)
+            .background(Palette.elevated, in: Capsule())
+        }
+    }
+
+    // Trois états, et ils ne disent pas la même chose. Sans prix, la carte
+    // affiche la condition SUFFISANTE, qui n'est valide que si le ticket ne
+    // dépasse pas 1 + E[base] — une réserve invisible avant d'avoir le
+    // barème. Avec un prix, elle affiche la condition NÉCESSAIRE ET
+    // SUFFISANTE, et le seuil descend d'environ 59 %.
+    private func jackpotCaption(favourable: Bool, price: Double,
+                                rows: [(stake: Int, francs: Double,
+                                        ret: Double, seuil: Double)]) -> String {
+        if price <= 0 {
+            let head = favourable
+                ? "Au-delà de 100 ct/CHF, le jackpot seul rembourse une mise d'un franc : le pari est favorable, quel que soit le barème des rangs intermédiaires. "
+                : "Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment. Le seuil est 100 ct/CHF. "
+            return head + String(format: "Cette règle suppose le ticket à un franc — un prix que le barème relevé EXCLUT (il force c > CHF %.2f) — et elle ne reste une condition suffisante que si le ticket coûte au plus CHF %.2f. Renseignez le prix pour obtenir le seuil exact, environ 41 %% plus bas.",
+                                 PayTable.priceLowerBound, PayTable.legacyRuleValidUpTo)
+        }
+        // Une seule mise doit servir aux deux nombres, sans quoi la phrase
+        // mêlerait le seuil d'une mise au taux de retour d'une autre.
+        let row = rows.first(where: { $0.stake == store.stake }) ?? rows.first
+        let seuil = row?.seuil ?? 100
+        let r = PayTable.baseReturn(stake: row?.stake ?? store.stake,
+                                    ticketPrice: price) ?? 0
+        let head = favourable
+            ? "Au-delà du seuil, le pari est favorable : c'est la condition nécessaire ET suffisante, plus aucun rang n'est jeté. "
+            : "Retour espéré du seul jackpot, par franc misé. "
+        return head + String(format: "Le barème rend déjà %.1f %% de la mise avant toute cagnotte, laquelle n'a donc que le reste à couvrir : le seuil vaut %.1f ct/CHF au lieu de 100.",
+                             r * 100, seuil)
     }
 
     // La distance au seuil était connue (h9) ; sa FRÉQUENCE de franchissement
@@ -191,7 +260,8 @@ struct GridsView: View {
     private func jackpotLawLine(oracle: OracleResult, stake: Int) -> some View {
         let p = oracle.stakes.first(where: { $0.stake == stake })?
             .grids.first?.basePAllHit ?? 0
-        if let est = JackpotLaw.estimate(store.jackpotLog, stake: stake, pAllHit: p) {
+        if let est = JackpotLaw.estimate(store.jackpotLog, stake: stake, pAllHit: p,
+                                         ticketPrice: store.ticketPrice) {
             let head = "Journal des cagnottes : \(est.readings) relevé"
                 + (est.readings > 1 ? "s" : "")
                 + " sur \(est.spanDraws) tirage" + (est.spanDraws > 1 ? "s" : "")
