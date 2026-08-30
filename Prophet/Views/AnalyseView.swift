@@ -241,6 +241,25 @@ struct RecoveryCard: View {
                     .foregroundStyle(run >= 5 ? Palette.goldSoft : Palette.subtle)
             }
 
+            // La règle du bonus (h22, §36). L'archive triée ne peut PAS la
+            // trancher — ce n'est pas qu'elle est difficile, c'est qu'elle y
+            // est non identifiable — donc la mesure se fait ici, tirage après
+            // tirage. Le critère est asymétrique et le libellé le dit : une
+            // seule position discordante réfute la règle, l'uniformité en
+            // demande 25 au minimum.
+            let bonus = store.bonusRule
+            HStack(spacing: 5) {
+                Image(systemName: Self.bonusIcon(bonus.verdict))
+                    .font(.system(size: 10))
+                    .foregroundStyle(bonus.verdict == .positionRule ? Palette.gold : Palette.subtle)
+                Text("Règle du bonus : \(bonus.summary)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(bonus.verdict == .positionRule ? Palette.goldSoft : Palette.subtle)
+            }
+            Text(bonus.detail)
+                .font(.system(size: 10))
+                .foregroundStyle(Palette.subtle)
+
             if let r = store.recovery {
                 HStack(spacing: 5) {
                     Image(systemName: r.orderAvailable ? "list.number" : "arrow.up.arrow.down.circle")
@@ -279,6 +298,17 @@ struct RecoveryCard: View {
             }
             .buttonStyle(ProphetButtonStyle())
             .disabled(store.recoveryRunning)
+        }
+    }
+
+    // Un pictogramme par état du verdict. Le sablier dit « pas encore assez
+    // de tirages », et c'est le seul état honnête tant que le compte n'y est
+    // pas — pas un « rien trouvé » déguisé.
+    private static func bonusIcon(_ v: BonusRuleVerdict) -> String {
+        switch v {
+        case .positionRule: return "scope"
+        case .uniform: return "die.face.5"
+        case .undecided: return "hourglass"
         }
     }
 }

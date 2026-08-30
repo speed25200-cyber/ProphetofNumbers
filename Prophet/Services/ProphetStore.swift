@@ -179,11 +179,16 @@ final class ProphetStore: ObservableObject {
 
     func loadForensics() async {
         guard let payload else { return }
-        let key = "\(payload.last?.drawNumber ?? 0)"
+        // Le journal des tirages ordonnés entre dans la clé : un tirage
+        // ordonné peut être absorbé (ou son bonus rattrapé) sans que le
+        // dernier numéro change, et la règle du bonus doit alors se recalculer.
+        let withBonus = orderedLog.reduce(0) { $0 + ($1.bonus == nil ? 0 : 1) }
+        let key = "\(payload.last?.drawNumber ?? 0).\(orderedLog.count).\(withBonus)"
         if forensicsKey == key, forensics != nil { return }
         let history = payload.history
+        let log = orderedLog
         let result = await Task.detached(priority: .utility) {
-            Forensics.run(history)
+            Forensics.run(history, orderedLog: log)
         }.value
         forensicsKey = key
         withAnimation(.smooth(duration: 0.4)) {
@@ -390,7 +395,18 @@ final class ProphetStore: ObservableObject {
         candidates.append(contentsOf: live.history)
         var added = false
         for d in candidates where d.hasDrawOrder {
-            if orderedLog.contains(where: { $0.drawNumber == d.drawNumber }) { continue }
+            if let i = orderedLog.firstIndex(where: { $0.drawNumber == d.drawNumber }) {
+                // Rattrapage du bonus. L'ordre et le bonus viennent de la même
+                // matrice, mais rien ne garantit qu'ils soient publiés au même
+                // instant : un tirage absorbé avant que le bonus n'apparaisse
+                // resterait sinon sans position POUR TOUJOURS, et la mesure de
+                // la règle du bonus perdrait une observation par relance.
+                if orderedLog[i].bonus == nil, let b = d.bonus {
+                    orderedLog[i].bonus = b
+                    added = true
+                }
+                continue
+            }
             orderedLog.append(OrderedDraw(drawNumber: d.drawNumber, order: d.order,
                                           bonus: d.bonus, at: Date()))
             added = true
@@ -400,6 +416,12 @@ final class ProphetStore: ObservableObject {
             Self.writeOrderedLog(orderedLog)
         }
     }
+
+    /// La règle du bonus, agrégée sur TOUS les tirages ordonnés vus depuis
+    /// l'installation. C'est la mesure que h22 (§36) a montrée impossible sur
+    /// l'archive triée — non pas difficile, mais non identifiable — et qui ne
+    /// peut donc se faire qu'ici, un tirage toutes les cinq minutes.
+    var bonusRule: BonusRuleReading { BonusRule.read(orderedLog) }
 
     /// La plus longue suite de tirages ordonnés CONSÉCUTIFS du journal.
     /// C'est la quantité que h14 désigne comme décisive : à pas impair la

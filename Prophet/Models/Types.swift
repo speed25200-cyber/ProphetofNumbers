@@ -60,6 +60,218 @@ struct OrderedDraw: Codable, Identifiable, Hashable {
     }
 }
 
+// MARK: - La règle du bonus
+
+// Le bonus est-il la boule d'une POSITION FIXE de l'ordre de sortie, ou un
+// choix uniforme parmi les vingt ?
+//
+// h19 (§32) a établi sur les 70 560 tirages archivés que le bonus est
+// TOUJOURS l'un des vingt numéros sortis : ce n'est pas un tirage de plus,
+// c'est une DÉSIGNATION parmi les vingt. h22 (§36) a ensuite montré que
+// l'archive ne peut PAS dire selon quelle règle, et l'a montré par un calcul
+// de puissance et non par une intuition :
+//
+//   • sous une loi d'ordre échangeable — Fisher-Yates, ou un rejet à loi de
+//     base uniforme, qui est la même loi — la position du bonus est uniforme
+//     parmi les vingt CONDITIONNELLEMENT à l'ensemble tiré. Les deux
+//     hypothèses produisent alors exactement la même loi sur (ensemble trié,
+//     bonus) : la question n'est pas difficile hors ligne, elle est NON
+//     IDENTIFIABLE ;
+//   • sous une loi de base biaisée elle redevient identifiable, mais il
+//     faudrait un biais tel que le χ² des fréquences marginales — un test
+//     déjà passé, et conforme — l'aurait vu des milliers de fois plus tôt.
+//
+// D'où cet instrument. La mesure ne peut se faire que là où l'ordre de sortie
+// existe : dans l'app, qui le reçoit et le conserve (`OrderedDraw`).
+//
+// LE CRITÈRE EST ASYMÉTRIQUE, et il est écrit comme tel.
+//
+//   Côté RÈGLE : une seule position discordante la réfute. Il faut donc que
+//   les n positions coïncident toutes, et P(cela | uniforme) = 20·20^(−n)
+//   passe sous le seuil de Holm du registre entier (1,5·10⁻⁵) à n = 5.
+//
+//   Côté UNIFORME : c'est une acceptation, et une acceptation exige une borne
+//   d'équivalence. Une position discordante tue la règle DÉTERMINISTE en un
+//   coup, mais laisse vivante une règle presque déterministe (« la vingtième
+//   dans 90 % des cas »), qui vaudrait presque autant. Conclure à
+//   l'uniformité, c'est donc rejeter la famille « ∃ j : P(position j) ≥ 1/2 »
+//   — le seuil où l'énoncé « le bonus est à la position j » cesse d'être vrai
+//   plus souvent que faux, soit le plus faible énoncé qui mérite encore le
+//   mot « règle ». Au plus une position peut le vérifier, donc le maximum des
+//   comptages est une statistique suffisante et aucune correction de
+//   multiplicité n'est due. Le plancher vaut alors 25 tirages ordonnés, et
+//   h22 mesure par simulation que sous une uniformité vraie le critère se
+//   déclenche à 32 tirages en médiane, 35 au 80ᵉ centile.
+enum BonusRuleVerdict: String {
+    case undecided      // pas encore assez de tirages ordonnés
+    case positionRule   // règle de position établie
+    case uniform        // choix uniforme parmi les vingt
+}
+
+struct BonusRuleReading {
+    var verdict: BonusRuleVerdict
+    /// Tirages ordonnés dont la position du bonus est connue.
+    var observations: Int
+    /// Bonus publié HORS de l'ordre de sortie. Devrait rester à zéro : ce
+    /// serait un démenti du fait structurel de §32, pas un détail.
+    var outside: Int
+    /// Position la plus fréquente, 1…20. Zéro tant qu'il n'y a rien.
+    var dominant: Int
+    var dominantCount: Int
+    /// P(les n positions coïncident | bonus uniforme) = 20^(1−n).
+    var pRule: Double
+    /// P(Binomiale(n, 1/2) ≤ comptage dominant) — le versant équivalence.
+    var pConcentrated: Double
+    /// Tirages ordonnés encore manquants AU MIEUX, c'est-à-dire si les
+    /// positions à venir tombaient aussi régulièrement que possible. Un
+    /// minorant du délai, jamais une prévision.
+    var needed: Int
+}
+
+enum BonusRule {
+    /// Seuil de Holm du registre entier du labo (114 tests consignés).
+    static let alpha = 1.5e-5
+    /// Borne d'équivalence : au-delà, « le bonus est à la position j » est
+    /// vrai plus souvent que faux et mérite le mot « règle ».
+    static let concentration = 0.5
+
+    /// Plus petit n tel que 20·20^(−n) ≤ alpha. Calculé, pas choisi.
+    static let minimumForRule: Int = {
+        let k = Double(ProphetConst.drawSize)
+        var n = 1
+        while n < 100 && k * pow(1 / k, Double(n)) > alpha { n += 1 }
+        return n
+    }()
+
+    /// Plus petit n tel que le critère d'uniformité soit ATTEIGNABLE, c'est-
+    /// à-dire avec des comptages aussi plats que possible. Calculé, pas choisi.
+    static let minimumForUniform: Int = {
+        let k = ProphetConst.drawSize
+        var n = 1
+        while n < 10_000
+            && binomialLowerTail((n + k - 1) / k, n, concentration) > alpha { n += 1 }
+        return n
+    }()
+
+    static func read(_ log: [OrderedDraw]) -> BonusRuleReading {
+        var positions: [Int] = []
+        var outside = 0
+        for d in log where d.bonus != nil {
+            if let p = d.bonusPosition { positions.append(p) } else { outside += 1 }
+        }
+        return read(positions: positions, outside: outside)
+    }
+
+    static func read(positions raw: [Int], outside: Int = 0) -> BonusRuleReading {
+        let k = ProphetConst.drawSize
+        let positions = raw.filter { (1...k).contains($0) }
+        let n = positions.count
+        var counts = [Int](repeating: 0, count: k)
+        for p in positions { counts[p - 1] += 1 }
+        let top = counts.enumerated().max(by: { $0.element < $1.element })
+        let dominant = n > 0 ? (top?.offset ?? 0) + 1 : 0
+        let m = n > 0 ? (top?.element ?? 0) : 0
+        let pRule = n > 0 ? pow(Double(k), Double(1 - n)) : 1
+        let pConc = n > 0 ? binomialLowerTail(m, n, concentration) : 1
+
+        // La règle : toutes les positions identiques, et assez nombreuses.
+        if n >= minimumForRule && m == n {
+            return BonusRuleReading(
+                verdict: .positionRule, observations: n, outside: outside,
+                dominant: dominant, dominantCount: m,
+                pRule: pRule, pConcentrated: pConc, needed: 0)
+        }
+        // L'uniformité : la règle est réfutée ET aucune position ne peut
+        // encore prétendre à la moitié des tirages.
+        if m < n && pConc <= alpha {
+            return BonusRuleReading(
+                verdict: .uniform, observations: n, outside: outside,
+                dominant: dominant, dominantCount: m,
+                pRule: pRule, pConcentrated: pConc, needed: 0)
+        }
+        return BonusRuleReading(
+            verdict: .undecided, observations: n, outside: outside,
+            dominant: dominant, dominantCount: m,
+            pRule: pRule, pConcentrated: pConc,
+            needed: missing(n: n, dominantCount: m))
+    }
+
+    /// Ce qu'il manque AU MIEUX pour atteindre un verdict — donc en supposant
+    /// les positions à venir aussi régulières que possible. C'est un
+    /// minorant : les données réelles fluctuent et repoussent l'échéance.
+    static func missing(n: Int, dominantCount m: Int) -> Int {
+        let k = ProphetConst.drawSize
+        // Tant que toutes les positions coïncident, la règle est vivante et
+        // c'est elle qui se conclut le plus tôt.
+        if n == 0 || m == n { return max(0, minimumForRule - n) }
+        var extra = 0
+        while extra < 4000 {
+            let total = n + extra
+            let best = max(m, (total + k - 1) / k)
+            if binomialLowerTail(best, total, concentration) <= alpha { return extra }
+            extra += 1
+        }
+        return 4000
+    }
+
+    /// P(Binomiale(n, p) ≤ k), sommée en échelle logarithmique — le
+    /// coefficient binomial est mis à jour terme à terme, jamais formé.
+    static func binomialLowerTail(_ k: Int, _ n: Int, _ p: Double) -> Double {
+        if k < 0 { return 0 }
+        if k >= n { return 1 }
+        guard n > 0, p > 0, p < 1 else { return 1 }
+        var logC = 0.0
+        var total = 0.0
+        for i in 0...k {
+            total += exp(logC + Double(i) * log(p) + Double(n - i) * log1p(-p))
+            logC += log(Double(n - i)) - log(Double(i + 1))
+        }
+        return min(1, total)
+    }
+}
+
+extension BonusRuleReading {
+    /// La ligne unique que lisent la forensique et l'écran d'analyse — une
+    /// seule formulation, pour que les deux ne puissent pas diverger.
+    var summary: String {
+        switch verdict {
+        case .positionRule:
+            return "position \(dominant) sur les \(observations) tirages ordonnés"
+                + " — RÈGLE FIXE (p = 20^−\(max(0, observations - 1)))"
+        case .uniform:
+            return "uniforme parmi les vingt — dominante \(dominant) :"
+                + " \(dominantCount)/\(observations)"
+        case .undecided:
+            if observations == 0 {
+                return outside > 0
+                    ? "\(outside) bonus hors de l'ordre publié"
+                    : "ordre de sortie non publié"
+            }
+            return "\(observations) mesuré\(observations > 1 ? "s" : "")"
+                + " — encore \(needed) au mieux"
+        }
+    }
+
+    /// Ce que le verdict veut dire, en une phrase.
+    var detail: String {
+        switch verdict {
+        case .positionRule:
+            return "Le bonus marque la position \(dominant) de l'ordre de sortie."
+                + " Il porte donc 4,32 bits d'ordre par tirage, sur toute l'archive"
+                + " — assez pour ancrer une sortie du générateur à une position connue."
+        case .uniform:
+            return "Le bonus est un choix uniforme parmi les vingt : il ne porte"
+                + " aucune information d'ordre. Mesuré sur \(observations) tirages"
+                + " ordonnés, aucune position ne peut plus en concentrer la moitié."
+        case .undecided:
+            let n = observations
+            return "Position du bonus dans l'ordre de sortie : \(n) relevé\(n > 1 ? "s" : "")."
+                + " \(BonusRule.minimumForRule) positions identiques établiraient une règle ;"
+                + " conclure à l'uniformité en demande \(BonusRule.minimumForUniform) au minimum."
+        }
+    }
+}
+
 // Un relevé de cagnotte, daté par le tirage. C'est la matière première de
 // `JackpotLaw` — et, d'après lab/experiments/h15_loi_cagnotte.py, la donnée
 // manquante la plus rentable de tout le dossier : elle seule dit à quelle

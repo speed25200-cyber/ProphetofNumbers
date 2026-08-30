@@ -95,15 +95,22 @@ if recent:
             extra[i, x - 1] = True
     masks.append(extra)
 mask = np.concatenate(masks, axis=0)
+# Les numéros de tirage, alignés sur `mask` : c'est eux qui portent le temps.
+# Un trou entre deux tirages absorbés fait d'abord décroître les têtes du
+# temps manquant (swarm_py, advance) — par tirage ÉCOULÉ, pas absorbé.
+ids = np.concatenate([a.ids, np.array([d for d, _ in recent], np.int64)]) \
+    if recent else a.ids
 
 say(f"   archive          {len(a):,} tirages, jusqu'au {int(a.ids.max()):,}")
 if recent:
     say(f"   tirages récents  {len(recent)} relevés à la main : "
         f"{', '.join(str(d) for d, _ in recent)}")
     say(f"   NOTE : {recent[0][0] - int(a.ids.max()) - 1} tirages manquent entre les deux. "
-        f"Les têtes étant")
-    say("          pondérées par récence, ce trou n'invalide rien mais rend les")
-    say("          cinq derniers tirages plus influents qu'ils ne devraient l'être.")
+        f"Les têtes décroissent")
+    say("          du temps ÉCOULÉ (h23) : le trou éteint la mémoire courte au lieu")
+    say("          de la geler à trois jours d'âge. Ce qu'il coûte malgré cela — ")
+    say("          l'information des tirages non vus — est mesuré dans")
+    say("          experiments/h23_trou_recence.py, et rien d'autre n'est affirmé.")
 say(f"   total            {len(mask):,} tirages absorbés")
 next_id = (recent[-1][0] if recent else int(a.ids.max())) + 1
 say(f"   prédiction pour  le tirage {next_id:,} (le suivant du dernier connu)")
@@ -117,7 +124,7 @@ rule("2. CE QUE L'ESSAIM A VALU — mesuré, pas annoncé")
 
 say("   Rejeu en marche avant sur les 20 000 derniers tirages : chaque")
 say("   prédiction est notée sur le tirage qu'elle n'a pas encore vu.")
-res = sp.run(mask[-20_000:], keep_picks=False)
+res = sp.run(mask[-20_000:], keep_picks=False, ids=ids[-20_000:])
 ov = res["ov_ens"]
 z = sp.z_of(ov)
 say(f"\n   recouvrement moyen de l'ensemble : {ov.mean():.4f} sur {len(ov):,} tirages")
@@ -137,7 +144,7 @@ say(f"""
 
 rule(f"3. LES VINGT NUMÉROS — tirage {next_id:,}")
 
-pred = sp.predict_next(mask)
+pred = sp.predict_next(mask, ids=ids)
 top20 = pred["top20"]
 ranking = pred["ranking"]
 

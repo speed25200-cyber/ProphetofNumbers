@@ -31,19 +31,43 @@ Différences assumées, toutes CONSERVATRICES pour le test :
 
 Toute la mécanique tourne sur des masques (T,80) booléens, réels ou simulés,
 strictement de la même façon — c'est ce qui rend le null valide.
+
+Le temps écoulé, et le bug qu'il révélait (h23)
+-----------------------------------------------
+Chaque tête ne décroissait que PAR TIRAGE ABSORBÉ : un trou de 849 tirages
+dans le flux était traité comme zéro temps écoulé, et l'état « récent » de
+l'essaim restait celui d'il y a 854 tirages (c'est le cas du prédicteur
+déployé, cf. `lab/prediction.txt` et `lab/experiments/h23_trou_recence.py`).
+
+La correction : chaque tête expose `advance(k)` — k tirages ÉCOULÉS sans
+observation — et `run`/`predict_next` acceptent un vecteur `ids` de numéros
+de tirage ; quand deux tirages absorbés consécutifs ne sont pas des numéros
+consécutifs, les têtes avancent d'abord du temps manquant. Le principe est
+uniforme : absorber l'ESPÉRANCE du tirage non observé (hit ≡ 20/80), en
+forme fermée pour les états linéaires ; incrémenter les compteurs d'écart
+du temps écoulé ; et déclarer perdu l'état conditionné à l'identité des
+derniers tirages (Markov, voisinage, série), qu'un trou rend inconnaissable.
+Sans `ids` (ou avec des ids consécutifs), rien ne change : les sorties sont
+bit à bit identiques à la version antérieure.
 """
 
 from __future__ import annotations
+
+import copy
 
 import numpy as np
 
 POOL, DRAWN = 80, 20
 P_BASE = DRAWN / POOL
 
+# Le tirage « espéré » : ce qu'une absorption sans information injecte.
+_NEUTRAL = np.full(POOL, P_BASE)
+
 
 # --------------------------------------------------------------------------
-# Têtes — chacune expose absorb(hit) et field(), hit étant un vecteur (80,)
-# de 0/1. `field()` est TOUJOURS lue avant l'absorption du tirage courant.
+# Têtes — chacune expose absorb(hit), field() et advance(k), hit étant un
+# vecteur (80,) de 0/1. `field()` est TOUJOURS lue avant l'absorption du
+# tirage courant ; `advance(k)` fait passer k tirages NON OBSERVÉS.
 # --------------------------------------------------------------------------
 
 class Head:
@@ -52,6 +76,11 @@ class Head:
 
     def absorb(self, hit: np.ndarray) -> None: ...
     def field(self) -> np.ndarray: ...
+
+    def advance(self, k: int) -> None:
+        """k tirages écoulés sans observation. Chaque tête doit dire ce que
+        le temps seul fait à son état — aucune n'a le droit de l'ignorer."""
+        raise NotImplementedError(self.hid)
 
 
 class Bayes(Head):
@@ -66,6 +95,16 @@ class Bayes(Head):
         g = 1 - 1 / max(2.0, self.memory)
         self.a = g * self.a + hit
         self.b = g * self.b + (1 - hit)
+
+    def advance(self, k):
+        # k absorptions de l'espérance (hit ≡ p), en forme fermée :
+        # a ← gᵏ·a + p·(1−gᵏ)/(1−g). Le posterior décroît vers Beta(p·m, q·m),
+        # de moyenne exactement p — l'ignorance, à la bonne vitesse.
+        g = 1 - 1 / max(2.0, self.memory)
+        gk = g ** k
+        m = (1 - gk) / (1 - g)
+        self.a = gk * self.a + P_BASE * m
+        self.b = gk * self.b + (1 - P_BASE) * m
 
     def field(self):
         return self.a / (self.a + self.b)
@@ -82,6 +121,11 @@ class Ewma(Head):
         l = 2 / (max(2.0, self.memory) + 1)
         self.e = (1 - l) * self.e + l * hit
 
+    def advance(self, k):
+        # e ← p + (1−l)ᵏ·(e − p) : la moyenne mobile décroît vers la base.
+        l = 2 / (max(2.0, self.memory) + 1)
+        self.e = P_BASE + (1 - l) ** k * (self.e - P_BASE)
+
     def field(self):
         return self.e
 
@@ -96,6 +140,13 @@ class Hawkes(Head):
     def absorb(self, hit):
         d = np.exp(-0.6931 / max(0.5, self.memory))
         self.s = self.s * d + 0.42 * hit
+
+    def advance(self, k):
+        # s ← dᵏ·s + 0,42·p·(1−dᵏ)/(1−d) : l'excitation retombe vers son
+        # niveau stationnaire, qui est uniforme — donc neutre après z-score.
+        d = np.exp(-0.6931 / max(0.5, self.memory))
+        dk = d ** k
+        self.s = self.s * dk + 0.42 * P_BASE * (1 - dk) / (1 - d)
 
     def field(self):
         return 0.07 + self.s
@@ -122,6 +173,13 @@ class Weibull(Head):
         self.gap_count[h] += 1
         self.gap[h] = 0
 
+    def advance(self, k):
+        # L'écart est un compteur de temps : il avance du temps écoulé. C'est
+        # l'écart depuis la dernière sortie OBSERVÉE — le seul calculable ;
+        # un numéro sorti dans le trou le garde donc surévalué, et la
+        # normalisation z absorbe la part commune de ce biais.
+        self.gap += k
+
     def field(self):
         mu = np.maximum(1.2, self.gap_mean)
         return 1 - np.exp(-np.power(self.gap / mu, self.k))
@@ -144,6 +202,11 @@ class Hazard(Head):
         np.add.at(self.hits, g[h], 1.0)
         self.gap[h] = 0
 
+    def advance(self, k):
+        # Même règle que Weibull ; les tables attempts/hits, elles, ne
+        # comptent que des tirages OBSERVÉS et ne bougent pas.
+        self.gap += k
+
     def field(self):
         g = np.minimum(60, self.gap + 1)
         return (self.hits[g] + 2) / (self.attempts[g] + 8)
@@ -165,6 +228,9 @@ class GapZ(Head):
         self.m1[h] += 0.15 * (x - self.m1[h])
         self.m2[h] += 0.15 * (x * x - self.m2[h])
         self.gap[h] = 0
+
+    def advance(self, k):
+        self.gap += k
 
     def field(self):
         sd = np.sqrt(np.maximum(1.0, self.m2 - self.m1 * self.m1))
@@ -189,6 +255,13 @@ class Spectral(Head):
             self.s_sum -= self.q[len(self.q) - 1 - self.short]
         if len(self.q) > self.long:
             self.l_sum -= self.q.pop(0)
+
+    def advance(self, k):
+        # k absorptions du tirage espéré : les fenêtres vieillissent du temps
+        # écoulé et les tirages non observés y pèsent leur espérance. Au-delà
+        # de `long` pas, absorber davantage ne change plus rien.
+        for _ in range(min(k, self.long)):
+            self.absorb(_NEUTRAL)
 
     def field(self):
         n = max(1, len(self.q))
@@ -219,6 +292,13 @@ class Markov(Head):
         if len(self.recent) > self.k:
             self.recent.pop(0)
 
+    def advance(self, k):
+        # La présence dans les k derniers tirages devient inconnaissable dès
+        # qu'un tirage manque : l'état conditionnant est perdu. La tête
+        # s'abstient (champ plat) jusqu'à revoir k tirages consécutifs, et
+        # ses tables n'apprennent aucune transition traversant un trou.
+        self.recent = []
+
     def field(self):
         if len(self.recent) != self.k:
             return np.full(POOL, P_BASE)
@@ -235,6 +315,11 @@ class Streak(Head):
 
     def absorb(self, hit):
         self.streak = np.where(hit > 0, self.streak + 1, 0.0)
+
+    def advance(self, k):
+        # Une série qui traverse k tirages non observés survit avec une
+        # probabilité (1/4)ᵏ : la tête ne peut plus rien certifier.
+        self.streak = np.zeros(POOL)
 
     def field(self):
         return self.streak
@@ -257,6 +342,11 @@ class Copair(Head):
         self.counts[nums] += 1
         self.n += 1
         self.last = nums
+
+    def advance(self, k):
+        # Les tables de co-sorties (long terme) restent ; l'ACTIVATION, elle,
+        # est conditionnée au dernier tirage — qui n'est plus le précédent.
+        self.last = None
 
     def field(self):
         if self.n <= 8 or self.last is None or len(self.last) == 0:
@@ -300,6 +390,12 @@ class Acp(Head):
             self.pc2 = self._norm(self.pc2 - float(self.pc1 @ self.pc2) * self.pc1)
         self.t += 1
 
+    def advance(self, k):
+        # La moyenne décroît vers la base ; les axes d'Oja ne bougent pas —
+        # le pas d'Oja sur x = E[hit] − mean ≈ 0 est un pas nul, et t ne
+        # compte que les observations réelles.
+        self.mean = P_BASE + (1 - 0.04) ** k * (self.mean - P_BASE)
+
     def field(self):
         pc = self.pc2 if self.axis == 2 else self.pc1
         return -pc * (self.mean - P_BASE) * 8
@@ -313,6 +409,9 @@ class Anti(Head):
 
     def absorb(self, hit):
         self.base.absorb(hit)
+
+    def advance(self, k):
+        self.base.advance(k)
 
     def field(self):
         return -self.base.field()
@@ -347,6 +446,10 @@ class Adjacency(Head):
             np.add.at(self.hits, k[hit > 0], 1.0)
         self.last = hit
 
+    def advance(self, k):
+        # Le « tirage précédent » du conditionnement n'existe plus.
+        self.last = None
+
     def field(self):
         if self.last is None:
             return np.full(POOL, P_BASE)
@@ -364,6 +467,10 @@ class RowPressure(Head):
     def absorb(self, hit):
         count = np.bincount(_ROW, weights=hit, minlength=10)
         self.rows += 0.12 * (count - self.rows)
+
+    def advance(self, k):
+        exp_row = DRAWN / 10
+        self.rows = exp_row + (1 - 0.12) ** k * (self.rows - exp_row)
 
     def field(self):
         exp_row = DRAWN / 10
@@ -385,6 +492,11 @@ class Pressure(Head):
     def absorb(self, hit):
         self.dec += 0.12 * (np.bincount(_DEC, weights=hit, minlength=8) - self.dec)
         self.par += 0.12 * (np.bincount(_PAR, weights=hit, minlength=2) - self.par)
+
+    def advance(self, k):
+        r = (1 - 0.12) ** k
+        self.dec = DRAWN / 8 + r * (self.dec - DRAWN / 8)
+        self.par = DRAWN / 2 + r * (self.par - DRAWN / 2)
 
     def field(self):
         d_exp, p_exp = DRAWN / 8, DRAWN / 2
@@ -432,14 +544,50 @@ def _top(v: np.ndarray, k: int = DRAWN) -> np.ndarray:
     return np.argsort(-v, kind="stable")[:k]
 
 
-def run(mask: np.ndarray, keep_picks: bool = True, progress: int = 0) -> dict:
+def _ada_update(w, cum_loss, ada_gap, losses, n):
+    """Un pas d'AdaHedge — extrait pour être exécuté à l'IDENTIQUE (mêmes
+    opérations, même ordre) par run, predict_next et SwarmState. Mute
+    `cum_loss` en place ; renvoie (w, ada_gap)."""
+    eta = np.log(n) / ada_gap
+    h_loss = float(w @ losses)
+    lmin = float(losses.min())
+    accum = float(w @ np.exp(-eta * (losses - lmin)))
+    mix = lmin - np.log(max(accum, 1e-300)) / eta
+    ada_gap += max(0.0, h_loss - mix)
+    cum_loss += losses
+    eta = np.log(n) / ada_gap
+    raw = np.exp(-eta * (cum_loss - cum_loss.min()))
+    s = raw.sum()
+    raw = np.full(n, 1 / n) if (s <= 0 or not np.isfinite(s)) else raw / s
+    return 0.98 * raw + 0.02 / n, ada_gap
+
+
+def _advance_if_hole(heads, ids, t) -> None:
+    """Fait passer aux têtes le temps manquant entre ids[t-1] et ids[t]."""
+    if ids is None or t == 0:
+        return
+    k = int(ids[t]) - int(ids[t - 1]) - 1
+    if k > 0:
+        for h in heads:
+            h.advance(k)
+
+
+def run(mask: np.ndarray, keep_picks: bool = True, progress: int = 0,
+        ids: np.ndarray | None = None) -> dict:
     """Rejoue l'essaim en marche avant sur une archive (T,80).
 
     Renvoie les recouvrements par tête et par tirage — jamais un score
     agrégé : c'est l'appelant qui décide de la statistique, après
     pré-enregistrement.
+
+    `ids`, optionnel : les numéros de tirage alignés sur `mask`. Quand deux
+    lignes consécutives ne portent pas des numéros consécutifs, les têtes
+    avancent d'abord du temps écoulé (h23). Sans `ids`, comportement
+    antérieur, bit à bit.
     """
     T = len(mask)
+    if ids is not None and len(ids) != T:
+        raise ValueError("ids doit être aligné sur mask")
     heads = make_heads()
     n = len(heads)
     w = np.full(n, 1 / n)
@@ -455,6 +603,7 @@ def run(mask: np.ndarray, keep_picks: bool = True, progress: int = 0) -> dict:
 
     j = 0
     for t in range(T):
+        _advance_if_hole(heads, ids, t)
         hit = mask[t].astype(float)
         if t >= WARMUP:
             fields = np.stack([_z(h.field()) for h in heads])
@@ -470,18 +619,7 @@ def run(mask: np.ndarray, keep_picks: bool = True, progress: int = 0) -> dict:
             # AdaHedge : pertes dans [0,1], η = ln(N)/Δ, Δ = écart de
             # mixabilité cumulé. Zéro paramètre libre.
             losses = 1 - o / DRAWN
-            eta = np.log(n) / ada_gap
-            h_loss = float(w @ losses)
-            lmin = float(losses.min())
-            accum = float(w @ np.exp(-eta * (losses - lmin)))
-            mix = lmin - np.log(max(accum, 1e-300)) / eta
-            ada_gap += max(0.0, h_loss - mix)
-            cum_loss += losses
-            eta = np.log(n) / ada_gap
-            raw = np.exp(-eta * (cum_loss - cum_loss.min()))
-            s = raw.sum()
-            raw = np.full(n, 1 / n) if (s <= 0 or not np.isfinite(s)) else raw / s
-            w = 0.98 * raw + 0.02 / n
+            w, ada_gap = _ada_update(w, cum_loss, ada_gap, losses, n)
             p = w[w > 1e-12]
             eff[j] = float(np.exp(-(p * np.log(p)).sum()))
             j += 1
@@ -494,7 +632,53 @@ def run(mask: np.ndarray, keep_picks: bool = True, progress: int = 0) -> dict:
             "picks": picks, "picks_ens": picks_ens, "steps": steps}
 
 
-def predict_next(mask: np.ndarray) -> dict:
+class SwarmState:
+    """L'essaim comme ÉTAT clonable — pour les expériences qui branchent
+    plusieurs futurs depuis un même préfixe (h23). `step()` exécute
+    exactement les opérations de `run`/`predict_next`, dans le même ordre ;
+    `advance()` fait passer du temps sans observation ; `predict()` rend le
+    champ, le classement et les poids courants.
+    """
+
+    def __init__(self):
+        self.heads = make_heads()
+        self.n = len(self.heads)
+        self.w = np.full(self.n, 1 / self.n)
+        self.cum_loss = np.zeros(self.n)
+        self.ada_gap = 1e-3
+        self.absorbed = 0
+
+    def clone(self) -> "SwarmState":
+        return copy.deepcopy(self)
+
+    def advance(self, k: int) -> None:
+        if k > 0:
+            for h in self.heads:
+                h.advance(k)
+
+    def step(self, hit_row: np.ndarray) -> None:
+        """Évalue (dès l'échauffement passé) puis absorbe UN tirage."""
+        hit = hit_row.astype(float)
+        if self.absorbed >= WARMUP:
+            fields = np.stack([_z(h.field()) for h in self.heads])
+            o = hit_row[np.stack([_top(fields[i]) for i in range(self.n)])].sum(axis=1)
+            losses = 1 - o / DRAWN
+            self.w, self.ada_gap = _ada_update(
+                self.w, self.cum_loss, self.ada_gap, losses, self.n)
+        for h in self.heads:
+            h.absorb(hit)
+        self.absorbed += 1
+
+    def predict(self) -> dict:
+        fields = np.stack([_z(h.field()) for h in self.heads])
+        ens = self.w @ fields
+        order = np.argsort(-ens, kind="stable")
+        return {"field": ens, "weights": self.w.copy(),
+                "ranking": (order + 1).tolist(),
+                "top20": sorted((_top(ens) + 1).tolist())}
+
+
+def predict_next(mask: np.ndarray, ids: np.ndarray | None = None) -> dict:
     """Le champ de l'essaim APRÈS absorption du dernier tirage connu.
 
     `run` rejoue et note ; cette fonction fait la même boucle, exactement les
@@ -507,31 +691,27 @@ def predict_next(mask: np.ndarray) -> dict:
     d'invariance, ses vingt numéros ont exactement la même loi de hits que
     n'importe quels vingt autres. Elle existe pour que cette affirmation
     porte sur une prédiction RÉELLE, et non sur une abstraction.
+
+    `ids`, optionnel : numéros de tirage alignés sur `mask` — un trou entre
+    deux lignes fait d'abord passer le temps manquant aux têtes (h23). La
+    prédiction vise le tirage qui SUIT immédiatement le dernier absorbé.
     """
     T = len(mask)
+    if ids is not None and len(ids) != T:
+        raise ValueError("ids doit être aligné sur mask")
     heads = make_heads()
     n = len(heads)
     w = np.full(n, 1 / n)
     cum_loss = np.zeros(n)
     ada_gap = 1e-3
     for t in range(T):
+        _advance_if_hole(heads, ids, t)
         hit = mask[t].astype(float)
         if t >= WARMUP:
             fields = np.stack([_z(h.field()) for h in heads])
             o = mask[t][np.stack([_top(fields[i]) for i in range(n)])].sum(axis=1)
             losses = 1 - o / DRAWN
-            eta = np.log(n) / ada_gap
-            h_loss = float(w @ losses)
-            lmin = float(losses.min())
-            accum = float(w @ np.exp(-eta * (losses - lmin)))
-            mix = lmin - np.log(max(accum, 1e-300)) / eta
-            ada_gap += max(0.0, h_loss - mix)
-            cum_loss += losses
-            eta = np.log(n) / ada_gap
-            raw = np.exp(-eta * (cum_loss - cum_loss.min()))
-            ssum = raw.sum()
-            raw = np.full(n, 1 / n) if (ssum <= 0 or not np.isfinite(ssum)) else raw / ssum
-            w = 0.98 * raw + 0.02 / n
+            w, ada_gap = _ada_update(w, cum_loss, ada_gap, losses, n)
         for h in heads:
             h.absorb(hit)
     fields = np.stack([_z(h.field()) for h in heads])

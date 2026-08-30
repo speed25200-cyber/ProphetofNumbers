@@ -59,7 +59,13 @@ enum Forensics {
         }
     }
 
-    static func run(_ drawsNewestFirst: [Draw]) -> ForensicsReport {
+    // `orderedLog` est le journal PERSISTÉ des tirages dont l'ordre de sortie
+    // a été vu. Il est indispensable au neuvième test : l'historique refetché
+    // revient TRIÉ, donc `drawsNewestFirst` ne porte l'ordre que du tirage en
+    // cours. Sans le journal, la mesure de la règle du bonus repartirait de
+    // zéro à chaque relance et n'atteindrait jamais son seuil.
+    static func run(_ drawsNewestFirst: [Draw],
+                    orderedLog: [OrderedDraw] = []) -> ForensicsReport {
         let ordered = drawsNewestFirst.sorted { $0.drawNumber < $1.drawNumber }
         guard ordered.count >= 40 else {
             return ForensicsReport(
@@ -80,7 +86,7 @@ enum Forensics {
             clockSeed(ordered, masks),
             spectral(numbers),
             analogue(masks),
-            bonusPosition(ordered),
+            bonusPosition(ordered, orderedLog),
         ]
         tests.sort { $0.sigma > $1.sigma }
         let flagged = tests.filter(\.flagged).count
@@ -122,61 +128,38 @@ enum Forensics {
     //
     // Le test signale donc l'INVERSE de l'habitude : ici, une déviation par
     // rapport à l'uniforme est une DÉCOUVERTE, pas une anomalie de source.
-    private static func bonusPosition(_ draws: [Draw]) -> ForensicTest {
+    //
+    // Le critère lui-même vit dans `BonusRule` (Models/Types.swift) : il est
+    // ASYMÉTRIQUE — une seule position discordante réfute la règle, tandis que
+    // conclure à l'uniformité demande 25 tirages ordonnés au minimum — et il
+    // est calculé, pas choisi (h22). Une seule formulation pour la forensique
+    // et pour l'écran d'analyse, afin que les deux ne puissent pas diverger.
+    private static func bonusPosition(_ draws: [Draw],
+                                      _ log: [OrderedDraw]) -> ForensicTest {
+        // Le journal persisté d'abord, l'historique en mémoire ensuite pour
+        // les tirages qu'il n'a pas encore absorbés — jamais deux fois le même.
+        var seen = Set(log.map(\.drawNumber))
         var positions: [Int] = []
-        for d in draws where d.hasDrawOrder {
-            guard let b = d.bonus, let idx = d.order.firstIndex(of: b) else { continue }
-            positions.append(idx + 1)
+        var outside = 0
+        for d in log where d.bonus != nil {
+            if let p = d.bonusPosition { positions.append(p) } else { outside += 1 }
         }
-        let n = positions.count
-        guard n >= 12 else {
-            return ForensicTest(
-                name: "Règle du bonus",
-                catches: "Le bonus marque-t-il une position d'émission fixe ?",
-                statistic: n == 0 ? "ordre de sortie non publié"
-                                  : "\(n) tirage\(n > 1 ? "s" : "") ordonné\(n > 1 ? "s" : "") — 12 requis",
-                sigma: 0,
-                flagged: false
-            )
+        for d in draws where d.hasDrawOrder && d.bonus != nil {
+            guard seen.insert(d.drawNumber).inserted else { continue }
+            if let b = d.bonus, let idx = d.order.firstIndex(of: b) {
+                positions.append(idx + 1)
+            } else {
+                outside += 1
+            }
         }
-        var counts = [Int](repeating: 0, count: drawN)
-        for p in positions where (1...drawN).contains(p) { counts[p - 1] += 1 }
-        guard let top = counts.enumerated().max(by: { $0.element < $1.element }) else {
-            return ForensicTest(name: "Règle du bonus", catches: "—",
-                                statistic: "—", sigma: 0, flagged: false)
-        }
-        // Test exact de la cellule dominante plutôt qu'un χ² à vingt classes :
-        // l'alternative qui nous intéresse est « une position concentre tout »,
-        // et le χ² y est à la fois moins puissant et mal calibré tant que
-        // l'effectif attendu par classe reste sous cinq.
-        let p = min(1.0, Double(drawN) * binomialTail(top.element, n, 1 / Double(drawN)))
-        let share = Double(top.element) / Double(n)
-        let stat = share > 0.95
-            ? String(format: "position %d dans %.0f %% des %d tirages ordonnés — RÈGLE FIXE",
-                     top.offset + 1, share * 100, n)
-            : String(format: "position dominante %d : %d/%d (attendu %.1f)",
-                     top.offset + 1, top.element, n, Double(n) / Double(drawN))
+        let r = BonusRule.read(positions: positions, outside: outside)
         return ForensicTest(
             name: "Règle du bonus",
             catches: "Position d'émission fixe = 4,32 bits d'ordre par tirage",
-            statistic: stat,
-            sigma: sigma(p),
-            flagged: p < 0.01
+            statistic: r.summary,
+            sigma: r.verdict == .positionRule ? sigma(r.pRule) : 0,
+            flagged: r.verdict == .positionRule
         )
-    }
-
-    /// P(Binomiale(n, p) ≥ k), sommée en échelle logarithmique.
-    private static func binomialTail(_ k: Int, _ n: Int, _ p: Double) -> Double {
-        guard k > 0, k <= n, p > 0, p < 1 else { return k <= 0 ? 1 : 0 }
-        var logC = 0.0
-        for i in 0..<k { logC += log(Double(n - i)) - log(Double(i + 1)) }
-        var total = 0.0
-        var lc = logC
-        for i in k...n {
-            total += exp(lc + Double(i) * log(p) + Double(n - i) * log1p(-p))
-            if i < n { lc += log(Double(n - i)) - log(Double(i + 1)) }
-        }
-        return min(1, total)
     }
 
     // MARK: 1 — Uniformité du champ (roue biaisée, numéro pondéré)
