@@ -116,6 +116,15 @@ say(f"""   ÉTABLI. Au moment du relevé, aucune mise n'est favorable — la plu
    une conséquence directe de la combinatoire, pas une observation
    ponctuelle.
 
+   LU AUTREMENT DEPUIS (h16). La « fraction du seuil » ci-dessus n'est pas
+   seulement une distance. Sous l'absence de mémoire d'une cagnotte
+   progressive, E[J | J >= S] = S + mu, donc jouer UNIQUEMENT au-dessus du
+   seuil rapporte exactement mu/S par franc misé — c'est-à-dire ce même
+   nombre. Les 29,5 % de la mise 6 sont donc aussi le gain conditionnel
+   disponible le jour où le seuil est franchi, et la part de la mise que
+   l'opérateur verse dans la cagnotte. Voir h16 pour la dérivation, les
+   vérifications et les réserves.
+
    NON ÉTABLI. La fréquence de franchissement demande une SÉRIE : une
    observation donne une distance, pas une dynamique. Il faudrait savoir à
    quelle vitesse une cagnotte progressive croît et jusqu'où elle monte
