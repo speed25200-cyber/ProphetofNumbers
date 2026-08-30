@@ -2647,6 +2647,17 @@ elle est à l'écran.
 
 ### Ce que coûte de dimensionner sur une moyenne dont on n'a pas besoin
 
+**Le témoin d'abord**, sans quoi la comparaison ne prouverait rien : sur des
+occasions **homogènes** — même cagnotte partout —, il n'y a plus
+d'hétérogénéité à exploiter et les trois règles doivent coïncider. Elles
+coïncident au zéro machine. Une machinerie de rejeu défaillante aurait donc
+été attrapée là. (Précision qui évite de sur-lire l'accord : l'oracle tombe
+exactement sur la fraction figée optimale parce que la grille géométrique
+est centrée sur elle et la contient ; c'est une propriété de la grille, pas
+une confirmation indépendante. Le témoin qui porte l'information est que
+`R2` ne trouve rien de mieux qu'une fraction figée quand les occasions sont
+identiques.)
+
 Quatre règles rejouées sur le même processus (400 000 tirages, α = 0,2950,
 13 grilles disjointes à la mise 6, 13 072 occasions soit 3,27 % des tirages) :
 
