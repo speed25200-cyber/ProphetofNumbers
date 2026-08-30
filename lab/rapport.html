@@ -2043,6 +2043,109 @@
   </section>
 
   <section>
+    <h2>Trois angles morts — dont un qui rendait les autres faux</h2>
+    <div class="col">
+      <p>
+        La campagne ci-dessus reposait sur une hypothèse jamais écrite&nbsp;: qu'un générateur
+        consomme <strong>une sortie par numéro</strong>, et que les vingt numéros se lisent d'affilée.
+        En relisant la liste des familles et des échantillonneurs balayés, trois absences sont
+        apparues — et ce sont trois des chemins les plus fréquentés du logiciel ordinaire.
+      </p>
+      <p>
+        <strong>Le <code>rand()</code> du C n'était pas balayé.</strong> Une des familles s'appelait
+        «&nbsp;LCG32 glibc&nbsp;»&nbsp;: s → 1103515245·s + 12345 mod 2³¹. C'est le TYPE_0, qu'on
+        n'obtient qu'en réduisant explicitement l'état à huit octets. Le <code>rand()</code> qu'on
+        obtient en tapant <code>srand(); rand();</code> sur Linux <em>n'est pas un LCG</em>&nbsp;:
+        c'est une récurrence additive décalée, r[i] = r[i−3] + r[i−31], dont le LCG ne sert qu'à
+        remplir la table. <strong>992 bits d'état au lieu de 31.</strong> Balayer l'un ne disait rien
+        de l'autre — et «&nbsp;le <code>rand()</code> du C&nbsp;» est la première chose qu'écrit
+        quiconque n'a pas réfléchi au sujet, c'est-à-dire exactement le profil recherché.
+      </p>
+      <p>
+        <strong>Les générateurs à module premier n'avaient aucune prise.</strong> Toutes les attaques
+        algébriques de ce dossier vivent dans Z/2^k&nbsp;: valuation 2-adique, inverses modulo une
+        puissance de deux, racines de Hensel. Un générateur de Lehmer — s → a·s mod (2³¹−1) — n'offre
+        aucune de ces prises. MINSTD est pourtant <code>minstd_rand</code> du C++11.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Le troisième est d'une autre nature&nbsp;: il ne laissait pas une case vide, il rendait
+      <em>fausses</em> les cases déjà cochées. <code>(int)(Math.random() * 80)</code> consomme
+      <strong>deux</strong> appels à <code>next()</code>, pas un. Un balayage à un mot par numéro se
+      désynchronise donc dès le premier numéro et meurt en croyant avoir éliminé la graine. Les
+      sorties sont les mêmes, la graine est la bonne, et le test répond non — sans jamais rien
+      signaler.
+    </div>
+
+    <div class="col">
+      <p>
+        C'est l'écriture la plus répandue de «&nbsp;un numéro au hasard&nbsp;» dans le langage le
+        plus répandu. Tant qu'elle n'était pas testée, tous les zéros précédents étaient suspendus à
+        une hypothèse tacite et fausse. Les deux échantillonneurs par flottant ont donc été appliqués
+        aux <strong>vingt</strong> familles, y compris les douze déjà balayées.
+      </p>
+      <p>
+        Un quatrième angle mort a été refermé en même temps, d'un genre plus simple&nbsp;: tous les
+        échantillonneurs du dossier consomment vingt sorties, <strong>aucun n'en consommait
+        quatre-vingts</strong>. Or <code>ORDER BY RANDOM() LIMIT 20</code> — et son équivalent
+        <code>argsort(rand(80))[:20]</code> — tire une clé par numéro du bocal et garde les vingt plus
+        petites. Aucun outil ne pouvait le voir&nbsp;: les attaques algébriques supposent vingt
+        sorties reliées par une récurrence, et les balayages rejettent une graine dès le premier
+        numéro — ce qui n'a aucun sens quand ce premier numéro dépend des quatre-vingts clés à la
+        fois.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Le second tour de balayage, sur deux tirages de sources indépendantes</caption>
+        <thead>
+          <tr><th>ce qui est balayé</th><th>couverture par tirage</th><th>résultat</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>clés triées — <code>ORDER BY RANDOM() LIMIT 20</code></td><td>12 familles × 2 conventions</td><td>0</td></tr>
+          <tr><td>le vrai <code>rand()</code> de la glibc, 4 tailles de table</td><td>4 familles × 6 échantillonneurs</td><td>0</td></tr>
+          <tr><td>module premier — MINSTD 16807 / 48271, RANDU, Borland</td><td>4 familles × 6 échantillonneurs</td><td>0</td></tr>
+          <tr class="is-key"><td><strong>l'échantillonneur <code>Math.random()</code>, sur les 12 familles d'origine</strong></td><td>2 échantillonneurs par flottant</td><td><strong>0</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        <strong>188 combinaisons × 2³² graines</strong>, sur deux tirages relevés de deux sources
+        différentes, sans une seule touche. Le filtre restant celui de l'ordre — 10⁻³⁷ par graine —
+        l'espérance de faux positifs sur l'ensemble vaut 10⁻²⁵&nbsp;: s'il y avait eu une graine,
+        elle serait sortie, et elle aurait été vraie.
+      </p>
+      <p>
+        <strong>Et la validation ne s'est pas faite contre soi-même.</strong> Un autotest interne ne
+        prouve que la cohérence d'un programme avec ses propres idées&nbsp;; ce dossier a déjà payé
+        cette leçon avec CPython. Chaque transcription a donc été confrontée à l'implémentation
+        d'origine&nbsp;: le <code>rand()</code> et le <code>random()</code> de la glibc (550 sorties,
+        zéro écart, graines limites comprises), <code>java.util.Random</code> de la JVM sur les deux
+        idiomes <code>nextDouble</code>, <code>std::minstd_rand</code> et <code>minstd_rand0</code> du
+        C++11 — la graine témoin étant à chaque fois retrouvée depuis des tirages fabriqués par le
+        <em>vrai</em> générateur.
+      </p>
+      <p>
+        La forme entière <code>(w·80)&gt;&gt;53</code> a été vérifiée à part contre l'arithmétique
+        flottante&nbsp;: <code>w·80</code> demande jusqu'à 60 bits que la mantisse d'un
+        <code>double</code> ne porte pas, et l'arrondi pourrait franchir un entier. Testée jusqu'aux
+        bornes w ≡ 0 mod 2⁴⁹, là où l'arrondi est le plus tendu. Aucun écart.
+      </p>
+    </div>
+
+    <div class="pull">
+      Cette confrontation a corrigé deux étiquetages faux et le critère de l'autotest lui-même —
+      exiger que la première graine compatible soit le témoin échoue <em>légitimement</em> quand
+      l'espace d'états est plus petit que la plage de graines. La bonne question n'est pas «&nbsp;le
+      témoin sort-il en premier&nbsp;» mais «&nbsp;le témoin survit-il&nbsp;».
+    </div>
+  </section>
+
+  <section>
     <h2>Ce que ce labo ne peut pas trancher</h2>
     <ul class="limits">
       <li>
