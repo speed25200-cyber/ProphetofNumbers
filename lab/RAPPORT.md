@@ -7279,3 +7279,82 @@ affirmations en une **implication** dont la prémisse est nommée, chiffrée, et
 falsifiable pour un coût nul.
 
 **Registre : inchangé.** `h54` ne teste pas l'archive — il cartographie.
+
+## 74. L'arithmétique du vivier, et un résultat négatif qui valide le §69 (`h55_arithmetique_du_vivier.py`)
+
+Deux questions, l'une négative et l'autre structurelle.
+
+### Jetait-on de l'information ?
+
+Le §69 compte 80 bits par tirage : 4 bits × 20 numéros **acceptés**. Il ignore
+les ~2,85 mots **rejetés**. Un compte naïf suggérerait +11 bits.
+
+Un mot est rejeté exactement quand `out mod 80 + 1` est **déjà vu**. À l'étape
+`k`, cela contraint `out mod 16` à `min(k, 16)` valeurs sur 16 :
+
+> information d'un rejet à l'étape `k` = `4 − log₂(min(k, 16))` bits,
+> avec `k/(80 − k)` rejets attendus à cette étape.
+
+| étape k | rejets attendus | candidats | bits gagnés | contribution |
+|---|---|---|---|---|
+| 1 | 0,013 | 1 | 4,00 | 0,051 |
+| 5 | 0,067 | 5 | 1,68 | 0,112 |
+| 10 | 0,143 | 10 | 0,68 | 0,097 |
+| 15 | 0,231 | 15 | 0,09 | 0,022 |
+| 19 | 0,312 | 16 | **0,00** | 0,000 |
+
+> **Total : 1,26 bit par tirage, soit +1,6 %.** La réponse est **non**.
+
+Les rejets arrivent **tard** — leur fréquence croît en `k/(80−k)` — et c'est
+précisément quand ils sont fréquents que l'ambiguïté les vide : à 16 numéros
+déjà vus, un rejet ne dit **plus rien du tout**, les 16 résidus étant tous
+candidats. *L'ambiguïté croît exactement au rythme de la fréquence.*
+
+Exploiter les rejets multiplierait l'arbre de recherche par une dizaine par
+rejet, pour 1,26 bit. Mauvais échange — et le chiffrer était la seule façon de
+le savoir. **Le §69 avait raison à 1,6 % près.**
+
+### De quoi la fuite dépend-elle, exactement ?
+
+Sous rejet, tous les numéros passent par le même module, donc
+
+> **fuite = 20 × v₂(vivier)**
+
+Elle ne dépend ni du jeu, ni du générateur, ni du joueur : de la **valuation
+2-adique d'un seul entier**. Et `v₂` est brutalement discontinue.
+
+| vivier | v₂ | rejet modulo | Fisher-Yates | |
+|---|---|---|---|---|
+| 78 | 1 | 20 | 20 | |
+| **79** | **0** | **0** | 20 | *vivier impair : fuite nulle* |
+| **80** | **4** | **80** | 22 | **← le vivier réel** |
+| **81** | **0** | **0** | 22 | *vivier impair : fuite nulle* |
+| 96 | 5 | 100 | 21 | pire que 80 |
+| 128 | 7 | 140 | 23 | pire que 80 |
+
+> **La fuite est tout ou rien.** 34 des 69 tailles de vivier entre 60 et 128
+> sont **impaires et ne publient rien**. Un vivier de **79** rendrait le
+> théorème du §68 entièrement vide.
+>
+> Le vivier réel vaut 80 = 2⁴ × 5 — presque le pire choix de sa plage : seul
+> 128 fait mieux.
+
+Sous Fisher-Yates la fuite ne s'annule **jamais** : les modules 80, 79, …, 61
+balaient une plage où l'on rencontre toujours des puissances de deux (minimum
+18 bits, maximum 23). Et le rapport entre les deux échantillonneurs
+s'**inverse** : 80 contre 22 à vivier 80, **0 contre 20** à vivier impair.
+
+### Ce que cela établit
+
+**La vulnérabilité des §68 à §73 n'est pas une propriété des générateurs.**
+C'est une rencontre entre trois choses :
+
+1. un générateur **linéaire sur F₂**,
+2. un échantillonneur **par modulo**,
+3. un vivier **divisible par 16**.
+
+Les trois sont nécessaires. **Retirer n'importe laquelle ferme la voie** — et
+un opérateur qui aurait choisi 79 numéros au lieu de 80 l'aurait fermée sans
+le savoir, sans changer une ligne de son code.
+
+**Registre : inchangé.** `h55` ne teste pas l'archive — il dérive.
