@@ -1,0 +1,111 @@
+
+==============================================================================
+1. CE SUR QUOI LA PRÉDICTION S'APPUIE
+==============================================================================
+   archive          70,560 tirages, jusqu'au 1,380,173
+   tirages récents  5 relevés à la main : 1381023, 1381026, 1381028, 1381030, 1381031
+   NOTE : 849 tirages manquent entre les deux. Les têtes étant
+          pondérées par récence, ce trou n'invalide rien mais rend les
+          cinq derniers tirages plus influents qu'ils ne devraient l'être.
+   total            70,565 tirages absorbés
+   prédiction pour  le tirage 1,381,032 (le suivant du dernier connu)
+
+==============================================================================
+2. CE QUE L'ESSAIM A VALU — mesuré, pas annoncé
+==============================================================================
+   Rejeu en marche avant sur les 20 000 derniers tirages : chaque
+   prédiction est notée sur le tirage qu'elle n'a pas encore vu.
+
+   recouvrement moyen de l'ensemble : 4.9860 sur 19,987 tirages
+   espérance exacte sous l'invariance : 5.0000
+   écart standardisé : -1.17 σ
+   meilleur tirage : 12/20   pire : 0/20
+
+   Lecture. L'essaim fait jeu égal avec le hasard, à 1.2 σ près — et il ne
+   peut rien faire d'autre : l'espérance de hits est la même pour toute
+   sélection. Ce chiffre n'est pas un échec de l'essaim, c'est la mesure du
+   théorème.
+
+==============================================================================
+3. LES VINGT NUMÉROS — tirage 1,381,032
+==============================================================================
+   Les vingt numéros que l'essaim place en tête :
+
+       2   4  10  11  12  14  15  16  17  18
+      19  20  24  25  28  40  45  46  48  50
+
+   Classement complet, du plus au moins soutenu :
+      24 11 16 18 14 20 12  2 46 15 28 17 19 45 40 48 25  4 50 10
+      52 42 36 55 44 21 53 31  8 60 43 54 35 56 22 57 29 41 37  7
+       1 30 49 38  6 66 58 32  5 39 59 34 51 27  9 61 33 23 68 26
+       3 13 62 64 70 76 79 63 72 67 69 65 74 80 77 75 78 47 71 73
+
+   Ce que cette sélection vaut, exactement :
+     espérance de bons numéros   5.0000 sur 20
+     et pour n'importe quels vingt autres numéros, 5.0000 également.
+     P(au moins 10 bons)         0.4743%
+     P(les 20)                   1 sur 3,535,316,142,212,174,336
+
+==============================================================================
+4. LE PORTEFEUILLE — ce qui, lui, change réellement les chances
+==============================================================================
+
+   13 grilles DISJOINTES de 6 numéros (recouvrement max 0, seuil neutre 0.45) :
+       1. 11  14  16  18  20  24
+       2.  2  12  15  17  28  46
+       3.  4  19  25  40  45  48
+       4. 10  36  42  50  52  55
+       5.  8  21  31  44  53  60
+       6. 22  35  43  54  56  57
+       7.  1   7  29  30  37  41
+       8.  6  32  38  49  58  66
+       9.  5  27  34  39  51  59
+      10.  9  23  26  33  61  68
+      11.  3  13  62  64  70  76
+      12. 63  65  67  69  72  79
+      13. 47  74  75  77  78  80
+      une grille pleine : 1 sur 7,753
+      AU MOINS une des 13 : 1 sur 596   soit ×13 — exactement le facteur de h13
+
+   8 grilles DISJOINTES de 10 numéros (recouvrement max 0, seuil neutre 1.25) :
+       1.  2  11  12  14  15  16  18  20  24  46
+       2.  4  10  17  19  25  28  40  45  48  50
+       3.  8  21  31  36  42  44  52  53  55  60
+       4.  7  22  29  35  37  41  43  54  56  57
+       5.  1   5   6  30  32  38  39  49  58  66
+       6.  9  23  26  27  33  34  51  59  61  68
+       7.  3  13  62  63  64  67  70  72  76  79
+       8. 47  65  69  71  73  74  75  77  78  80
+      une grille pleine : 1 sur 8,911,711
+      AU MOINS une des 8 : 1 sur 1,113,964   soit ×8 — exactement le facteur de h13
+
+   Et c'est tout ce que le choix des numéros peut faire. Le facteur 13
+   ci-dessus ne vient pas d'une meilleure prédiction : il vient de ce que
+   treize grilles disjointes offrent treize occasions distinctes là où treize
+   grilles quelconques s'en partagent moins. L'espérance de gain, elle, est
+   identique — sauf sur un rang partagé, où la disjonction la fait monter
+   (h13 §4).
+
+==============================================================================
+5. QUAND JOUER, ET COMBIEN — les deux vrais leviers
+==============================================================================
+   MOMENT (h15, h16). Le pari devient favorable dès que la cagnotte de la
+   mise 6 dépasse CHF 7,753 par franc misé — condition suffisante, qui ne
+   suppose rien du barème des rangs intermédiaires. Au dernier relevé
+   (CHF 2 287), le gain conditionnel disponible une fois ce seuil franchi
+   vaut +29,5 % par franc, et le seuil est atteint sur environ 3,4 % des
+   tirages. Ne pas jouer en dessous : c'est la politique optimale, et h18
+   démontre qu'attendre PLUS que le seuil est également une erreur.
+
+   TAILLE (h17). À ce seuil, la fraction de Kelly sur treize grilles
+   disjointes vaut 3,8·10⁻⁴ du capital. Un tour de treize grilles à CHF 1
+   correspond donc à un capital de CHF 34 000. En dessous, on mise au-dessus
+   de Kelly, et la croissance devient négative dès trois fois Kelly — le pari
+   reste favorable en espérance et devient perdant en croissance.
+
+   Ces deux leviers sont les seuls que trente-deux voies d'investigation
+   aient trouvés. Les vingt numéros du §3 n'en sont pas un.
+
+==============================================================================
+total 56s
+==============================================================================

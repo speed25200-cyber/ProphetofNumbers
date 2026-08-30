@@ -2380,3 +2380,35 @@ transporter sur 70 560 tirages au lieu de cinq.
 > est un choix uniforme qui ne porte aucun ordre. L'archive locale s'arrête
 > au tirage 1 380 173 et les tirages ordonnés commencent à 1 381 023 : le
 > recoupement ne peut pas se faire hors ligne.
+
+## 33. La prédiction elle-même (`predire.py`)
+
+Tout ce qui précède sert à cadrer une seule chose : sortir vingt numéros, et
+dire ce qu'ils valent. `lab/predire.py` le fait, avec l'appareil complet —
+les 26 têtes de l'essaim, leurs poids AdaHedge appris en marche avant sur
+70 565 tirages, et le champ qu'elles opposent au tirage qui n'a pas encore eu
+lieu. La sortie est archivée dans `lab/prediction.txt`.
+
+**Ce que l'essaim vaut, mesuré et non annoncé.** Rejeu en marche avant sur
+les 20 000 derniers tirages, chaque prédiction notée sur le tirage qu'elle
+n'a pas encore vu : recouvrement moyen **4,986** contre 5,0000 d'espérance
+exacte, soit **−1,17 σ**. Meilleur tirage 12/20, pire 0/20. L'essaim fait jeu
+égal avec le hasard, et il ne peut rien faire d'autre — ce chiffre n'est pas
+un échec, c'est la mesure du théorème.
+
+**Ce que la sélection vaut, exactement.** Espérance de bons numéros : 5,0000
+sur 20 — et 5,0000 également pour n'importe quels vingt autres numéros.
+P(au moins 10 bons) = 0,4743 %. P(les 20) = 1 sur 3,54·10¹⁸.
+
+**Et le portefeuille, qui lui change quelque chose.** Treize grilles
+disjointes de six numéros, construites par la couverture équilibrée de §26
+avec le classement de l'essaim en simple départage : recouvrement maximal 0,
+une grille pleine à 1 sur 7 753, **au moins une des treize à 1 sur 596** —
+soit exactement le facteur 13 du théorème G. Ce facteur ne vient pas d'une
+meilleure prédiction : il vient de ce que treize grilles disjointes offrent
+treize occasions distinctes.
+
+**Le fichier se termine par les deux seuls leviers réels** — le moment (§29,
+ne pas jouer sous le seuil de bascule) et la taille de mise (§30, la fraction
+de Kelly et le capital minimal) — avec la phrase qui résume trente-deux
+voies : *les vingt numéros n'en sont pas un.*

@@ -494,6 +494,55 @@ def run(mask: np.ndarray, keep_picks: bool = True, progress: int = 0) -> dict:
             "picks": picks, "picks_ens": picks_ens, "steps": steps}
 
 
+def predict_next(mask: np.ndarray) -> dict:
+    """Le champ de l'essaim APRÈS absorption du dernier tirage connu.
+
+    `run` rejoue et note ; cette fonction fait la même boucle, exactement les
+    mêmes mises à jour d'AdaHedge et les mêmes absorptions, puis pousse un
+    pas de plus : elle calcule le champ que l'essaim opposerait au tirage
+    SUIVANT, celui qui n'a pas encore eu lieu.
+
+    C'est la seule fonction du dossier qui produise une prédiction plutôt
+    qu'une évaluation. Elle ne prétend rien sur sa valeur : sous le théorème
+    d'invariance, ses vingt numéros ont exactement la même loi de hits que
+    n'importe quels vingt autres. Elle existe pour que cette affirmation
+    porte sur une prédiction RÉELLE, et non sur une abstraction.
+    """
+    T = len(mask)
+    heads = make_heads()
+    n = len(heads)
+    w = np.full(n, 1 / n)
+    cum_loss = np.zeros(n)
+    ada_gap = 1e-3
+    for t in range(T):
+        hit = mask[t].astype(float)
+        if t >= WARMUP:
+            fields = np.stack([_z(h.field()) for h in heads])
+            o = mask[t][np.stack([_top(fields[i]) for i in range(n)])].sum(axis=1)
+            losses = 1 - o / DRAWN
+            eta = np.log(n) / ada_gap
+            h_loss = float(w @ losses)
+            lmin = float(losses.min())
+            accum = float(w @ np.exp(-eta * (losses - lmin)))
+            mix = lmin - np.log(max(accum, 1e-300)) / eta
+            ada_gap += max(0.0, h_loss - mix)
+            cum_loss += losses
+            eta = np.log(n) / ada_gap
+            raw = np.exp(-eta * (cum_loss - cum_loss.min()))
+            ssum = raw.sum()
+            raw = np.full(n, 1 / n) if (ssum <= 0 or not np.isfinite(ssum)) else raw / ssum
+            w = 0.98 * raw + 0.02 / n
+        for h in heads:
+            h.absorb(hit)
+    fields = np.stack([_z(h.field()) for h in heads])
+    ens = w @ fields
+    order = np.argsort(-ens, kind="stable")
+    return {"field": ens, "weights": w,
+            "heads": [type(h).__name__ for h in heads],
+            "ranking": (order + 1).tolist(),
+            "top20": sorted((_top(ens) + 1).tolist())}
+
+
 def z_of(ov_col: np.ndarray) -> float:
     """Écart standardisé d'une série de recouvrements à son espérance exacte."""
     T = len(ov_col)
