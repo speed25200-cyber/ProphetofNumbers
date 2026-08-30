@@ -108,8 +108,8 @@ if recent:
     say(f"   NOTE : {recent[0][0] - int(a.ids.max()) - 1} tirages manquent entre les deux. "
         f"Les têtes décroissent")
     say("          du temps ÉCOULÉ (h23) : le trou éteint la mémoire courte au lieu")
-    say("          de la geler à trois jours d'âge. Ce qu'il coûte malgré cela — ")
-    say("          l'information des tirages non vus — est mesuré dans")
+    say("          de la geler à trois jours d'âge. Ce qu'il coûte malgré cela")
+    say("          — l'information des tirages non vus — est mesuré dans")
     say("          experiments/h23_trou_recence.py, et rien d'autre n'est affirmé.")
 say(f"   total            {len(mask):,} tirages absorbés")
 next_id = (recent[-1][0] if recent else int(a.ids.max())) + 1

@@ -138,6 +138,13 @@ enum Forensics {
                                       _ log: [OrderedDraw]) -> ForensicTest {
         // Le journal persisté d'abord, l'historique en mémoire ensuite pour
         // les tirages qu'il n'a pas encore absorbés — jamais deux fois le même.
+        //
+        // En marche normale `recordOrderedDraws` tourne AVANT cette batterie,
+        // donc le journal est un sur-ensemble de l'historique et la fusion ne
+        // change rien : la ligne de la carte Reconstruction, qui lit le
+        // journal seul, affiche alors exactement le même compte. La fusion
+        // couvre les deux cas où ce n'est pas vrai — une écriture de journal
+        // qui échoue, et l'appel direct de `Forensics.run` sans journal.
         var seen = Set(log.map(\.drawNumber))
         var positions: [Int] = []
         var outside = 0

@@ -3093,12 +3093,23 @@ nulle part : `JackpotLaw.threshold` rend `1/p = S` sans paramètre boost, la
 fraction favorable et le gain conditionnel (`edge = mean/seuil`) sont
 calculés contre `S`, et `GridsView` affiche `J·p` en basculant à 100 ct/CHF.
 Or `LivePayload.nextBoost` porte le boost du tirage ouvert quand l'API
-l'expose, et l'instrument OpenBoost mesure justement cette exposition. Les
-jours où B est connu, l'écran devrait afficher `B·J·p`, basculer à `S/B` et
-annoncer `B·α` — sous l'hypothèse, toujours non vérifiée et nommée au §31,
-que le boost multiplie aussi la cagnotte. À B = 1 en l'absence
-d'information, l'affichage actuel n'est faux que les jours où l'app sait
-mieux. Signalé ici ; `Prophet/` n'a pas été touché sur ce point.
+l'expose, et l'instrument OpenBoost mesure justement cette exposition.
+
+**Mais il faut dire dans quel sens l'écran se trompe, et ce n'est pas celui
+qu'on croit.** Le boost vaut `B ≥ 1` et multiplie le gain, donc le gain réel
+est supérieur ou égal à `B·J·p ≥ J·p`. La condition affichée reste donc une
+condition SUFFISANTE valide, exactement comme au §5 bis : elle est
+conservatrice, pas fausse. L'app manque des tirages favorables ; elle n'en
+annonce jamais un qui ne le serait pas.
+
+C'est la bonne asymétrie pour ce produit, et c'est pourquoi rien n'a été
+câblé ici. Afficher `B·J·p` ferait basculer l'écran en « favorable » sur la
+foi d'une hypothèse que §31 nomme comme non vérifiée — que le boost
+multiplie aussi la cagnotte progressive. Le dossier entier existe pour
+empêcher l'app d'affirmer ce qu'elle ne sait pas ; gagner quelques occasions
+au prix d'une annonce non fondée serait précisément l'échange qu'il refuse.
+Ce qui manque pour trancher n'est pas du code, c'est l'observation que
+l'instrument OpenBoost est déjà là pour faire.
 
 **Registre : 118 tests, zéro significatif.** `h23` consigne trois mesures
 sans p-valeur — `h23.gel` (10,0/20), `h23.influence` (8,0 contre 8,0 dûs,
