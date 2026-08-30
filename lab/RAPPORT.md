@@ -3974,8 +3974,43 @@ Rien ici ne prédit un numéro, et l'invariance sort **renforcée** : c'est le
 lemme d'uniformité qui rend la garantie calculable. Le régime du barème et le
 prix du ticket restent inconnus.
 
-La carte doit devenir une **rotation scellée** : garder la construction de
-`h13`, lui appliquer une permutation uniforme des 80 numéros tirée en privé,
-et reléguer le penchant anti-dates au rang de pari conditionnel qu'il a
-toujours été. Le conditionnel du §9 n'était pas un pis-aller — c'était le
+La carte devrait devenir une **rotation scellée** : garder la construction
+de `h13`, lui appliquer une permutation uniforme des 80 numéros tirée en
+privé, et reléguer le penchant anti-dates au rang de pari conditionnel qu'il
+a toujours été. Le conditionnel du §9 n'était pas un pis-aller — c'était le
 théorème qui manquait.
+
+### La tension avec le théorème G, que cette recommandation ne peut pas trancher seule
+
+Il faut cependant dire ce que `h29` ne dit pas, car sa conclusion heurte un
+autre théorème du dossier. Une permutation uniforme des 80 numéros **détruit
+le classement de l'essaim** : c'est le prix littéral de l'imprévisibilité.
+Or le théorème G — l'assurance gratuite — établit que suivre l'essaim ne
+coûte **rien** sous H₀ et capterait un biais des familles bornées s'il en
+apparaissait un.
+
+Les deux théorèmes sont justes et ils tirent en sens opposés :
+
+| | ce qu'on gagne | ce qu'on perd |
+|---|---|---|
+| **rotation uniforme** | la garantie minimax sous partage | la capture d'un biais éventuel |
+| **classement de l'essaim** | la capture d'un biais éventuel | la garantie minimax |
+
+L'arbitrage dépend d'une quantité que le dossier n'a **pas** mesurée et ne
+peut pas mesurer hors ligne : à quel point les grilles des utilisateurs de
+l'app seraient corrélées à celles de la foule. Si l'app reste confidentielle,
+le pire cas de `h29` — la foule entière posée sur la grille publiée — est une
+fiction, et l'assurance gratuite l'emporte. Si l'app était massivement
+suivie, elle **deviendrait** la foule, et la rotation l'emporterait.
+
+Deux remarques pour cadrer la décision sans la prendre. D'une part la valeur
+de l'assurance gratuite est bornée par le plafond réalisable du §42 — de
+l'ordre du pour cent, et 39 voies n'ont rien trouvé qu'elle puisse capter.
+D'autre part le gain minimax n'est un gain que dans un pire cas
+adversarial, lequel suppose une foule qui *connaît* la grille publiée. Aucun
+des deux termes n'est nul, aucun n'est mesuré.
+
+**Rien n'a donc été câblé.** Modifier la carte reviendrait à trancher, par un
+choix d'implémentation, un arbitrage que ce dossier n'a pas les données pour
+trancher — exactement le genre de décision silencieuse que tout le reste du
+protocole existe pour empêcher.

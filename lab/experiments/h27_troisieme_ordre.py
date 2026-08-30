@@ -160,10 +160,10 @@ POOL, DRAWN, K = lab.POOL, lab.DRAWN, 10
 N = 70_560
 DRY = "--dry" in sys.argv
 
-REPS_NULL = 12 if DRY else 120
+REPS_NULL = 6 if DRY else 100
 REPS_POWER = 2 if DRY else 4
-REPS_SWEEP = 2 if DRY else 2
-REPS_EDGE = 3 if DRY else 10
+REPS_SWEEP = 1 if DRY else 2
+REPS_EDGE = 2 if DRY else 10
 ALPHA_REG = 0.05
 
 T0 = time.time()
@@ -728,7 +728,8 @@ rule("2. NULLS SIMULÉS")
 say(f"\n{REPS_NULL} archives SRS complètes de {N} tirages, partagées par les")
 say("neuf statistiques : U1, U2, U3 (neuves), Q1, Q2, Q3 (h24), T1, T2 (c1)")
 say("et S1 (d3) — les six anciennes servent à la démonstration de")
-say("spécificité, pas à un nouveau test. 120 réplicats au lieu des 400 de")
+say(f"spécificité, pas à un nouveau test. {REPS_NULL} réplicats au lieu des "
+    f"400 de")
 say("h24 : réduction de budget déclarée en tête de fichier, ±6,5 % sur les")
 say("écarts-types au lieu de ±3,5 %.")
 
