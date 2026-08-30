@@ -766,6 +766,52 @@ final class OracleTests: XCTestCase {
                        -log(0.025), accuracy: 1e-5)
     }
 
+    func testBonusRuleTestFiresOnAFixedPositionAndStaysQuietOtherwise() {
+        // h19 : si le bonus marque une position d'émission fixe, il porte
+        // 4,32 bits d'ordre par tirage. Le test doit le voir dès quelques
+        // dizaines de tirages ordonnés, et rester muet sur des positions
+        // uniformes. Générateur explicite : un test dont le verdict dépend
+        // d'une graine invisible n'est pas un test.
+        var seed: UInt64 = 424242
+        func next(_ m: Int) -> Int {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Int((seed >> 33) % UInt64(m))
+        }
+        func makeDraws(_ count: Int, fixedLast: Bool) -> [Draw] {
+            var out: [Draw] = []
+            for i in 0..<count {
+                var pool = Array(1...80)
+                var order: [Int] = []
+                for j in 0..<20 {
+                    let pick = j + next(80 - j)
+                    pool.swapAt(j, pick)
+                    order.append(pool[j])
+                }
+                let pos = fixedLast ? 19 : next(20)
+                out.append(Draw(drawNumber: 1_000_000 + i, drawDate: "2026-08-30",
+                                numbers: order.sorted(), order: order,
+                                boost: 1, bonus: order[pos]))
+            }
+            return out.reversed()   // Forensics attend du plus récent au plus ancien
+        }
+
+        let fixed = Forensics.run(makeDraws(60, fixedLast: true))
+        guard let fixedTest = fixed.tests.first(where: { $0.name == "Règle du bonus" }) else {
+            return XCTFail("test absent du rapport")
+        }
+        XCTAssertTrue(fixedTest.flagged,
+                      "une position d'émission fixe doit être signalée")
+        XCTAssertTrue(fixedTest.statistic.contains("RÈGLE FIXE"),
+                      "libellé attendu, obtenu : \(fixedTest.statistic)")
+
+        let loose = Forensics.run(makeDraws(300, fixedLast: false))
+        guard let looseTest = loose.tests.first(where: { $0.name == "Règle du bonus" }) else {
+            return XCTFail("test absent du rapport")
+        }
+        XCTAssertFalse(looseTest.flagged,
+                       "des positions uniformes ne doivent rien signaler")
+    }
+
     func testChiSquareQuantileMatchesTabulatedValues() {
         // L'identité P(khi-deux(2n) <= x) = P(Poisson(x/2) >= n) remplace ici
         // une fonction gamma absente. Valeurs tabulées à 2n degrés de liberté.

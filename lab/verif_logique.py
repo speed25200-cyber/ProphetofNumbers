@@ -325,6 +325,45 @@ def main():
           f"{'ok' if b and c else 'ÉCHEC'}")
     ok &= a and b and c
 
+    # 1 sexies. Forensics.bonusPosition : la queue binomiale de la cellule
+    # dominante, qui remplace un χ² à vingt classes mal calibré. Trois façons
+    # de se tromper en silence : la récurrence du coefficient binomial, la
+    # sommation en échelle logarithmique, et l'union sur les vingt positions.
+    def binomial_tail(k, n, pr):
+        if k <= 0:
+            return 1.0
+        if k > n:
+            return 0.0
+        logC = sum(_m.log(n - i) - _m.log(i + 1) for i in range(k))
+        tot, lc = 0.0, logC
+        for i in range(k, n + 1):
+            tot += _m.exp(lc + i * _m.log(pr) + (n - i) * _m.log1p(-pr))
+            if i < n:
+                lc += _m.log(n - i) - _m.log(i + 1)
+        return min(1.0, tot)
+
+    a = True
+    for nn in (12, 40, 200):
+        for kk in (1, 2, 5, nn // 2, nn):
+            got = binomial_tail(kk, nn, 1 / 20)
+            ref = _st.binom.sf(kk - 1, nn, 1 / 20)
+            a &= abs(got - ref) < 1e-12 * max(1.0, ref)
+    print(f"\n1 sexies. queue binomiale contre scipy, 15 points : "
+          f"{'ok' if a else 'ÉCHEC'}")
+
+    # Calibration : uniforme -> p grand, position fixe -> p écrasant dès 12.
+    rngb = random.Random(7)
+    cnt = [0] * 20
+    for _ in range(200):
+        cnt[rngb.randrange(20)] += 1
+    p_unif = min(1.0, 20 * binomial_tail(max(cnt), 200, 1 / 20))
+    p_fix = min(1.0, 20 * binomial_tail(12, 12, 1 / 20))
+    b = p_unif > 0.05 and p_fix < 1e-10
+    a &= b
+    print(f"1 sexies. positions uniformes p = {p_unif:.3f} ; position fixe sur "
+          f"12 tirages p = {p_fix:.2e}  {'ok' if b else 'ÉCHEC'}")
+    ok &= a
+
     # 1 ter. testRestartMixtureSeesALateDefectThatACumulativeBetCannot :
     # même arithmétique, même graine, même LCG que le test Swift — forme
     # martingale par BLOCS (h2) : au 1er pas du bloc j, S += w_j = 1/(j(j+1)),

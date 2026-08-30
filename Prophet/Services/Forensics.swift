@@ -80,6 +80,7 @@ enum Forensics {
             clockSeed(ordered, masks),
             spectral(numbers),
             analogue(masks),
+            bonusPosition(ordered),
         ]
         tests.sort { $0.sigma > $1.sigma }
         let flagged = tests.filter(\.flagged).count
@@ -88,7 +89,7 @@ enum Forensics {
         let detail: String
         if flagged == 0 {
             verdict = "Aucune signature de générateur faible"
-            detail = "Les huit tests sont conformes au hasard. Aucune période, aucune graine horaire, aucune structure de réseau, aucune mémoire résiduelle, et aucun analogue exploitable : la série est compatible avec une source cryptographique ou quantique — sans état reconstructible depuis les sorties."
+            detail = "Les neuf tests sont conformes au hasard. Aucune période, aucune graine horaire, aucune structure de réseau, aucune mémoire résiduelle, aucun analogue exploitable : la série est compatible avec une source cryptographique ou quantique — sans état reconstructible depuis les sorties. Le neuvième test, lui, ne cherche pas une faiblesse mais une RÈGLE : si le bonus marquait une position d'émission fixe, il livrerait 4,32 bits d'ordre par tirage sur toute l'archive."
         } else {
             verdict = "\(flagged) test\(flagged > 1 ? "s" : "") en anomalie"
             detail = "Un ou plusieurs tests s'écartent du hasard au-delà du seuil de 1 %. À confronter à l'e-valeur de la carte Vérité terrain avant toute conclusion : un test isolé peut dévier par malchance, une martingale qui monte durablement, non."
@@ -97,6 +98,85 @@ enum Forensics {
             tests: tests, sampleSize: ordered.count, flagged: flagged,
             verdict: verdict, detail: detail
         )
+    }
+
+    // MARK: 9 — La règle du bonus, et l'information d'ordre qu'elle porterait
+    //
+    // h19 (lab/experiments/h19_canal_bonus.py) a établi sur les 70 560
+    // tirages archivés que le bonus est TOUJOURS l'un des vingt numéros
+    // tirés : ce n'est pas un tirage de plus, c'est une désignation parmi
+    // les vingt. Reste à savoir selon quelle règle, et c'est cette règle qui
+    // décide s'il porte de l'information d'ORDRE.
+    //
+    // La question ne se tranche que sur des tirages dont l'ordre de sortie
+    // est publié — ce que l'archive locale du labo n'a pas, et que l'app,
+    // elle, reçoit quand l'API le donne. D'où cet instrument plutôt qu'une
+    // supposition : il relève la position du bonus dans l'ordre de sortie,
+    // tirage après tirage.
+    //
+    // Si toutes les positions coïncident, le bonus marque une position fixe
+    // (la vingtième boule, typiquement) et l'archive entière devient un
+    // canal ordonné : 4,32 bits d'ordre par tirage, assez pour ancrer une
+    // sortie du générateur à une position connue. Si elles se dispersent, le
+    // bonus est un choix uniforme parmi les vingt et ne porte aucun ordre.
+    //
+    // Le test signale donc l'INVERSE de l'habitude : ici, une déviation par
+    // rapport à l'uniforme est une DÉCOUVERTE, pas une anomalie de source.
+    private static func bonusPosition(_ draws: [Draw]) -> ForensicTest {
+        var positions: [Int] = []
+        for d in draws where d.hasDrawOrder {
+            guard let b = d.bonus, let idx = d.order.firstIndex(of: b) else { continue }
+            positions.append(idx + 1)
+        }
+        let n = positions.count
+        guard n >= 12 else {
+            return ForensicTest(
+                name: "Règle du bonus",
+                catches: "Le bonus marque-t-il une position d'émission fixe ?",
+                statistic: n == 0 ? "ordre de sortie non publié"
+                                  : "\(n) tirage\(n > 1 ? "s" : "") ordonné\(n > 1 ? "s" : "") — 12 requis",
+                sigma: 0,
+                flagged: false
+            )
+        }
+        var counts = [Int](repeating: 0, count: drawN)
+        for p in positions where (1...drawN).contains(p) { counts[p - 1] += 1 }
+        guard let top = counts.enumerated().max(by: { $0.element < $1.element }) else {
+            return ForensicTest(name: "Règle du bonus", catches: "—",
+                                statistic: "—", sigma: 0, flagged: false)
+        }
+        // Test exact de la cellule dominante plutôt qu'un χ² à vingt classes :
+        // l'alternative qui nous intéresse est « une position concentre tout »,
+        // et le χ² y est à la fois moins puissant et mal calibré tant que
+        // l'effectif attendu par classe reste sous cinq.
+        let p = min(1.0, Double(drawN) * binomialTail(top.element, n, 1 / Double(drawN)))
+        let share = Double(top.element) / Double(n)
+        let stat = share > 0.95
+            ? String(format: "position %d dans %.0f %% des %d tirages ordonnés — RÈGLE FIXE",
+                     top.offset + 1, share * 100, n)
+            : String(format: "position dominante %d : %d/%d (attendu %.1f)",
+                     top.offset + 1, top.element, n, Double(n) / Double(drawN))
+        return ForensicTest(
+            name: "Règle du bonus",
+            catches: "Position d'émission fixe = 4,32 bits d'ordre par tirage",
+            statistic: stat,
+            sigma: sigma(p),
+            flagged: p < 0.01
+        )
+    }
+
+    /// P(Binomiale(n, p) ≥ k), sommée en échelle logarithmique.
+    private static func binomialTail(_ k: Int, _ n: Int, _ p: Double) -> Double {
+        guard k > 0, k <= n, p > 0, p < 1 else { return k <= 0 ? 1 : 0 }
+        var logC = 0.0
+        for i in 0..<k { logC += log(Double(n - i)) - log(Double(i + 1)) }
+        var total = 0.0
+        var lc = logC
+        for i in k...n {
+            total += exp(lc + Double(i) * log(p) + Double(n - i) * log1p(-p))
+            if i < n { lc += log(Double(n - i)) - log(Double(i + 1)) }
+        }
+        return min(1, total)
     }
 
     // MARK: 1 — Uniformité du champ (roue biaisée, numéro pondéré)
