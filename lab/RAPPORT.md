@@ -1015,34 +1015,50 @@ conséquence* pour cette décision.
 - **La grille « Furtif »** met son argument au conditionnel : éviter la foule
   ne rapporte que si les gains se partagent, ce que rien n'établit.
 
-## 9. Ce qu'il faudrait faire, par ordre de valeur réelle
+## 9. Ce qui a été fait, et ce qui reste ouvert
 
-1. **Corriger `ESPÉRANCE` sur les grilles** (`GridsView.swift:261`). C'est la
-   seule affirmation fausse que voit l'utilisateur. Correction d'une ligne
-   dans `Swarm.swift:1133` — `expectedHits: Double(stake) * Self.baseP` au
-   lieu de `p.reduce(0, +)` — ou estimation par fenêtre disjointe : les deux
-   donnent la même chose sous H₀, la première étant exacte et sans
-   estimation.
-2. **Renommer la confiance.** Elle est honnête mais son nom promet une
-   probabilité qu'elle n'est pas. « Écart au hasard » plutôt que
-   « confiance /100 ».
-3. **Afficher le seuil de jackpot** à côté des montants k/k déjà affichés
-   (§5 bis) : `CHF 1 551` par franc misé pour la mise à 5. C'est la seule
-   information du dossier qui puisse dire à l'utilisateur qu'un pari est
-   devenu favorable, et elle ne dépend d'aucune hypothèse sur le barème.
-4. **Instrumenter la question du boost avant clôture.** L'autre point capable
-   de changer le signe de l'espérance. A priori négatif, mais non tranché.
-5. **Revoir la géométrie des 12 grilles** : bannir l'union de toutes les
-   grilles déjà émises et intégrer la pénalité de popularité au greedy, au
-   lieu d'en faire une grille qui duplique la première. À présenter pour ce
-   que c'est — un lissage du risque (variance ÷ 3,75 à 5,25, P(zéro hit) → 0),
-   jamais comme de la prédiction : `P(plein)` reste inchangée à 1 % près, et
-   l'espérance de gain est invariante sous **tout** barème.
-6. **Supprimer ou corriger `pAllHit`**, champ mort et faux d'un facteur 22.
-7. **Mettre au conditionnel l'argument « Furtif »** : il suppose des gains
-   partagés entre gagnants, ce que rien dans le dossier n'établit, et un
-   modèle de popularité écrit à la main (`Swarm.swift:1122` : dates ≤ 31,
-   multiples de 7 et 11) sans aucune mesure sur les joueurs de ce jeu.
+Cette section listait sept correctifs à apporter. **Les sept ont été
+appliqués**, et la laisser au futur donnait au lecteur, dès le début du
+dossier, une image fausse de l'état du produit. Elle devient donc un état des
+lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
+
+| | correctif | où il a atterri |
+|---|---|---|
+| 1 | `ESPÉRANCE` exacte au lieu du posterior de l'essaim (+18 à +34 %) | `Swarm.swift:1431`, `expectedHits: Double(stake) * Self.baseP` — mot pour mot la correction prescrite |
+| 2 | la « confiance /100 » renommée en écart standardisé | `LiveView.swift:113`, `ÉCART AU HASARD` |
+| 3 | le seuil de jackpot affiché | `GridsView`, bascule à 100 ct/CHF |
+| 4 | l'instrument du boost avant clôture | câblé, §16 — verdict à trois états |
+| 5 | la géométrie des douze grilles | préférence de couverture, optimum atteint à 0,000 % près à la mise 5 |
+| 6 | `pAllHit`, champ mort et faux d'un facteur 22 | supprimé de `SuggestedGrid` ; le nom ne subsiste que comme paramètre légitime de `JackpotLaw` |
+| 7 | l'argument « Furtif » mis au conditionnel | fait |
+
+**Ce qui est ouvert aujourd'hui**, dans l'ordre où cela coûte quelque chose :
+
+1. **Câbler `advance(k)` dans `Swarm.swift`** (§38). C'est le seul défaut de
+   code encore actif : les têtes décroissent par tirage absorbé et non
+   écoulé, et le top-20 affiché après une coupure ne partage que 10 numéros
+   sur 20 avec celui qu'un essaim informé aurait produit. Le diff complet est
+   spécifié dans `h23`, la correction est mesurée côté labo (+2,0 numéros),
+   il ne manque que la transcription Swift et ses deux vérificateurs.
+2. **Relever le prix du ticket** (§36). C'est la seule donnée manquante dont
+   une décision dépende : le seuil de bascule vaut `c/p`, et sans `c` la
+   règle qui décide s'il faut jouer n'est pas calculable. Tout le dossier est
+   « par franc misé » faute de ce nombre, qui se lit d'un coup d'œil.
+3. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
+   propose aujourd'hui aucune taille de mise. Quand elle en proposera une,
+   elle doit la recalculer à chaque occasion sur la cagnotte à l'écran — ce
+   qui bat de 37 % la meilleure fraction figée possible, et ne demande aucun
+   paramètre estimé.
+4. **Laisser l'instrument du bonus accumuler** (§37). Cinq tirages ordonnés
+   concordants établiraient une règle de position, une trentaine
+   établiraient l'uniformité. L'app en collecte un toutes les cinq minutes
+   depuis §34 ; il n'y a rien à faire d'autre qu'attendre.
+5. **Trancher le boost avant clôture** (§4, §16). Le seul point du dossier
+   où une réponse positive changerait le *signe* de l'espérance. A priori
+   négatif, instrument câblé, non tranché.
+
+Aucun de ces cinq points ne porte sur le choix des numéros. Ce n'est pas un
+oubli : c'est le théorème.
 
 ## 10. Les instruments qui répondraient au reste
 
