@@ -137,3 +137,32 @@ générateur.
    2·ln k nats sur les défauts tardifs.
 4. **« Furtif » a sa théorie** (E) : gratuite ou gagnante selon le régime de
    barème, jamais perdante en espérance.
+
+---
+
+## Deux raffinements dérivés des théorèmes C et D (`h2_ameliorations.py`)
+
+**L'écho adaptatif (application du théorème d'invariance).** La correction
+d'écho du bonus était une constante figée (−0,0158, la valeur d7). Elle
+devient le posterior Beta(1,3) de P(bonus_{t−1} ∈ tirage_t), appris en
+rejouant l'historique. Vérifié : sur l'archive réelle le posterior converge
+à **+0,015801** — l'archive enseigne d'elle-même la constante qui était
+écrite à la main ; sous H₀ la correction vaut **+0,0015 ± 0,0060** (théorie
+1/√n : 0,0065) — elle s'éteint, la figée non. Coût en espérance : nul, par
+le théorème d'invariance — ce n'est pas une hypothèse, c'est g1-C.
+
+**Le prior par blocs (raffinement du théorème D).** Relancer par blocs de
+16 tirages avec le prior 1/(j(j+1)) sur l'indice de bloc rend
+2·ln 16 = **5,5 nats** de budget (28,6 → 23,1 pour un défaut au pas
+65 000), contre un retard d'au plus 16 tirages (80 minutes). Mesuré sur le
+moniteur complet :
+
+| | fausses alertes | (500, 0,20) | (2000, 0,20) | (500, 0,10) | (2000, 0,10) |
+|---|---|---|---|---|---|
+| prior par pas | 0,042 ± 0,013 | 0,03 | 0,12 | 0,57 | 1,00 |
+| **prior par blocs** | **0,025 ± 0,010** | 0,02 | **0,18** | **0,82** | 1,00 |
+
+Le prior par blocs domine sur toute la table : moins de fausses alertes ET
+plus de puissance. Les deux raffinements sont câblés dans `Swarm.swift`,
+tests sur valeurs re-dérivées indépendamment (3,114e43 / 8,545e49 /
+7,844e-4).

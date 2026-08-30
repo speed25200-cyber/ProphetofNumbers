@@ -634,6 +634,17 @@ final class SwarmEngine {
     // chiffre a un sens dimensionnel, et comme simple DÉPARTAGE de rang sur
     // la sélection. Un effet de deux centièmes de pourcent mérite de trancher
     // une égalité, pas de peser dans un classement.
+    //
+    // La taille du départage n'est plus une constante : c'est le posterior
+    // Beta(1,3) de P(bonus précédent ∈ tirage), appris en rejouant
+    // l'historique (`lab/experiments/h2_ameliorations.py`). Sur l'archive
+    // réelle il converge de lui-même vers +0,0158 — la valeur qui était
+    // écrite à la main ; sous un générateur équitable il s'éteint en 1/√n
+    // (mesuré : ±0,0065 sur archives simulées) là où une constante figée
+    // pénaliserait pour toujours. Coût en espérance : nul, par le théorème
+    // d'invariance — tout départage fonction du passé est gratuit.
+    // Les constantes ci-dessous restent la référence mesurée sur les
+    // 70 560 tirages du labo (d7), utilisée par les tests du mécanisme.
     static let bonusEchoDeficit = 0.003951      // en probabilité d'inclusion
     static let bonusEchoRelative = 0.0158       // 0,003951 / 0,25, en unités z
 
@@ -661,12 +672,17 @@ final class SwarmEngine {
 
     /// Applique le départage de l'écho du bonus à un champ de scores.
     /// Sans bonus connu, le champ ressort inchangé.
-    static func applyBonusEcho(_ score: [Double], bonus: Int?) -> [Double] {
+    static func applyBonusEcho(_ score: [Double], bonus: Int?,
+                               relative: Double = bonusEchoRelative) -> [Double] {
         guard let bonus, (1...pool).contains(bonus), score.count == pool else { return score }
         var out = score
-        out[bonus - 1] -= bonusEchoRelative
+        out[bonus - 1] -= relative
         return out
     }
+
+    // Départage appris : (0,25 − posterior), en probabilité et en relatif.
+    private var echoDeficitHat: Double { Self.baseP - echoHits / echoCount }
+    private var echoRelativeHat: Double { echoDeficitHat / Self.baseP }
 
     private var heads: [SwarmHead] = []
     private var headCount = 0
@@ -705,14 +721,17 @@ final class SwarmEngine {
     // instant de relance (Σ w_k = 1), et la trésorerie des paris pas encore
     // lancés reste comptée :
     //
-    //     S_t = f_t · (S_{t-1} + w_t)          récurrence O(1)
-    //     N_t = S_t + Σ_{k>t} w_k = S_t + 1/(t+1)
+    //     S_t = f_t · (S_{t-1} + w_j au 1er pas du bloc j)
+    //     N_t = S_t + Σ_{blocs restants} w_j
     //
     // N_t est une VRAIE martingale positive de moyenne 1 : Ville s'applique
-    // au supremum, le seuil 20 garde sa garantie α = 5 % à tout instant —
-    // mesuré à 0,042 ± 0,013 sur 240 archives simulées. Un biais apparu au
-    // pas k se paie ln(k(k+1)) de plus qu'un biais initial : c'est le prix
-    // exact de l'honnêteté uniforme dans le temps.
+    // au supremum, le seuil 20 garde sa garantie α = 5 % à tout instant.
+    // Les relances s'arment par BLOCS de 16 tirages, prior 1/(j(j+1)) sur
+    // l'indice de bloc : un biais apparu au pas k coûte 2·ln(k/16) nats au
+    // lieu de 2·ln k — 5,5 nats rendus, contre un retard d'au plus
+    // 16 tirages (80 minutes). Mesuré (`lab/experiments/h2_ameliorations.py`,
+    // 240 archives simulées) : fausses alertes 0,025 ± 0,010, et puissance
+    // 0,57 → 0,82 sur le cas frontière du labo.
     //
     // Deux familles de paris, sur les deux seules quantités dont la loi sous
     // H0 est EXACTE ici : le recouvrement du top-20 (hypergéométrique) et
@@ -736,10 +755,15 @@ final class SwarmEngine {
     private var seen = Set<Int>()
     // Bonus du dernier tirage absorbé — cible de l'écho (cf. bonusEchoDeficit).
     private var lastBonus: Int?
+    // Posterior Beta(1,3) de P(bonus précédent ∈ tirage) : hits/count.
+    private var echoHits = 1.0
+    private var echoCount = 4.0
     private var lastDrawNumber = Int.min
     private var absorbed = 0
     private var prevRanks: [Int]?
     private static let thetaGrid: [Double] = [0.05, 0.10, 0.20, 0.40, -0.05, -0.10, -0.20, -0.40]
+    // Taille des blocs de relance du moniteur (cf. commentaire E-process).
+    static let restartBlock = 16
     private let overlapPMF: [Double]
     private let logMs: [Double]
     private let logMsBonus: [Double]
@@ -794,6 +818,8 @@ final class SwarmEngine {
         adjSeries = []
         seen = []
         lastBonus = nil
+        echoHits = 1
+        echoCount = 4
         lastDrawNumber = Int.min
         absorbed = 0
         prevRanks = nil
@@ -869,6 +895,11 @@ final class SwarmEngine {
             }
 
             seen.insert(draw.drawNumber)
+            // L'écho apprend sa propre taille : une observation par tirage.
+            if let pb = lastBonus, (1...Self.pool).contains(pb) {
+                echoCount += 1
+                if drawn.contains(pb) { echoHits += 1 }
+            }
             if let b = draw.bonus, (1...Self.pool).contains(b) { lastBonus = b }
             lastDrawNumber = max(lastDrawNumber, draw.drawNumber)
             absorbed += 1
@@ -889,18 +920,30 @@ final class SwarmEngine {
         // biais apparu tard. Le plafond à 80 ne fait que RÉDUIRE la richesse :
         // il garde l'objet sur-martingale, donc l'e-valeur reste valide.
         let echoHit = lastBonus.map { drawn.contains($0) ? 1.0 : 0.0 }
-        let tOv = Double(eSteps + 1)
-        let lwOv = -log(tOv * (tOv + 1))
-        let tBo = Double(eBonusSteps + 1)
-        let lwBo = -log(tBo * (tBo + 1))
+        // Au premier pas d'un bloc, la relance de ce bloc s'arme avec son
+        // poids a priori 1/(j(j+1)) ; ensuite chaque pas paie le pari.
+        if eSteps % Self.restartBlock == 0 {
+            let jb = Double(eSteps / Self.restartBlock + 1)
+            let lw = -log(jb * (jb + 1))
+            for j in 0..<Self.thetaGrid.count {
+                srLogs[j] = Self.logAddExp(srLogs[j], lw)
+            }
+        }
+        if echoHit != nil, eBonusSteps % Self.restartBlock == 0 {
+            let jb = Double(eBonusSteps / Self.restartBlock + 1)
+            let lw = -log(jb * (jb + 1))
+            for j in 0..<Self.thetaGrid.count {
+                srBonusLogs[j] = Self.logAddExp(srBonusLogs[j], lw)
+            }
+        }
         for j in 0..<Self.thetaGrid.count {
             let logF = Self.thetaGrid[j] * overlap - logMs[j]
             eLogs[j] = min(80, eLogs[j] + logF)
-            srLogs[j] = min(80, Self.logAddExp(srLogs[j], lwOv) + logF)
+            srLogs[j] = min(80, srLogs[j] + logF)
             guard let x = echoHit else { continue }
             let logG = Self.thetaGrid[j] * x - logMsBonus[j]
             eBonusLogs[j] = min(80, eBonusLogs[j] + logG)
-            srBonusLogs[j] = min(80, Self.logAddExp(srBonusLogs[j], lwBo) + logG)
+            srBonusLogs[j] = min(80, srBonusLogs[j] + logG)
         }
         eSteps += 1
         if echoHit != nil { eBonusSteps += 1 }
@@ -1053,8 +1096,11 @@ final class SwarmEngine {
         // La moyenne d'e-valeurs est une e-valeur : aucune correction due.
         var eSum = 0.0
         var eCount = 0
-        let cashOv = 1 / Double(eSteps + 1)
-        let cashBo = 1 / Double(eBonusSteps + 1)
+        // Trésorerie : Σ des poids des blocs pas encore armés = 1/(armés+1).
+        let armedOv = (eSteps + Self.restartBlock - 1) / Self.restartBlock
+        let armedBo = (eBonusSteps + Self.restartBlock - 1) / Self.restartBlock
+        let cashOv = 1 / Double(armedOv + 1)
+        let cashBo = 1 / Double(armedBo + 1)
         for logW in eLogs { eSum += exp(min(60, logW)); eCount += 1 }
         for logW in eBonusLogs { eSum += exp(min(60, logW)); eCount += 1 }
         for logR in srLogs { eSum += exp(min(60, logR)) + cashOv; eCount += 1 }
@@ -1159,6 +1205,7 @@ final class SwarmEngine {
             gaps: gap,
             freq16: freq16,
             bonusEcho: lastBonus,
+            bonusEchoHat: echoRelativeHat,
             swarm: swarmStats
         )
     }
@@ -1170,8 +1217,10 @@ final class SwarmEngine {
         var alpha: [Double]
         var omega: [Double]
         var nexus: [Double]
-        // Numéro bonus du tirage précédent, pénalisé au départage.
+        // Numéro bonus du tirage précédent, départagé à la sélection.
         var bonusEcho: Int?
+        // Taille apprise du départage (cf. echoRelativeHat).
+        var echoRelative: Double
     }
 
     func gridSources() -> GridSources {
@@ -1200,18 +1249,20 @@ final class SwarmEngine {
             return out
         }
         let inclusionIdx = heads.firstIndex { $0.id == "bayes.b" } ?? 0
-        // L'écho s'applique ici en PROBABILITÉ, la seule unité où le déficit
-        // mesuré (0,003951) a un sens dimensionnel.
+        // L'écho s'applique ici en PROBABILITÉ, la seule unité où un déficit
+        // a un sens dimensionnel — et sa taille est le posterior appris, qui
+        // s'éteint de lui-même si l'effet n'existe pas.
         var inclusion = rawFields[inclusionIdx]
         if let b = lastBonus, (1...Self.pool).contains(b) {
-            inclusion[b - 1] -= Self.bonusEchoDeficit
+            inclusion[b - 1] -= echoDeficitHat
         }
         return GridSources(
             inclusion: inclusion,
             alpha: tagBlend(.momentum),
             omega: tagBlend(.reversion),
             nexus: ensemble,
-            bonusEcho: lastBonus
+            bonusEcho: lastBonus,
+            echoRelative: echoRelativeHat
         )
     }
 
@@ -1305,14 +1356,16 @@ final class SwarmEngine {
             // Départage de l'écho du bonus, appliqué après l'inversion pour
             // l'anti : c'est une affirmation sur le tirage, pas une stratégie,
             // donc elle vaut dans les deux sens.
-            let ranked = Self.applyBonusEcho(source, bonus: sources.bonusEcho)
+            let ranked = Self.applyBonusEcho(source, bonus: sources.bonusEcho,
+                                             relative: sources.echoRelative)
             let first = greedyPick(k: stake, score: spread(ranked), kind: kind, banned: [])
             take(first)
             let second = greedyPick(k: stake, score: spread(ranked), kind: kind, banned: Set(first))
             take(second)
             let anti = greedyPick(
                 k: stake,
-                score: spread(Self.applyBonusEcho(source.map { -$0 }, bonus: sources.bonusEcho)),
+                score: spread(Self.applyBonusEcho(source.map { -$0 }, bonus: sources.bonusEcho,
+                                                  relative: sources.echoRelative)),
                 kind: kind, banned: [])
             take(anti)
             // Furtif : même signal, pénalisé par la popularité humaine —
@@ -1321,7 +1374,8 @@ final class SwarmEngine {
             for i in 0..<Self.pool { stealthScore[i] -= 0.4 * Self.popularity[i] }
             let stealth = greedyPick(
                 k: stake,
-                score: spread(Self.applyBonusEcho(stealthScore, bonus: sources.bonusEcho)),
+                score: spread(Self.applyBonusEcho(stealthScore, bonus: sources.bonusEcho,
+                                                  relative: sources.echoRelative)),
                 kind: kind, banned: [])
             take(stealth)
             // Loi de survie exacte : identique pour toutes les grilles de même

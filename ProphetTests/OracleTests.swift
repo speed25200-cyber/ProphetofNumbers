@@ -306,11 +306,11 @@ final class OracleTests: XCTestCase {
         // h1 : la relance NAÏVE R_t/t est elle-même fautive. R_t est une
         // sous-martingale, donc sup_t R_t/t n'est pas couvert par Ville :
         // 12 % de fausses alertes mesurées pour 5 % promis. La forme
-        // honnête pèse la relance de l'instant k par w_k = 1/(k(k+1)) et
-        // garde la trésorerie des paris à venir :
-        //     S_t = f_t·(S_{t−1} + w_t),  N_t = S_t + 1/(t+1)
-        // N_t est une vraie martingale de moyenne 1 (fausses alertes
-        // mesurées : 0,042 ± 0,013 sur 240 archives simulées).
+        // honnête arme une relance par BLOC de 16 tirages, pesée par le
+        // prior 1/(j(j+1)) sur l'indice de bloc, trésorerie comptée —
+        // une vraie martingale de moyenne 1, budget 2·ln(k/16) nats
+        // (h2 : fausses alertes 0,025 ± 0,010 sur 240 archives, puissance
+        // 0,57 → 0,82 sur le cas frontière).
         //
         // Ce test rejoue le mécanisme corrigé sur la famille de l'écho du
         // bonus, dont la loi sous H0 est une Bernoulli(20/80) exacte.
@@ -326,6 +326,7 @@ final class OracleTests: XCTestCase {
                 return Double(seed >> 33) / 2147483648.0 < q ? 1 : 0
             }
             let quiet = 20_000, loud = 400
+            let block = SwarmEngine.restartBlock
             var cum = 0.0, sr = -Double.infinity
             var maxCum = 0.0, maxN = 0.0
             var n = 0.0
@@ -334,10 +335,13 @@ final class OracleTests: XCTestCase {
                 let x = biased ? 1.0 : bernoulli(p)
                 let logF = theta * x - logM
                 cum += logF
-                let lw = -log(Double(t + 1) * Double(t + 2))
-                sr = SwarmEngine.logAddExp(sr, lw) + logF
+                if t % block == 0 {
+                    let jb = Double(t / block + 1)
+                    sr = SwarmEngine.logAddExp(sr, -log(jb * (jb + 1)))
+                }
+                sr = min(700, sr + logF)
                 maxCum = max(maxCum, cum)
-                n = exp(min(700, sr)) + 1 / Double(t + 2)
+                n = exp(min(700, sr)) + 1 / Double(t / block + 2)
                 maxN = max(maxN, n)
             }
             return (exp(cum), exp(maxCum), n, maxN)
@@ -355,7 +359,7 @@ final class OracleTests: XCTestCase {
         XCTAssertLessThan(late.cumSup, 20,
                           "un pari jamais relancé reste aveugle à un défaut tardif")
         // Le mélange de relances martingale, lui, le voit — et de très loin
-        // (valeur exacte re-dérivée en Python : 1,666e42).
+        // (valeur exacte re-dérivée en Python : 3,114e43).
         XCTAssertGreaterThan(late.nFinal, 1e40)
 
         // Témoin POSITIF : quand le défaut est au DÉBUT, le pari cumulé le
@@ -364,10 +368,37 @@ final class OracleTests: XCTestCase {
         XCTAssertGreaterThan(early.cumSup, 20)
         XCTAssertGreaterThan(early.nSup, 1e45)
         // Et l'honnêteté du schéma : une fois le défaut passé depuis 20 000
-        // pas, la richesse relancée est DÉPENSÉE (4,9e-5 re-dérivé) — c'est
+        // pas, la richesse relancée est DÉPENSÉE (7,8e-4 re-dérivé) — c'est
         // le supremum courant qu'un moniteur en direct aurait lu, pas la
         // valeur finale.
         XCTAssertLessThan(early.nFinal, 1)
+    }
+
+    func testBonusEchoLearnsItsOwnSize() {
+        // Le départage n'est plus une constante : c'est le posterior
+        // Beta(1,3) de P(bonus précédent ∈ tirage), appris en rejouant
+        // l'historique. Ce test recompte les observations À LA MAIN depuis
+        // l'historique synthétique et exige que l'app tombe sur le même
+        // posterior — au bit près.
+        let history = syntheticHistory()
+        let ordered = history.sorted { $0.drawNumber < $1.drawNumber }
+        var hits = 0.0, tries = 0.0
+        var prevBonus: Int?
+        for d in ordered {
+            if let pb = prevBonus, (1...80).contains(pb) {
+                tries += 1
+                if d.numbers.contains(pb) { hits += 1 }
+            }
+            if let b = d.bonus, (1...80).contains(b) { prevBonus = b }
+        }
+        XCTAssertGreaterThan(tries, 70, "l'historique synthétique doit nourrir l'estimateur")
+        let posterior = (1 + hits) / (4 + tries)
+        let expected = (0.25 - posterior) / 0.25
+        let result = Swarm.run(history)
+        XCTAssertEqual(result.bonusEchoHat, expected, accuracy: 1e-12)
+        // Et l'ordre de grandeur sous un historique pseudo-aléatoire : la
+        // correction apprise doit rester petite — c'est son intérêt même.
+        XCTAssertLessThan(abs(result.bonusEchoHat), 0.5)
     }
 
     func testLogAddExpMatchesItsDefinition() {
@@ -507,6 +538,8 @@ final class OracleTests: XCTestCase {
         XCTAssertEqual(result.confidence, 50)
         // Sans tirage, la martingale n'a pas parié : richesse neutre.
         XCTAssertEqual(result.eValue, 1.0, accuracy: 0.0001)
+        // Et l'écho n'a rien appris : correction nulle (prior centré à 0,25).
+        XCTAssertEqual(result.bonusEchoHat, 0, accuracy: 1e-12)
         XCTAssertEqual(result.duplicateMax, 0)
         XCTAssertFalse(result.duplicateAlert)
         XCTAssertEqual(result.swarm.generation, 0)

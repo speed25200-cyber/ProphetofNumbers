@@ -158,10 +158,14 @@ struct OracleResult {
     // État courant du champ 1–80.
     var gaps: [Int]
     var freq16: [Double]
-    // Écho du bonus : le numéro bonus du dernier tirage, pénalisé au
-    // départage dans la sélection (cf. Swarm.bonusEchoRelative). nil tant
-    // qu'aucun tirage absorbé n'a publié de bonus.
+    // Écho du bonus : le numéro bonus du dernier tirage, départagé dans la
+    // sélection. nil tant qu'aucun tirage absorbé n'a publié de bonus.
     var bonusEcho: Int?
+    // Taille APPRISE du départage, en unités relatives : (0,25 − posterior)
+    // / 0,25, posterior Beta(1,3) de P(bonus précédent ∈ tirage). Sous un
+    // générateur équitable elle s'éteint en 1/√n ; sur l'archive réelle
+    // elle converge d'elle-même vers le déficit mesuré par le labo.
+    var bonusEchoHat: Double
     // Diagnostics de l'essaim.
     var swarm: SwarmStats
 }

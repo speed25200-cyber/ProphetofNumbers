@@ -144,8 +144,8 @@ def main():
 
     # 1 ter. testRestartMixtureSeesALateDefectThatACumulativeBetCannot :
     # même arithmétique, même graine, même LCG que le test Swift — forme
-    # MARTINGALE (h1) : S_t = f_t·(S_{t−1} + w_t), N_t = S_t + 1/(t+1),
-    # w_t = 1/(t(t+1)).
+    # martingale par BLOCS (h2) : au 1er pas du bloc j, S += w_j = 1/(j(j+1)),
+    # puis S *= f ; N = S + 1/(bloc_courant + 2).
     import math as _m
 
     def _lae(a, b):
@@ -167,16 +167,19 @@ def main():
 
         theta, pb = 0.40, 0.25
         log_m = _m.log(pb * _m.exp(theta) + (1 - pb))
-        quiet, loud = 20000, 400
+        quiet, loud, block = 20000, 400, 16
         cum, sr, mc, mn, n = 0.0, -_m.inf, 0.0, 0.0, 0.0
         for t in range(quiet + loud):
             biased = t < loud if defect_first else t >= quiet
             x = 1.0 if biased else bern(pb)
             lf = theta * x - log_m
             cum += lf
-            sr = _lae(sr, -_m.log((t + 1) * (t + 2))) + lf
+            if t % block == 0:
+                j = t // block + 1
+                sr = _lae(sr, -_m.log(j * (j + 1)))
+            sr = min(700, sr + lf)
             mc = max(mc, cum)
-            n = _m.exp(min(700, sr)) + 1.0 / (t + 2)
+            n = _m.exp(min(700, sr)) + 1.0 / (t // block + 2)
             mn = max(mn, n)
         return _m.exp(cum), _m.exp(mc), n, mn
 
@@ -186,12 +189,12 @@ def main():
         ("valeur finale du pari cumule identique tot/tard",
          abs(lc_f - ec_f) <= 1e-12 * max(1.0, ec_f), f"{lc_f:.3e} contre {ec_f:.3e}"),
         ("defaut TARDIF : sup du pari cumule sous 20", lc_s < 20, f"{lc_s:.3f}"),
-        ("defaut TARDIF : martingale relancee au-dessus de 1e40", ln_f > 1e40, f"{ln_f:.3e}"),
+        ("defaut TARDIF : martingale par blocs au-dessus de 1e40", ln_f > 1e40, f"{ln_f:.3e}"),
         ("temoin, defaut TOT : sup du pari cumule au-dessus de 20", ec_s > 20, f"{ec_s:.3e}"),
         ("temoin, defaut TOT : sup de la martingale au-dessus de 1e45", en_s > 1e45, f"{en_s:.3e}"),
         ("defaut TOT : richesse relancee depensee en fin de course", en_f < 1, f"{en_f:.3e}"),
     ]
-    print("\n1 ter. melange de relances, forme martingale (h1) :")
+    print("\n1 ter. melange de relances par blocs, forme martingale (h2) :")
     for label, good, val in checks:
         print(f"       {label:<56} {val:>12}   {'ok' if good else 'ÉCHEC'}")
         ok &= good

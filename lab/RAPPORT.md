@@ -1537,3 +1537,19 @@ confronte pas à une simulation fidèle ne protège de rien.
 
 **Registre : inchangé à 113 entrées — h1 ne teste pas l'archive, il prouve
 et corrige.** Zéro significatif.
+
+## 15. Deux raffinements prouvés puis câblés (`h2_ameliorations.py`)
+
+- **L'écho adaptatif.** La correction figée (−0,0158) devient le posterior
+  Beta(1,3) de P(bonus précédent ∈ tirage). Sur l'archive réelle il
+  converge de lui-même à +0,015801 — l'archive enseigne la constante qui
+  était écrite à la main ; sous H₀ il s'éteint en 1/√n (+0,0015 ± 0,0060
+  mesuré sur 20 archives). Gratuit par le théorème d'invariance.
+- **Le prior par blocs.** Les relances du moniteur s'arment par blocs de
+  16 tirages : 5,5 nats de budget rendus, retard maximal 80 minutes.
+  Mesuré : fausses alertes 0,042 → **0,025**, puissance 0,57 → **0,82**
+  sur le cas frontière — dominance sur toute la table.
+
+Ces deux changements sont la réponse exacte à « comment mieux prédire » :
+pas un choix de numéros (impossible, théorème), mais une politique qui
+capte plus vite tout biais réel et n'invente jamais rien sous H₀.
