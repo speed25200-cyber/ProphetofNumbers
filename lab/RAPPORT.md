@@ -7358,3 +7358,60 @@ un opérateur qui aurait choisi 79 numéros au lieu de 80 l'aurait fermée sans
 le savoir, sans changer une ligne de son code.
 
 **Registre : inchangé.** `h55` ne teste pas l'archive — il dérive.
+
+## 75. Le câblage du §70, corrigé par le §72
+
+Le §70 a câblé le budget de fuite dans l'app en lui passant
+`longestConsecutiveRun` — la plus longue suite de tirages ordonnés
+**consécutifs**. Deux sections plus tard, le §72 a démontré que la
+consécutivité **n'est pas nécessaire** : avancer un générateur F₂-linéaire de
+`k` pas reste une application linéaire.
+
+> **Mon propre théorème a invalidé mon propre câblage.** L'app affichait une
+> cible inutilement pessimiste — elle jetait trois des cinq tirages ordonnés
+> du dossier, exactement l'erreur que le §72 a corrigée côté labo.
+
+### Ce qui est corrigé
+
+`LeakBudget.status(run:)` devient `status(count:)` : le paramètre est un
+**nombre** de tirages ordonnés, pas une suite.
+
+### Mais le compte lui-même a deux lectures
+
+Le théorème du trou exige de savoir **de combien de mots** le trou a avancé
+l'état. Sous Fisher-Yates c'est exact — *à condition que le générateur n'ait
+pas été ré-amorcé entre-temps.* Or le §65 n'a pas tranché cette question.
+
+D'où deux budgets, et les afficher tous les deux est la seule position tenable :
+
+| lecture | hypothèse | compte |
+|---|---|---|
+| `continuous` | le générateur traverse les coupures | **tous** les tirages ordonnés |
+| `perSession` | il se ré-amorce chaque matin | le **maximum par session** |
+
+Le découpage vient du §65, mesuré : **345 sessions de 204 tirages**, première
+session complète à partir du tirage **1 309 794**. Les numéros de tirage étant
+consécutifs à travers les coupures, la session ne se lit que par ce découpage.
+
+L'app affiche désormais le compte **prudent** (`perSession`) comme cible, et
+signale le compte optimiste entre parenthèses quand les deux diffèrent.
+
+### Vérification
+
+Les cinq tirages ordonnés du dossier tombent tous dans la **session 349** :
+les deux lectures coïncident aujourd'hui (5 et 5), et la correction ne change
+donc aucun chiffre affiché — elle change ce que l'affichage **signifie**, et
+elle le rendra juste dès que la collecte franchira une coupure.
+
+`verif_swift.py` : 0 nœud invalide sur les trois fichiers.
+`verif_logique.py` : le découpage en sessions vérifié (les cinq tirages en
+session 349 ; une coupure sépare bien deux sessions). Un test XCTest ajouté
+pour les deux lectures.
+
+### La leçon, et elle vaut d'être gardée
+
+Le §70 obéissait au principe du §51 — ne câbler que ce qui repose sur des
+quantités observables — et il l'a bien fait. Ce qu'il ne pouvait pas faire,
+c'est anticiper qu'une section ultérieure élargirait le théorème sur lequel il
+s'appuyait. **Un câblage correct peut devenir périmé sans jamais avoir été
+faux**, et le seul remède est de le relire quand le théorème bouge.

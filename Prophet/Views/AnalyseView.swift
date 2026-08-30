@@ -231,7 +231,12 @@ struct RecoveryCard: View {
             // candidats se referme, à pas pair jamais.
             if !store.orderedLog.isEmpty {
                 let run = store.longestConsecutiveRun
-                let budget = LeakBudget.status(run: run)
+                // Le theoreme du trou (§72) : ce qui compte est le NOMBRE de
+                // tirages ordonnes, pas leur voisinage. Deux lectures, parce
+                // que le §65 n'a pas tranche si le generateur traverse les
+                // coupures de session.
+                let bud = LeakBudget.budgets(drawNumbers: store.orderedLog.map(\.drawNumber))
+                let budget = LeakBudget.status(count: bud.perSession)
                 Text("Journal des tirages ordonnés : \(store.orderedLog.count) conservé"
                      + (store.orderedLog.count > 1 ? "s" : "")
                      + ", plus longue suite consécutive \(run)."
@@ -246,7 +251,7 @@ struct RecoveryCard: View {
                 // suite consécutive résout l'état d'une classe de plus, quelle
                 // que soit la graine. Le compteur cesse d'être un décompte
                 // pour devenir une cible.
-                Text(Self.leakLine(budget: budget))
+                Text(Self.leakLine(budget: budget, bud: bud))
                     .font(.system(size: 10))
                     .foregroundStyle(budget.closed > 0 ? Palette.goldSoft : Palette.subtle)
             }
@@ -316,20 +321,25 @@ struct RecoveryCard: View {
     // pas — pas un « rien trouvé » déguisé.
     /// Le libellé du budget de fuite (§68, §69). Séparé de la vue pour être
     /// testable hors de SwiftUI.
-    static func leakLine(budget: (closed: Int, next: LeakBudget.Milestone?, minutes: Int)) -> String {
+    static func leakLine(budget: (closed: Int, next: LeakBudget.Milestone?, minutes: Int),
+                         bud: (continuous: Int, perSession: Int)) -> String {
         let n = budget.closed
         let head = n == 0
             ? "Fuite modulaire : aucune classe résolue pour l'instant."
             : "Fuite modulaire : \(n) classe" + (n > 1 ? "s" : "")
               + " de générateurs résolue" + (n > 1 ? "s" : "")
               + " par cette suite, pour toute graine."
+        let deux = bud.continuous == bud.perSession
+            ? ""
+            : " (\(bud.continuous) ordonnés en tout, \(bud.perSession) dans une même session —"
+              + " le compte retenu, faute de savoir si le générateur traverse les coupures)"
         guard let next = budget.next else {
-            return head + " Toute l'échelle est franchie."
+            return head + deux + " Toute l'échelle est franchie."
         }
         let d = budget.minutes < 120
             ? "\(budget.minutes) min"
             : String(format: "%.1f h", Double(budget.minutes) / 60)
-        return head + " Palier suivant à \(next.draws) consécutifs — \(d) de collecte — "
+        return head + deux + " Palier suivant à \(next.draws) tirages ordonnés — \(d) de collecte — "
             + "il ouvrirait \(next.family)."
     }
 

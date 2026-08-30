@@ -647,6 +647,19 @@ def main():
     print(f"    MT19937 hors d'une session : {sess:,} bits < 19 937, "
           f"facteur {19937/sess:.2f}   {'ok' if f and g else 'ÉCHEC'}")
 
+    # Les deux lectures du budget (§72, §75) : le decoupage en sessions,
+    # mesure au §65 (ancre 1 309 794, periode 204).
+    ANCRE, PER = 1_309_794, 204
+    sess_of = lambda n: (n - ANCRE) // PER
+    ordered = [1381023, 1381026, 1381028, 1381030, 1381031]
+    sessions = {sess_of(n) for n in ordered}
+    h1 = sessions == {349}
+    h2 = sess_of(ANCRE) == 0 and sess_of(ANCRE + PER) == 1
+    ok &= h1 and h2
+    print(f"    les 5 tirages ordonnés tombent dans la session "
+          f"{sorted(sessions)}   {'ok' if h1 else 'ÉCHEC'}")
+    print(f"    une coupure sépare bien deux sessions   {'ok' if h2 else 'ÉCHEC'}")
+
     print(f"\n{'=' * 74}")
     print("VERDICT :", "toutes les assertions des tests Swift sont satisfaites"
           if ok else "AU MOINS UNE ASSERTION ÉCHOUERAIT")

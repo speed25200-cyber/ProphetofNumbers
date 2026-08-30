@@ -902,15 +902,38 @@ final class OracleTests: XCTestCase {
         // demander moins de tirages.
         XCTAssertEqual(LeakBudget.ladder.map(\.draws), expected.sorted())
 
-        // Le statut, aux trois points qui comptent.
-        XCTAssertEqual(LeakBudget.status(run: 0).closed, 0)
-        XCTAssertEqual(LeakBudget.status(run: 0).next?.draws, 1)
-        XCTAssertEqual(LeakBudget.status(run: 2).closed, 2,
-                       "deux consecutifs ferment xorshift jusqu'a 128 bits")
-        XCTAssertEqual(LeakBudget.status(run: 2).next?.draws, 4)
-        XCTAssertEqual(LeakBudget.status(run: 2).minutes, 10)
-        XCTAssertEqual(LeakBudget.status(run: 250).closed, 6)
-        XCTAssertNil(LeakBudget.status(run: 250).next)
+        // Le statut, aux trois points qui comptent. Le parametre est un
+        // NOMBRE de tirages ordonnes, pas une suite consecutive : c'est le
+        // theoreme du trou (§72).
+        XCTAssertEqual(LeakBudget.status(count: 0).closed, 0)
+        XCTAssertEqual(LeakBudget.status(count: 0).next?.draws, 1)
+        XCTAssertEqual(LeakBudget.status(count: 2).closed, 2,
+                       "deux tirages ordonnes ferment xorshift jusqu'a 128 bits")
+        XCTAssertEqual(LeakBudget.status(count: 2).next?.draws, 4)
+        XCTAssertEqual(LeakBudget.status(count: 2).minutes, 10)
+        XCTAssertEqual(LeakBudget.status(count: 250).closed, 6)
+        XCTAssertNil(LeakBudget.status(count: 250).next)
+    }
+
+    func testBudgetHasTwoReadingsBecauseSessionResetIsUndecided() {
+        // Le §65 n'a pas tranche si le generateur traverse les coupures de
+        // session. Le budget a donc DEUX lectures, et les afficher toutes les
+        // deux est la seule position tenable.
+        let ordered = [1_381_023, 1_381_026, 1_381_028, 1_381_030, 1_381_031]
+        let b = LeakBudget.budgets(drawNumbers: ordered)
+        XCTAssertEqual(b.continuous, 5)
+        XCTAssertEqual(b.perSession, 5, "les cinq tombent dans la meme session")
+        // Toutes dans la session 349, mesuree sur l'archive au §65.
+        XCTAssertEqual(Set(ordered.map(LeakBudget.session(of:))), [349])
+
+        // Deux tirages separes par une coupure ne se chainent pas si le
+        // generateur se re-amorce : la lecture prudente les compte a part.
+        let across = [LeakBudget.sessionAnchor, LeakBudget.sessionAnchor + LeakBudget.sessionLength]
+        let c = LeakBudget.budgets(drawNumbers: across)
+        XCTAssertEqual(c.continuous, 2)
+        XCTAssertEqual(c.perSession, 1, "une coupure separe les deux")
+
+        XCTAssertEqual(LeakBudget.budgets(drawNumbers: []).continuous, 0)
     }
 
     func testMT19937IsOutOfReachWithinASingleSession() {

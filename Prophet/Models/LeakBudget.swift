@@ -16,9 +16,16 @@ import Foundation
 // l'état, et la taille de l'espace cesse d'être une variable.
 //
 // CE QUE CETTE CARTE FAIT. L'app collectait déjà l'ordre de sortie sans savoir
-// ce qu'il vaut. Le théorème le dit : chaque palier de tirages ORDONNÉS
-// CONSÉCUTIFS ferme une classe de générateurs de plus. Le compteur devient donc
-// un instrument, avec une cible.
+// ce qu'il vaut. Le théorème le dit : chaque palier de tirages ORDONNÉS ferme
+// une classe de générateurs de plus. Le compteur devient donc un instrument,
+// avec une cible.
+//
+// LES TIRAGES N'ONT PAS À ÊTRE CONSÉCUTIFS (§72, théorème du trou) : avancer un
+// générateur F₂-linéaire de k pas reste une application linéaire, donc un trou
+// ne détruit aucune équation dès qu'on sait de combien de mots il a avancé
+// l'état — ce qui est exact sous Fisher-Yates. Une première version de cette
+// carte comptait la plus longue suite CONSÉCUTIVE et jetait donc trois des cinq
+// tirages ordonnés du dossier.
 //
 // CE QU'ELLE NE DIT PAS. Le théorème suppose (a) l'échantillonnage par rejet
 // modulo 80 — un Fisher-Yates ne fuit que 22 bits par tirage au lieu de 80,
@@ -75,13 +82,53 @@ enum LeakBudget {
         ]
     }()
 
-    /// Ce qu'une suite de `run` tirages ordonnés consécutifs a déjà fermé, et
-    /// ce qu'il reste à collecter pour le palier suivant.
-    static func status(run: Int) -> (closed: Int, next: Milestone?, minutes: Int) {
-        let done = ladder.filter { $0.draws <= run }.count
-        let next = ladder.first { $0.draws > run }
-        let missing = next.map { $0.draws - run } ?? 0
+    /// Ce qu'un jeu de `n` tirages ordonnés a déjà fermé, et ce qu'il reste à
+    /// collecter pour le palier suivant.
+    ///
+    /// `n` est un NOMBRE, pas une suite consécutive — c'est le théorème du
+    /// trou (§72) : avancer un générateur F₂-linéaire de k pas reste linéaire,
+    /// donc deux tirages séparés se chaînent comme deux voisins dès qu'on sait
+    /// de combien de mots le trou a avancé l'état. Sous Fisher-Yates c'est
+    /// exact (20 mots par tirage), donc gratuit.
+    ///
+    /// Une première version de cette carte passait `longestConsecutiveRun` et
+    /// affichait donc une cible inutilement pessimiste : elle jetait trois des
+    /// cinq tirages ordonnés du dossier. C'est le §72 qui l'a corrigée.
+    static func status(count n: Int) -> (closed: Int, next: Milestone?, minutes: Int) {
+        let done = ladder.filter { $0.draws <= n }.count
+        let next = ladder.first { $0.draws > n }
+        let missing = next.map { $0.draws - n } ?? 0
         return (done, next, missing * 5)
+    }
+
+    // MARK: Les deux lectures du budget
+
+    /// Longueur d'une session, et premier début de session complet observé —
+    /// mesurés sur l'archive au §65 : 345 sessions de 204 tirages exactement,
+    /// chacune ouvrant à 04:05:00 UTC.
+    static let sessionAnchor = 1_309_794
+
+    /// Index de session d'un tirage. Les numéros de tirage sont consécutifs à
+    /// travers les coupures, donc la session ne se lit QUE par ce découpage.
+    static func session(of drawNumber: Int) -> Int {
+        (drawNumber - sessionAnchor) / sessionLength
+    }
+
+    /// Le budget a deux lectures, et le dossier ne sait pas trancher entre
+    /// elles (§65 : le générateur se ré-amorce-t-il à l'ouverture ?).
+    ///
+    /// - `continuous` : si le générateur traverse les coupures, TOUS les
+    ///   tirages ordonnés se chaînent — c'est leur nombre total.
+    /// - `perSession` : s'il se ré-amorce chaque matin, seuls ceux d'une même
+    ///   session se chaînent — c'est le maximum par session.
+    ///
+    /// Les afficher tous les deux est la seule lecture honnête tant que la
+    /// question du §65 n'est pas tranchée.
+    static func budgets(drawNumbers: [Int]) -> (continuous: Int, perSession: Int) {
+        guard !drawNumbers.isEmpty else { return (0, 0) }
+        var perSession: [Int: Int] = [:]
+        for n in drawNumbers { perSession[session(of: n), default: 0] += 1 }
+        return (drawNumbers.count, perSession.values.max() ?? 0)
     }
 
     /// Le mur que la collecte ne franchira pas si le générateur se ré-amorce à
