@@ -2458,7 +2458,7 @@ universel sur les schémas d'amorçage :
 | `sweep_order` | nanosecondes d'époque ± 1 s | idem | **0** |
 | `sweep_linked` | décalages [0, 2³²), graine = **numéro de tirage + B** | idem, sur 10 tirages étalés sur des mois | **0** |
 | `sweep_java48` | **les 2⁴⁸ états complets** | java.util.Random, Fisher-Yates | **0** |
-| `sweep_mt` | graines [0, 2³²) | MT19937 × 2 amorçages × 5 échantillonneurs | *en cours* |
+| `sweep_mt` | graines [0, 2³²) | MT19937 × 2 amorçages × 5 échantillonneurs | **0** |
 
 Les douze familles vont des LCG historiques (java.util.Random, MSVC, glibc)
 aux familles modernes (xoshiro256\*\*, xoshiro128\*\*, xoroshiro128+, pcg32,
@@ -2515,6 +2515,15 @@ l'ordre conservé avant d'attaquer. L'accumulation de tirages *consécutifs*
 — la quantité que §27 désigne comme décisive — se fait ainsi toute seule, à
 raison d'un toutes les cinq minutes, sans que personne ait à relever quoi
 que ce soit.
+
+**Le Mersenne Twister, entièrement.** C'est le générateur le plus répandu du
+logiciel ordinaire — `random` de Python, `mt_rand` de PHP, `RandomState` de
+numpy, la bibliothèque standard de Ruby — et il s'amorce partout par un
+entier de 32 bits, donc il est intégralement balayable. Les 4 294 967 296
+graines, les deux amorçages (`init_genrand` canonique et le `random.seed(n)`
+de CPython), les cinq échantillonneurs dont `random.sample` et
+`random.shuffle` transcrits à la ligne près : **zéro graine compatible**, en
+9 h 20 de temps processeur.
 
 **Ce que cette campagne laisse ouvert, et il faut le nommer.** Les graines de
 plus de 32 bits non dérivées d'une horloge (2⁶⁴ : hors de portée du calcul).

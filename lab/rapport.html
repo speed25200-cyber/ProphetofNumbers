@@ -1980,7 +1980,7 @@
           <tr><td>nanosecondes d'époque ± 1 s</td><td>idem</td><td>0</td></tr>
           <tr><td>graine = numéro de tirage + B, sur 10 tirages étalés sur des mois</td><td>idem</td><td>0</td></tr>
           <tr class="is-key"><td><strong>les 2⁴⁸ états complets de java.util.Random</strong></td><td>Fisher-Yates</td><td><strong>0</strong></td></tr>
-          <tr><td>MT19937, 2³² graines</td><td>2 amorçages × 5 échantillonneurs</td><td>0 sur la première moitié</td></tr>
+          <tr><td>MT19937, 2³² graines</td><td>2 amorçages × 5 échantillonneurs</td><td>0</td></tr>
         </tbody>
       </table>
     </div>
@@ -1989,6 +1989,10 @@
       <p>
         Douze familles, des LCG historiques (java, MSVC, glibc) aux modernes (xoshiro, xoroshiro,
         PCG). Autotest&nbsp;: <strong>48/48</strong>, chacune retrouvant exactement sa graine témoin.
+        Et le Mersenne Twister à part, parce qu'il s'amorce en deux mille opérations au lieu d'une —
+        le générateur le plus répandu du logiciel ordinaire, amorçable partout par un entier de
+        32 bits, donc intégralement balayable&nbsp;: neuf heures vingt de temps processeur, zéro
+        graine compatible.
       </p>
       <p>
         <strong>Le coup le plus satisfaisant</strong> est java.util.Random. La force brute sur 2⁴⁸
