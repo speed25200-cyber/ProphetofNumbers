@@ -1719,3 +1719,44 @@ candidats. Survivants attendus sous H₀ : **1,8 × 10⁻¹⁵**.
 Observé : **0 survivant, pour tout nombre de sorties par tirage de 20 à 40**,
 là où les témoins positifs en donnent 64 et les témoins négatifs 0 dans
 20/20 cas. La conclusion de §20 se renforce d'un tirage supplémentaire.
+
+## 23. La paire consécutive, et la frontière chiffrée (`h10_consecutifs.py`)
+
+Cinq tirages ordonnés désormais — 1381023, 1381026, 1381028, **1381030 et
+1381031**, ces deux derniers **consécutifs**. Le test joint 2-adique de §20
+passe à **110 bits de contrainte** contre 2¹⁷ triplets : **0 survivant**,
+pour tout nombre de sorties par tirage de 20 à 40.
+
+**Ce que seule la paire consécutive permet.** Avec échantillonnage par
+rejet, le nombre de sorties consommées par tirage est variable (20 acceptées
+plus ≈ 3 rejets) : trois tirages d'écart, ce sont ≈ 69 pas inconnus, et la
+chaîne 2-adique se perd. Deux tirages qui se suivent la laissent traverser
+la frontière presque intacte — on concatène leurs 40 numéros et on exige la
+relation affine sur **39** paires au lieu de 19.
+
+| | témoins positifs | null | paire réelle |
+|---|---|---|---|
+| paires expliquées | **37,4 / 39** | 6,97 ± 0,96 (max 12) | **8 / 39** (p = 0,25) |
+
+Puissance 1,00 (60/60). Isolément : 4/19 et 5/19. Rien.
+
+**La frontière restante, calculée plutôt qu'annoncée.** L'échantillonneur
+multiply-shift publie les bits de poids FORT — 6,13 bits par sortie — où le
+levier 2-adique n'a aucune prise. La récupération demanderait une attaque de
+LCG tronqué par réseau. L'heuristique gaussienne donne :
+
+| d | plus court vecteur | vecteur cherché | marge |
+|---|---|---|---|
+| 20 | 2^66,94 | 2^66,20 | ×1,7 |
+| 40 | 2^69,06 | 2^66,68 | ×5,2 |
+| 100 | 2^70,72 | 2^67,33 | ×10,5 |
+
+La marge croît mais **plafonne à 2^4,09 ≈ ×17**, et ne devient positive qu'à
+d = 17. Or LLL ne garantit qu'un facteur 2^(d/4). La condition « LLL suffit »
+— d/4 < marge(d) — n'est vérifiée pour **aucun d** : en dessous de 17 la
+marge est négative, au-dessus le terme d/4 dépasse le plafond de 4,1.
+
+**Il n'existe donc aucun point de fonctionnement pour LLL sur cette
+famille.** Ce n'est pas l'information qui manque (100 sorties donnent
+613 bits pour 192 bits d'inconnues, facteur 3,2) mais la géométrie du
+réseau — et davantage de tirages n'y changerait rien.
