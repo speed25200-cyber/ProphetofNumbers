@@ -5176,3 +5176,97 @@ délimitée **par mesure**, via les quatre témoins.
 **Registre : 145 entrées, m = 3 325, zéro significatif. Le produit cartésien
 des trois champs publiés est clos** — marginales, paires, et désormais le
 triplet.
+
+## 55. La composition des deux seuils, et une convention qu'il a fallu retrouver (`h41_composition_seuils.py`)
+
+Deux sections de cette campagne corrigent le seuil de bascule du §5 bis, **en
+sens opposés** :
+
+- le §50 le fait **descendre** — les rangs intermédiaires valent `ρ ≥ 24,5 %`,
+  donc le pari devient favorable plus tôt : CHF 7 753 → 5 853 ;
+- le §53 le fait **monter** — jouer ajoute `n·p` au taux de chute et détruit
+  la valeur future du processus : CHF 8 651 pour treize grilles.
+
+Chacune a été établie **en supposant l'autre absente**, et elles ne sont pas
+indépendantes : abaisser le seuil fait jouer plus souvent, donc contribuer
+davantage au taux de chute. Personne n'avait dit de combien la composition
+s'écarte d'une addition, ni dans quel sens.
+
+### Une convention non nommée, qui valait un tiers du résultat
+
+Le §53 ne dit pas ce que désigne son `q`, et la réponse change son chiffre de
+33 %. Deux lectures :
+
+| convention | `q` désigne | auto-extinction seule |
+|---|---|---|
+| **B** — celle du §53 | le taux dû aux **autres**, notre joueur s'ajoute | **CHF 8 651** |
+| A | le taux **total observé**, notre joueur inclus | CHF 11 532 |
+
+Ce n'est l'erreur de personne : ce sont **deux joueurs différents**. B décrit
+celui qui se demande s'il doit *se mettre* à jouer ; A celui dont l'activité
+est déjà comprise dans le taux mesuré. La reconstitution en B retombe sur
+CHF 8 651 **au franc près**, ce qui identifie la convention du §53 sans
+ambiguïté — et une divergence de 33 % qu'on ne nommerait pas serait une
+erreur en attente.
+
+### Les contrôles avant le résultat
+
+| | attendu | obtenu | écart |
+|---|---|---|---|
+| seuil nu | S = 7 753 | 7 753 | 0,00 % |
+| rangs intermédiaires seuls | (1−ρ)S = 5 853 | 5 855 | 0,02 % |
+| auto-extinction seule | §53 : 8 651 | 8 651 | 0,00 % |
+
+Les trois tombent juste : le modèle est en accord avec les deux sections
+qu'il compose, et ce qui suit est une prédiction, pas un réglage.
+
+### La composition
+
+```
+addition naïve des deux corrections     CHF 6 752
+composition exacte                      CHF 6 724
+écart                                   CHF   −29   (−0,42 %)
+```
+
+L'addition naïve est donc une excellente approximation — moins d'un demi pour
+cent — mais **le sens de l'écart est instructif, et il n'est pas celui qu'on
+devine.**
+
+On s'attend à ce qu'un seuil plus bas fasse jouer plus souvent — c'est vrai,
+la fraction jouée passe de 3,37 % à 5,29 % — donc à ce que la pénalité
+d'auto-extinction s'alourdisse et pousse le seuil **au-dessus** de la somme.
+C'est l'effet inverse qui l'emporte : avec les rangs intermédiaires, chaque
+tirage joué rapporte davantage **immédiatement**, si bien que la valeur future
+détruite par un gain pèse relativement **moins**.
+
+> Les rangs intermédiaires ne se contentent pas d'abaisser le seuil : ils
+> rendent aussi l'auto-extinction moins coûteuse. La première correction
+> **atténue** la seconde.
+
+### Le chiffre pratique
+
+| n grilles | n·p/q | seuil composé | vs (1−ρ)S | vs S nu |
+|---|---|---|---|---|
+| 1 | 0,05 | CHF 5 958 | ×1,018 | ×0,768 |
+| 3 | 0,15 | CHF 6 141 | ×1,049 | ×0,792 |
+| 6 | 0,31 | CHF 6 364 | ×1,087 | ×0,821 |
+| **13** | **0,67** | **CHF 6 724** | ×1,149 | **×0,867** |
+
+Pour un joueur à **une grille**, l'auto-extinction est négligeable et la
+correction du barème s'applique telle quelle. Pour **treize grilles**, le
+seuil composé vaut CHF 6 724 — soit **13 % sous le seuil nu**, et les
+occasions favorables passent de 3,37 % à **5,29 %** des tirages.
+
+> Les deux corrections ne s'annulent pas, et **celle qui compte le plus est
+> celle qui abaisse le seuil.**
+
+### Limites
+
+Le modèle hérite de H1–H3 du §28 et de `ρ ≥ 0,245`, lui-même conditionnel aux
+hypothèses nommées au §50 : rien ici n'est plus solide que le maillon le plus
+faible de cette chaîne. Les collisions sont négligées à `O((n·p)²)`. Le `q` de
+référence n'est pas une mesure, d'où la table en `n·p/q`. Et la convention B
+suppose que le joueur **s'ajoute** au marché observé : s'il y est déjà compté,
+c'est A qui vaut et le seuil monte.
+
+**Registre : inchangé.** `h41` ne teste pas l'archive — il compose.
