@@ -210,3 +210,38 @@ L'oublier ferait rater le vrai état sans rien signaler.
 `--selftest` récupère trois états témoins dont deux hors de portée d'un
 balayage 2³² (140 737 488 355 327 et 20 015 998 343 868) : **3/3**, avec
 exactement un état 48 bits trouvé à chaque fois.
+
+## sweep_linked — l'amorçage LIÉ AU NUMÉRO DE TIRAGE, sur l'archive entière
+
+```sh
+cc -O3 -march=native -pthread -o sweep_linked sweep_linked.c
+./sweep_linked --selftest
+./sweep_linked 0 4294967296 tirages.txt      # « id n1 … n20 » par ligne
+```
+
+`sweep_order` balaie les graines contre UN tirage ordonné. Il écarte donc
+tout schéma d'amorçage dont la graine tombe dans la plage — mais pour ce
+tirage seulement, et le dossier ne dispose que de cinq tirages ordonnés, tous
+du même jour.
+
+L'archive contient 70 560 tirages étalés sur des mois. Elle est triée, donc
+son filtre est plus faible (1/4 par numéro au lieu de 1/80), mais elle permet
+ce que cinq tirages ne permettent pas : tester une **relation** entre la
+graine et le numéro de tirage, et la confirmer sur des tirages séparés dans
+le temps.
+
+L'hypothèse testée est
+
+    graine du tirage t  =  numéro du tirage t  +  B
+
+pour tout décalage B de [0, 2³²). C'est la forme qu'on écrit quand on veut un
+tirage reproductible et vérifiable — `new Random(drawId)` — et elle est
+**invisible** pour un balayage qui exigerait la même graine à deux tirages
+différents.
+
+Un B faux meurt au premier ou au deuxième numéro du premier tirage. Un B faux
+qui survivrait au premier tirage entier a une probabilité C(80,20)⁻¹ ≈
+2,8·10⁻¹⁹ de le faire ; dix tirages liés la portent sous 10⁻¹⁸⁰.
+
+`--selftest` fabrique dix tirages liés par un décalage témoin et exige de le
+retrouver : **48/48**, chacun rendant exactement le décalage témoin.
