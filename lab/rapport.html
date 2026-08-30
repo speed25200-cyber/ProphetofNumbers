@@ -1208,13 +1208,16 @@
 
     <div class="col">
       <p>
-        Le correctif est câblé et vérifié&nbsp;: chaque relance de l'instant <code>k</code> pèse
-        <code>1/(k(k+1))</code> et la trésorerie des paris à venir reste comptée — l'ensemble
-        redevient une vraie martingale de moyenne 1, et la garantie α = 5&nbsp;% vaut à tout
-        instant&nbsp;: fausses alertes mesurées <strong>0,042 ± 0,013</strong> sur 240 archives
-        simulées. Le prix, documenté plutôt que caché&nbsp;: un biais apparu au pas <code>k</code>
-        coûte <code>2·ln k</code> nats de preuve en plus. C'est le prix exact de l'honnêteté
-        uniforme dans le temps.
+        Le correctif est câblé et vérifié&nbsp;: les relances s'arment par blocs de 16 tirages,
+        chacune pesée a priori, la trésorerie des paris à venir comptée — l'ensemble redevient une
+        vraie martingale de moyenne 1, et la garantie α = 5&nbsp;% vaut à tout instant&nbsp;:
+        fausses alertes mesurées <strong>0,025 ± 0,010</strong> sur 240 archives simulées, et
+        <em>plus</em> de puissance qu'avant la correction de prior (0,57 → 0,82 sur le cas
+        frontière). Le prix résiduel, documenté plutôt que caché&nbsp;: un biais apparu au pas
+        <code>k</code> coûte <code>2·ln(k/16)</code> nats de preuve en plus — 80 minutes de retard
+        au maximum. Et la correction d'écho du bonus n'est plus une constante&nbsp;: c'est un
+        posterior qui converge de lui-même vers la valeur mesurée sur l'archive (+0,0158) et
+        s'éteint en 1/√n sous un générateur équitable.
       </p>
     </div>
   </section>
