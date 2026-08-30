@@ -17,18 +17,26 @@ tensorflow ici — et c'est préférable : chaque opération est contrôlée).
 
 L'architecture, et pourquoi cette taille
 -----------------------------------------
-Entrée : x[t] ∈ {0,1}^80 centrée (−0,25). Couche 0 : conv causale noyau 2,
-dilatation 1, 80 → 24 canaux, ReLU. Puis 6 couches 24 → 24, noyau 2,
-dilatations 2, 4, 8, 16, 32, 64, ReLU + connexion résiduelle. Tête linéaire
-24 → 80 logits, sigmoïde par numéro. Champ réceptif : 1 + Σ dilatations =
-128 tirages — chaque lag de 1 à 127 est atteignable (sommes de sous-ensembles
-des dilatations = toute valeur binaire), donc bien AU-DELÀ du plafond 12 de
-h35. Le mélange de canaux à chaque couche donne au modèle ce qu'aucun des
-trois prédécesseurs n'a : un couplage appris ENTRE numéros à travers le
-temps (numéro a au tirage t−k → numéro b au tirage t).
+Entrée : x[t] ∈ {0,1}^80 centrée (−0,25). Deux blocs, la décomposition
+standard des convolutions séparables :
 
-12 920 paramètres, et pas des millions : l'archive contient 70 560 × 80 =
-5,6 M d'événements binaires, soit ~437 événements par paramètre — le même
+  - un bloc MÉLANGEUR : conv causale noyau 2, dilatation 1, 80 → 24 canaux,
+    ReLU ; puis 6 couches 24 → 24, noyau 2, dilatations 2, 4, 8, 16, 32, 64,
+    ReLU + connexion résiduelle ; tête linéaire 24 → 80 logits. Champ
+    réceptif 1 + Σ dilatations = 128 tirages — chaque lag de 1 à 127 est
+    atteignable (sommes de sous-ensembles des dilatations = toute valeur en
+    binaire), bien AU-DELÀ du plafond 12 de h35. Le mélange de canaux donne
+    au modèle ce qu'aucun des trois prédécesseurs n'a : un couplage appris
+    ENTRE numéros à travers le temps (numéro a au t−k → numéro b au t) ;
+  - un bloc DEPTHWISE : un noyau causal PAR NUMÉRO sur ses propres lags
+    1..12 (80 × 12 poids appris, ajoutés aux logits). Motif : une
+    application diagonale 80 → 80 (chaque numéro sur sa propre histoire —
+    la rémanence) est de rang 80, et un mélangeur à 24 canaux ne peut pas
+    la porter ; le premier jet, sans ce bloc, manquait la rémanence
+    synthétique même à ε = 0,10 (voir « mise au point » plus bas).
+
+13 880 paramètres, et pas des millions : l'archive contient 70 560 × 80 =
+5,6 M d'événements binaires, soit ~407 événements par paramètre — le même
 ordre que le budget par feuille de h35 (1 378). Le §3 ter a mesuré que
 18 000 tirages ne suffisent pas à apprendre UN poids sur UN trait informatif
 à d = 0,003 ; un modèle à 10⁶ paramètres sur cette source n'apprendrait que
@@ -131,6 +139,7 @@ T0 = time.time()
 
 CWID = 24                                # canaux
 DIL = (1, 2, 4, 8, 16, 32, 64)           # dilatations (couche 0 = 1)
+DW_LAGS = 12                             # bloc depthwise : noyaux par numéro, lags 1..12
 RF = 1 + sum(DIL)                        # champ réceptif : 128 tirages
 K = 20                                   # l'unité recouvrement du dossier
 ETAS = np.array([0.0, 0.0625, 0.125, 0.25, 0.5, 1.0])   # famille tempérée
@@ -165,6 +174,7 @@ def n_params():
     n = 2 * POOL * CWID + CWID                       # couche 0
     n += (len(DIL) - 1) * (2 * CWID * CWID + CWID)   # couches dilatées
     n += CWID * POOL + POOL                          # tête
+    n += DW_LAGS * POOL                              # bloc depthwise
     return n
 
 
@@ -195,8 +205,11 @@ def init_params(rng):
         p[f"Wa{l}"] = rng.standard_normal((CWID, CWID)) * sl
         p[f"Wb{l}"] = rng.standard_normal((CWID, CWID)) * sl
         p[f"bd{l}"] = np.zeros(CWID)
-    p["Wo"] = np.zeros((CWID, POOL))                 # tête à zéro : départ = codeur H0
+    p["Wo"] = rng.standard_normal((CWID, POOL)) * 0.01   # petit mais non nul :
+    # une tête exactement nulle coupe tout gradient vers les couches conv au
+    # départ (dH = dS @ Wo.T = 0) — mesuré sur témoins synthétiques.
     p["bo"] = np.full(POOL, math.log(0.25 / 0.75))
+    p["Vdw"] = np.zeros((DW_LAGS, POOL))             # noyaux par numéro, lags 1..12
     return p
 
 
@@ -211,6 +224,8 @@ def forward(p, X, want_cache=False):
         H = np.maximum(Z, 0.0) + H
         zs.append(Z)
     S = H @ p["Wo"] + p["bo"]
+    for k in range(1, DW_LAGS + 1):                  # bloc depthwise (diagonal)
+        S += shift(X, k) * p["Vdw"][k - 1]
     if want_cache:
         return S, (X, zs, hins, H)
     return S
@@ -219,6 +234,7 @@ def forward(p, X, want_cache=False):
 def backward(p, cache, dS):
     X, zs, hins, Hlast = cache
     g = {"Wo": Hlast.T @ dS, "bo": dS.sum(0)}
+    g["Vdw"] = np.stack([(shift(X, k) * dS).sum(0) for k in range(1, DW_LAGS + 1)])
     dH = dS @ p["Wo"].T
     for l in reversed(range(len(DIL) - 1)):
         d = DIL[1:][l]
@@ -803,7 +819,8 @@ def main():
     say(f"   TCN causal : canaux {CWID}, dilatations {DIL}, champ réceptif {RF},")
     say(f"   {n_params()} paramètres ({70560 * POOL / n_params():.0f} événements "
         f"binaires par paramètre sur l'archive) ;")
-    say(f"   famille tempérée eta = {tuple(ETAS)} -> plancher du mélange 1/{NMIX}")
+    say("   famille tempérée eta = (" + ", ".join(f"{e:g}" for e in ETAS)
+        + f") -> plancher du mélange 1/{NMIX}")
     say(f"   (log10 = {-math.log10(NMIX):.3f}) ; un tirage coûte {BITS_H0:.4f} bits sous H0.")
 
     rule("1. VÉRIFIER AVANT D'APPLIQUER")
