@@ -738,3 +738,48 @@ concave avec g(2f\*) ≈ 0 : au-delà de deux fois Kelly, une espérance
 positive produit une croissance NÉGATIVE. L'espérance et la croissance ne
 disent donc pas la même chose, et c'est la seconde qui décide pour qui joue
 plus d'une fois.
+
+---
+
+## Théorème M — la valeur de voir, et l'unification du dossier
+
+**Énoncé.** Soit X une quantité observable avant la mise et qui multiplie le
+gain, R₀ le retour par franc misé à X = 1. Une politique est un ensemble A
+de valeurs de X sur lesquelles on mise ; son profit par tirage vaut
+E[(R₀X − 1)·1{X ∈ A}].
+
+*(i) Politique optimale.* La somme se décompose terme à terme sur les
+valeurs de X, chacune contribuant indépendamment ; garder exactement celles
+de contribution positive donne A\* = {x : R₀x > 1}. La politique optimale
+est donc « miser si et seulement si le pari est favorable », **quelle que
+soit la loi de X** — le seuil de bascule est l'optimum, jamais un pis-aller.
+
+*(ii) Valeur de l'information.* Le meilleur profit sans voir X est
+(R₀·E[X] − 1)⁺. D'où
+
+    V = E[(R₀X − 1)⁺] − (R₀·E[X] − 1)⁺ ≥ 0
+
+par l'inégalité de Jensen appliquée à la fonction convexe x ↦ (R₀x − 1)⁺,
+avec égalité si et seulement si X est dégénérée ou reste entièrement d'un
+côté du seuil.
+
+**Corollaire (l'invariance, relue).** Choisir des numéros ne modifie pas la
+loi du gain : la variable X correspondante est dégénérée, donc V = 0. Le
+théorème d'invariance n'est pas un obstacle qu'on pourrait contourner par
+davantage de statistiques sur les numéros — c'est la constatation que cette
+voie a un écart de Jensen identiquement nul.
+
+**Corollaire (le théorème de h16 comme cas particulier).** Pour une cagnotte
+sans mémoire, X = J/S et R₀ = 1 au seuil ; A\* = {J > S} et
+V = E[(J/S − 1)⁺] = μ/S·e^(−S/μ). L'optimalité du seuil de bascule, établie
+en h16 par dérivation, est ici un cas particulier sans calcul.
+
+**Corollaire (composition).** Deux multiplicateurs visibles X et Y agissent
+par leur produit : A\* = {(x,y) : R₀xy > 1}. Un second signal n'ajoute donc
+pas son gain au premier — il abaisse le seuil du premier d'un facteur y, ce
+qui augmente simultanément l'avantage et la fréquence des occasions.
+
+**Corollaire (ce qui ne vaut rien).** Une variable observable seulement
+APRÈS la clôture des mises ne peut pas indexer A. Sa valeur est nulle, si
+informative soit-elle. L'ordre de sortie des boules n'a donc de valeur que
+par ce qu'il permet de PRÉDIRE — jamais par ce qu'il révèle.

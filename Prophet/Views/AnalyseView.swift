@@ -135,7 +135,14 @@ struct OpenBoostAvailabilityCard: View {
                     .font(.system(size: 18))
                     .foregroundStyle(withBoostAtOpen > 0 ? Palette.live : Palette.gain)
             }
-            Text("Le multiplicateur est-il déjà exposé pendant que les mises sont ouvertes ? S'il l'était, ne jouer que les tirages à boost élevé changerait le signe de l'espérance — c'est la seule porte que l'invariance laisse ouverte, et cet instrument la surveille. \(audit.count) tirages ouverts observés.")
+            // Ce que vaut la réponse est désormais chiffré (h18). Le théorème
+            // de la valeur de voir donne l'écart de Jensen de x ↦ (R₀x − 1)⁺
+            // sur la loi exacte du boost mesurée sur 70 560 tirages : à un
+            // taux de retour de 50 %, voir le multiplicateur avant de miser
+            // vaudrait 0,26 franc par franc misé, et la politique optimale
+            // serait « jouer si et seulement si boost ≥ 3 », ce qui arrive
+            // 25,0 % du temps.
+            Text("Le multiplicateur est-il déjà exposé pendant que les mises sont ouvertes ? S'il l'était, ne jouer que les tirages à boost ≥ 3 (25,0 % d'entre eux) changerait le signe de l'espérance : environ +0,26 franc par franc misé à un taux de retour de 50 %. C'est la seule porte que l'invariance laisse ouverte, et cet instrument la surveille. \(audit.count) tirages ouverts observés.")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
             HStack(spacing: 16) {

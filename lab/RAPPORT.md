@@ -2219,3 +2219,100 @@ fictif rendant une fraction ρ de la mise), la croissance est multipliée par
 3,2 à ρ = 20 %, par 7,6 à ρ = 40 %, par 15,5 à ρ = 60 %. Le barème ne
 déplace donc pas seulement l'espérance : il déplace la **taille de mise
 admissible**, et c'est elle qui décide si le gain devient de l'argent.
+
+## 31. La valeur de voir — le théorème qui range tout le dossier (`h18_valeur_de_voir.py`)
+
+Le dossier a exploré deux voies apparemment sans rapport : choisir les
+numéros, fermée par l'invariance ; choisir le moment, ouverte par §29. Elles
+sont deux cas d'un même énoncé, et le formuler explique d'un coup pourquoi
+l'une est fermée et l'autre ouverte.
+
+> **Théorème de la valeur de voir.** Soit X une quantité observable *avant*
+> la mise et qui multiplie le gain, R₀ le retour par franc à X = 1. Le
+> profit par tirage d'une politique A ⊂ valeurs de X vaut
+> E[(R₀X − 1)·1{X ∈ A}], maximisé terme à terme par A = {x : R₀x > 1}. La
+> politique optimale est donc **« miser si et seulement si le pari est
+> favorable »**, quelle que soit la loi de X. Et la valeur de voir X plutôt
+> que de miser à l'aveugle vaut
+>
+>     V = E[(R₀X − 1)⁺] − (R₀·E[X] − 1)⁺
+>
+> soit exactement l'écart de Jensen de la fonction convexe x ↦ (R₀x − 1)⁺.
+
+Vérifié par balayage exhaustif de tous les seuils sur trois lois (uniforme,
+géométrique, à deux points) × deux taux de retour : le seuil optimal
+retrouve le seuil de bascule 1/R₀ dans les six cas, à 10⁻¹² près.
+
+**Pourquoi cela referme l'invariance.** Le théorème d'invariance dit que la
+loi du gain ne dépend pas de la grille. En langage de celui-ci : *choisir
+des numéros ne produit aucun X*. La variable est dégénérée, l'écart de
+Jensen est nul, il n'y a littéralement rien à voir. Aucune statistique sur
+les numéros chauds, froids, les retards ou les paires ne peut créer un écart
+de Jensen là où la loi ne varie pas — c'est pourquoi les 3 313 tests du
+registre ne pouvaient **pas** trouver autre chose que zéro.
+
+**Le boost, sa loi exacte, et ce que sa visibilité vaudrait.** Sur les 70 560
+tirages archivés : P(1) = 0,512, P(2) = 0,238, P(3) = 0,151, P(4) = 0,050,
+P(5) = 0,0247, P(10) = 0,0249, E = 2,0117.
+
+| R₀ | à l'aveugle | en voyant le boost | valeur de voir | seuil de jeu |
+|---|---|---|---|---|
+| 0,40 | 0,000 | 0,159 | **+0,159** | boost ≥ 3 |
+| 0,50 | 0,006 | 0,262 | **+0,256** | boost ≥ 3 |
+| 0,60 | 0,207 | 0,412 | **+0,205** | boost ≥ 2 |
+| 0,70 | 0,408 | 0,562 | +0,154 | boost ≥ 2 |
+| 0,80 | 0,609 | 0,712 | +0,102 | boost ≥ 2 |
+
+À 50 % de retour, voir le boost avant de miser vaut **26 centimes par franc
+misé**. Ce n'est pas un raffinement : c'est un renversement du signe de
+l'espérance, sans toucher aux numéros et sans rien supposer du générateur.
+
+**La combinaison.** Cagnotte et boost multiplient tous deux le gain, donc le
+pari est favorable dès que B·J·p ≥ 1, c'est-à-dire J ≥ S/B : **le boost
+abaisse le seuil de la cagnotte d'un facteur B**. Et par absence de mémoire,
+le gain conditionnel au-dessus de S/B vaut B·p·(S/B + μ) − 1 = **B·α**. Le
+boost multiplie donc l'avantage *et* la fréquence des occasions.
+
+| boost | seuil de cagnotte | fréquence | avantage | profit/tirage |
+|---|---|---|---|---|
+| 1 | CHF 7 753 | 3,4 % | +29,5 % | 0,0099 |
+| 3 | CHF 2 584 | 32,3 % | +88,5 % | 0,2859 |
+| 10 | CHF 775 | 71,3 % | +295,0 % | 2,1018 |
+
+Profit par tirage en voyant le boost : 0,170 ; à l'aveugle : 0,110 ; rapport
+**×1,54** sur la seule voie de la cagnotte — qui s'ajoute au renversement
+ci-dessus, lequel porte sur les rangs à gain fixe.
+
+**Et sur la taille de mise (§30).** Un avantage plus grand et un seuil plus
+bas augmentent la fraction de Kelly, donc raccourcissent le temps de
+doublement et abaissent le capital minimal : de CHF 33 991 à boost 1 à
+CHF 10 377 à boost 10. La politique combinée double le capital en 44 jours
+contre 1 385 jours pour la politique aveugle, soit ×31,6.
+
+**Avertissement, et il est central.** Ces derniers nombres sont tous
+proportionnels à α, estimé sur *un* relevé — l'intervalle de §29 va de +8 %
+à +1 165 %, et la croissance de Kelly est quadratique en l'avantage. Ils
+disent un ordre de grandeur et une comparaison entre politiques, pas un
+rendement. Trois hypothèses non vérifiées les portent : que le boost
+multiplie aussi la cagnotte progressive, qu'il soit visible avant la
+clôture, et qu'on puisse miser une fraction arbitraire du capital. Ce qui
+reste solide indépendamment de α, c'est le **rapport** entre les deux
+politiques.
+
+**La grille de lecture qui en découle**, et elle range trente voies d'un
+coup :
+
+- **Valeur nulle et démontrée telle** — le choix des numéros (écart de
+  Jensen identiquement nul).
+- **Valeur nulle par accident** — la récupération du générateur : elle
+  créerait un X énorme, mais aucun générateur n'a été trouvé.
+- **Valeur positive et mesurée** — la cagnotte : +29,5 % sur 3,4 % des
+  tirages.
+- **Valeur positive et non mesurée** — le boost, s'il est visible. C'est
+  aujourd'hui la seule case à la fois grande et vide, et elle se remplit
+  avec une observation faite sur l'appareil, pas avec du calcul.
+- **Valeur nulle par construction** — tout ce qui n'est visible qu'*après*
+  la clôture. Une variable qu'on ne peut pas voir avant de miser ne peut pas
+  entrer dans A. C'est la réponse générale à « l'ordre de sortie
+  aiderait-il ? » : il n'aide que s'il permet de *prédire*, jamais parce
+  qu'il informe.

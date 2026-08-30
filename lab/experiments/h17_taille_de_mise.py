@@ -28,8 +28,14 @@ Le cadre
 --------
 Un franc misé sur une grille pleine rapporte J francs (la cagnotte), avec
 J ≈ S(1 + α) = l'espérance de la cagnotte SACHANT qu'elle dépasse le seuil.
-Les rangs intermédiaires sont ignorés : inconnus, ils ne peuvent qu'ajouter,
-donc tous les chiffres ci-dessous sont des bornes basses.
+
+DEUX choses sont ignorées, et les deux dans le sens défavorable, donc tous
+les chiffres ci-dessous sont des bornes basses : les rangs intermédiaires
+(inconnus, ils ne peuvent qu'ajouter) et le multiplicateur de boost, qui
+vaut 2,01 en moyenne. h18 reprend le calcul avec le boost, et le facteur
+qu'il apporte est considérable — mais il suppose une visibilité du boost
+avant la clôture des mises, qui n'est pas établie. Le calcul d'ici ne
+suppose rien de tel.
 """
 
 import math
