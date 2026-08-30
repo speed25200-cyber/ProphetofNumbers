@@ -104,14 +104,17 @@ Le coût, et les réductions déclarées
 Mesuré sur cette machine (4 cœurs, OpenBLAS ; le multi-thread gagne ici —
 3,7 s contre 14 s sur le produit (3 160×3 160)(3 160×82 160) — contrairement
 aux petits Gram de h24 où il perdait : la forme des matrices décide, pas la
-doctrine) : UNE archive complète coûte ~65 s de statistique, dont ~29 s de
-comptage M4/M5, ~25 s de projection par tranches, ~8 s de moments croisés y.
-400 nulls comme h24 coûteraient ~7 h 15 pour le null seul ; le plan complet
-d'ici (null + puissance + balayage + enveloppe) tient en ~4 h avec :
+doctrine) : UNE archive complète coûte 65 s de statistique en chrono isolé
+(dont ~29 s de comptage M4/M5, ~25 s de projection par tranches, ~8 s de
+moments croisés y), et ~100 s en régime soutenu sur plusieurs heures — le
+chiffre de PLANIFICATION est le second, mesuré sur un pilote de 10 nulls,
+pas le premier. 400 nulls comme h24 coûteraient ~11 h pour le null seul ;
+le plan complet d'ici (null + puissance + balayage + enveloppe) tient en
+~5 h avec :
 
-  1. REPS_NULL = 120 au lieu de 400 — l'écart-type du null est estimé à
-     ±6,5 % au lieu de ±3,5 %, le plancher du p empirique passe de 1/401 à
-     1/121 = 0,0083. Déclaré, pas dissimulé.
+  1. REPS_NULL = 100 au lieu de 400 — l'écart-type du null est estimé à
+     ±7 % au lieu de ±3,5 %, le plancher du p empirique passe de 1/401 à
+     1/101 = 0,0099. Déclaré, pas dissimulé.
   2. Des grilles de puissance resserrées autour de la frontière de détection
      repérée par pilote (grilles figées AVANT le run officiel).
   3. La table d'index d'union (1,0 Go) est reconstruite à chaque run (~60 s)
@@ -126,7 +129,7 @@ Limites déclarées
  3. Le plafond est une borne d'OMNISCIENCE : la règle est supposée connue du
     joueur. La pénalité d'identification du §3 bis serait ici la plus lourde
     du dossier — 6 572 800 coefficients à estimer — et n'est pas mesurée.
- 4. REPS_NULL = 120 (point 1 ci-dessus) : les z de puissance portent ±6,5 %
+ 4. REPS_NULL = 100 (point 1 ci-dessus) : les z de puissance portent ±7 %
     d'incertitude d'échelle ; la re-mesure à l'enveloppe (REPS_EDGE archives)
     en absorbe l'essentiel sur le chiffre finalement rapporté.
  5. Le QUATRIÈME ordre et au-delà restent non bornés — mais la courbe des
@@ -730,7 +733,7 @@ say("neuf statistiques : U1, U2, U3 (neuves), Q1, Q2, Q3 (h24), T1, T2 (c1)")
 say("et S1 (d3) — les six anciennes servent à la démonstration de")
 say(f"spécificité, pas à un nouveau test. {REPS_NULL} réplicats au lieu des "
     f"400 de")
-say("h24 : réduction de budget déclarée en tête de fichier, ±6,5 % sur les")
+say("h24 : réduction de budget déclarée en tête de fichier, ±7 % sur les")
 say("écarts-types au lieu de ±3,5 %.")
 
 rngN = np.random.default_rng(270830)
