@@ -172,12 +172,36 @@ hasard. L'outil n'est donc pas muet : c'est la source qui ne cède pas.
 
 ## 6. La couche décision : valeur du jackpot
 
-Les numéros ne sont pas prédictibles, mais la **mise** est un choix
-rationnel : l'app calcule le retour espéré du seul jackpot par franc misé
-(jackpot courant × probabilité hypergéométrique exacte du k/k) pour
-chaque mise, et marque la plus « rentable » du moment. L'espérance totale
-reste négative — l'app le dit — mais c'est le seul levier où les
-mathématiques ont réellement quelque chose à optimiser.
+Les numéros ne sont pas prédictibles, mais le **moment** de jouer est un
+choix rationnel : l'app calcule le retour espéré du seul jackpot par franc
+misé (jackpot courant × probabilité hypergéométrique exacte du k/k) pour
+chaque mise, et marque la plus « rentable » du moment.
+
+Le seuil à comparer est **100 ct/CHF**. Au-delà, le jackpot seul rembourse
+la mise, donc le pari est favorable — et il l'est *quel que soit* le barème
+des rangs intermédiaires, puisque ces rangs ne peuvent qu'ajouter. C'est une
+condition **suffisante**, jamais nécessaire : en dessous du seuil on ne sait
+rien de plus qu'avant.
+
+Ce paragraphe affirmait auparavant, sans réserve, que « l'espérance totale
+reste négative ». C'était une affirmation invérifiable — elle porte sur une
+somme dont le barème intermédiaire est un terme inconnu — et au-dessus du
+seuil elle est démontrablement fausse. L'app a été corrigée
+(`GridsView.swift`) ; ce document l'est ici. Le détail est au §5 bis de
+`lab/RAPPORT.md`.
+
+Deux précisions que le labo a établies depuis, et qui simplifient la couche
+décision plutôt qu'elles ne la compliquent (`lab/RAPPORT.md` §36) :
+
+- **La taille de mise se calcule sur la cagnotte affichée**, pas sur une
+  cagnotte moyenne estimée. Dimensionner sur l'affichage bat la fraction
+  figée de 44 %, et bat même la meilleure fraction figée qu'un oracle
+  puisse choisir : une fraction unique appliquée à des occasions
+  hétérogènes est perdante par nature.
+- **Le prix du ticket est la seule donnée manquante dont une décision
+  dépende.** Le seuil vaut `c/p` : sans le prix du ticket, la règle qui
+  décide s'il faut jouer n'est pas calculable, et toutes les tables du
+  dossier restent « par franc misé » faute de ce nombre.
 
 ## 7. Ce que l'essaim ne peut pas faire
 
