@@ -2666,3 +2666,121 @@ vraie. Le second tirage n'est pas là pour confirmer la statistique, qui n'en
 a pas besoin — il est là contre l'**erreur de recopie** des vingt numéros,
 qui tuerait silencieusement les vingt-quatre combinaisons. Le dossier a déjà
 payé cette leçon une fois (§34).
+
+---
+
+## 37. Trois angles morts de `sweep_order`, dont un qui rendait les autres faux (`tools/sweep_rand.c`)
+
+§34 avait balayé douze familles de générateurs contre quatre
+échantillonneurs. En relisant sa liste, trois absences — et ce sont trois des
+chemins les plus fréquentés du logiciel ordinaire.
+
+### 37.1 Le `rand()` du C n'était pas balayé
+
+§34 nomme une de ses familles « LCG32 glibc » : s → 1103515245·s + 12345
+mod 2³¹. C'est le TYPE_0 de la glibc, qu'on n'obtient qu'en réduisant
+explicitement l'état à huit octets. **Le `rand()` qu'on obtient en tapant
+`srand(); rand();` sur Linux n'est pas un LCG** : c'est une récurrence
+additive décalée,
+
+    r[i] = r[i−3] + r[i−31]      sortie = r[i] >> 1
+
+dont le LCG ne sert qu'à remplir la table initiale. 992 bits d'état au lieu
+de 31, pas la même sortie, pas la même trace. Balayer l'un ne disait
+rigoureusement **rien** de l'autre — et « le `rand()` du C » est la première
+chose qu'écrit quiconque n'a pas réfléchi au sujet, c'est-à-dire exactement
+le profil recherché. Les quatre tailles de table sont couvertes (TYPE_1 à
+TYPE_4, soit `initstate` à 32, 64, 128 et 256 octets).
+
+### 37.2 Les LCG à module premier n'avaient aucune prise
+
+Toutes les attaques algébriques du dossier (§17, §18, §20, §21, §26) vivent
+dans Z/2^k : valuation 2-adique, inverses modulo une puissance de deux,
+racines de Hensel. Un générateur de Lehmer — s → a·s mod (2³¹−1) — n'offre
+**aucune** de ces prises, et aucun balayage ne l'avait couvert. MINSTD est
+pourtant `minstd_rand` du C++11 et le générateur de référence des manuels.
+Ajoutés : 16807, 48271, RANDU (65539) et le LCG de Borland/Delphi.
+
+### 37.3 L'échantillonneur par flottant — celui qui invalidait le reste
+
+Les quatre échantillonneurs de §34 consomment **un** mot par numéro. Or
+
+```java
+int n = (int)(Math.random() * 80) + 1;
+```
+
+est de très loin l'écriture la plus répandue de « un numéro au hasard » en
+Java, et `nextDouble()` consomme **deux** appels à `next()` :
+
+    d = ((next(26) << 27) + next(27)) / 2⁵³
+
+Un balayage à un mot par numéro se **désynchronise donc dès le premier
+numéro**, et meurt en croyant avoir éliminé la graine. Les sorties sont les
+mêmes, la graine est la bonne, et le test répond non.
+
+C'est le pire type d'angle mort : celui qui rend un résultat négatif faux
+**sans jamais rien signaler**. Les deux échantillonneurs par flottant sont
+donc appliqués aux **vingt** familles, y compris les douze déjà balayées par
+§34 — dont les résultats négatifs ne valaient rien tant que ce point n'était
+pas testé.
+
+### 37.4 Validation — contre les implémentations réelles, pas contre soi-même
+
+Un autotest interne ne prouve que la cohérence du programme avec lui-même.
+§34 avait déjà payé cette leçon (`_randbelow` de CPython). Chaque
+transcription est donc confrontée à l'implémentation d'origine :
+
+| confronté à | ce qui est vérifié | résultat |
+|---|---|---|
+| `rand()` de la glibc | 280 sorties, 7 graines dont 0, 2³¹ et 2³²−1 | **0 écart** |
+| `random()` + `initstate` | 270 sorties, tailles 32/64/256 o | **0 écart** |
+| `java.util.Random` (JVM) | tirage par `nextDouble()` avec rejet | **graine retrouvée** |
+| `java.util.Random` (JVM) | tirage par Fisher-Yates `nextDouble()` | **graine retrouvée** |
+| `std::minstd_rand` (C++11) | tirage par modulo | **graine retrouvée** |
+| `std::minstd_rand0` (C++11) | tirage par Fisher-Yates | **graine retrouvée** |
+| arithmétique flottante | `(w·80)>>53` contre `(int)(d·80)` | **0 écart / 4·10⁶** |
+
+La dernière ligne n'allait pas de soi : `w·80` demande jusqu'à 60 bits, que
+la mantisse de 53 bits d'un `double` ne porte pas, et l'arrondi pourrait
+franchir un entier. La borne critique est w ≡ 0 mod 2⁴⁹ — testée
+explicitement à ±3 près, là où l'arrondi est le plus tendu. Aucun écart.
+
+**Deux étiquetages faux attrapés.** MINSTD était amorcé `graine mod (m−1) + 1`
+et RANDU forçait le bit de poids faible. Dans les deux cas la *couverture*
+était complète — mais une touche aurait rendu une graine **décalée**, donc
+invérifiable par qui aurait voulu la reproduire. Une touche doit rendre la
+graine que le programme visé aurait réellement passée.
+
+**Et le critère de l'autotest lui-même était faux.** Exiger que la première
+graine compatible soit le témoin échoue *légitimement* quand l'espace d'états
+est plus petit que la plage de graines : RANDU et glibc TYPE_0 vivent modulo
+2³¹, MINSTD modulo 2³¹−1, si bien que deux graines distinctes de [0, 2³²)
+mènent au même état et sont toutes deux compatibles. Le critère juste n'est
+pas « le témoin sort-il en premier » mais « le témoin **survit**-il ».
+Autotest final : **70/70**.
+
+### 37.5 Résultat
+
+Chaque graine est amorcée une fois et ses sorties passent par un tampon
+paresseux que les six échantillonneurs partagent — l'amorçage de la glibc
+coûte 341 pas, et le payer six fois aurait multiplié le balayage par cinq.
+
+| | 1381023 (ecran-live) | 1381028 (jeux.loro.ch) |
+|---|---|---|
+| combinaisons balayées | 70 | 70 |
+| déjà couvertes par §34 | 48 | 48 |
+| sans objet (MSVC, 15 bits < 27) | 2 | 2 |
+| **graines compatibles** | **0** | **0** |
+| durée (4 cœurs, 2³² graines) | 64 min | 64 min |
+
+Avec §36, cela fait **188 combinaisons × 2³² graines** balayées sur deux
+tirages de sources indépendantes, sans une seule touche. Le filtre étant
+celui de l'ordre — (80!/60!)⁻¹ ≈ 10⁻³⁷ par graine — l'espérance de faux
+positifs sur l'ensemble vaut ≈ 10⁻²⁵ : s'il y avait eu une graine, elle
+serait sortie, et elle aurait été vraie.
+
+**Ce que §37 change au dossier.** Les résultats négatifs de §34 étaient
+suspendus à une hypothèse tacite — un mot de générateur par numéro — qui
+était fausse pour l'idiome le plus courant du langage le plus courant. Ils
+sont maintenant établis. Le vrai `rand()` du C, les générateurs à module
+premier et l'échantillonneur `Math.random()` sont fermés à leur tour.
