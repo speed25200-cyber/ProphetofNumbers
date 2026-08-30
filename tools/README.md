@@ -169,3 +169,44 @@ donc pile sur n = 64, au **dix-septième** numéro : seize numéros justes puis
 une dérive silencieuse, qu'aucun autotest interne n'aurait pu voir.
 
 Débit : 2³² graines × 10 combinaisons en ≈ 2 h 20 sur quatre cœurs.
+
+## sweep_java48 — l'état 48 bits COMPLET, en secondes
+
+```sh
+cc -O3 -march=native -pthread -o sweep_java48 sweep_java48.c
+./sweep_java48 --selftest
+./sweep_java48 <o1..o20>
+```
+
+`java.util.Random` est la faille classique des loteries en ligne. Les outils
+ci-dessus la couvrent pour les graines de [0, 2³²) ; il reste 2⁴⁸ états, soit
+78 heures de force brute par échantillonneur sur quatre cœurs.
+
+Il n'y a pas besoin de force brute. `next(31)` rend `(int)(s >>> 17)`, et
+`nextInt(bound)` pour un `bound` qui n'est pas une puissance de deux rend
+`next(31) % bound`. Donc pour une borne PAIRE,
+
+    p_i mod 2^v  =  ((s_i >>> 17) mod 16) mod 2^v,   v = v₂(bound) ∧ 4
+
+c'est-à-dire **les bits 17 à 20 de l'état**. Ni les bits de poids faible, où
+vit le levier 2-adique habituel ; ni ceux de poids fort, où vivent les
+attaques par réseau : ceux du **milieu**. Et ils sont exploitables parce que
+le LCG modulo 2⁴⁸ reste clos modulo 2²¹.
+
+| phase | ce qu'elle fait | coût |
+|---|---|---|
+| 1 | énumérer s mod 2²¹, propager, exiger les bits 17-20 à chaque pas | 2·10⁶ |
+| 2 | pour les ≈ 30 survivants, énumérer les 27 bits de poids fort et rejouer | 4·10⁹ |
+
+La couverture de 2⁴⁸ passe ainsi de 78 heures à quelques dizaines de
+secondes — un facteur 10⁴.
+
+**Le piège de la borne 64.** `nextInt` traite les puissances de deux à part :
+`r = (int)((bound * (long)next(31)) >> 31)`, ce qui prend les bits de poids
+FORT. Parmi 80, 79, …, 61, une seule borne est concernée — 64, au dix-septième
+pas. La phase 1 doit donc la sauter, et la phase 2 la vérifier comme le reste.
+L'oublier ferait rater le vrai état sans rien signaler.
+
+`--selftest` récupère trois états témoins dont deux hors de portée d'un
+balayage 2³² (140 737 488 355 327 et 20 015 998 343 868) : **3/3**, avec
+exactement un état 48 bits trouvé à chaque fois.
