@@ -126,12 +126,16 @@ Limites déclarées
  2. Le seuil du registre extrapole la queue du null : gaussienne pour U1/U3,
     Gumbel ajusté aux moments pour U2 (un max sur 6,6 millions de cellules ;
     une extrapolation gaussienne sur-estimerait la puissance).
- 3. Le plafond est une borne d'OMNISCIENCE : la règle est supposée connue du
-    joueur. La pénalité d'identification du §3 bis serait ici la plus lourde
-    du dossier — 6 572 800 coefficients à estimer — et n'est pas mesurée.
- 4. REPS_NULL = 100 (point 1 ci-dessus) : les z de puissance portent ±7 %
+ 3. Le plafond est une borne d'OMNISCIENCE : la règle est supposée connue
+    du joueur. h26 a depuis MESURÉ la pénalité d'identification famille par
+    famille : la part captée tombe à 11 % déjà pour l'ordre 2 (252 800
+    cellules, plafond réalisable +0,71 %) ; à 6 572 800 cellules elle serait
+    plus basse encore. Le chiffre d'ici est donc un plafond d'omniscience
+    STRICT — le réalisable est une petite fraction de lui, non mesurée pour
+    cette famille.
+ 4. REPS_NULL = 40 (point 1 ci-dessus) : les z de puissance portent ±11 %
     d'incertitude d'échelle ; la re-mesure à l'enveloppe (REPS_EDGE archives)
-    en absorbe l'essentiel sur le chiffre finalement rapporté.
+    en absorbe une partie sur le chiffre finalement rapporté.
  5. Le QUATRIÈME ordre et au-delà restent non bornés — mais la courbe des
     plafonds par degré (section 6) dit désormais par MESURE, et non plus par
     extrapolation, si la famille suivante peut encore porter un avantage
@@ -163,10 +167,10 @@ POOL, DRAWN, K = lab.POOL, lab.DRAWN, 10
 N = 70_560
 DRY = "--dry" in sys.argv
 
-REPS_NULL = 6 if DRY else 100
-REPS_POWER = 2 if DRY else 4
+REPS_NULL = 6 if DRY else 40
+REPS_POWER = 2 if DRY else 3
 REPS_SWEEP = 1 if DRY else 2
-REPS_EDGE = 2 if DRY else 10
+REPS_EDGE = 2 if DRY else 8
 ALPHA_REG = 0.05
 
 T0 = time.time()
@@ -733,7 +737,7 @@ say("neuf statistiques : U1, U2, U3 (neuves), Q1, Q2, Q3 (h24), T1, T2 (c1)")
 say("et S1 (d3) — les six anciennes servent à la démonstration de")
 say(f"spécificité, pas à un nouveau test. {REPS_NULL} réplicats au lieu des "
     f"400 de")
-say("h24 : réduction de budget déclarée en tête de fichier, ±7 % sur les")
+say("h24 : réduction de budget déclarée en tête de fichier, ±11 % sur les")
 say("écarts-types au lieu de ±3,5 %.")
 
 rngN = np.random.default_rng(270830)
@@ -1038,8 +1042,8 @@ def show(row):
 # grilles figées d'après un pilote de 10 nulls + 4 archives contaminées
 # (frontière de détection ~θ=0,19 pour « tiers » via U2, ~θ=0,16 pour
 # « membre » via U2/U3) — figées AVANT le run officiel
-GRID_A = (0.18, 0.35) if DRY else (0.12, 0.18, 0.25, 0.35)
-GRID_B = (0.12, 0.25) if DRY else (0.08, 0.12, 0.17, 0.25)
+GRID_A = (0.18, 0.35) if DRY else (0.14, 0.20, 0.28)
+GRID_B = (0.12, 0.25) if DRY else (0.10, 0.15, 0.22)
 
 say("\n5a. FAMILLE « TIERS » — le triplet (i,j,k) appelle un numéro n hors "
     "du triplet")
@@ -1132,10 +1136,10 @@ say("le plus gros avantage à qui le connaîtrait ? Structure BALAYÉE.")
 # règles sous la frontière de U2. Le balayage doit couvrir R grand.
 CONFIGS = ((("tiers", 80, 2), ("membre", 80, 2)) if DRY else
            (("tiers", 80, 2), ("tiers", 80, 4), ("tiers", 80, 8),
-            ("membre", 80, 2), ("membre", 80, 4)))
+            ("membre", 80, 2)))
 GRID_BY_FAM = ({"tiers": (0.18, 0.35), "membre": (0.12, 0.25)} if DRY else
-               {"tiers": (0.12, 0.17, 0.24, 0.34),
-                "membre": (0.08, 0.12, 0.17, 0.24)})
+               {"tiers": (0.12, 0.18, 0.26),
+                "membre": (0.10, 0.15, 0.22)})
 GRID_SWEEP = GRID_BY_FAM["tiers"]
 
 say(f"\n  {'famille':>8}{'m':>4}{'R':>3}{'theta':>7}{'chauds':>8}"
@@ -1200,13 +1204,16 @@ say(f"              lags 1..306 (d2) +3,46 %  |  quadratique lag-1 (h24) "
     f"+6,27 %")
 say(f"              avantage de la maison −25 à −35 %")
 
-# la dilution par degré, MESURÉE et non plus extrapolée
-say(f"\n  dilution par degré, mesurée sur les plafonds : "
-    f"6,27/3,21 = {6.27/3.21:.2f} (ordre 1→2),")
-say(f"  {CEIL*100:.2f}/6,27 = {CEIL*100/6.27:.2f} (ordre 2→3) — h24 "
-    f"prédisait ~2,8 par la seule")
-say("  géométrie √cellules ; l'écart entre prédiction et mesure est dit en "
-    "section 7.")
+# confrontation avec la prédiction du §41 (h30), posée AVANT cette mesure
+say(f"\n  CONFRONTATION : le §41 (h30, loi plafond = ‖a‖·(2m)^(1/4)·√(z/N),")
+say(f"  voie indépendante de celle-ci) prédit pour l'ordre 3 un plafond")
+say(f"  entre +8,9 % et +14,2 %. Mesuré ici : {CEIL:+.2%} — " +
+    ("DANS la fourchette : la loi tient."
+     if 0.089 <= CEIL <= 0.142 else
+     "HORS de la fourchette : c'est la loi du §41 qui est fausse, et il "
+     "faut le dire."))
+say(f"  (rapport mesuré des plafonds 3/2 : {CEIL*100/6.27:.2f} ; la loi à "
+    f"‖a‖ égal donne 2,26)")
 
 
 # --------------------------------------------------------------------------
@@ -1279,12 +1286,15 @@ else:
                verdict=f"plafond {CEIL:+.2%} de rendement",
                notes=(f"enveloppe famille={BEST['family']} m={BEST['m']} "
                       f"R={BEST['R']} theta={EDGE['theta']:.3f} ; borne "
-                      f"d'OMNISCIENCE, la penalite d'identification du "
-                      f"paragraphe 3 bis s'y ajouterait et serait la plus "
-                      f"lourde du dossier (6 572 800 coefficients) ; lag 1 "
-                      f"seulement ; null a {REPS_NULL} replicats (reduction "
-                      f"declaree) ; a comparer : c0 +1,33 %, c1 +3,21 %, "
-                      f"d2 +3,46 %, h24 +6,27 %"))
+                      f"d'OMNISCIENCE STRICTE : h26 mesure une part captee "
+                      f"de 11 % deja a l'ordre 2 (252 800 cellules, "
+                      f"realisable +0,71 %), a 6 572 800 cellules le "
+                      f"realisable serait une fraction plus petite encore ; "
+                      f"lag 1 seulement ; null a {REPS_NULL} replicats "
+                      f"(reduction declaree) ; confronte a la prediction du "
+                      f"paragraphe 41 (h30) : fourchette +8,9 % a +14,2 % ; "
+                      f"a comparer : c0 +1,33 %, c1 +3,21 %, d2 +3,46 %, "
+                      f"h24 +6,27 %"))
     say(f"  consigné {tok4['id']:<22} plafond {CEIL:+.2%}")
 
     h = lab.holm()
