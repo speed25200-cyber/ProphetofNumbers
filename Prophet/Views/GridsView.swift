@@ -23,12 +23,23 @@ struct GridsView: View {
                 Text(caption)
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
-                // La seule quantité que la géométrie du paquet déplace :
-                // l'espérance de gain, elle, est invariante par géométrie
-                // sous toute table de gains par grille.
+                // La géométrie du paquet ne déplace pas l'espérance tant que
+                // les gains sont fixes — mais elle déplace la probabilité de
+                // toucher, et elle déplace l'espérance dès qu'un rang est
+                // partagé (h13).
                 let covered = Set(pack.grids.flatMap { $0.numbers }).count
                 Text("Les 12 grilles couvrent \(covered) numéros sur 80 — "
                      + "au moins une pleine : \(Format.odds(pack.packPAllHit)).")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.subtle)
+                Text("Recouvrement entre grilles : \(pack.overlapMax) au pire, "
+                     + String(format: "%.2f", pack.overlapMean)
+                     + " en moyenne — plancher atteignable "
+                     + String(format: "%.2f", pack.overlapFloor)
+                     + ", seuil de corrélation "
+                     + String(format: "%.2f", pack.overlapNeutral)
+                     + ". En dessous du seuil, deux grilles se complètent ; "
+                     + "au-dessus, elles se doublonnent.")
                     .font(.system(size: 12))
                     .foregroundStyle(Palette.subtle)
                 if let pending = store.payload?.pendingDrawNumber, store.payload?.hole == true {

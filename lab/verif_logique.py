@@ -142,6 +142,67 @@ def main():
     print(f"       valeur affichée dans le test 1,6876317  {'ok' if c else 'ÉCHEC'}")
     ok &= a and b and c
 
+    # 1 quater. packOverlap : transcription de Swarm.packOverlap, contrôlée
+    # contre une référence indépendante. Les trois façons dont ce code peut
+    # être faux en silence sont testées : le plancher Σ C(cₓ,2)/C(n,2) quand
+    # la couverture n'est pas entière, le seuil neutre ω* = k²/80, et le fait
+    # que le plancher soit réellement une BORNE INFÉRIEURE du recouvrement
+    # moyen (une erreur d'un cran le rendrait inatteignable ou dépassable).
+    def pack_overlap(grids):
+        n = len(grids)
+        if n < 2 or not grids[0]:
+            return 0, 0.0, 0.0, 0.0
+        k = len(grids[0])
+        sets = [set(g) for g in grids]
+        worst, total = 0, 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                o = len(sets[i] & sets[j])
+                worst = max(worst, o)
+                total += o
+        pairs = n * (n - 1) // 2
+        base, rem = divmod(n * k, POOL)
+        floor_sum = (rem * (base + 1) * base // 2
+                     + (POOL - rem) * base * (base - 1) // 2)
+        return worst, total / pairs, floor_sum / pairs, k * k / POOL
+
+    a = True
+    for k, n in ((10, 8), (10, 12), (5, 12), (8, 10), (4, 12)):
+        # Référence : le plancher doit égaler Σ C(cₓ,2)/C(n,2) recalculé
+        # à partir d'une couverture équilibrée construite explicitement.
+        cov = [0] * POOL
+        for i in range(n * k):
+            cov[i % POOL] += 1
+        ref = sum(c * (c - 1) // 2 for c in cov) / (n * (n - 1) // 2)
+        # Un portefeuille équilibré réel : découpage tournant.
+        grids = [[(i * k + t) % POOL + 1 for t in range(k)] for i in range(n)]
+        # Le découpage tournant ne l'est que si n·k ≤ 80 ; sinon on prend un
+        # plan glouton équivalent à celui du labo (h13).
+        if n * k > POOL:
+            cover, grids = {x: 0 for x in range(1, POOL + 1)}, []
+            for _ in range(n):
+                g = set()
+                for _ in range(k):
+                    best = min((x for x in range(1, POOL + 1) if x not in g),
+                               key=lambda x: (cover[x],
+                                              max((len(gg & (g | {x})) for gg in grids),
+                                                  default=0), x))
+                    g.add(best)
+                for x in g:
+                    cover[x] += 1
+                grids.append(g)
+            grids = [sorted(g) for g in grids]
+        worst, mean_o, floor_o, neutral = pack_overlap(grids)
+        okk = (abs(floor_o - ref) < 1e-12
+               and abs(neutral - k * k / POOL) < 1e-12
+               and mean_o >= floor_o - 1e-12
+               and worst < k)
+        a &= okk
+        print(f"\n1 quater. packOverlap k={k} n={n} : max {worst}, moyen "
+              f"{mean_o:.3f}, plancher {floor_o:.3f} (réf {ref:.3f}), "
+              f"ω* {neutral:.2f}  {'ok' if okk else 'ÉCHEC'}")
+    ok &= a
+
     # 1 ter. testRestartMixtureSeesALateDefectThatACumulativeBetCannot :
     # même arithmétique, même graine, même LCG que le test Swift — forme
     # martingale par BLOCS (h2) : au 1er pas du bloc j, S += w_j = 1/(j(j+1)),

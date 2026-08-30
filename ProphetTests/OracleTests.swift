@@ -712,6 +712,43 @@ final class OracleTests: XCTestCase {
         }
     }
 
+    func testPackOverlapReportsTheRightFloorAndThreshold() {
+        // Le diagnostic de forme du paquet (h13). Trois façons de se tromper
+        // en silence, donc trois assertions :
+        //
+        //  1. le seuil neutre vaut EXACTEMENT k²/80 — c'est le recouvrement
+        //     où Cov(H₁,H₂) s'annule, pas une approximation ;
+        //  2. le plancher est Σ C(cₓ,2)/C(n,2) à couverture équilibrée, donc
+        //     nul tant que 12·k ≤ 80 et strictement positif au-delà ;
+        //  3. le recouvrement moyen mesuré ne peut jamais passer SOUS ce
+        //     plancher — s'il y arrivait, le plancher serait faux.
+        let result = Swarm.run(syntheticHistory())
+        for pack in result.stakes {
+            let k = pack.stake
+            let n = pack.grids.count
+            XCTAssertEqual(pack.overlapNeutral, Double(k * k) / 80.0, accuracy: 1e-12,
+                           "mise \(k) : seuil neutre faux")
+            let base = (n * k) / 80
+            let rem = (n * k) % 80
+            let expectedFloor = Double(rem * (base + 1) * base / 2
+                                       + (80 - rem) * base * (base - 1) / 2)
+                / Double(n * (n - 1) / 2)
+            XCTAssertEqual(pack.overlapFloor, expectedFloor, accuracy: 1e-12,
+                           "mise \(k) : plancher faux")
+            XCTAssertGreaterThanOrEqual(pack.overlapMean, pack.overlapFloor - 1e-12,
+                                        "mise \(k) : moyenne sous le plancher")
+            XCTAssertLessThan(pack.overlapMax, k,
+                              "mise \(k) : deux grilles identiques dans le paquet")
+            if n * k <= 80 {
+                XCTAssertEqual(pack.overlapFloor, 0, accuracy: 1e-12)
+                XCTAssertEqual(pack.overlapMax, 0,
+                               "mise \(k) : la place permettait des grilles disjointes")
+            } else {
+                XCTAssertGreaterThan(pack.overlapFloor, 0)
+            }
+        }
+    }
+
     func testIncrementalEngineMatchesFullRebuild() {
         let history = syntheticHistory() // du plus récent au plus ancien
         let full = Swarm.run(history)

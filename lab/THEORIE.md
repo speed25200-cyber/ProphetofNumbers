@@ -466,3 +466,127 @@ L'attaque prédit donc **les 20 numéros exacts du tirage suivant** dès qu'un
 tirage a été produit par un LCG à constantes connues avec échantillonneur
 multiply-shift. C'est la dernière famille LCG-formée du dossier, et elle est
 désormais couverte — non par un argument, mais par du code passé aux témoins.
+
+---
+
+## Théorème F — le théorème des deux états (`h12_rang_ordonne.py`)
+
+**Énoncé.** Une suite ordonnée de d numéros parmi N a un rang dans [0, M′)
+avec M′ = N!/(N−d)!. Pour N = 80, d = 20 : M′ = 8 601 077 741 927 290 708
+534 393 031 884 800 000, soit log₂ M′ = 122,6939 bits. Un générateur d'état
+b bits ne peut donc pas produire un tirage ordonné en une seule sortie dès
+que b < log₂ M′ : il lui en faut ⌈log₂ M′ / b⌉ — et le rang les publie
+**toutes**.
+
+**Corollaire (linéarisation).** Deux sorties consécutives d'un LCG
+satisfont y = a·x + c. Le rang d'un tirage produit par un générateur de
+64 bits livre donc, d'un seul coup, une équation linéaire en (a, c) ; deux
+tirages en livrent deux, et le système se résout sans énumérer la moindre
+constante. Pour un générateur de 32 bits, un **seul** tirage livre quatre
+états consécutifs — assez pour résoudre *et* vérifier.
+
+> Plus l'état est étroit, plus l'ordre le trahit.
+
+**Lemme arithmétique (l'obstruction de parité, et sa levée).** Deux états
+d'un LCG séparés de n pas diffèrent de (aⁿ−1)·s + c_n. Comme a est impair,
+aⁿ−1 est toujours pair ; et c_n = 1 + a + … + a^(n−1) est pair dès que n est
+pair. La division 2-adique (s₂−s₁)/(s₁−s₀) — le levier de h4 sur le tirage
+trié — n'est donc **jamais** définie sur ces différences. Un solveur qui
+l'utilise tel quel rejette silencieusement le vrai générateur.
+
+La levée est la valuation : si v = v₂(den), le quotient q de q·den ≡ num
+n'est déterminé que modulo 2^(bits−v) et admet 2^v relèvements
+q + t·2^(bits−v). Les bits de poids faible de q étant invariants sous
+relèvement, ils servent de filtre *avant* l'énumération — a doit être
+impair, et A = a^g doit valoir 1 modulo 8.
+
+**Racine carrée 2-adique.** Pour rendre utilisables des tirages à écarts
+inégaux, il faut extraire a de A = a^g. Pour g = 2 : A ≡ 1 (mod 8) est
+nécessaire et suffisant, et le relèvement de Hensel donne exactement quatre
+racines mod 2^bits — {x, −x, x+2^(bits−1), −x+2^(bits−1)} — obtenues en
+un balayage de bits, chacune corrigeant le bit 2^k par un ajout de 2^(k−1).
+
+**Statut expérimental.** 24 témoins positifs récupérés avec prédiction
+exacte du tirage suivant, 0/30 faux positifs, aux écarts réels de l'archive.
+Sur les cinq tirages ordonnés disponibles : aucun état compatible, pour les
+trois modèles de source, les deux réductions et les deux ordres d'octets.
+
+**Limite mesurée.** Cinq tirages laissent une classe de 8 à 17 générateurs,
+pas un seul : le trio à écart constant consomme deux équations pour définir
+(A, C), il ne reste que deux vérifications indépendantes, et les quatre
+racines carrées de A plus les relèvements de c en produisent plusieurs qui
+les passent. Le tirage suivant tombe malgré tout de M′ ≈ 8,6·10³⁶ ordres à
+au plus 17.
+
+---
+
+## Théorème G — la loi de covariance d'un portefeuille, et son point neutre
+
+Le théorème A donnait la monotonie de la loi jointe de **deux** grilles en
+leur recouvrement. Le théorème G en donne la forme fermée, et l'étend à un
+portefeuille de n grilles.
+
+**Énoncé.** Pour deux grilles de k numéros se recoupant sur ω numéros, sous
+un tirage uniforme de D numéros parmi N (p = D/N) :
+
+    Var(1ᵢ) = p(1−p),      Cov(1ᵢ, 1ⱼ) = −p(N−D)/(N(N−1))   (i ≠ j)
+    Cov(H₁, H₂) = ω·p(1−p) − (k²−ω)·p(N−D)/(N(N−1))
+
+**Corollaire (le point neutre).** Cov(H₁,H₂) = 0 **exactement** en
+
+    ω* = k²/N
+
+Démonstration : ω(p(1−p) + p(N−D)/(N(N−1))) = k²·p(N−D)/(N(N−1)), et
+(1−p) = (N−D)/N, d'où ω* = k²·(N−1)/(N−1)/N = k²/N. Ce ω* est aussi
+l'espérance du recouvrement de deux grilles indépendantes uniformes — deux
+grilles « au hasard » sont donc exactement décorrélées, et toute
+construction qui descend sous k²/N achète de l'anticorrélation.
+
+**Corollaire (conservation).** Si les n = N/k grilles partitionnent
+{1..N}, alors Σ Hᵢ = D identiquement, donc
+
+    n·Var(H) + n(n−1)·Cov(H, ω=0) = 0
+
+Vérifié numériquement à 10⁻¹⁰ près pour k ∈ {5, 10, 20}. La variance du
+total d'un portefeuille en partition est **nulle** ; celle de n grilles
+identiques vaut n²·Var(H). Même espérance, deux extrêmes de forme.
+
+**Corollaire (amplification, exact).** P(au moins une grille pleine) vaut,
+pour n grilles disjointes, exactement n fois sa valeur pour n grilles
+identiques, aux termes d'inclusion-exclusion près — lesquels sont nuls dès
+que 2k > D. Mesuré : ×8,000 (k=10, n=8), ×10,000 (k=8, n=10).
+
+---
+
+## Théorème H — l'auto-concurrence, et le seul endroit où l'espérance bouge
+
+**Cadre.** Un rang partagé (jackpot progressif) distribue le pot entre tous
+les tickets gagnants. Soit W le nombre de gagnants *autres que les nôtres*.
+
+**Énoncé.** À budget de n tickets fixé, notons p la probabilité qu'un ticket
+donné soit gagnant. Alors
+
+    E[gain, n tickets identiques] = p · E[n/(n+W)]
+    E[gain, n tickets disjoints]  ≈ n·p · E[1/(1+W)]
+
+et le rapport vaut E[1/(1+W)] / E[1/(n+W)] > 1 **pour toute loi de W**, par
+stricte décroissance de x ↦ 1/(x+W). Pour W ~ Poisson(λ), E[1/(j+W)] se
+calcule terme à terme ; le rapport vaut n quand λ → 0 et décroît vers 1
+quand la foule grossit (×8,00 à λ=0 ; ×5,62 à λ=1 ; ×1,74 à λ=10, pour
+n = 8).
+
+**Portée.** C'est le seul énoncé du dossier qui déplace l'ESPÉRANCE sans
+rien supposer du générateur. Il n'entre pas en conflit avec le théorème
+d'invariance : celui-ci suppose que le gain d'une grille ne dépend pas des
+autres joueurs — troisième hypothèse isolée par h3 — et cette hypothèse est
+fausse dès qu'un rang est partagé. L'invariance protège la marginale ; elle
+ne protège pas contre l'auto-concurrence.
+
+**Théorème de bascule (corollaire opérationnel).** Tous les portefeuilles de
+même coût ayant même espérance, ils ne diffèrent que par la forme, et cette
+forme est ordonnée par étalement à moyenne conservée. Donc un objectif
+convexe (jeu défavorable, atteindre un but avant la ruine) préfère la
+concentration, un objectif concave (Kelly, jeu favorable) préfère la
+partition. Le signe de l'espérance étant fixé par le niveau de la cagnotte
+(h9), la géométrie optimale du portefeuille est une fonction de la cagnotte
+— et dans les deux régimes la partition gagne ou égale.

@@ -88,8 +88,17 @@ struct StakeGrids: Identifiable {
     var oddsLabel: String
     // P(au moins une des 12 grilles est pleine), EXACTE par inclusion-exclusion
     // sur le paquet réellement produit. C'est la seule quantité que la
-    // géométrie déplace : l'espérance de gain, elle, est invariante.
+    // géométrie déplace tant que les gains ne se partagent pas ; dès qu'un
+    // rang est partagé, la géométrie déplace aussi l'ESPÉRANCE (cf. h13).
     var packPAllHit: Double
+    // Diagnostic de forme du paquet (lab/experiments/h13_portefeuille.py) :
+    // recouvrement maximal et moyen entre deux grilles, plancher atteignable
+    // à couverture équilibrée, et seuil neutre ω* = k²/80 au-delà duquel
+    // deux grilles deviennent positivement corrélées.
+    var overlapMax: Int = 0
+    var overlapMean: Double = 0
+    var overlapFloor: Double = 0
+    var overlapNeutral: Double = 0
     var id: Int { stake }
 }
 

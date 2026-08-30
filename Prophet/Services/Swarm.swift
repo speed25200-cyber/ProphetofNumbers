@@ -1067,11 +1067,16 @@ final class SwarmEngine {
         let sources = gridSourcesFrom(rawFields: rawFields, zFields: zFields, ensemble: ensemble)
         let stakes: [StakeGrids] = ProphetConst.stakes.map { stake in
             let grids = makeGrids(stake: stake, sources: sources)
+            let shape = Self.packOverlap(grids.map(\.numbers))
             return StakeGrids(
                 stake: stake,
                 grids: grids,
                 oddsLabel: Self.formatPlainOdds(Self.hypergeometricPAll(stake)),
-                packPAllHit: Self.packPAllHit(grids.map(\.numbers), stake: stake)
+                packPAllHit: Self.packPAllHit(grids.map(\.numbers), stake: stake),
+                overlapMax: shape.max,
+                overlapMean: shape.mean,
+                overlapFloor: shape.floor,
+                overlapNeutral: shape.neutral
             )
         }
 
@@ -1320,13 +1325,29 @@ final class SwarmEngine {
     // probabilité exacte par inclusion-exclusion : l'optimum théorique est
     // atteint à 0,000 % près à la mise 5, à −0,12 % à la mise 10.
     //
-    // Ce que cela ne change PAS, et il faut le dire : l'espérance de gain est
-    // invariante par géométrie sous toute table de gains par grille (le gain
-    // du paquet est une somme de gains par grille, et la loi marginale d'une
-    // grille ne dépend pas de son contenu). Ce qui change est la FORME de la
-    // loi — plus d'occasions distinctes de toucher, moins de variance, et
-    // P(tout perdre) ramenée à zéro. Étaler ne coûte rien puisque aucune
-    // sélection ne déplace l'espérance ; c'est donc gratuit.
+    // Ce que cela ne change pas tant que les gains sont FIXES : l'espérance
+    // du paquet, qui reste invariante par géométrie (le gain du paquet est
+    // une somme de gains par grille, et la loi marginale d'une grille ne
+    // dépend pas de son contenu). Ce qui change est la FORME de la loi —
+    // plus d'occasions distinctes de toucher, moins de variance, et
+    // P(tout perdre) ramenée à zéro.
+    //
+    // Correction apportée par h13 : « étaler est gratuit » était trop
+    // modeste. Le théorème d'invariance porte sur la loi MARGINALE d'UNE
+    // grille ; il ne dit rien de la loi JOINTE du paquet. Deux conséquences
+    // exactes, démontrées dans lab/experiments/h13_portefeuille.py :
+    //
+    //   • n grilles DISJOINTES touchent le rang plein exactement n fois plus
+    //     souvent que n grilles identiques — ×8,000 pour 8 grilles de 10,
+    //     calculé par inclusion-exclusion, pas simulé.
+    //   • dès qu'un rang est PARTAGÉ entre les gagnants — un jackpot
+    //     progressif l'est — n tickets gagnants identiques ne touchent pas n
+    //     parts mais n/(n+W) du pot. Le rapport des espérances devient
+    //     E[1/(1+W)]/E[1/(n+W)], strictement supérieur à 1 pour toute foule.
+    //
+    // Autrement dit : sur un rang à gain fixe, étaler est gratuit ; sur un
+    // rang partagé, étaler RAPPORTE. C'est le seul endroit du dossier où la
+    // géométrie déplace l'espérance, et il ne suppose rien du générateur.
     private static let spreadPenalty = 1e6
 
     func makeGrids(stake: Int, sources: GridSources) -> [SuggestedGrid] {
@@ -1632,6 +1653,46 @@ final class SwarmEngine {
             }
         }
         return max(0, acc)
+    }
+
+    /// Diagnostic de forme du paquet — cf. `lab/experiments/h13_portefeuille.py`.
+    ///
+    /// Deux grilles de k numéros qui se recouvrent sur ω numéros vérifient
+    ///
+    ///     Cov(H₁,H₂) = ω·p(1−p) − (k²−ω)·p(N−D)/(N(N−1))
+    ///
+    /// qui s'annule EXACTEMENT en ω* = k²/N — lequel est aussi le
+    /// recouvrement moyen de deux grilles tirées au hasard. En dessous les
+    /// grilles sont anticorrélées (ce qu'on veut : plus d'occasions
+    /// distinctes), au-dessus elles se doublonnent.
+    ///
+    /// Le plancher rendu est la borne inférieure du recouvrement MOYEN à
+    /// couverture équilibrée, Σ C(cₓ,2)/C(n,2) : quand 12·k dépasse 80, un
+    /// recouvrement nul est arithmétiquement impossible et c'est cette
+    /// valeur-là, pas zéro, qui est l'optimum.
+    static func packOverlap(_ grids: [[Int]])
+        -> (max: Int, mean: Double, floor: Double, neutral: Double) {
+        let n = grids.count
+        guard n >= 2, let k = grids.first?.count, k > 0 else {
+            return (0, 0, 0, 0)
+        }
+        let sets = grids.map(Set.init)
+        var worst = 0
+        var total = 0
+        for i in 0..<n {
+            for j in (i + 1)..<n {
+                let o = sets[i].intersection(sets[j]).count
+                worst = Swift.max(worst, o)
+                total += o
+            }
+        }
+        let pairs = Double(n * (n - 1) / 2)
+        // Couverture équilibrée : `rem` numéros vus base+1 fois, le reste base.
+        let base = (n * k) / pool
+        let rem = (n * k) % pool
+        let floorSum = Double(rem * (base + 1) * base / 2 + (pool - rem) * base * (base - 1) / 2)
+        return (worst, Double(total) / pairs, floorSum / pairs,
+                Double(k * k) / Double(pool))
     }
 
     private static func mean(_ xs: [Double]) -> Double {

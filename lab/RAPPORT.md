@@ -1760,3 +1760,181 @@ marge est négative, au-dessus le terme d/4 dépasse le plafond de 4,1.
 famille.** Ce n'est pas l'information qui manque (100 sorties donnent
 613 bits pour 192 bits d'inconnues, facteur 3,2) mais la géométrie du
 réseau — et davantage de tirages n'y changerait rien.
+
+### ERRATUM — la conclusion ci-dessus est fausse
+
+Les deux paragraphes qui précèdent affirment qu'aucun point de
+fonctionnement n'existe pour LLL sur la famille multiply-shift. **C'est
+faux, et `h11_reseau.py` le démontre en écrivant l'attaque.**
+
+L'erreur est identifiable en une ligne : la marge du réseau (×17 au
+plafond) était comparée au facteur d'approximation **pire cas** de LLL,
+2^(d/4), soit ×1 024 en dimension 41. C'est la mauvaise borne. En pratique
+LLL atteint un facteur d'Hermite racine δ₀ ≈ 1,0219, donc un facteur
+d'approximation δ₀^d — soit ×1,5 en dimension 21 et ×2,4 en dimension 41.
+Face à une marge de ×17, la place est large.
+
+La leçon vaut d'être gardée telle quelle : une borne pire cas ne dit rien du
+comportement typique, et une conclusion d'impossibilité qui ne tient qu'à
+avoir choisi la mauvaise borne n'est pas une conclusion. La seule façon
+honnête de trancher était d'implémenter, et c'est ce que fait la section
+suivante.
+
+## 24. L'attaque par réseau, écrite et passée aux témoins (`h11_reseau.py`)
+
+Aucune bibliothèque de réduction n'existe dans cet environnement — ni
+fpylll, ni sympy, ni flint, ni gmpy2. `lab/lll.py` implémente donc LLL et le
+plan le plus proche de Babai, avec un choix de conception explicite : **base
+en entiers exacts, orthogonalisation de Gram-Schmidt en flottants**. Le
+principe de sûreté qui rend ce compromis sans danger est *LLL propose,
+l'arithmétique exacte dispose* : chaque candidat d'état est rejoué en
+entiers exacts contre les 20 numéros observés, donc un candidat faux est
+rejeté et jamais accepté. L'imprécision flottante peut coûter une
+récupération, jamais en fabriquer une.
+
+Formulation. Sous Fisher-Yates à indice multiply-shift, p_i = ⌊s_i·m_i/2⁶⁴⌋
+avec m_i = 80−i ; l'ordre publié détermine les p_i sans ambiguïté, et chaque
+p_i enferme son état dans un intervalle de largeur ≈ 2⁶⁴/m_i. Avec (a, c)
+connus, s_i = A_i·x + C_i où x = s_1, et chaque contrainte devient
+(A_i·x − B_i) mod 2⁶⁴ ∈ [0, W_i) : un problème du vecteur le plus proche en
+dimension 21.
+
+| | résultat |
+|---|---|
+| contrôle de l'outil (réseau q-ary aléatoire, dim 12) | plus court vecteur ÷7,5 |
+| **témoins positifs** (3 LCG × 3 tirages) | **9/9 récupérés, 9/9 prédictions exactes du tirage suivant** |
+| témoins négatifs (ordres uniformes) | **0/6** faux positifs |
+| coût | ≈ 3 s par tirage |
+| balayage réel | 5 tirages × 30 jeux de constantes (10 multiplicateurs publiés × 3 incréments), 516 s |
+| verdict sur l'archive | **aucun état compatible** |
+
+L'attaque prédit donc les 20 numéros exacts du tirage suivant dès qu'un
+tirage a été produit par un LCG à constantes **connues** avec échantillonneur
+multiply-shift. Elle ne trouve rien sur les tirages réels — et cette fois le
+« rien » a un sens, puisque l'outil récupère 9 témoins sur 9.
+
+## 25. Le théorème des deux états (`h12_rang_ordonne.py`)
+
+h11 laissait une faille béante : il fallait **énumérer** des constantes
+publiées. Un générateur aux constantes maison lui échappait entièrement.
+h12 la ferme, en transportant sur l'ordre le levier de h4 — qui, lui,
+*calcule* (a, c) au lieu de les deviner.
+
+**Le théorème.** Une suite ordonnée de 20 numéros parmi 80 a un rang dans
+[0, M′) avec M′ = 80·79·…·61 = 80!/60! ≈ 2^122,6939. Un tirage ordonné
+publie donc 122,69 bits. Un générateur d'état b bits ne peut pas produire un
+tirage en une seule sortie dès que b < 122,69 : il lui en faut ⌈122,69/b⌉ —
+et le rang les publie **toutes**. Or connaître deux états consécutifs rend la
+récupération de (a, c) *linéaire* au lieu de combinatoire.
+
+> Plus l'état est étroit, plus l'ordre le trahit. C'est l'inverse de
+> l'intuition habituelle, et c'est ce qui rend un générateur 32 bits
+> récupérable depuis **un seul** tirage ordonné.
+
+Fait arithmétique utile au passage : v₂(M′) = 22, donc un rang pris en
+« s mod M′ » publie exactement les 22 bits de poids faible de l'état.
+
+**Le piège qui faisait échouer la version naïve, et sa réparation.** Deux
+états d'un LCG diffèrent de (aⁿ−1)·s + c_n ; a étant impair, aⁿ−1 est
+*toujours* pair, et c_n l'est aussi dès que n est pair. La division
+2-adique (s₂−s₁)/(s₁−s₀) héritée de h4 n'est donc jamais définie ici : elle
+rejetait silencieusement le vrai générateur, témoins compris — la première
+version de h12 échouait sur ses propres témoins A et B tout en produisant un
+« rien trouvé » d'apparence normale sur les données réelles. La réparation
+passe par la valuation : si v = v₂(den), le quotient n'est déterminé que
+modulo 2^(bits−v) et admet 2^v relèvements, qu'il faut énumérer.
+
+| modèle de source | résolution | témoins positifs | faux positifs |
+|---|---|---|---|
+| A — LCG 128 bits, 1 sortie/tirage | trio à écart constant + racine carrée 2-adique | 4/4, constantes exactes | 0/6 |
+| B — LCG 64 bits, 2 sorties concaténées | 2 tirages, division 2-adique | 8/8, prédiction exacte | 0/12 |
+| C — LCG 32 bits, 4 sorties concaténées | **1 seul tirage** | 8/8, prédiction exacte | 0/12 |
+
+Les témoins reprennent les écarts **réels** (0, 3, 5, 7, 8) et non des
+écarts commodes : un témoin qui ne travaille pas dans les conditions des
+données ne prouve rien sur son applicabilité.
+
+**Une limite mesurée plutôt que tue.** Cinq tirages ne laissent pas *un*
+générateur mais une classe de 8 à 17, parce que le trio régulier consomme
+deux équations pour définir (A, C) et qu'il ne reste que deux vérifications
+indépendantes. Le tirage suivant tombe tout de même de M′ ≈ 8,6·10³⁶ ordres
+possibles à au plus 17, et dans trois cas sur quatre la classe est unanime —
+la prédiction est alors unique et juste.
+
+**Verdict sur l'archive :** aucun état compatible, dans les dix
+combinaisons modèle × réduction × ordre d'octets.
+
+## 26. La brèche : ce que l'invariance ne protège pas (`h13_portefeuille.py`)
+
+Tout le dossier jusqu'ici a poussé la seule porte que le théorème
+d'invariance laisse ouverte du côté du hasard : montrer que le tirage n'est
+pas uniforme. Elle est restée fermée. Mais **le théorème porte sur la loi
+marginale d'UNE grille** — il ne dit rien de la loi *jointe* de plusieurs
+grilles jouées ensemble. Or personne ne joue une grille isolée.
+
+**1. La loi de covariance, et son point neutre.** Deux grilles de k numéros
+se recoupant sur ω numéros vérifient
+
+    Cov(H₁, H₂) = ω·p(1−p) − (k²−ω)·p(N−D)/(N(N−1))
+
+qui s'annule **exactement en ω\* = k²/N** — lequel est aussi le recouvrement
+moyen de deux grilles tirées au hasard. En dessous, les grilles sont
+anticorrélées ; au-dessus, elles se doublonnent. Vérifiée contre 400 000
+tirages Monte-Carlo (écart ≤ 0,002) et contre l'identité de conservation
+d'une partition (0 à 10⁻¹⁰ près).
+
+**2. La conservation.** Une partition des 80 numéros en 80/k grilles
+disjointes vérifie Σ Hᵢ = 20 *identiquement* : la variance du total est
+**nulle**. Le même argent sur des grilles identiques donne 106,4. Même coût,
+même espérance, variance de 0 à 106.
+
+**3. L'amplification, exacte.** Pour « au moins une grille pleine » — le rang
+qui porte le jackpot — n grilles disjointes valent exactement n fois n
+grilles identiques. Calculé par inclusion-exclusion, pas simulé :
+
+| k | n | m | identiques | partition | gain |
+|---|---|---|---|---|---|
+| 10 | 8 | 10 | 1,122·10⁻⁷ | 8,977·10⁻⁷ | **×8,000** |
+| 8 | 10 | 8 | 4,346·10⁻⁶ | 4,346·10⁻⁵ | **×10,000** |
+| 5 | 16 | 5 | 6,449·10⁻⁴ | 1,031·10⁻² | ×15,98 |
+
+**4. Et le point où l'ESPÉRANCE bouge.** Tant que le gain est fixe, le
+facteur n ne porte que sur la probabilité. Mais dès qu'un rang est
+**partagé** — un jackpot progressif l'est — n tickets gagnants identiques ne
+touchent pas n parts pleines mais n/(n+W) du pot, alors que la version
+disjointe touche 1/(1+W) avec n fois plus de chances. Le rapport des
+espérances devient E[1/(1+W)] / E[1/(n+W)], strictement supérieur à 1 pour
+toute foule W :
+
+| λ (autres gagnants) | 0 | 0,5 | 1 | 3 | 10 |
+|---|---|---|---|---|---|
+| rapport disjoint/identique | ×8,00 | ×6,65 | ×5,62 | ×3,40 | ×1,74 |
+
+C'est **le premier endroit de tout le dossier où l'espérance bouge sans
+qu'il faille supposer quoi que ce soit sur le générateur**. L'invariance ne
+l'interdit pas, parce que son troisième présupposé — « le gain d'une grille
+ne dépend pas des autres joueurs », déjà isolé par h3 — est faux dès qu'un
+rang est partagé.
+
+**5. Le théorème de bascule.** Tous les portefeuilles de même coût ont la
+même espérance et ne diffèrent que par la *forme*, laquelle est ordonnée par
+étalement à moyenne conservée. Un objectif convexe (jeu défavorable,
+« atteindre un but avant la ruine ») préfère l'étalement de la loi, donc la
+concentration des grilles ; un objectif concave (Kelly, jeu favorable)
+préfère la partition. Et le signe de l'espérance est exactement ce que §5 bis
+et h9 mesurent via la cagnotte. Dans les deux régimes la partition gagne ou
+égale — c'est le seul conseil du dossier qui ne dépende d'aucune hypothèse
+sur le générateur.
+
+**6. Ce qui a été câblé.** `Swarm.packOverlap` rend désormais, par mise, le
+recouvrement maximal et moyen du paquet, le plancher atteignable à
+couverture équilibrée (Σ C(cₓ,2)/C(n,2), non nul dès que 12·k > 80) et le
+seuil neutre ω\* = k²/80 ; `GridsView` les affiche. Le commentaire de
+`makeGrids` qui disait « étaler est gratuit » est corrigé : sur un rang à
+gain fixe étaler est gratuit, **sur un rang partagé étaler rapporte**.
+
+**Réserve, et elle est entière.** Ce résultat ne prédit aucun numéro et ne
+prétend pas le faire : le théorème d'invariance interdit cela et n'a pas été
+mis en défaut. Il ne rend pas le jeu favorable — il rend un jeu donné
+strictement meilleur qu'un autre du même prix. C'est une brèche, pas une
+porte.
