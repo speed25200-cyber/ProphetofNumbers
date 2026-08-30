@@ -542,42 +542,61 @@ La règle qu'on en tire : un « rien trouvé » ne vaut que si le binaire qui l'
 produit est celui que la source du dépôt reconstruit. Les tableaux ci-dessous
 disent donc, tirage par tirage, **quel binaire a couvert quoi**.
 
-## Ce qui a été balayé, ce qui tourne, et ce qui ne l'a pas été
+## Ce que ce fichier établit, et ce qu'il n'établit pas
 
-Les garanties de protocole sont, elles, **complètes** : `--kat` 62/62,
-`--selftest` 160/160, contrôle positif en ligne de commande 4/4.
+Il faut séparer deux choses que le reste de cette page pourrait laisser
+confondre : ce qui est **acquis**, et ce qui n'est qu'**engagé**.
 
-Le balayage est une campagne longue — ≈ 34 min de temps machine par tirage
-pour les familles 0-30 sur quatre cœurs à 2,8 GHz, ≈ 6 min pour 31-39, soit
-≈ 3 h 20 pour les cinq tirages. Il **n'est pas terminé** : l'état ci-dessous
-est un instantané, daté, et non un total. Il se relit dans les journaux de
-balayage, qui portent l'heure de début et de fin de chaque tirage.
+### Acquis — et cela tient sans le balayage
 
-*Instantané au 2026-08-30 17:40 UTC.*
+Ce sont les garanties de protocole, mesurées sur le binaire que la source du
+dépôt reconstruit :
 
-| tirage | familles balayées sur [0, 2³²) | état | graines compatibles |
-|---|---|---|---|
-| 1381023 | 0-30 ; 31-39 non lancé | **en cours** — 6/31 familles closes | **0** |
-| 1381026 | — | **non lancé** | — |
-| 1381028 | — | **non lancé** | — |
-| 1381030 | — | **non lancé** | — |
-| 1381031 | — | **non lancé** | — |
+| | résultat |
+|---|---|
+| flux confrontés à une référence publiée ou à une implémentation tierce (`--kat`) | **62/62** |
+| combinaisons famille × échantillonneur retrouvant leur témoin (`--selftest`) | **160/160**, chacune avec **exactement une** graine compatible |
+| contrôle positif sur le chemin de code réel, témoin en haut de plage (4 294 967 290) | **4/4** |
 
-Aucune touche à ce stade, sur aucune famille et aucun échantillonneur.
+C'est le livrable de ce fichier : un instrument dont chaque flux est vérifié
+contre l'extérieur, et dont chaque combinaison sait retrouver ce qu'elle
+cherche. Un instrument qui ne sait pas trouver son propre témoin ne prouve
+rien quand il ne trouve rien ; celui-ci sait.
 
-**Quel binaire a couvert quoi.** Le tirage 1381023 a été lancé avec le binaire
-à 31 familles et poursuit sur son inode d'origine : il ne couvre donc que les
-familles 0-30, et les familles 31-39 lui sont appliquées par une passe
-complémentaire distincte. Les quatre autres tirages sont lancés après le
-remplacement du binaire et couvrent 0-39 d'un seul tenant. Les familles 0 à 30
-sont **bit-à-bit identiques** entre les deux binaires : la vérification a été
-faite deux fois, sur les flux (`--stream` sur sept familles) et sur le
-balayage lui-même (sortie complète sur [0, 300 000), 31 familles × 4
-échantillonneurs — `diff` vide).
+### Engagé — et le balayage n'est PAS terminé
 
-**Pour reprendre le balayage là où il s'arrête**, la commande est celle du
-haut de section ; l'espace se découpe en tranches `[lo, hi)` sans aucune
-communication entre elles, et `--fams` restreint aux familles voulues.
+Le balayage a été **lancé** sur le tirage 1381023, pour les familles **0-30**,
+sur [0, 2³²). Il est **partiel**. Les familles 31-39 et les quatre autres
+tirages ordonnés (1381026, 1381028, 1381030, 1381031) **n'ont pas été
+balayés** au moment où cette page est écrite ; un pilote laissé en place les
+enchaîne, et son avancement réel se lit dans les journaux de balayage, qui
+portent l'heure de début et de fin de chaque tirage. Rien de cet avancement
+n'est consigné ici : cette page ne suit pas le calcul, elle en délimite le
+périmètre.
+
+Le seul chiffre de balayage qu'on puisse citer est donc daté et partiel : au
+**2026-08-30 17:40 UTC**, six des trente et une familles du tirage 1381023
+étaient closes, avec **zéro graine compatible** sur les vingt-quatre
+combinaisons correspondantes.
+
+**Ce zéro partiel ne conclut rien à lui seul**, et il ne faut pas le lire
+comme un résultat. Six familles sur trente et une, un tirage sur cinq, c'est
+une fraction d'un plan d'expérience — pas une réfutation. Un « rien trouvé »
+n'a de portée que si l'on peut dire exactement sur quoi il a porté ; ici, la
+portée est celle de six familles sur un tirage, et rien de plus. Le calcul
+lui-même se reprendra ailleurs, et cette page dit comment.
+
+**Quel binaire a couvert quoi.** Le tirage 1381023 a été lancé avec un binaire
+antérieur, à 31 familles, et poursuit sur son inode d'origine : il ne couvre
+donc que les familles 0-30. Les familles 0 à 30 sont **bit-à-bit identiques**
+entre ce binaire et celui du dépôt : la vérification a été faite deux fois,
+sur les flux (`--stream`, sept familles) et sur le balayage lui-même (sortie
+complète sur [0, 300 000), 31 familles × 4 échantillonneurs — `diff` vide).
+
+**Pour reprendre le balayage**, la commande est celle du haut de section :
+l'espace se découpe en tranches `[lo, hi)` sans aucune communication entre
+elles, `--fams` restreint aux familles voulues, et chaque tirage ordonné se
+traite séparément — c'est le protocole, pas une commodité.
 
 ## Coût, mesuré
 
@@ -597,13 +616,18 @@ même flux, rempli une seule fois par graine. Comme une graine fausse meurt au
 premier numéro (probabilité 1/80), un seul bloc ChaCha suffit presque
 toujours — sans ce partage, ChaCha serait payé quatre fois.
 
-Le temps d'horloge réellement observé est supérieur à ces projections, parce
-que les vérifications et les mesures de cette page ont tourné sur la même
-machine que le balayage.
+Ces deux lignes sont des **projections** à partir de mesures courtes, et non
+du temps effectivement consommé : le temps d'horloge observé est supérieur,
+parce que les vérifications et les mesures de cette page ont tourné sur la
+même machine que le balayage. Elles servent à dimensionner une reprise, pas à
+attester d'un travail fait.
 
 ## Ce qui reste ouvert, et il faut le nommer
 
-Ce balayage ferme une région, pas la question. Restent hors de portée :
+La liste qui suit est celle des angles morts de l'**instrument**, et elle
+vaut indépendamment de l'avancement du calcul : même mené à son terme sur les
+cinq tirages et les quarante familles, ce balayage fermerait une région, pas
+la question. Restent hors de portée :
 
 * **Les graines de plus de 32 bits non dérivées d'une horloge.** ChaCha
   accepte une clé de 256 bits, Philox une clé de 64, sfc64 un état de 256.
