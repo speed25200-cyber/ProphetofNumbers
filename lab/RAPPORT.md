@@ -6,7 +6,7 @@ Réponse courte, en cinq nombres :
 |---|---|
 | Amélioration possible par une meilleure **prédiction** | **0 %** — c'est un théorème, pas un résultat empirique |
 | Plafond d'un biais **non détecté**, pour qui **connaîtrait** la règle | **+6,3 %** de rendement (§40) |
-| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≤ +1,6 %**, toutes familles mesurées (§45) |
+| Ce qu'un joueur pourrait **réellement** en tirer, devant l'identifier lui-même | **≈ +1,3 %** au maximum de la courbe, toutes familles conditionnelles (§48) |
 | Avantage que l'app affichait sur des données équitables | **+18 % à +34 %**, entièrement artefactuel — **corrigé** (§8 bis) |
 | Avantage de la maison, pour comparaison | **−25 % à −35 %** |
 
@@ -4354,3 +4354,110 @@ vingt-cinq minutes, et l'app les accumule seule depuis le §34.
    **rapports** est transportable.
 
 **Registre : inchangé.** `h37` ne teste pas l'archive — il démontre.
+
+## 48. Où la courbe se retourne, et le maximum de toute la piste A (`h38_maximum_realisable.py`)
+
+Le §45 établit que le plafond réalisable se retourne — 0,53 puis 0,99 puis
+1,30 puis **0,71** — mais il ne le **localise** pas. Tant que le maximum
+n'est pas situé, la phrase du sommaire (« ≤ +1,6 % ») n'est vraie que des
+familles qu'on a pensé à tester. Cette section la rend vraie de toutes.
+
+### Le critère du retournement, lisible sans ajustement
+
+Le §42 a établi que le rapport signal sur bruit de l'identification vaut
+`SNR ∝ m^{−1/4}`. C'est la variable naturelle. En la prenant comme abscisse,
+les quatre parts captées de `h26` donnent des pentes locales :
+
+| segment | d(log part) / d(log SNR) |
+|---|---|
+| rémanence → marginal | 0,407 |
+| marginal → paires cachées | **0,406** |
+| paires cachées → quadratique | **1,432** |
+
+Les deux premières sont identiques **à trois décimales** ; la troisième
+franchit 1. Or le plafond réalisable vaut `omniscience × part captée`, soit
+`m^{1/4} × part(SNR)`, d'où en logarithmes
+
+```
+d(log réalisable)/d(log m) = 1/4 − (1/4)·pente
+```
+
+> **Le plafond réalisable croît tant que la pente est sous 1, décroît au-delà,
+> et le maximum est exactement là où `d(log part)/d(log SNR) = 1`.**
+
+Ce critère ne demande aucun ajustement paramétrique, et surtout il ne
+s'appuie **que** sur la part captée — jamais sur les plafonds réalisables
+eux-mêmes, qu'il prétend expliquer.
+
+### Le maximum, localisé
+
+| | valeur |
+|---|---|
+| m du maximum | **7 376 cellules** |
+| intervalle à 95 % (bootstrap sur les incertitudes de `h26`) | [3 369 ; 23 520] |
+| plafond réalisable au maximum | **1,28 %** |
+| intervalle à 95 % | [1,06 % ; 1,46 %] |
+
+**La famille des paires cachées est pratiquement au sommet de la courbe** —
+6 400 cellules contre 7 376 pour le maximum. La famille quadratique, à
+252 800, est déjà loin sur la pente descendante.
+
+| m | omniscience | part captée | réalisable |
+|---|---|---|---|
+| 1 | 0,53 % | 1,000 | 0,53 % |
+| 80 | 1,33 % | 0,640 | 0,85 % |
+| 6 400 | 3,21 % | 0,410 | **1,32 %** |
+| 7 376 | 3,29 % | 0,390 | **1,28 %  ← maximum** |
+| 20 000 | 3,95 % | 0,273 | 1,08 % |
+| 252 800 | 6,27 % | 0,110 | 0,69 % |
+
+### Deux précisions, dont une incohérence héritée
+
+Le critère de pente place le passage à 7 376 tandis que l'interpolation par
+morceaux met le sommet du produit au nœud, à 6 400. Les deux disent la même
+chose ; l'écart est un artefact de l'interpolation linéaire par morceaux.
+
+Plus gênant : **la ligne marginale du dossier n'est pas cohérente avec
+elle-même.** +1,33 % (plafond de `c0`) × 64 % (part captée de `c2`) fait
+0,85 %, et non le +0,99 % publié depuis le §3 bis. La raison est que les deux
+facteurs viennent de deux mesures différentes à amplitude nominalement
+identique : `c0` mesure l'avantage de l'oracle à +1,33 % pour d = 0,0030,
+`c2` le mesure à +1,55 % pour le même d. L'écart de 16 % est antérieur à ce
+fichier, et `h26` l'a propagé sans le voir. La courbe ci-dessus emploie le
+plafond de `c0` partout, par cohérence interne — d'où sa ligne marginale à
+0,85 %.
+
+### Une erreur de ma première version
+
+J'interpolais l'omniscience par la loi `m^{1/4}` ancrée sur le seul point
+marginal — alors que le §41 a lui-même **mesuré** que le facteur `‖a‖` varie
+de 1,19 à 0,63. Cela surestimait de 24 % au voisinage du maximum : 1,61 %
+annoncé contre 1,28 % réel. Appliquer une loi d'échelle là où l'on dispose
+des mesures qu'elle est censée résumer est une faute d'autant plus facile
+qu'on vient de démontrer la loi.
+
+### Portée
+
+**Ce que cela ferme.** Au-delà du maximum, monter en complexité **dessert**
+l'adversaire : il n'existe donc pas de famille plus grande qui ferait mieux.
+La piste A est bornée par le sommet de cette courbe, et non par la plus haute
+famille qu'on a pensé à tester. L'énoncé cesse d'être un relevé de points
+pour devenir une propriété de la courbe.
+
+**Ce que cela ne ferme pas.** La courbe repose sur quatre points, et le
+retournement n'est établi que par la dernière descente : un cinquième point
+entre 6 400 et 252 800 cellules le confirmerait ou le déplacerait, et c'est
+la mesure la plus utile que ce dossier puisse encore demander sur ce sujet.
+L'interpolation log-log par morceaux est un choix, pas une loi — mais mieux
+vaut interpoler des mesures qu'extrapoler un modèle que le §45 a réfuté. La
+famille des lags (+1,59 %) n'entre pas dans la courbe, son `m` étant l'union
+balayée de 306 familles. Et tout ceci porte sur les familles
+**conditionnelles au tirage précédent** : le non stationnaire (§43) et
+l'ordre (§47) ont leurs propres bornes, établies séparément.
+
+> Le plafond réalisable de la piste A culmine autour de **1,3 %**, et
+> l'avantage de la maison vaut 25 à 35 %. L'écart est d'un ordre de grandeur,
+> et il **ne se referme pas en montant en complexité** — c'est précisément ce
+> que signifie l'existence d'un maximum.
+
+**Registre : inchangé.** `h38` n'interroge pas l'archive.
