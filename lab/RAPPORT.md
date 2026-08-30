@@ -2616,3 +2616,158 @@ faisait échouer 16 000 allers-retours sur 16 000. Sans ce contrôle, le test
 aurait rendu « rien trouvé » sur les données réelles avec l'assurance d'un
 résultat, et c'est exactement la panne que les témoins existent pour
 attraper.
+
+## 36. La question d'avant : α sert à décider quoi ? (`h25_plan_releves.py`)
+
+Le dossier réclame trois fois les mêmes données. §28 : « il faut une
+trentaine de relevés pour situer la fraction à un facteur 10 près, une
+centaine pour un facteur 3 ». §29 : « les trois se lèvent avec les mêmes
+données : une série de relevés, et le prix du ticket ». §31 : « ces derniers
+nombres sont tous proportionnels à α, estimé sur *un* relevé ».
+
+Une demande de données ne se justifie que par une décision qu'elle change.
+Personne n'avait posé la question d'avant : **α sert à décider quoi ?**
+
+### L'inventaire, et il est court
+
+L'app propose exactement quatre actions ; tout le reste est du rapport.
+
+| | décision | α y entre-t-il ? | pourquoi |
+|---|---|---|---|
+| D1 | jouer ou non à ce tirage | **non** | la règle est `J ≥ S = c/p` ; `J` est affiché, `p` est une combinatoire exacte |
+| D2 | combien miser | **non** — c'est le résultat de cette section | la cagnotte est affichée à l'instant de miser |
+| D3 | comment disposer les grilles | non | dominance de l'étalement prouvée rang par rang (§26) |
+| D4 | quels numéros cocher | non | théorème d'invariance (§1) |
+
+D1, D3 et D4 étaient déjà acquis — §5 bis nommait même sa condition
+« suffisante » précisément parce qu'elle ne suppose rien. Le seul cas
+douteux était D2, où `h17` fait entrer α par la cagnotte moyenne
+`J = S(1 + α)`. Mais au moment de miser, la cagnotte n'est pas une moyenne :
+elle est à l'écran.
+
+### Ce que coûte de dimensionner sur une moyenne dont on n'a pas besoin
+
+Quatre règles rejouées sur le même processus (400 000 tirages, α = 0,2950,
+13 grilles disjointes à la mise 6, 13 072 occasions soit 3,27 % des tirages) :
+
+| règle de dimensionnement | croissance totale | rapport à R2 |
+|---|---|---|
+| **R0** meilleure fraction figée, choisie par un oracle connaissant toute la trajectoire | 0,51481 | ×0,708 |
+| **R1** fraction figée à la cagnotte moyenne — ce que fait `h17` | 0,50520 | ×0,695 |
+| **R2** fraction recalculée sur la cagnotte **affichée** | **0,72693** | ×1,000 |
+| **R3** figée, α surestimé d'un facteur 3 | **−0,18193** | ×−0,250 |
+| R3′ figée, α sous-estimé d'un facteur 3 | 0,37099 | ×0,510 |
+
+Trois lectures, et c'est la deuxième qui décide.
+
+**R2 gagne 44 %** de croissance sur la règle du dossier. **R2 bat aussi
+R0**, la meilleure fraction figée qu'un oracle omniscient puisse choisir
+(×1,41) : le compromis d'une fraction unique appliquée à des occasions
+hétérogènes est donc perdant **par nature**, et non par mauvais réglage. La
+question n'est pas de mieux estimer α pour mieux régler une fraction figée ;
+c'est que la fraction ne doit pas être figée.
+
+**Et le danger est asymétrique.** À la moyenne, un α surestimé d'un facteur
+3 — soit à peu près la largeur de l'intervalle dont le dossier dispose, de
++8 % à +1 165 % — fait passer la croissance en **négatif**. C'est la falaise
+de surmise de §30, atteinte non par gourmandise mais par ignorance d'un
+paramètre. La règle qui n'a besoin d'aucun α est donc la seule qui n'y
+expose pas.
+
+R2 ne demande rien qui ne soit visible : la cagnotte est affichée, `p` est
+exacte, `n` est un choix.
+
+### Le plan de relevés, corrigé — l'information arrive au rythme des chutes
+
+α sort des quatre décisions, mais il reste ce qui dit ce que la stratégie
+**rapporte** par unité de temps. Ce plan-là garde donc un sens, et §28 en
+donnait un raccourci — mesurer `r` (l'accumulation par tirage) et `q` (le
+taux de chutes) — assorti d'une conclusion : « deux relevés rapprochés
+valent bien davantage que deux relevés éloignés ».
+
+La première moitié est juste, la seconde était incomplète. Indexé par le
+nombre de **chutes** attendues plutôt que par une durée — `q` étant
+lui-même inconnu, une durée n'aurait de sens qu'à un `q` particulier :
+
+| chutes D | fenêtre | A : 95 % de α̂/α | B : 95 % de α̂/α | B défini |
+|---|---|---|---|---|
+| 1 | 400 | [0,20 ; 3,77] | [0,25 ; 1,00] | 62 % |
+| 3 | 1 200 | [0,33 ; 2,84] | [0,43 ; 3,00] | 96 % |
+| 10 | 4 000 | [0,50 ; 1,89] | [0,59 ; 2,00] | 100 % |
+| 30 | 12 000 | [0,62 ; 1,67] | [0,71 ; 1,58] | 100 % |
+| 100 | 40 000 | [0,78 ; 1,29] | [0,83 ; 1,25] | 100 % |
+| 300 | 120 000 | [0,86 ; 1,18] | [0,90 ; 1,13] | 100 % |
+
+**Ce qui indexe la précision est le nombre de chutes, pas le nombre de
+relevés.** Entre deux chutes, l'app peut journaliser mille relevés : ils
+décrivent tous le même cycle et n'apportent qu'une seule observation de
+l'âge. L'app en collecte 204 par jour, mais elle n'apprend qu'au rythme où
+la cagnotte tombe.
+
+La loi d'échelle est **asymptotique et il faut le dire ainsi** : `écart
+× √D` monte de 0,96 à 1,38 puis se stabilise vers **1,4** à partir de
+D = 30. En dessous, la loi de l'estimateur est trop dissymétrique pour
+qu'un écart-type la résume — c'est pourquoi le tableau donne un intervalle
+et non un σ. Lu sur l'intervalle : le facteur d'incertitude sur α vaut
+**18,9 à une chute, 3,8 à dix, 1,65 à cent**.
+
+Enfin, le raccourci `B` de §28 est **moins bon** que la simple moyenne tant
+que les chutes sont rares : `1/q̂` est une transformation convexe d'un
+comptage, donc biaisée vers le haut et à queue lourde, et elle n'est même
+pas définie dans 38 % des fenêtres à une chute attendue. Ce qu'il faut
+garder de §28 : deux relevés **consécutifs** donnent `r` presque exactement,
+l'accumulation étant déterministe entre deux chutes. Mais `r` saturé, la
+précision ne dépend plus que de `q`, et `q` se paie en chutes.
+
+### Le prix du ticket, qui n'est pas une donnée manquante parmi d'autres
+
+§28 l'appelle « la donnée manquante la moins chère à obtenir » et §29 le
+range à côté de la série de relevés. L'inventaire les sépare radicalement :
+**c'est la seule donnée manquante dont une décision dépende.** Sans `c`, le
+seuil `S = c/p` de D1 n'est pas calculable, et D1 est la règle qui décide
+s'il faut jouer.
+
+| prix du ticket | seuil D1 à la mise 6 | α implicite | capital minimal (13 grilles) |
+|---|---|---|---|
+| CHF 0,50 | CHF 3 876 | 59,0 % | CHF 10 436 |
+| **CHF 1,00** | **CHF 7 753** | **29,5 %** | **CHF 33 991** |
+| CHF 2,00 | CHF 15 506 | 14,7 % | CHF 120 457 |
+| CHF 5,00 | CHF 38 764 | 5,9 % | CHF 694 709 |
+
+La ligne à un franc retombe exactement sur le CHF 33 991 de §30 — contrôle
+de cohérence entre les deux fichiers, calculé et non recopié.
+
+Et **α est inversement proportionnel à `c`** : α = μ·p/c. Le « +29,5 % » de
+§29 est un +29,5 % *à un franc* ; à cinq francs c'est +5,9 %. La réserve de
+§29 — « un α de 29,5 % est anormalement généreux » — trouve donc parmi ses
+trois explications candidates la moins chère à écarter, et c'est un coup
+d'œil sur le prix d'un ticket.
+
+### Deux faiblesses de ma première version
+
+La première « vérifiait » que le taux d'arrivée sort de la décision en
+balayant trois taux — mais la grille de fractions ne dépendait pas du taux,
+si bien que les trois lignes réexécutaient la même arithmétique et
+tombaient sur le même chiffre à 0,0e+00 près. Une simulation qui ne peut
+pas échouer ne vérifie rien. L'additivité de la croissance logarithmique
+est une identité et elle est désormais énoncée comme telle, la vérification
+portant sur ce qui n'est pas trivial : le coût du compromis d'une fraction
+figée.
+
+La seconde donnait un tableau **non monotone** — 6,2 % d'erreur à un jour
+contre 37,4 % à sept — parce que les fenêtres où l'estimateur est indéfini
+étaient silencieusement écartées, et qu'à un jour il n'en survivait que les
+plus favorables. C'est la sélection que tout le protocole existe pour
+éviter, commise dans le fichier qui la dénonce. Le tableau rapporte
+désormais la fraction de fenêtres où l'estimateur est défini.
+
+### Ce que cette section déplace
+
+Elle ne touche pas au théorème d'invariance et ne prédit aucun numéro. Elle
+déplace une autre frontière : celle entre ce qu'il faut **mesurer** et ce
+qu'il suffit de **lire**. Le dossier réclamait cent relevés pour une
+décision qui n'en demande aucun, et laissait en réserve le prix d'un ticket
+dont dépend la seule règle qui décide s'il faut jouer.
+
+**Registre : inchangé.** Comme `h1`, `h14` et `h17`, `h25` ne teste pas
+l'archive — il prouve et il corrige.
