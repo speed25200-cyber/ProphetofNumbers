@@ -590,3 +590,69 @@ concentration, un objectif concave (Kelly, jeu favorable) préfère la
 partition. Le signe de l'espérance étant fixé par le niveau de la cagnotte
 (h9), la géométrie optimale du portefeuille est une fonction de la cagnotte
 — et dans les deux régimes la partition gagne ou égale.
+
+---
+
+## Théorème I — la parité du pas de capture (`h14_combien_de_tirages.py`)
+
+**Énoncé.** Soit un générateur congruentiel s ↦ a·s + c observé aux
+décalages 0, g, 2g, … Le trio à écart constant ne détermine que A = a^g. Si
+g est **pair**, tout décalage multiple de g est pair, et l'application
+s ↦ a·s + c y agit exclusivement par ses puissances paires : les quatre
+racines carrées 2-adiques de A — {±a, ±a + 2^(b−1)} — donnent alors toutes
+la *même* application au pas g, donc reproduisent identiquement chaque
+tirage observé. Aucun tirage supplémentaire pris au même pas ne peut les
+séparer.
+
+**Corollaire (mesuré).** À pas 2, la classe de générateurs compatibles reste
+à 24 de n = 4 à n = 8 et n'est jamais unanime sur le tirage suivant. À pas
+impair — 1 ou 3 — elle tombe à 3 à 10 éléments unanimes. Capturer des
+tirages consécutifs n'est donc pas une commodité : c'est la condition qui
+rend la capture informative.
+
+**Corollaire (seuil de crédibilité).** Sur n tirages, le trio consomme deux
+équations, il reste n − 3 vérifications indépendantes. À n = 3 il n'en reste
+aucune, et le témoin négatif le confirme : sur des suites uniformes, la
+réduction par troncature produit une fausse récupération 3 fois sur 3. Le
+seuil de crédibilité est donc n ≥ 4, et il est vérifié plutôt que postulé.
+
+**Lemme technique (racine g-ième 2-adique).** Pour extraire a de A = a^g
+modulo 2^b : écrire g = 2^v·m avec m impair. L'exposant du groupe des unités
+de Z/2^b étant 2^(b−2), l'élévation à une puissance impaire y est bijective,
+donc la racine m-ième est unique et vaut A^(m⁻¹ mod 2^(b−2)). Restent v
+racines carrées successives, chacune ramifiant par quatre. Écrire
+`sqrt(A)` sans ce détour revient à supposer g = 2, et rend « aucune
+solution » — indiscernable d'un vrai négatif — sur tout autre pas.
+
+---
+
+## Théorème J — la loi de la cagnotte (`h15_loi_cagnotte.py`)
+
+**Cadre.** Une cagnotte progressive qui croît d'un montant fixe r par tirage
+et est remportée avec une probabilité q par tirage, indépendamment du passé,
+repartant d'un plancher J₀.
+
+**Énoncé.** L'âge T de la cagnotte à un instant quelconque suit une
+géométrique de paramètre q, donc J = J₀ + r·T vérifie
+
+    E[J] = J₀ + r/q,      P(J ≥ S) = (1−q)^(⌈(S−J₀)/r⌉) ≈ exp(−(S−J₀)/μ)
+
+avec μ = r/q. Combiné au seuil de bascule S = mise/P(k/k) de h9, cela donne
+directement la **fraction de tirages où le pari est favorable**.
+
+**Corollaire (l'information d'un seul relevé).** μ est identifiable depuis
+un unique relevé — l'espérance d'une exponentielle est son unique
+paramètre — mais avec un écart-type égal à sa moyenne. L'intervalle exact
+issu de 2n·J̄/μ ~ χ²(2n) donne, pour n = 1, une fraction favorable dans
+[0 ; 91,8 %] : identifiable ne veut pas dire connu.
+
+**Corollaire (le bon plan de collecte).** r est mesurable comme différence
+entre deux relevés successifs sans gain intermédiaire, et q comme taux de
+chutes. Ces deux mesures ne passent pas par la loi stationnaire : elles
+remplacent une centaine de relevés épars par deux relevés rapprochés plus
+une date de chute.
+
+**Sens des réserves.** Un plancher J₀ > 0 augmente la fraction favorable ;
+le seuil de h9 étant suffisant et non nécessaire, la fraction vraie est
+également plus haute. Les deux biais structurels connus vont donc dans le
+sens du joueur, ce qui rend l'estimation ci-dessus conservatrice.

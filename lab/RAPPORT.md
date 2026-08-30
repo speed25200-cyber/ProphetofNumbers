@@ -1938,3 +1938,131 @@ prétend pas le faire : le théorème d'invariance interdit cela et n'a pas ét�
 mis en défaut. Il ne rend pas le jeu favorable — il rend un jeu donné
 strictement meilleur qu'un autre du même prix. C'est une brèche, pas une
 porte.
+
+## 27. Le protocole de capture, et deux bugs qui rendaient « rien trouvé » (`h14_combien_de_tirages.py`)
+
+h12 laissait une gêne : cinq tirages ne referment pas la solution sur *un*
+générateur mais sur une classe de 8 à 17. Même si l'attaque avait mordu, la
+prédiction n'aurait pas été unique. D'où la question de plan d'expérience —
+combien de tirages ordonnés faut-il, et lesquels ? — dont la réponse est un
+protocole de collecte, pas un théorème.
+
+**Ce que l'expérience a d'abord trouvé, ce sont deux bugs.** Les deux
+rendaient « aucune solution », c'est-à-dire exactement ce que l'archive
+réelle rend : ils étaient invisibles depuis h12, qui n'exerçait qu'un seul
+espacement.
+
+1. `solve_a` prenait systématiquement une racine **carrée** de A = a^g. Ce
+   n'est valable qu'à pas 2. À pas 1 — des tirages consécutifs, le meilleur
+   schéma possible — il cherchait a tel que a² = a, et ne trouvait jamais
+   rien. Remplacé par une racine g-ième générale : g = 2^v·m, la racine
+   m-ième (m impair) est unique et vaut A^(m⁻¹ mod 2^(bits−2)) puisque
+   2^(bits−2) est l'exposant du groupe des unités, puis v racines carrées
+   successives qui ramifient par quatre.
+2. Le filtre « A ≡ 1 (mod 8) » ne vaut que si g est **pair** — A est alors
+   un carré d'impair. À pas impair, A n'hérite que de la parité de a, et le
+   filtre rejetait tout, le vrai générateur compris.
+
+**Le résultat, une fois les bugs corrigés.**
+
+| schéma de capture | n=4 | n=5 | n=6 | n=7 | n=8 |
+|---|---|---|---|---|---|
+| consécutifs (pas 1) | 19 | **3 unanime** | **3** | **3** | **3** |
+| pas 2 | 24 | 24 | 24 | 24 | 24 |
+| pas 3 | 10 | 10 | 8 | 8 | 8 |
+| réel (3, 2, 2, 1) | 23 | 17 | 17 | 17 | 16 |
+
+*(taille de la classe de générateurs reproduisant tous les rangs observés,
+réduction « mod » ; « unanime » = tous prédisent le même tirage suivant)*
+
+**La parité du pas décide de tout, et c'est le résultat le moins
+devinable.** À pas 2 la classe ne se referme jamais, quel que soit le nombre
+de tirages capturés, et elle n'est jamais unanime. La raison est
+structurelle : trois tirages à écart 2 ne déterminent que a², et tous les
+tirages suivants étant eux aussi à des décalages **pairs**, aucun n'apporte
+la moindre information sur a lui-même. Capturer vingt tirages à pas régulier
+pair n'apprendrait rien de plus que quatre.
+
+**Quatre tirages au minimum.** À n = 3 il ne reste zéro vérification
+indépendante — le trio dépense ses deux équations à définir (A, C) — et le
+témoin négatif le confirme brutalement : sur des suites uniformes, la
+réduction « floor » produit une fausse récupération **3 fois sur 3**. Dès
+n = 4, le compte de faux positifs retombe à 0 et y reste jusqu'à n = 8.
+
+**Les modèles B et C ne demandent presque rien** : deux tirages et un seul
+tirage respectivement, solution unique d'emblée, quel que soit l'espacement.
+Leur équation y = a·x + c vit à l'intérieur du tirage.
+
+> **Consigne de terrain.** Capturer des tirages qui se **suivent**. C'est le
+> pas impair le plus simple à viser, le plus convergent des schémas testés,
+> et c'est aussi ce que h10 demandait pour le test 2-adique — une même
+> consigne sert les deux. Cinq consécutifs suffisent aux trois modèles.
+
+## 28. La loi de la cagnotte, et la fréquence de bascule (`h15_loi_cagnotte.py`)
+
+h9 concluait : « la fréquence de franchissement demande une SÉRIE ; une
+observation donne une distance, pas une dynamique ». C'est vrai d'une mesure
+directe, pas d'une mesure modélisée — à condition de dire ce que le modèle
+achète et ce qu'il laisse.
+
+**Trois hypothèses, nommées.** H1 la cagnotte croît d'un montant fixe r par
+tirage ; H2 elle est remportée avec une probabilité q par tirage, sans
+mémoire ; H3 elle repart d'un plancher J₀. Sous H1–H3, l'âge de la cagnotte
+à un instant quelconque est géométrique, donc
+
+    P(J ≥ S) = exp(−(S − J₀)/μ)      avec μ = r/q
+
+Vérifié par simulation — et l'écart admissible n'est pas fixé à la main : il
+est calculé depuis le nombre de renouvellements de la simulation, et
+rapporté en unités d'écart-type. Moyenne et queue tombent toutes deux à
+moins de 3 σ.
+
+**L'estimation ponctuelle**, avec J₀ = 0 (le cas le moins favorable) :
+
+| mise | cagnotte | seuil | S/μ | fraction de tirages favorables |
+|---|---|---|---|---|
+| 5 | CHF 355 | CHF 1 551 | 4,37 | 1,27 % |
+| **6** | **CHF 2 287** | **CHF 7 753** | **3,39** | **3,37 %** |
+| 7 | CHF 1 540 | CHF 40 979 | 26,6 | 2,8·10⁻¹² |
+| 8 | CHF 9 292 | CHF 230 115 | 24,8 | 1,8·10⁻¹¹ |
+| 10 | CHF 495 713 | CHF 8 911 711 | 18,0 | 1,6·10⁻⁸ |
+
+Un tirage toutes les cinq minutes : 3,4 % ferait dix tirages favorables par
+jour à la mise 6, un toutes les deux heures et demie.
+
+**Et l'incertitude EST le résultat.** Une exponentielle a un écart-type égal
+à sa moyenne. Avec un seul relevé, l'intervalle exact à 95 % sur la fraction
+favorable va de **0,00 % à 91,8 %** — autant dire qu'on ne sait rien.
+
+| relevés | 1 | 3 | 10 | 30 | 100 |
+|---|---|---|---|---|---|
+| fraction favorable à 95 % | 0–91,8 % | 0,03–49,7 % | 0,31–19,7 % | 0,90–10,2 % | 1,68–6,34 % |
+
+Il faut une trentaine de relevés pour situer la fraction à un facteur 10
+près, une centaine pour un facteur 3. La demande de données du dossier
+cesse d'être un souhait et devient un nombre.
+
+**Le raccourci, et c'est lui qui compte.** r est simplement la *différence*
+entre deux relevés successifs sans gain entre les deux ; q est le taux de
+chutes observées. Avec r et q mesurés, μ n'est plus estimé à travers une
+variable aléatoire — il est calculé, et l'intervalle s'effondre. Deux
+relevés rapprochés valent donc bien davantage que deux relevés éloignés.
+
+**Ce qui a été câblé.** L'app recevait déjà les cagnottes de l'API
+(`extraJackpots`) sans en garder la moindre mémoire — chaque tirage passé
+était une observation perdue pour toujours. Elle tient désormais un journal
+persistant (`JackpotReading`, un relevé par tirage et par mise, sans
+doublon) et `JackpotLaw` en tire l'accumulation par tirage (médiane, donc
+robuste à une lecture d'écran erronée), le compte de chutes, et la fraction
+de tirages favorables avec son intervalle de Poisson exact. Les bornes de
+Garwood sont obtenues par bissection sur la fonction de répartition, faute
+de fonction gamma en Swift, et vérifiées contre les quantiles exacts du
+khi-deux.
+
+**Les deux réserves structurelles vont dans le même sens, et c'est le bon.**
+Un plancher J₀ > 0 rend le franchissement plus fréquent que calculé ; et le
+seuil de h9 est *suffisant* et non nécessaire, puisqu'il ignore les rangs
+intermédiaires qui ne peuvent qu'ajouter. La vraie fraction favorable est
+donc plus haute que celle estimée ici. La réserve qui va dans l'autre sens
+est le prix du ticket : tout est par franc misé, et ce prix reste la donnée
+manquante la moins chère à obtenir de tout le dossier.

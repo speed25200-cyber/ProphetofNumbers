@@ -1544,14 +1544,145 @@
   </section>
 
   <section>
+    <h2>La cagnotte&nbsp;: enfin une fréquence, pas seulement une distance</h2>
+    <div class="col">
+      <p>
+        Une seule chose peut changer le SIGNE de l'espérance, et elle ne dépend d'aucune hypothèse
+        sur le générateur&nbsp;: dès que la cagnotte dépasse <em>mise / P(k sur k)</em>, le pari
+        devient favorable, quel que soit le barème des rangs intermédiaires. Le premier relevé de
+        cagnottes jamais obtenu situe la mise 6 à 29,5&nbsp;% de ce seuil.
+      </p>
+      <p>
+        Restait la question qui décide de tout&nbsp;: à quelle <em>fréquence</em> le seuil est-il
+        franchi&nbsp;? Une cagnotte qui monte d'un montant fixe à chaque tirage et retombe quand
+        elle est remportée a un âge sans mémoire&nbsp;; sa loi est donc géométrique, et la
+        probabilité qu'elle dépasse un seuil S vaut exp(−S/µ) avec µ sa valeur moyenne.
+      </p>
+    </div>
+
+    <div class="readout">
+      <div class="cell is-flagged">
+        <div class="cell-label">Fraction de tirages favorables, mise 6 — estimation ponctuelle</div>
+        <div class="cell-value">3,4&nbsp;%</div>
+        <div class="cell-note">Un tirage toutes les deux heures et demie</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Le même chiffre, avec l'incertitude d'un seul relevé</div>
+        <div class="cell-value">0 – 92&nbsp;%</div>
+        <div class="cell-note">Intervalle exact à 95&nbsp;%</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">Relevés nécessaires pour le situer à un facteur 3</div>
+        <div class="cell-value">≈ 100</div>
+        <div class="cell-note">Trente pour un facteur 10</div>
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        L'incertitude <em>est</em> le résultat. Une loi exponentielle a un écart-type égal à sa
+        moyenne&nbsp;: une observation unique en est un estimateur épouvantable, et le dire est plus
+        utile que d'annoncer 3,4&nbsp;% avec aplomb.
+      </p>
+      <p>
+        Il existe pourtant un raccourci qui contourne entièrement cette lenteur. La valeur moyenne
+        µ vaut <em>r/q</em> — l'accumulation par tirage divisée par la probabilité de gain par
+        tirage — et ces deux quantités se mesurent séparément&nbsp;: <strong>r est la simple
+        différence entre deux relevés successifs</strong>, et q le taux de chutes observées. Deux
+        lectures d'écran rapprochées plus une date de chute remplacent une centaine de relevés
+        épars.
+      </p>
+      <p>
+        L'app recevait déjà les cagnottes de l'opérateur sans en garder la moindre mémoire&nbsp;:
+        chaque tirage passé était une observation perdue pour toujours. Elle en tient désormais un
+        journal, et affiche la fraction de tirages favorables avec son intervalle — y compris quand
+        cet intervalle ne dit encore rien.
+      </p>
+      <p>
+        Deux réserves connues vont dans le sens du joueur&nbsp;: une cagnotte qui repart d'un
+        plancher non nul franchit le seuil plus souvent, et le seuil utilisé est <em>suffisant</em>
+        et non nécessaire puisqu'il ignore les rangs intermédiaires. La réserve qui va dans l'autre
+        sens est le prix du ticket, encore inconnu&nbsp;: tout est calculé par franc misé.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce qu'il faut capturer&nbsp;: la parité du pas décide de tout</h2>
+    <div class="col">
+      <p>
+        Cinq tirages ordonnés ne referment pas l'attaque sur <em>un</em> générateur mais sur une
+        classe de huit à dix-sept. Même si elle avait mordu, la prédiction n'aurait pas été unique.
+        D'où une question de plan d'expérience, dont la réponse est un protocole plutôt qu'un
+        théorème&nbsp;: combien de tirages faut-il, et lesquels&nbsp;?
+      </p>
+      <p>
+        La réponse était impossible à deviner. Ce n'est pas le nombre qui compte d'abord, c'est
+        <strong>la parité de l'espacement</strong>. Trois tirages séparés de deux ne déterminent que
+        le carré du multiplicateur&nbsp;; tous les tirages suivants étant eux aussi à des décalages
+        pairs, aucun n'apprend jamais rien sur le multiplicateur lui-même. On peut en capturer
+        vingt, la classe ne se referme pas.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Taille de la classe de générateurs compatibles, selon le schéma de capture</caption>
+        <thead>
+          <tr><th>schéma</th><th>4 tirages</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+        </thead>
+        <tbody>
+          <tr class="is-key"><td>consécutifs</td><td>19</td><td><strong>3</strong></td><td><strong>3</strong></td><td><strong>3</strong></td><td><strong>3</strong></td></tr>
+          <tr><td>un sur deux</td><td>24</td><td>24</td><td>24</td><td>24</td><td>24</td></tr>
+          <tr><td>un sur trois</td><td>10</td><td>10</td><td>8</td><td>8</td><td>8</td></tr>
+          <tr><td>les cinq réellement capturés</td><td>23</td><td>17</td><td>17</td><td>17</td><td>16</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pull is-flagged">
+      Capturer des tirages qui se suivent. C'est gratuit, et c'est ce qui rend la capture
+      informative.
+    </div>
+
+    <div class="col">
+      <p>
+        Le seuil de crédibilité tombe du même calcul&nbsp;: sur n tirages, le trio en dépense deux à
+        définir ses inconnues, il reste n−3 vérifications indépendantes. À trois tirages il n'en
+        reste aucune — et le témoin négatif le confirme sans détour&nbsp;: sur des suites uniformes,
+        l'attaque «&nbsp;récupère&nbsp;» un générateur trois fois sur trois. À partir de quatre, plus
+        aucun faux positif jusqu'à huit.
+      </p>
+      <p>
+        Cette expérience a d'abord servi à trouver deux erreurs dans l'attaque elle-même, et c'est
+        peut-être ce qu'elle a fait de plus utile. Les deux rendaient «&nbsp;aucune solution&nbsp;» —
+        exactement ce que l'archive réelle rend, donc parfaitement invisibles. La première prenait
+        une racine <em>carrée</em> là où l'espacement en demandait une autre&nbsp;; la seconde
+        appliquait un filtre de divisibilité valable seulement à espacement pair. Sur des tirages
+        consécutifs, le meilleur schéma possible, l'attaque ne trouvait donc jamais rien — sans que
+        rien ne le signale.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Ce que ce labo ne peut pas trancher</h2>
     <ul class="limits">
       <li>
-        <strong>Le nombre de tirages ordonnés.</strong> Cinq ont été relevés à la main&nbsp;;
-        l'archive publique, elle, reste triée. Cinq suffisent à écarter les sources à état étroit,
-        pas à réduire la classe de solutions à un seul générateur. Chaque tirage ordonné
-        supplémentaire vaut 122,69 bits — c'est la donnée la plus rentable du dossier après les
-        cagnottes.
+        <strong>La série de cagnottes.</strong> Un seul relevé existe, et il laisse la fraction de
+        tirages favorables entre 0 et 92&nbsp;%. C'est la donnée la plus rentable du dossier, et la
+        moins chère&nbsp;: deux lectures d'écran rapprochées suffisent à mesurer l'accumulation par
+        tirage. L'app en tient désormais le journal.
+      </li>
+      <li>
+        <strong>Le prix du ticket.</strong> Tous les seuils sont calculés par franc misé. Si le
+        ticket coûte plus d'un franc, ils se multiplient d'autant. C'est la donnée manquante la
+        moins chère de toutes, et la seule qui puisse renverser la conclusion précédente.
+      </li>
+      <li>
+        <strong>Des tirages ordonnés qui se suivent.</strong> Cinq ont été relevés à la main, à des
+        espacements irréguliers. Cinq <em>consécutifs</em> laisseraient une classe de trois solutions
+        au lieu de dix-sept, pour le même effort de capture.
       </li>
       <li>
         <strong>Le flux en direct.</strong> Réseau fermé depuis l'environnement d'analyse. Le boost
