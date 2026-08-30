@@ -7105,3 +7105,87 @@ splitmix64), et tout **CSPRNG**.
 
 **Registre :** `h52.fuite_fisher_yates`, 0 état compatible, m = 3 335, zéro
 significatif.
+
+## 72. Le théorème du trou (`h53_theoreme_du_trou.py`)
+
+Les §68 et §71 exigent des tirages ordonnés **consécutifs**, et le dossier n'en
+a qu'une paire. Ses cinq tirages ordonnés en valaient donc deux :
+
+```
+1381023   1381026   1381028   1381030   1381031
+        \__ 3 __/ \__ 2 __/ \__ 2 __/ \__ 1 __/
+```
+
+**Trois des cinq étaient jetés. C'était une erreur de raisonnement, pas une
+limite.**
+
+### L'énoncé
+
+> Avancer un générateur F₂-linéaire de `k` pas est **encore une application
+> linéaire** : `L^k` l'est dès que `L` l'est.
+
+Un trou ne détruit donc aucune équation — il déplace l'indice du mot, rien de
+plus. Il suffit de savoir **de combien de mots** le trou a avancé l'état :
+
+| échantillonneur | consommation | coût du trou |
+|---|---|---|
+| **Fisher-Yates** | exactement 20 mots/tirage | **nul** — `20g` mots, connu |
+| rejet modulo 80 | 20 + R, `E[R] = 2,849` | énumération bornée sur la somme des R |
+
+### Ce que les cinq tirages valent maintenant
+
+| | tirages utilisables | bits (Fisher-Yates) |
+|---|---|---|
+| avant — consécutifs seuls | 2 | 44 |
+| **après — les trous traversés** | **5** | **110** |
+
+| famille | bits | testable avant | testable après |
+|---|---|---|---|
+| xorshift32 | 32 | oui | oui |
+| **xorshift64** | 64 | non | **oui** |
+| **xorshift96** | 96 | non | **oui** |
+| xorshift128 | 128 | non | non |
+
+### Le témoin, avec les trous exacts de l'archive
+
+Chaque famille est amorcée sur un état tiré au hasard ; on engendre neuf
+tirages consécutifs, puis **on ne garde que les positions [0, 3, 5, 7, 8]** —
+exactement les trous de l'archive.
+
+| famille | bits | équations | retrouvé | temps |
+|---|---|---|---|---|
+| xorshift32 | 32 | 110 | **oui** | 0,01 s |
+| xorshift64 | 64 | 110 | **oui** | 0,02 s |
+| xorshift96 | 96 | 110 | **oui** | 0,03 s |
+
+**Trois sur trois, malgré les trous.**
+
+### Sur l'archive
+
+**0 état compatible** sur les trois familles désormais testables.
+
+> Le budget d'un jeu de tirages ordonnés ne dépend pas de leur **voisinage**
+> mais de leur **nombre**. Les données étaient là ; c'est le raisonnement qui
+> les jetait.
+
+### Une cible annoncée qui ne tient pas
+
+J'avais annoncé PCG comme prochaine porte, au motif que son brouillage
+`XSH-RR` est F₂-linéaire à rotation fixée. **C'est vrai de la sortie et faux de
+l'ensemble** : l'état de PCG avance par un LCG modulo 2⁶⁴, qui n'est pas
+F₂-linéaire. Les équations de deux sorties successives ne se chaînent donc
+pas, et le théorème ne s'applique pas.
+
+PCG reste hors d'atteinte par cette voie — comme xoshiro `**` et `++`,
+splitmix64 et tout CSPRNG. La linéarité de la **transition** est aussi
+nécessaire que celle de la sortie, et je ne l'avais pas vérifiée avant de
+l'annoncer.
+
+### Limite
+
+Sous rejet modulo 80, le trou coûte une énumération sur la somme des rejets
+traversés — bornée, mais pas gratuite. Ce fichier ne traite que le cas
+Fisher-Yates, où elle est nulle.
+
+**Registre :** `h53.theoreme_du_trou`, 0 état compatible, m = 3 335, zéro
+significatif.
