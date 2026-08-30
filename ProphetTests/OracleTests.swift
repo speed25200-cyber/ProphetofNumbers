@@ -712,6 +712,73 @@ final class OracleTests: XCTestCase {
         }
     }
 
+    func testJackpotLawRecoversAKnownAccrualAndBracketsTheTruth() {
+        // Un journal fabriqué à r et q connus : l'estimateur doit retrouver r
+        // exactement (médiane d'accroissements tous égaux) et son intervalle
+        // doit contenir la vraie fraction de tirages favorables.
+        //
+        // Le générateur est un LCG explicite plutôt que SystemRandomNumber-
+        // Generator : un test dont le verdict dépend d'une graine invisible
+        // n'est pas un test.
+        let rTrue = 40.0, qTrue = 0.004, seuil = 7753.0
+        var seed: UInt64 = 20260830
+        func uniform() -> Double {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            return Double(seed >> 11) / Double(UInt64(1) << 53)
+        }
+        var log: [JackpotReading] = []
+        var amount = 0.0
+        for d in 0..<4000 {
+            amount = uniform() < qTrue ? 0 : amount + rTrue
+            log.append(JackpotReading(drawNumber: d, stake: 6, francs: amount,
+                                      at: Date()))
+        }
+        guard let est = JackpotLaw.estimate(log, stake: 6, pAllHit: 1 / seuil) else {
+            return XCTFail("aucune estimation")
+        }
+        XCTAssertEqual(est.threshold, seuil, accuracy: 1e-6)
+        XCTAssertEqual(est.accrual ?? 0, rTrue, accuracy: 1e-9,
+                       "l'accumulation par tirage doit être retrouvée exactement")
+        XCTAssertGreaterThan(est.drops, 0)
+        let truth = exp(-seuil * qTrue / rTrue)
+        guard let lo = est.favourableLo, let hi = est.favourableHi else {
+            return XCTFail("intervalle absent")
+        }
+        XCTAssertLessThanOrEqual(lo, truth)
+        XCTAssertGreaterThanOrEqual(hi, truth)
+    }
+
+    func testJackpotLawIntervalMatchesTheExactPoissonBounds() {
+        // Les bornes de Garwood, valeurs exactes tabulées : c'est le seul
+        // point du calcul où une bissection pourrait dériver en silence.
+        let expected: [(Int, Double, Double)] = [
+            (0, 0.0, 3.688879), (1, 0.025318, 5.571643),
+            (2, 0.242209, 7.224688), (5, 1.623486, 11.668332),
+        ]
+        for (count, lo, hi) in expected {
+            let got = JackpotLaw.poissonRateInterval(count: count, exposure: 1)
+            XCTAssertEqual(got.0, lo, accuracy: 1e-5, "borne basse à \(count)")
+            XCTAssertEqual(got.1, hi, accuracy: 1e-5, "borne haute à \(count)")
+        }
+        // Sans aucune chute observée, la borne basse est nulle et la borne
+        // haute est la règle de trois : −ln(0,025) ≈ 3,689.
+        XCTAssertEqual(JackpotLaw.poissonRateInterval(count: 0, exposure: 1).1,
+                       -log(0.025), accuracy: 1e-5)
+    }
+
+    func testJackpotLogNeverStoresTheSameDrawTwice() {
+        let jacks = [Jackpot(stake: 6, amount: 2287), Jackpot(stake: 10, amount: 495_713)]
+        var log = JackpotLaw.record([], drawNumber: 1381028, jackpots: jacks, at: Date())
+        XCTAssertEqual(log.count, 2)
+        log = JackpotLaw.record(log, drawNumber: 1381028, jackpots: jacks, at: Date())
+        XCTAssertEqual(log.count, 2, "un tirage relu ne doit pas créer de doublon")
+        log = JackpotLaw.record(log, drawNumber: 1381029, jackpots: jacks, at: Date())
+        XCTAssertEqual(log.count, 4)
+        // La normalisation francs/centimes vit dans un seul endroit.
+        XCTAssertEqual(Jackpot(stake: 6, amount: 2287).francs, 2287)
+        XCTAssertEqual(Jackpot(stake: 10, amount: 495_713).francs, 4957.13, accuracy: 1e-9)
+    }
+
     func testPackOverlapReportsTheRightFloorAndThreshold() {
         // Le diagnostic de forme du paquet (h13). Trois façons de se tromper
         // en silence, donc trois assertions :

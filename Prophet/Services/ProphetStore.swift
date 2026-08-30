@@ -23,6 +23,10 @@ final class ProphetStore: ObservableObject {
     @Published var publicationLatencies: [PublicationLatency] = []
     // Instrument B (a1) : le boost est-il exposé avant la clôture des mises ?
     @Published var openBoostAudit: [OpenBoostObservation] = []
+    // Journal des cagnottes, tirage par tirage. C'est l'instrument que h15
+    // réclame : la distance au seuil de bascule était connue depuis h9, sa
+    // FRÉQUENCE de franchissement demande une série.
+    @Published var jackpotLog: [JackpotReading] = []
 
     struct LatencyStats {
         var count: Int
@@ -62,6 +66,7 @@ final class ProphetStore: ObservableObject {
     private static let memoryKey = "prophet.tickets.v1"
     private static let latencyKey = "prophet.latency.v1"
     private static let openBoostKey = "prophet.openboost.v1"
+    private static let jackpotKey = "prophet.jackpots.v1"
     private static let notifKey = "prophet.notifs.v1"
     private static let turboKey = "prophet.turbo.v1"
     private static let holdKey = "prophet.journal.hold.v1"
@@ -71,6 +76,7 @@ final class ProphetStore: ObservableObject {
         tickets = Self.readTickets()
         publicationLatencies = Self.readLatencies()
         openBoostAudit = Self.readOpenBoostAudit()
+        jackpotLog = Self.readJackpotLog()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
         turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
         let storedHold = UserDefaults.standard.integer(forKey: Self.holdKey)
@@ -125,6 +131,7 @@ final class ProphetStore: ObservableObject {
             }
             recordPublicationLatency(previous: previous, live: live)
             recordOpenBoostObservation(live: live)
+            recordJackpots(live: live)
             if oracle == nil || newestDraw != lastOracleDraw {
                 // Variante incrémentale : grilles disponibles dans la foulée
                 // du résultat.
@@ -339,6 +346,29 @@ final class ProphetStore: ObservableObject {
                 openBoostAudit, drawNumber: last.drawNumber, boost: last.boost)
         }
         Self.writeOpenBoostAudit(openBoostAudit)
+    }
+
+    // Un relevé par tirage et par mise, sans doublon. Le journal n'est pas
+    // un cache : c'est la seule mémoire que l'app ait des cagnottes, et
+    // chaque tirage manqué est une observation perdue pour toujours.
+    private func recordJackpots(live: LivePayload) {
+        guard let draw = live.last?.drawNumber ?? live.nextDrawNumber else { return }
+        let before = jackpotLog.count
+        jackpotLog = JackpotLaw.record(jackpotLog, drawNumber: draw,
+                                       jackpots: live.jackpots, at: Date())
+        if jackpotLog.count != before { Self.writeJackpotLog(jackpotLog) }
+    }
+
+    private static func readJackpotLog() -> [JackpotReading] {
+        guard let data = UserDefaults.standard.data(forKey: jackpotKey) else { return [] }
+        return (try? JSONDecoder().decode([JackpotReading].self, from: data)) ?? []
+    }
+
+    private static func writeJackpotLog(_ list: [JackpotReading]) {
+        let clipped = Array(list.suffix(6000))
+        if let data = try? JSONEncoder().encode(clipped) {
+            UserDefaults.standard.set(data, forKey: jackpotKey)
+        }
     }
 
     private static func readOpenBoostAudit() -> [OpenBoostObservation] {

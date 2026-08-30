@@ -133,8 +133,7 @@ struct GridsView: View {
         let rows: [(stake: Int, francs: Double, ret: Double)] = jacks.compactMap { j in
             guard let pack = oracle.stakes.first(where: { $0.stake == j.stake }),
                   let p = pack.grids.first?.basePAllHit else { return nil }
-            let francs = j.amount >= 10_000 ? j.amount / 100 : j.amount
-            return (j.stake, francs, francs * p * 100)
+            return (j.stake, j.francs, j.francs * p * 100)
         }
         if !rows.isEmpty {
             let bestStake = rows.max { $0.ret < $1.ret }?.stake
@@ -179,7 +178,41 @@ struct GridsView: View {
                      : "Retour espéré du seul jackpot par franc misé (hors rangs intermédiaires). L'étoile marque la mise au jackpot le plus « rentable » du moment. Le seuil est 100 ct/CHF : au-delà, le jackpot seul rembourse la mise et le pari devient favorable quel que soit le barème.")
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
+                jackpotLawLine(oracle: oracle, stake: bestStake ?? store.stake)
             }
+        }
+    }
+
+    // La distance au seuil était connue (h9) ; sa FRÉQUENCE de franchissement
+    // demandait une série de relevés. L'app en tient une depuis h15, et cette
+    // ligne dit ce qu'elle vaut à ce jour — y compris quand elle ne vaut
+    // encore rien, ce qui est le cas au premier lancement.
+    @ViewBuilder
+    private func jackpotLawLine(oracle: OracleResult, stake: Int) -> some View {
+        let p = oracle.stakes.first(where: { $0.stake == stake })?
+            .grids.first?.basePAllHit ?? 0
+        if let est = JackpotLaw.estimate(store.jackpotLog, stake: stake, pAllHit: p) {
+            let head = "Journal des cagnottes : \(est.readings) relevé"
+                + (est.readings > 1 ? "s" : "")
+                + " sur \(est.spanDraws) tirage" + (est.spanDraws > 1 ? "s" : "")
+                + ", \(est.drops) chute" + (est.drops > 1 ? "s" : "") + "."
+            let body: String = {
+                guard let r = est.accrual else {
+                    return " Deux relevés séparés suffiront à mesurer l'accumulation par tirage."
+                }
+                let rate = " Accumulation mesurée : CHF "
+                    + String(format: "%.0f", r) + " par tirage."
+                guard let lo = est.favourableLo, let hi = est.favourableHi else { return rate }
+                if let f = est.favourable {
+                    return rate + String(format: " Fraction de tirages favorables à la mise %d : %.2f %% (intervalle %.2f–%.2f %%).",
+                                         stake, f * 100, lo * 100, hi * 100)
+                }
+                return rate + String(format: " Aucune chute observée encore : la fraction de tirages favorables est au moins %.2f %%.",
+                                     lo * 100)
+            }()
+            Text(head + body)
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.subtle)
         }
     }
 

@@ -203,6 +203,100 @@ def main():
               f"ω* {neutral:.2f}  {'ok' if okk else 'ÉCHEC'}")
     ok &= a
 
+    # 1 quinquies. JackpotLaw : transcription de Prophet/Services/JackpotLaw.swift.
+    # L'intervalle de Poisson y est obtenu par bissection sur la fonction de
+    # répartition, faute de fonction gamma en Swift — donc la vérification
+    # est de le confronter aux quantiles exacts du khi-deux (Garwood).
+    import math as _m
+
+    def poisson_cdf(k, lam):
+        if k < 0:
+            return 0.0
+        if lam <= 0:
+            return 1.0
+        log_term = -lam
+        total = _m.exp(log_term)
+        for i in range(1, k + 1):
+            log_term += _m.log(lam) - _m.log(i)
+            total += _m.exp(log_term)
+        return min(1.0, total)
+
+    def _solve(target, k):
+        lo, hi = 0.0, float(k) + 10
+        while poisson_cdf(k, hi) > target and hi < 1e9:
+            hi *= 2
+        for _ in range(200):
+            mid = (lo + hi) / 2
+            if poisson_cdf(k, mid) > target:
+                lo = mid
+            else:
+                hi = mid
+        return (lo + hi) / 2
+
+    def poisson_rate_interval(count, exposure, alpha=0.05):
+        if exposure <= 0:
+            return 0.0, float("inf")
+        lo = 0.0 if count == 0 else _solve(1 - alpha / 2, count - 1)
+        hi = _solve(alpha / 2, count)
+        return lo / exposure, hi / exposure
+
+    from scipy import stats as _st
+    a = True
+    print()
+    for count in (0, 1, 2, 5, 17):
+        lo, hi = poisson_rate_interval(count, 1.0)
+        ref_lo = 0.0 if count == 0 else _st.chi2.ppf(0.025, 2 * count) / 2
+        ref_hi = _st.chi2.ppf(0.975, 2 * count + 2) / 2
+        okk = abs(lo - ref_lo) < 1e-6 and abs(hi - ref_hi) < 1e-6
+        a &= okk
+        print(f"1 quinquies. Poisson exact, {count:>2} chute(s) : "
+              f"[{lo:.6f}, {hi:.6f}] contre Garwood [{ref_lo:.6f}, {ref_hi:.6f}]"
+              f"  {'ok' if okk else 'ÉCHEC'}")
+
+    # La chaîne complète : un journal fabriqué à r et q connus doit rendre
+    # une fraction favorable qui encadre la vraie.
+    def estimate(rows, seuil):
+        rows = sorted(rows)
+        rates, drops = [], 0
+        for i in range(1, len(rows)):
+            step = rows[i][0] - rows[i - 1][0]
+            if step <= 0:
+                continue
+            delta = rows[i][1] - rows[i - 1][1]
+            if delta < 0:
+                drops += 1
+            else:
+                rates.append(delta / step)
+        pos = sorted(x for x in rates if x > 0)
+        r = None if not pos else (pos[len(pos) // 2] if len(pos) % 2
+                                  else (pos[len(pos) // 2 - 1] + pos[len(pos) // 2]) / 2)
+        span = rows[-1][0] - rows[0][0] if len(rows) >= 2 else 0
+        if r is None or r <= 0 or span <= 0:
+            return r, drops, None, None, None
+        lo_rate, hi_rate = poisson_rate_interval(drops, span)
+        q = drops / span
+        fav = _m.exp(-seuil * q / r) if q > 0 else None
+        return (r, drops, fav,
+                _m.exp(-seuil * hi_rate / r) if hi_rate > 0 else 0.0,
+                _m.exp(-seuil * lo_rate / r) if lo_rate > 0 else 1.0)
+
+    r_true, q_true, seuil = 40.0, 0.004, 7753.0
+    rng2 = random.Random(31337)
+    rows, amount = [], 0.0
+    for d in range(4000):
+        amount = 0.0 if rng2.random() < q_true else amount + r_true
+        rows.append((d, amount))
+    r_hat, drops, fav, lo, hi = estimate(rows, seuil)
+    truth = _m.exp(-seuil * q_true / r_true)
+    b = abs(r_hat - r_true) < 1e-9
+    c = lo <= truth <= hi
+    print(f"1 quinquies. journal simulé (r={r_true:.0f}, q={q_true}) : "
+          f"r estimé {r_hat:.1f}, {drops} chutes")
+    print(f"             fraction favorable {fav:.4%}, vraie {truth:.4%}, "
+          f"intervalle [{lo:.4%}, {hi:.4%}]  "
+          f"{'ok' if b and c else 'ÉCHEC'}")
+    ok &= a and b and c
+
     # 1 ter. testRestartMixtureSeesALateDefectThatACumulativeBetCannot :
     # même arithmétique, même graine, même LCG que le test Swift — forme
     # martingale par BLOCS (h2) : au 1er pas du bloc j, S += w_j = 1/(j(j+1)),

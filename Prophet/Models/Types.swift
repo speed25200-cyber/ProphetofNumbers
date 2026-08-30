@@ -30,6 +30,40 @@ struct Jackpot: Identifiable, Hashable {
     var stake: Int
     var amount: Double
     var id: Int { stake }
+    // L'API mélange francs et centimes selon les rangs ; au-delà de 10 000 la
+    // valeur est en centimes. Normalisation en UN seul endroit, pour que le
+    // journal et l'affichage ne puissent pas diverger.
+    var francs: Double { amount >= 10_000 ? amount / 100 : amount }
+}
+
+// Un relevé de cagnotte, daté par le tirage. C'est la matière première de
+// `JackpotLaw` — et, d'après lab/experiments/h15_loi_cagnotte.py, la donnée
+// manquante la plus rentable de tout le dossier : elle seule dit à quelle
+// FRÉQUENCE le seuil de bascule de l'espérance est franchi.
+struct JackpotReading: Codable, Identifiable, Hashable {
+    var drawNumber: Int
+    var stake: Int
+    var francs: Double
+    var at: Date
+    var id: String { "\(drawNumber).\(stake)" }
+}
+
+// Ce qu'une série de relevés permet de dire, et avec quelle incertitude.
+struct JackpotLawEstimate: Identifiable {
+    var stake: Int
+    var readings: Int
+    var spanDraws: Int
+    var latest: Double
+    var threshold: Double
+    /// r — accumulation par tirage, médiane des accroissements observés.
+    var accrual: Double?
+    /// Nombre de chutes observées : autant de fois où la cagnotte est tombée.
+    var drops: Int
+    /// exp(−seuil/μ) avec μ = r/q. nil tant que r n'est pas mesurable.
+    var favourable: Double?
+    var favourableLo: Double?
+    var favourableHi: Double?
+    var id: Int { stake }
 }
 
 enum GridKind: String, Codable, CaseIterable, Identifiable {
