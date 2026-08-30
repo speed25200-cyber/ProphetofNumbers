@@ -280,6 +280,39 @@ def sizing_wrong_alpha(J, factor=3.0):
     return f
 
 
+# ---- TÉMOIN : sur des occasions HOMOGÈNES, les trois règles coïncident ----
+# Sans ce contrôle, une machinerie `replay` cassée pourrait faire gagner R2
+# pour une raison qui n'aurait rien à voir avec l'hétérogénéité. Si toutes
+# les occasions portent la MÊME cagnotte, « recalculer sur l'affichage » et
+# « fraction figée bien réglée » sont la même chose, et l'écart doit être
+# nul à la précision de la grille de recherche.
+J_flat = J_mean
+flat = np.full(20_000, J_flat)
+f_flat_star, _ = kelly(p_win, J_flat / n_grids - 1)
+g_flat_obs, _ = replay(flat, sizing_observed)
+g_flat_fix, _ = replay(flat, lambda _J: f_flat_star)
+grid_w = np.geomspace(f_flat_star * 1e-2, min(0.5, f_flat_star * 1e2), 601)
+g_flat_orc = max(replay(flat, (lambda c: (lambda _J: c))(f))[0] for f in grid_w)
+say(f"""
+   TÉMOIN — occasions homogènes (même cagnotte partout, {len(flat):,} occasions).
+   Les trois règles doivent alors coïncider : il n'y a plus d'hétérogénéité
+   à exploiter.
+
+     R2 sur l'affichage        {g_flat_obs:.9e}
+     fraction figée optimale   {g_flat_fix:.9e}   écart relatif {abs(g_flat_fix/g_flat_obs - 1):.2e}
+     oracle sur grille         {g_flat_orc:.9e}   écart relatif {abs(g_flat_orc/g_flat_obs - 1):.2e}
+
+   Les trois coïncident exactement. Une précision qui évite de lire cet
+   accord pour plus qu'il ne vaut : l'oracle tombe au zéro machine et non à
+   un pas de grille près parce que la grille géométrique est CENTRÉE sur la
+   fraction figée optimale et la contient donc exactement. Son accord avec
+   elle est une propriété de la grille, pas une confirmation indépendante.
+   Le témoin qui porte l'information est l'autre : R2, qui recalcule à
+   chaque occasion, ne trouve rien de mieux qu'une fraction figée quand les
+   occasions sont identiques. La machinerie ne fabrique donc pas d'avantage
+   à R2 là où il n'y en a pas, et tout écart mesuré ci-dessous vient bien de
+   l'hétérogénéité des cagnottes.""")
+
 # R0 — l'oracle des fractions figées, cherché sur la trajectoire entière.
 grid = np.geomspace(f_star_mean * 1e-2, min(0.5, f_star_mean * 1e2), 601)
 g_grid = np.array([replay(jack, (lambda c: (lambda _J: c))(f))[0] for f in grid])
