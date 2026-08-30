@@ -1062,6 +1062,14 @@ lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
 2 bis. **Relever le prix et la portée de l'option EXTRA** (§56). Son espérance
    seule vaut 9,99 CHF à la mise 6 : elle n'est pas gratuite, et son coût
    n'est pas lisible sur les captures.
+2 ter. **Compter les chutes de cagnotte** (§57). Le maillon faible de toute la
+   chaîne s'est déplacé : ce n'est plus le barème, c'est `q`. Une chute a été
+   observée, et une seule laisse `q` dans un intervalle large d'un facteur
+   220 — d'où une fréquence d'occasions favorables inconnue à un facteur
+   2 500 près, alors que le seuil, lui, ne bouge que d'un facteur 1,8. Aucun
+   document ne donnera `q` : il ne s'obtient qu'en laissant l'app tourner et
+   en comptant les chutes, une dizaine suffisant à situer le paramètre à un
+   facteur 3 près (§36).
 3. **Dimensionner sur la cagnotte affichée** (§36, théorème N). L'app ne
    propose aujourd'hui aucune taille de mise. Quand elle en proposera une,
    elle doit la recalculer à chaque occasion sur la cagnotte à l'écran — ce
@@ -5194,6 +5202,13 @@ triplet.
 
 ## 55. La composition des deux seuils, et une convention qu'il a fallu retrouver (`h41_composition_seuils.py`)
 
+> **Refait sur l'observé au §57.** Les trois entrées supposées de cette
+> section — le ticket à un franc, la borne `ρ ≥ 0,245`, l'accumulation
+> déduite — ont depuis été observées. Le §57 refait le calcul avec la même
+> machine et une ablation entrée par entrée : le CHF 6 724 ci-dessous
+> devient CHF 7 142, et il n'en était proche que parce que deux erreurs
+> allaient en sens opposés.
+
 Deux sections de cette campagne corrigent le seuil de bascule du §5 bis, **en
 sens opposés** :
 
@@ -5439,3 +5454,139 @@ l'être.
 
 > Le plus grand gain pratique de la session ne vient d'aucun théorème : il
 > vient d'une capture d'écran. Le §50 l'avait écrit avant de l'obtenir.
+
+## 57. Le seuil refait sur l'observé, et le maillon qui se déplace (`h43_seuil_observe.py`)
+
+Le §55 s'est achevé sur une phrase qui désignait sa propre faiblesse :
+
+> « Le modèle hérite de H1–H3 du §28 et de `ρ ≥ 0,245`, lui-même conditionnel
+> aux hypothèses nommées au §50 : rien ici n'est plus solide que le maillon
+> le plus faible de cette chaîne. »
+
+Le maillon nommé était une **borne**. Le §56 l'a remplacé par une **mesure**,
+et a fait tomber deux autres entrées du même calcul au passage. Cette section
+reprend la machine du §55 mot pour mot et substitue ses entrées **une à une**,
+pour que chaque franc de déplacement soit attribuable à une observation et non
+au modèle.
+
+### Le contrôle, avant toute chose
+
+Avec les entrées du §55 — `c = 1`, `ρ = 0,245`, `r = 5,7175` — le solveur doit
+refaire ses quatre chiffres publiés.
+
+| | publié §55 | obtenu | écart |
+|---|---|---|---|
+| nu (§5 bis) | CHF 7 753 | 7 753 | 0,00 % |
+| rangs seuls (§50) | CHF 5 855 | 5 855 | 0,00 % |
+| auto-extinction seule (§53) | CHF 8 651 | 8 651 | 0,00 % |
+| **les deux (§55)** | CHF 6 724 | 6 724 | 0,00 % |
+
+C'est la même machine. Ce qui suit ne dépend donc que des **entrées**.
+
+### L'ablation
+
+| entrée | §55 (supposé) | §56 (observé) |
+|---|---|---|
+| prix du ticket `c` | CHF 1,00 | **CHF 2,00** (déduit ; `c > 1,1971` prouvé) |
+| retour de base | `ρ ≥ 0,245` | **`E/c = 0,5882`** (mesuré, exact) |
+| accumulation `r` | 5,718 CHF/tirage | **4,826 CHF/tirage** (mesuré sur 155 tirages) |
+
+Treize grilles, auto-extinction active :
+
+| étape | seuil composé | déplacement |
+|---|---|---|
+| §55 tel que publié | CHF 6 724 | — |
+| + prix du ticket réel | CHF 12 624 | **+5 900** (+87,8 %) |
+| + retour de base exact | CHF 7 267 | **−5 357** (−42,4 %) |
+| + accumulation mesurée | **CHF 7 142** | −125 (−1,7 %) |
+
+> Les deux erreurs du §55 allaient en **sens opposés** et se sont largement
+> compensées. Le chiffre publié était à +6,2 % du chiffre observé — **pour
+> deux raisons qui se sont annulées.** C'est un accident, pas une méthode, et
+> c'est exactement le genre de coïncidence qu'une ablation rend visible et
+> qu'un recalcul global aurait masquée.
+
+L'accumulation mesurée, elle, ne bouge le seuil que de −1,7 % : elle n'agit
+que par `μ = r/q`, donc sur la valeur d'**attendre** — une cagnotte qui monte
+moins vite rend l'attente moins payante. Son effet massif est ailleurs, sur la
+fréquence, où elle entre en exponentielle.
+
+### Deux chiffres que le §55 confondait
+
+**Le seuil statique** — une grille, joueur qui ne se demande pas ce que son
+propre gain détruit :
+
+> `J* = (c − E)/p = (2,00 − 1,1765) / 1,2898·10⁻⁴ = ` **CHF 6 385**
+
+Il ne dépend plus d'**aucune** borne ni d'aucun taux : le barème est lu, le
+gain **fixe** du rang plein est compté — le §55 l'oubliait — et sa seule
+hypothèse est le prix du ticket. C'est le chiffre solide. (Contrôle : le
+solveur à `n = 1` sans auto-extinction le retrouve à 0,07 %.)
+
+**Le seuil composé** — treize grilles, auto-extinction :
+
+| n grilles | n·p/q | seuil composé | prime d'auto-extinction |
+|---|---|---|---|
+| 1 | 0,05 | CHF 6 476 | +1,4 % |
+| 3 | 0,15 | CHF 6 635 | +3,9 % |
+| 6 | 0,31 | CHF 6 829 | +6,9 % |
+| **13** | **0,67** | **CHF 7 142** | **+11,9 %** |
+
+Mais cette prime dépend de `n·p/q`, donc d'un `q` qui n'est **pas mesuré**.
+Le §55 publiait un unique CHF 6 724 sans marquer cette dépendance.
+
+### Ce que la première chute ne dit pas
+
+Une chute a été observée (§56) : mise 5, de 355 à 245 sur 155 tirages. Un
+événement de Poisson sur 155 tirages donne un intervalle à 95 % de
+[0,0253 ; 5,572] événements, donc
+
+> `q(mise 5) ∈ [1/6 126 ; 1/28]` — **un facteur 220.**
+
+Le §36 l'avait annoncé : l'information sur la loi de la cagnotte arrive au
+rythme des **chutes**, et il en faut une dizaine pour situer `q` à un facteur
+3 près. **Une seule ne situe rien.** D'où la table en `q` :
+
+| q | n·p/q | seuil composé | μ = r/q | fraction favorable |
+|---|---|---|---|---|
+| 1/150 | 0,25 | CHF 6 534 | 724 | 0,012 % |
+| 1/200 | 0,34 | CHF 6 631 | 965 | 0,104 % |
+| 1/300 | 0,50 | CHF 6 867 | 1 448 | 0,871 % |
+| **1/400** | **0,67** | **CHF 7 142** | **1 930** | **2,472 %** |
+| 1/600 | 1,01 | CHF 7 741 | 2 895 | 6,902 % |
+| 1/1000 | 1,68 | CHF 8 937 | 4 826 | 15,692 % |
+| 1/2000 | 3,35 | CHF 11 587 | 9 652 | 30,104 % |
+
+Les deux colonnes ne réagissent pas à la même échelle : sur toute la plage le
+seuil monte d'un facteur **1,8**, la fréquence d'un facteur **2 505**. Le
+seuil monte parce qu'une cagnotte qui tombe rarement vit longtemps, ce qui
+rend l'attente plus payante.
+
+### Le maillon s'est déplacé
+
+Le maillon faible que le §55 nommait — `ρ ≥ 0,245` — a été remplacé par une
+mesure, et la mesure était **deux fois plus généreuse** que la borne. Le
+maillon faible n'est donc plus le barème :
+
+> **C'est `q`.** Et `q` ne s'observe qu'en comptant des **chutes**, pas des
+> relevés — une donnée que ni l'archive ni un document ne peuvent fournir, et
+> que seule l'app en fonctionnement accumulera.
+
+### Limites
+
+1. `c = 2` reste la dernière hypothèse. Le seuil statique lui est
+   proportionnel en `(c − E)/p` : à `c = 2,50` il vaut CHF 10 261 au lieu de
+   6 385.
+2. `q` n'est pas mesuré ; la prime d'auto-extinction va de +2 % à +82 % sur
+   la plage, et la fréquence des occasions n'est pas connue à un ordre de
+   grandeur près.
+3. H1–H3 du §28 tiennent toujours. Le plancher nul est le cas le moins
+   favorable au joueur ; les deux autres ne sont pas vérifiées.
+4. L'option EXTRA n'entre pas dans ce calcul (§56, limite 3).
+
+**Et ce qui ne change pas.** Rien de tout ceci ne dit quels numéros cocher.
+L'espérance de hits vaut `k/4` quel que soit le choix (§1). Ce seuil porte sur
+l'**instant**, jamais sur la grille — et c'est la seule chose du dossier qui
+fasse changer l'espérance de signe.
+
+**Registre : inchangé.** `h43` ne teste pas l'archive — il recompose.
