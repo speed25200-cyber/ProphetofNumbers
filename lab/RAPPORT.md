@@ -1045,6 +1045,7 @@ lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
 | 6 | `pAllHit`, champ mort et faux d'un facteur 22 | supprimé de `SuggestedGrid` ; le nom ne subsiste que comme paramètre légitime de `JackpotLaw` |
 | 7 | l'argument « Furtif » mis au conditionnel | fait |
 | 8 | `advance(k)` : décroissance par tirage écoulé et non absorbé (§38) | `Swarm.swift`, protocole + 15 têtes + ancrage dans `process()` |
+| 9 | le barème relevé, et le seuil exact `(c − E)/p` (§56, §58) | `PayTable.swift` + `JackpotLaw.threshold` + carte du jackpot ; prix du ticket devenu réglage, CHF 1 refusé |
 
 **Ce qui est ouvert aujourd'hui**, dans l'ordre où cela coûte quelque chose :
 
@@ -1054,7 +1055,8 @@ lieux — vérifié dans le code, ligne par ligne, et non repris de mémoire.
    toute la comptabilité du §50 et abaissé les seuils de bascule à 41 % de
    ce que le dossier employait, sans un seul calcul nouveau.
 2. **Relever le prix du ticket** (§36, §56). Devenue **la dernière inconnue**
-   de toute la chaîne financière. Le §56 la borne par le bas — le barème
+   de toute la chaîne financière, et l'app l'attend désormais : le §58 en a
+   fait un réglage, et le seuil exact s'affiche dès qu'il est saisi. Le §56 la borne par le bas — le barème
    force `c > CHF 1,20`, ce qui **exclut le ticket à un franc** que tout le
    dossier supposait — mais la valeur exacte reste à lire, et tous les seuils
    lui sont proportionnels en `(c − E)/p` : à `c = 2,50` au lieu de 2, le
@@ -4844,6 +4846,12 @@ jeu, et cent minutes de boost avant clôture. Chacune transformerait une
 hypothèse en donnée, et donc un chiffre non câblable en chiffre câblable.
 Aucune ne demande une ligne de calcul supplémentaire.
 
+> **Suite au §58.** L'une des trois est arrivée. Le barème a été relevé (§56),
+> `ρ` n'est plus supposé mais lu, et la condition que ce principe nommait est
+> levée : le quatrième cas **a été câblé**, pour la raison exacte pour
+> laquelle les trois premiers ne l'ont pas été. La prédiction de ce paragraphe
+> — qu'il manquait des observations et non du code — a tenu.
+
 ## 52. Le codeur qui n'a pas besoin qu'on lui dise quoi chercher (`h35_codage_universel.py`)
 
 Toutes les voies de piste A partagent une servitude : nommer la régularité
@@ -5590,3 +5598,93 @@ l'**instant**, jamais sur la grille — et c'est la seule chose du dossier qui
 fasse changer l'espérance de signe.
 
 **Registre : inchangé.** `h43` ne teste pas l'archive — il recompose.
+
+## 58. Le quatrième cas : cette fois, on câble (`PayTable.swift`)
+
+Le §51 a énoncé le principe du dossier une fois pour toutes :
+
+> « Un résultat théorique qui déplacerait un seuil affiché ne se câble que si
+> la démonstration ne repose que sur des quantités **observables**. Le seuil
+> actuel `J ≥ c/p` en est une : `J` est à l'écran, `p` est une combinatoire
+> exacte, `c` se lit sur un ticket. Le seuil `(1−ρ)·c/p` n'en est pas une tant
+> que `ρ` repose sur un taux de retour **supposé**. »
+
+Trois fois cette règle a fait refuser un câblage. Le §56 a levé la condition
+qu'elle nommait : `ρ` n'est plus supposé, il est **lu**. Le quatrième cas se
+câble donc, et pour la raison exacte que les trois premiers ne se câblaient
+pas.
+
+### Ce que la carte du jackpot fait maintenant
+
+| | avant | après |
+|---|---|---|
+| règle | `J·p ≥ 1` — condition **suffisante**, ticket supposé à 1 franc | `E[base] + J·p ≥ c` — condition **nécessaire et suffisante** |
+| seuil affiché (mise 6) | 100 ct/CHF | **41,2 ct/CHF** à `c = 2` |
+| rangs intermédiaires | jetés | comptés |
+| gain **fixe** du rang plein | jeté | compté |
+| prix du ticket | supposé | **réglage**, CHF 1 absent de la liste |
+
+`Prophet/Models/PayTable.swift` porte le barème des cinq mises et calcule
+`E[base]` par la loi hypergéométrique. `JackpotLaw.threshold` accepte un prix
+et rend `(c − E)/p` quand il est renseigné.
+
+### Ce qui se passe quand le prix n'est pas renseigné — et c'est le défaut
+
+La carte retombe **exactement** sur son comportement précédent : `c = 1`,
+`E = 0`, seuil 100 ct/CHF. Aucune régression, aucun chiffre nouveau affiché
+sur la foi d'une hypothèse.
+
+Mais elle dit désormais ce que ce comportement suppose, et cette réserve
+n'était pas visible sans le barème :
+
+> La règle des 100 ct/CHF n'est une condition suffisante que si le ticket
+> coûte **au plus CHF 2,17** (= `1 + E[base]`, la mise 8 étant la plus
+> contraignante). Au-delà, elle annoncerait « favorable » **à tort**.
+
+C'est le genre exact d'énoncé que le §5 bis reprochait à l'app quand elle
+affirmait « l'espérance totale reste négative » sans condition. La différence
+est qu'il est maintenant écrit à l'écran plutôt que découvert plus tard.
+
+Le réglage de prix ne propose pas CHF 1. Ce n'est pas un choix d'ergonomie :
+`setTicketPrice` **refuse** tout prix sous CHF 1,1971, parce qu'au-dessous le
+taux de retour de l'opérateur dépasserait 1 — une contradiction, pas une
+improbabilité.
+
+### Le piège que le nouveau seuil introduisait
+
+Le gain conditionnel du §32 valait `μ/S` par absence de mémoire (h16). Cette
+écriture n'était juste que **parce que** `S·p = c` avec le seuil suffisant.
+Avec le seuil exact, `S·p = c − E`, et garder `μ/S` aurait surestimé le gain
+d'un facteur `c/(c − E)` — **×2,43 à `c = 2`.**
+
+La formule devient `μ·p/c`, qui redonne `μ/S` quand le prix est inconnu. Un
+test nomme le piège et vérifie le facteur.
+
+> C'est la forme la plus insidieuse d'erreur dans ce dossier : une identité
+> vraie qui cesse de l'être parce qu'une **autre** quantité a été corrigée.
+> Rien ne l'aurait signalée — le nombre serait resté plausible.
+
+### Vérification
+
+Aucune toolchain Swift n'est joignable depuis cet environnement (note datée du
+§53). Les deux vérificateurs du dépôt passent :
+
+- **`verif_swift.py`** — grammaire Swift réelle (`tree-sitter`) : **0 nœud de
+  syntaxe invalide introduit** sur les six fichiers touchés.
+- **`verif_logique.py`** — gagne une section 9 qui transcrit l'algorithme de
+  `PayTable.swift` (somme de `log(i)` pour `log(n!)`, puis exponentielle de la
+  différence) et le confronte au calcul **exact en Fractions**, ce que Swift ne
+  peut pas faire : écart relatif maximal **5,7·10⁻¹⁴**, masse
+  hypergéométrique à 5,6·10⁻¹⁴ de 1.
+
+Quatre tests XCTest sont ajoutés. L'un d'eux prend la **transcription** pour
+cible : les cinq espérances doivent tomber à 3 % près, ce qu'une seule ligne
+mal saisie ferait échouer. Le test de non-régression est explicite —
+`JackpotLaw.threshold(pAllHit:)` sans prix doit rendre exactement 7 753.
+
+### Ce que cela laisse ouvert
+
+Le prix du ticket est maintenant **saisissable** mais toujours pas **su**. Le
+câblage ne l'invente pas : il rend l'app capable d'employer la réponse dès
+qu'elle sera lue, et honnête sur ce qu'elle suppose en attendant. C'est la
+seule chose qu'un dossier puisse faire d'une observation qu'il n'a pas encore.
