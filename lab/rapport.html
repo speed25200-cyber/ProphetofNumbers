@@ -422,7 +422,7 @@
     <div class="cell is-flagged">
       <div class="cell-label">En choisissant le MOMENT plutôt que les numéros</div>
       <div class="cell-value">+29,5 %</div>
-      <div class="cell-note">Par franc misé, en ne jouant qu'au-dessus du seuil de bascule&nbsp;; borne basse +8&nbsp;% sur un seul relevé</div>
+      <div class="cell-note">Par franc misé, au-dessus du seuil de bascule. Mais il faut CHF 34 000 de réserve pour que cette espérance devienne de la croissance</div>
     </div>
     <div class="cell is-flagged">
       <div class="cell-label">Avantage que l'app affiche sur des données équitables</div>
@@ -1750,6 +1750,151 @@
         Enfin, rien de tout cela ne prédit un numéro. Le gain vient du <em>moment</em>, pas du choix
         des numéros&nbsp;; l'invariance sort intacte. Et à ce moment-là, c'est la géométrie du
         portefeuille qui dit comment répartir les grilles.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Une espérance n'est pas de l'argent</h2>
+    <div class="col">
+      <p>
+        +29,5&nbsp;% d'espérance sur un pari qu'on gagne une fois sur 7 753 et qui paie 10 000 fois
+        la mise&nbsp;: entre les deux il y a la variance, et elle décide de tout. Le critère de
+        Kelly — la fraction de capital qui maximise la croissance à long terme — n'autorise ici que
+        <strong>0,003&nbsp;%</strong> du capital par occasion sur une grille seule. Miser davantage
+        détruit plus de capital dans les 99,987&nbsp;% de pertes qu'il n'en gagne dans le reste.
+      </p>
+      <p>
+        C'est là que la géométrie du portefeuille se paie en francs, et intégralement. n grilles
+        disjointes gagnent n fois plus souvent, n fois moins gros&nbsp;: la moyenne est intacte, la
+        variance divisée par n, et la croissance — qui est au premier ordre le carré de l'avantage
+        divisé par la variance — <strong>multipliée par n</strong>. Mesuré à ×13,02 pour treize
+        grilles, le maximum disjoint à la mise 6, et vérifié par simulation sur quarante millions
+        d'occasions.
+      </p>
+    </div>
+
+    <div class="readout">
+      <div class="cell">
+        <div class="cell-label">Croissance annuelle, une grille seule, à la fraction de Kelly</div>
+        <div class="cell-value">+1,4 %</div>
+        <div class="cell-note">Pour une espérance de +29,5 %</div>
+      </div>
+      <div class="cell">
+        <div class="cell-label">La même, sur treize grilles disjointes</div>
+        <div class="cell-value">+20,0 %</div>
+        <div class="cell-note">Même argent, même espérance, ×13 de croissance</div>
+      </div>
+      <div class="cell is-flagged">
+        <div class="cell-label">Capital minimal pour ne pas surmiser, à CHF 1 la grille</div>
+        <div class="cell-value">CHF 34 000</div>
+        <div class="cell-note">En dessous, le ticket force à dépasser Kelly</div>
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Et la courbe de surmise est brutale&nbsp;: à deux fois Kelly la croissance annuelle tombe de
+        +20&nbsp;% à +5&nbsp;%, à trois fois elle vaut <strong>−25&nbsp;%</strong>, à cinq fois
+        −75&nbsp;%. Un joueur disposant de CHF 1 000 et misant un tour de treize grilles à un franc
+        miserait trente-quatre fois Kelly — très au-delà du point où une espérance positive cesse de
+        produire de la croissance.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Le pari peut être favorable en espérance et perdant en croissance. Pour qui joue plus d'une
+      fois, c'est la seconde qui décide.
+    </div>
+
+    <div class="col">
+      <p>
+        Le barème inconnu jouerait ici deux fois, et dans le bon sens&nbsp;: les rangs intermédiaires
+        augmentent l'espérance <em>et</em> réduisent la dissymétrie — or c'est la dissymétrie qui
+        écrase la fraction de Kelly. Sur un modèle volontairement grossier, un retour intermédiaire
+        de 40&nbsp;% multiplierait la croissance par 7,6. Le barème ne déplace donc pas seulement
+        l'espérance&nbsp;: il déplace la <em>taille de mise admissible</em>, et c'est elle qui décide
+        si le gain devient de l'argent.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>La valeur de voir&nbsp;: le théorème qui range tout le dossier</h2>
+    <div class="col">
+      <p>
+        Deux voies semblaient sans rapport&nbsp;: choisir les numéros, fermée&nbsp;; choisir le
+        moment, ouverte. Elles sont deux cas d'un même énoncé, et le formuler explique d'un coup
+        pourquoi l'une est fermée et l'autre ouverte.
+      </p>
+      <p>
+        Soit X une quantité <em>observable avant la mise</em> et qui multiplie le gain. Le profit
+        d'une politique de jeu se décompose valeur par valeur de X, chacune contribuant
+        indépendamment&nbsp;; on garde donc exactement celles dont la contribution est positive. La
+        politique optimale est <strong>«&nbsp;miser si et seulement si le pari est favorable&nbsp;»</strong>,
+        quelle que soit la loi de X — attendre «&nbsp;bien au-dessus&nbsp;» du seuil est toujours une
+        erreur. Et la valeur de voir X plutôt que de miser à l'aveugle est exactement <strong>l'écart
+        de Jensen</strong> de la fonction convexe qui donne le gain.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Choisir des numéros ne produit aucune variable&nbsp;: l'écart de Jensen y est identiquement
+      nul. Il n'y avait littéralement rien à voir.
+    </div>
+
+    <div class="col">
+      <p>
+        C'est la relecture du théorème d'invariance, et elle est plus utile que l'énoncé
+        original&nbsp;: aucune quantité de statistiques sur les numéros chauds, froids, les retards
+        ou les paires ne peut créer un écart de Jensen là où la loi ne varie pas. Les 3 313 tests du
+        registre ne pouvaient <em>pas</em> trouver autre chose que zéro.
+      </p>
+      <p>
+        Le multiplicateur de boost, lui, en est une — s'il est publié avant la clôture des mises. Sa
+        loi est connue exactement sur les 70 560 tirages archivés, et l'écart de Jensen se calcule
+        donc sans rien supposer.
+      </p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>Ce que vaudrait la visibilité du boost, par franc misé</caption>
+        <thead>
+          <tr><th>taux de retour</th><th>à l'aveugle</th><th>en voyant le boost</th><th>valeur de voir</th><th>politique</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>40 %</td><td>0,000</td><td>0,159</td><td>+0,159</td><td>jouer si boost ≥ 3</td></tr>
+          <tr class="is-key"><td>50 %</td><td>0,006</td><td>0,262</td><td><strong>+0,256</strong></td><td>jouer si boost ≥ 3</td></tr>
+          <tr><td>60 %</td><td>0,207</td><td>0,412</td><td>+0,205</td><td>jouer si boost ≥ 2</td></tr>
+          <tr><td>70 %</td><td>0,408</td><td>0,562</td><td>+0,154</td><td>jouer si boost ≥ 2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Vingt-six centimes par franc misé&nbsp;: ce n'est pas un raffinement, c'est un renversement
+        du signe de l'espérance, obtenu sans toucher aux numéros et sans rien supposer du générateur.
+        Et les deux variables se composent — le boost n'ajoute pas son gain à celui de la cagnotte,
+        il <em>abaisse le seuil</em> de la cagnotte d'un facteur B, ce qui augmente simultanément
+        l'avantage et la fréquence des occasions.
+      </p>
+      <p>
+        <strong>Ces derniers chiffres sont fragiles et il faut le dire</strong>&nbsp;: ils sont tous
+        proportionnels à une part de cagnotte estimée sur un seul relevé, et la croissance de Kelly
+        est quadratique en l'avantage. Ils disent un ordre de grandeur et une comparaison entre
+        politiques, pas un rendement. Ce qui reste solide indépendamment de cette estimation, c'est
+        le <em>rapport</em> entre jouer en voyant et jouer à l'aveugle.
+      </p>
+      <p>
+        Le théorème range enfin le dossier en cinq catégories. Valeur nulle et démontrée telle&nbsp;:
+        le choix des numéros. Valeur nulle par accident&nbsp;: la récupération du générateur, qui
+        créerait une variable énorme mais dont aucune trace n'a été trouvée. Valeur positive et
+        mesurée&nbsp;: la cagnotte. Valeur positive et non mesurée&nbsp;: le boost, s'il est visible —
+        aujourd'hui la seule case à la fois grande et vide, et elle se remplit par une observation
+        sur l'appareil, pas par du calcul. Et valeur nulle par construction&nbsp;: tout ce qui n'est
+        visible qu'<em>après</em> la clôture des mises, si informatif soit-il.
       </p>
     </div>
   </section>
