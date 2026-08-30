@@ -6648,3 +6648,96 @@ entre les deux est ici mesuré.
 
 **Registre : 3 entrées** (`h39.wf` z = −0,28 ; `h39.bits` et `h39.sup`, piste C,
 p de Ville 1,0 et 0,145), **m = 3 335, zéro significatif.**
+
+## 67. Les deux courbes, et l'ordre où elles se croisent (`h49_les_murs.py`)
+
+Le dossier a mesuré **quatre** plafonds d'omniscience, un par ordre de
+couplage. Ils **montent** avec l'ordre, et le §41 en donne la loi. La marge de
+l'opérateur, elle, ne bouge pas : **41,1 %** (§62, prix du ticket confirmé).
+
+Deux courbes, l'une qui monte et l'autre qui est plate : **elles se croisent.**
+Personne n'avait calculé où — et c'est la seule façon de répondre à « quel mur
+faut-il franchir », parce que la réponse n'est ni « le plafond est trop bas »
+ni « la marge est trop haute ».
+
+### Ce que les quatre points mesurés coûtent déjà
+
+L'archive contient 70 560 tirages × 80 indicatrices = **5 644 800 événements
+binaires**. C'est tout le budget d'information disponible, et il ne dépend pas
+de l'ordre auquel on regarde.
+
+| ordre | m cellules | plafond | **événements/cellule** | famille |
+|---|---|---|---|---|
+| 0 | 80 | 1,33 % | 70 560 | marginal (c0) |
+| 1 | 6 400 | 3,21 % | 882 | linéaire lag-1 (c1) |
+| 2 | 252 800 | 6,27 % | 22,3 | quadratique (§40) |
+| 3 | 6 572 800 | 9,81 % | **0,86** | cubique (§64) |
+
+> La dernière colonne est celle qu'on ne regarde jamais, et c'est elle qui
+> décide. **Dès l'ordre 3, il y a moins d'un événement par cellule.**
+
+### La loi, ajustée sur les quatre points
+
+    plafond = 0,641 × m^0,178        (écart ≤ 7 % sur les quatre)
+
+Le §41 prédit l'exposant ¼ à `‖a‖` constant ; l'écart jusqu'à 0,178 est
+exactement la décroissance de `‖a‖` que le §41 mesurait et que le §64 a
+prolongée.
+
+### Le croisement
+
+| ordre | m cellules | plafond | événements/cellule |
+|---|---|---|---|
+| 3 | 6 572 800 | 10,5 % | 0,86 |
+| 4 | 126 526 400 | 17,8 % | 0,045 |
+| 5 | 1 923 201 280 | 28,8 % | 0,0029 |
+| **6** | **24 040 016 000** | **45,2 %** | **0,00023** |
+
+> **Le croisement est à l'ordre 6.** Au moment *précis* où un adversaire
+> omniscient rattraperait enfin la maison, il lui faudrait estimer **24
+> milliards** de coefficients à partir de **5,6 millions** d'événements — soit
+> **un événement pour 4 259 coefficients**.
+
+Ce n'est pas difficile, c'est **sous-déterminé** : le système a 4 259 fois plus
+d'inconnues que d'équations, et aucune méthode d'estimation ne fabrique de
+l'information qui n'est pas là.
+
+### Les deux façons de franchir, et ce qu'elles coûtent
+
+**A — monter en ordre.** Il faudrait au minimum *une* observation par
+coefficient : `24 040 016 000 / 80 = 300 500 200` tirages, soit **2 857 ans**
+d'archive à 288 tirages/jour. Et une observation par coefficient n'apprend
+rien — il en faudrait des dizaines. Multipliez par vingt.
+
+**B — faire tomber la marge** jusqu'au plus haut plafond mesuré : il faudrait
+un taux de retour de **90,2 %** au lieu des 58,9 % mesurés. Aucune loterie ne
+rend 90 %.
+
+**C.** Il n'y a pas de C.
+
+### Ce que ce calcul établit
+
+> Le mur de la piste A n'est pas « le plafond est trop bas » ni « la marge est
+> trop haute ». C'est que les deux courbes se croisent **du mauvais côté de
+> l'apprentissage** : là où le plafond devient suffisant, le nombre de
+> paramètres dépasse le nombre d'observations d'un facteur 4 259.
+>
+> **Le plafond et l'apprenabilité ne sont pas deux obstacles indépendants —
+> c'est un seul obstacle, vu deux fois.**
+
+### Limites, et elles sont sérieuses
+
+1. C'est une **extrapolation** de trois ordres au-delà du dernier point
+   mesuré. La loi tient sur quatre points et le §64 a confirmé une prédiction
+   faite d'avance, mais rien ne garantit qu'elle tienne jusqu'à l'ordre 6.
+2. Les plafonds sont d'**omniscience stricte**. Le joueur réel en capte une
+   fraction (§45, §59, §61) : le croisement réel serait donc encore **plus
+   loin**, jamais plus proche. Le calcul est conservateur dans le bon sens.
+3. La marge de 41,1 % repose sur le barème relevé (§56) et le prix de CHF 2
+   (§62) — observés, mais la seconde source est de seconde main.
+4. Le comptage « événements par coefficient » traite les 80 indicatrices d'un
+   tirage comme indépendantes ; elles ne le sont pas (leur somme vaut 20
+   exactement). Le budget réel est donc **plus petit**, ce qui ne fait
+   qu'aggraver la conclusion.
+
+**Registre : inchangé.** `h49` ne teste pas l'archive — il ajuste et extrapole.
