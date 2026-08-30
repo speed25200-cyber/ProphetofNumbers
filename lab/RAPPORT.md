@@ -6412,3 +6412,98 @@ parce que c'est **U2** qui mord en premier, pas U1.
 **Registre : 4 entrées, m = 3 331, seuil de Holm 1,501 × 10⁻⁵, 0 significatif.**
 Le plus petit `p` du dossier reste 2,0 × 10⁻⁴ (`audit.paires`). Run officiel :
 8 120 s.
+
+## 65. Le troisième régime d'implémentation, et ce que le cas Tipton coûte ici (`h48_chaine_et_declencheur.py`)
+
+Le dossier couvre **deux** architectures de générateur, et deux seulement :
+
+| | régime | où il est traité |
+|---|---|---|
+| **A** | tourne en continu depuis toujours, graine inconnue | h4–h20 (algébrique), `sweep48` (2⁴⁸, **jamais terminé**) |
+| **B** | ré-amorcé **à chaque tirage** sur une quantité connue | §63, fermé |
+| **C** | ré-amorcé **une fois**, puis court en continu | *personne* |
+
+Le régime C est le plus naturel pour un système qui démarre le matin, et il
+**échappe aux deux autres par construction** : le balayage aveugle (A) ne sait
+pas où commencer, et le §63 (B) ré-amorce à chaque tirage — si le système ne se
+ré-amorce qu'une fois par jour, le deuxième tirage de la journée ne sort pas
+d'une graine horaire, et B ne teste rien.
+
+### L'archive donne les points d'amorçage en clair
+
+**345 sessions de 204 tirages exactement**, plus une de 180. Chaque session
+commence à **04:05:00 UTC pile**, après une coupure de 25 500 s. Les points
+d'amorçage sont donc connus à la seconde, et il y en a 346.
+
+### La statistique, et les deux contrôles
+
+Après **un seul** amorçage, on engendre `L = 3` tirages consécutifs en laissant
+l'état **continuer**, et on somme les recouvrements. Sous H₀ la somme est la
+convolution triple d'une hypergéométrique(80, 20, 20), calculée exactement en
+rationnels : moyenne 15, et une reproduction exacte vaudrait 60.
+
+> **Non-régression.** À `L = 1` l'outil doit refaire le §63 au chiffre près :
+> 91 869 120 essais, max 15. **Obtenu.**
+>
+> **Témoin positif.** Une archive où chaque session sort d'un seul
+> `java.util.Random` amorcé sur l'horodatage d'ouverture, l'état continuant
+> d'un tirage au suivant, est retrouvée à **60/60**. *(Une version
+> intermédiaire échouait : j'avais simplifié `nextInt` en perdant la branche
+> « puissance de deux », et le Fisher-Yates passe par `n = 64` à la
+> dix-septième itération. C'est le témoin qui l'a dit.)*
+
+### Le résultat
+
+| balayage | essais | max sur 60 | attendu à ce niveau | **p** |
+|---|---|---|---|---|
+| amorçage à n'importe quel tirage, `d = ±3` | 91 866 516 | 32 | 2,70 | **0,933** |
+| amorçage aux 346 ouvertures, `d = ±600 s` | 77 291 556 | 33 | 0,35 | **0,298** |
+
+L'histogramme colle à la convolution exacte sur toute son étendue. Il aurait
+fallu une somme ≥ 38 pour `p = 7,5 × 10⁻⁶`. Registre **m = 3 333**, 0
+significatif.
+
+### Ce que le cas Tipton coûte à un initié, ici
+
+Le seul générateur de loterie réellement cassé — Eddie Tipton, Multi-State
+Lottery Association — **n'a pas été détecté par des statistiques** mais par une
+caméra de station-service. Son rootkit ne s'activait que trois jours par an,
+deux jours de semaine, après 20 h, et restreignait alors la sortie à un petit
+ensemble de combinaisons. Un tel biais ne laisse **aucune** trace marginale.
+
+Sa seule signature est la **collision**, et le registre porte déjà le test :
+`audit.antirejeu`, recouvrement maximal 16/20 sur 2,489 milliards de paires —
+donc aucune collision 20/20. Si `k` tirages sont déclenchés et tirent dans un
+ensemble de `M` combinaisons, `P(aucune collision) ≈ exp(−k²/2M)` : n'en avoir
+observé aucune exclut à 95 % tout `M < k²/(2 ln 20)`.
+
+| scénario | k tirages | M minimal pour échapper |
+|---|---|---|
+| 1 heure par an | 12 | 24 |
+| 1 jour par an | 193 | 6 217 |
+| **3 jours par an (le cas Tipton)** | **579** | **55 953** |
+| 1 jour par mois | 2 321 | 899 119 |
+
+> **C'est un renversement.** Dans cette archive, « trois jours par an » ne vaut
+> pas trois tirages mais **579**, parce que le jeu tire toutes les cinq minutes
+> et non deux fois par semaine. L'ensemble de quelques centaines de
+> combinaisons du cas Tipton aurait produit des collisions par milliers :
+> `M = 1 000` donne `P(aucune) = 1,6 × 10⁻⁷³`, `M = 10 000` donne
+> `5,3 × 10⁻⁸`.
+>
+> **La cadence, qui rend ce jeu attirant pour qui veut prédire, est
+> précisément ce qui rend une attaque à la Tipton auto-destructrice.**
+
+### Ce que cela ferme, et ce que cela ne ferme pas
+
+Les trois régimes d'implémentation sont désormais couverts, et le seul cas
+réel documenté d'insider est exclu par un test que le dossier avait déjà passé
+— on ne le savait simplement pas.
+
+**Non fermé.** La puissance vaut **1 dans** le produit balayé et **0 en
+dehors** : une famille absente (AES-CTR, ChaCha, un matériel), un
+échantillonneur absent, une convention de graine absente, ou une dérive de plus
+de 600 s sur l'heure de démarrage échapperaient. Et le **régime A reste ouvert
+par défaut de calcul, pas par mesure** : 2⁴⁸ n'a jamais été parcouru.
+
+**Sources :** [Hot Lotto fraud scandal](https://en.wikipedia.org/wiki/Hot_Lotto_fraud_scandal) · [The Register — lottery-hacking sysadmin](https://www.theregister.com/2017/08/23/florida_judge_gives_lottery_scammer_more_private_time/)

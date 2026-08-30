@@ -33,7 +33,17 @@
  * Python, et c'est elle qui fait foi — jamais un seuil tabule.
  *
  * Compilation :  cc -O3 -march=native -o sweep_time sweep_time.c
- * Usage       :  ./sweep_time draws.txt [n_tirages]
+ * Usage       :  ./sweep_time draws.txt [n] [L] [W] [--sessions]
+ *
+ *   L  longueur de CHAINE : apres un seul amorcage, on engendre L tirages
+ *      consecutifs et on somme les recouvrements. L=1 (defaut) teste le
+ *      re-amorcage a chaque tirage ; L>1 teste le re-amorcage suivi d'une
+ *      COURSE CONTINUE — le regime d'un systeme qui demarre le matin et
+ *      tourne toute la journee, qu'aucun balayage du dossier ne couvre.
+ *   W  demi-largeur du decalage sur la graine (defaut 3).
+ *   --sessions  ne tente d'amorcer qu'aux DEBUTS DE SESSION (ecart > 1000 s
+ *      avec le tirage precedent). L'archive en compte 345, tous a 04:05:00
+ *      UTC pile.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -236,6 +246,12 @@ int main(int argc, char **argv) {
     FILE *fh = fopen(argv[1], "r");
     if (!fh) { perror("fopen"); return 1; }
     int want = (argc > 2) ? atoi(argv[2]) : 1 << 30;
+    int L = (argc > 3) ? atoi(argv[3]) : 1;
+    int W = (argc > 4) ? atoi(argv[4]) : 3;
+    int only_sessions = 0;
+    for (int i = 1; i < argc; i++)
+        if (!strcmp(argv[i], "--sessions")) only_sessions = 1;
+    if (L < 1) L = 1;
 
     static uint64_t ids[80000], tss[80000];
     static uint8_t seen_t[80000][POOL + 1];
@@ -254,36 +270,51 @@ int main(int argc, char **argv) {
     fclose(fh);
     fprintf(stderr, "%d tirages lus\n", n);
 
-    const int W = 3;                        /* decalage -W..+W sur la graine */
+    /* Points d'amorcage : tous les tirages, ou les seuls debuts de session. */
+    static int anchors[80000]; int na = 0;
+    for (int t = 0; t + L <= n; t++) {
+        if (only_sessions && t > 0 && (int64_t)tss[t] - (int64_t)tss[t - 1] <= 1000) continue;
+        anchors[na++] = t;
+    }
+    fprintf(stderr, "L=%d  W=%d  points d'amorcage : %d\n", L, W, na);
+
     int best = -1, bf = 0, bs = 0, bc = 0; int64_t bd = 0; int bdraw = 0;
     long long trials = 0, rejected = 0;
-    long long hist[DRAWN + 1]; memset(hist, 0, sizeof hist);
+    int HMAX = DRAWN * L;
+    static long long hist[DRAWN * 16 + 1];
+    memset(hist, 0, sizeof hist);
 
     java_t j; glibc_t gl; mt_t m; lcg32_t l; sm64_t sm;
     next_fn nx; below_fn bl; uint8_t out[DRAWN];
 
-    for (int t = 0; t < n; t++) {
+    for (int ai = 0; ai < na; ai++) {
+        int t = anchors[ai];
         for (int c = 0; c < NCONV; c++) {
             for (int64_t d = -W; d <= W; d++) {
                 uint64_t s = conv_seed(c, tss[t], ids[t], d);
                 for (int f = 0; f < NFAM; f++) {
                     for (int sp = 0; sp < 4; sp++) {
                         void *g = fam_init(f, s, &j, &gl, &m, &l, &sm, &nx, &bl);
-                        if (!SAMP[sp](g, nx, bl, out)) { rejected++; continue; }
-                        /* intersection d'ENSEMBLES : un doublon dans `out` ne
-                         * doit pas compter deux fois. C'est le defaut qu'a
-                         * revele le temoin positif (4 264 succes au lieu de
-                         * 400) — le bourrage de secours des echantillonneurs
-                         * a rejet repetait un numero present dans la cible. */
-                        uint8_t used[POOL + 1]; memset(used, 0, sizeof used);
-                        int ov = 0;
-                        for (int i = 0; i < DRAWN; i++) {
-                            uint8_t v = out[i];
-                            if (v >= 1 && v <= POOL && !used[v]) {
-                                used[v] = 1;
-                                if (seen_t[t][v]) ov++;
+                        /* UN SEUL amorcage, puis L tirages consecutifs tires
+                         * de l'etat qui CONTINUE — c'est ce qui distingue ce
+                         * regime du re-amorcage par tirage. */
+                        int ov = 0, bad = 0;
+                        for (int step = 0; step < L; step++) {
+                            if (!SAMP[sp](g, nx, bl, out)) { bad = 1; break; }
+                            /* intersection d'ENSEMBLES : un doublon dans `out`
+                             * ne doit pas compter deux fois. C'est le defaut
+                             * qu'a revele le temoin positif (4 264 succes au
+                             * lieu de 400). */
+                            uint8_t used[POOL + 1]; memset(used, 0, sizeof used);
+                            for (int i = 0; i < DRAWN; i++) {
+                                uint8_t v = out[i];
+                                if (v >= 1 && v <= POOL && !used[v]) {
+                                    used[v] = 1;
+                                    if (seen_t[t + step][v]) ov++;
+                                }
                             }
                         }
+                        if (bad) { rejected++; continue; }
                         hist[ov]++; trials++;
                         if (ov > best) {
                             best = ov; bf = f; bs = sp; bc = c; bd = d; bdraw = t;
@@ -297,10 +328,11 @@ int main(int argc, char **argv) {
         }
     }
 
-    printf("essais %lld  (rejetes %lld)\n", trials, rejected);
+    printf("essais %lld  (rejetes %lld)  L %d  W %d  ancres %d\n",
+           trials, rejected, L, W, na);
     printf("max %d  famille %s  echantillonneur %s  convention %s  d %+lld  tirage %llu\n",
            best, FAM_NAME[bf], SAMP_NAME[bs], CONV_NAME[bc], (long long)bd,
            (unsigned long long)ids[bdraw]);
-    for (int k = 0; k <= DRAWN; k++) if (hist[k]) printf("hist %d %lld\n", k, hist[k]);
+    for (int k = 0; k <= HMAX; k++) if (hist[k]) printf("hist %d %lld\n", k, hist[k]);
     return 0;
 }
