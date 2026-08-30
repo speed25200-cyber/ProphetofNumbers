@@ -72,6 +72,32 @@ l'alternative est vraie. C'est l'« assurance gratuite » avec sa franchise
 écrite : gratuite en espérance sous H₀, à franchise O(√(ln N / T)) → 0
 sous les alternatives.
 
+**Resserré depuis, et sur deux points (`h28_franchise.py`).**
+
+*La borne.* La forme de second ordre d'AdaHedge remplace `T` par la variance
+cumulée des pertes sous les poids courants : `R_T ≤ 2,3971·√(V_T ln N) +
+2 ln N + 6 + 2Δ₀`, **valide par réalisation** puisque `V_T` se mesure sur la
+trajectoire même. Elle donne **0,0257** au lieu de 0,2718 — un resserrement
+×10,7, et une marge ×2,0 sur le regret réalisé au lieu de ×21,7. Zéro
+violation sur l'archive réelle, 32 archives à T = 20 000 et 6 complètes ;
+témoin positif (une borne sciemment fausse) violé 32/32. Le resserrement ne
+vient qu'à ~6 % de la corrélation des têtes : l'essentiel est que
+l'adversaire est un tirage hypergéométrique et non un adversaire.
+
+*Une confusion à retirer.* La borne de Hedge porte sur l'agrégateur
+**fractionnaire** ; l'app joue le **top-20 du mélange de champs**. Le
+théorème C écrivait la borne de l'un en face de la franchise de l'autre.
+Mesurés séparément : 0,0125 et 0,0162 — même espérance sous H₀, objets
+distincts sous la borne, et la conformité du second est un fait mesuré, pas
+démontré.
+
+*Et une égalité qui interdit une comparaison.* Sous H₀, pour tout agrégateur
+dont les poids et la grille sont prévisibles, `E[S_agg] = 0` par invariance,
+donc `E[franchise] = E[max_h S_h]/T` — **la même pour tous**. La franchise
+appartient au comparateur, le maximum a posteriori de 26 marches corrélées,
+et non à l'agrégateur : la comparer entre règles sous H₀ ne peut rien
+montrer. Ce qui les sépare est la franchise sous l'**alternative**.
+
 ## Théorème D — la frontière de détection, et la faille qu'elle a révélée
 
 Pour un défaut de divergence d(θ\*) nats/tirage sur une fenêtre L finissant
@@ -131,7 +157,8 @@ générateur.
 1. **L'étalement est un théorème** (A + B), plus une mesure : dominance à
    tous les rangs, sous tout barème, prouvée par bornes exactes.
 2. **La politique de l'app est minimax quantifié** (C) : franchise réelle
-   0,016 hit/tirage, bornée par 0,272.
+   0,016 hit/tirage, bornée par 0,272 au premier ordre et par **0,0257** au
+   second (C′, `h28`).
 3. **Le moniteur est redevenu honnête** (D) : 12 % → 4,2 % de fausses
    alertes, garantie α = 5 % vraie à tout instant, au prix documenté de
    2·ln k nats sur les défauts tardifs.
