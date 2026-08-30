@@ -4461,3 +4461,144 @@ l'ordre (§47) ont leurs propres bornes, établies séparément.
 > que signifie l'existence d'un maximum.
 
 **Registre : inchangé.** `h38` n'interroge pas l'archive.
+
+## 49. Avant la clôture : la deuxième pierre, épuisée (`h33_avant_cloture.py`)
+
+Le §16 a démonté le mur de l'invariance en trois pierres, et le §31 a attaqué
+la deuxième — « rien d'exploitable n'est visible avant la clôture » — avec
+**une seule** variable, le boost, pour le plus gros chiffre du dossier. Une
+variable examinée. Combien y en a-t-il ?
+
+La réponse est le résultat principal de cette section : **l'inventaire est
+fini, et il est court.**
+
+### L'inventaire
+
+Tout ce que le client peut lire pendant qu'un tirage est OPEN, champ par
+champ : **six multiplicateurs** — les cinq cagnottes `extraJackpots`,
+visibles sans condition, et le boost du slot OPEN, visible **sous
+condition** (l'instrument B est câblé, zéro observation au dossier) — plus
+deux constantes inconnues qui ne sont pas des variables aléatoires, le prix
+du ticket et le barème. Et rien d'autre.
+
+Le numéro de tirage est dégénéré (V = 0 par le cas d'égalité de Jensen).
+L'heure, le jour, le rang de session et les boost passés ont leurs liens
+vers le boost fermés au registre à puissance mesurée. L'historique n'informe
+que par la prédiction, plafonnée aux §41–48. L'ordre de sortie et le bonus
+sont post-clôture : valeur nulle par construction, corollaire du §31 — et le
+§47 vient de montrer qu'ils vaudraient zéro même visibles.
+
+Un fait de covariable clôt une cellule entière : **70 190 des 70 559 écarts
+consécutifs de l'archive sont au pas exact de 300 s**, 24 seulement en
+sortent (±1–5 s). La latence de publication n'a donc aucune trace
+exploitable dans l'archive ; la question appartient aux instruments C et D,
+pas au registre.
+
+### Le corollaire qui traite tout le reste
+
+Beaucoup d'entrées ne multiplient pas le gain, et forcer le théorème M
+dessus serait une faute. Le bon énoncé, démontré puis vérifié par balayage
+exhaustif des `2^|Z|` politiques :
+
+> Pour `Z` observable avant la mise, tout se passe comme si l'on observait
+> `X̂ = E[X | Z]`, et voir `Z` vaut l'écart de Jensen de `X̂`.
+
+Deux conséquences. Un lien nul au registre devient une valeur **nulle
+mesurée** — pas supposée. Et voir un indice ne vaut jamais plus que voir la
+variable. C'est ce corollaire qui transforme trente lignes de « conforme »
+du registre en trente zéros de la table des valeurs.
+
+### La case vide, testée
+
+Le produit cartésien (covariable pré-clôture × multiplicateur) n'avait
+qu'une case à la fois testable et vide : le contenu du tirage `t−1` — publié
+~4 min 30 avant la clôture de `t` — contre le boost de `t`. Deux
+statistiques pré-enregistrées, null permuté simulé sur 2 000 réplicats :
+
+| statistique | z | p |
+|---|---|---|
+| χ² d'homogénéité du champ | −1,21 | 0,233 |
+| corrélation avec la somme | **−2,65** | **0,0085** |
+
+Le second a la taille exacte de la base rate — l'audit en a produit trois par
+hasard sur des données garanties équitables — et n'est pas significatif après
+Holm (m = 3 321, seuil 1,5·10⁻⁵). Il est **marqué pour réplication** sur les
+tirages postérieurs à l'archive. Puissance mesurée : 93–100 % dès ε = 0,02,
+témoin négatif à 0 %. Et le seuil d'exploitabilité du boost reste ε ≈ 0,134
+(§4) : ce qu'une fuite passée inaperçue ici pourrait valoir est borné très en
+dessous de l'exploitable.
+
+*Une entorse à la règle n° 2 est consignée au registre : les deux valeurs ont
+été vues une fois au prototypage, avant le scellement des jetons — la même
+faute que `h29.coherence_releve`, disclosée de la même façon.*
+
+### La composition — deux mondes qu'il ne faut pas confondre
+
+Le corollaire de composition du §31 dit que les multiplicateurs visibles
+agissent par leur **produit** : la politique conjointe optimale est « miser la
+mise k si et seulement si `b·j_k·p_k > 1` », quelle que soit la loi.
+
+| politique | profit/tirage | rapport |
+|---|---|---|
+| monde 1 — J6 seule (§29) | 0,0099 | ×1,00 |
+| monde 1 — **les cinq cagnottes** | **0,0128** | **×1,29 — inconditionnel** |
+| monde 2 — J6 × B vu (§31) | 0,170 | — |
+| monde 2 — cinq cagnottes × B vu | **0,276** | ×1,62 vs §31, ×27,8 vs J6 |
+
+Le mécanisme du monde 2 : `B = 10` divise le seuil de la mise 5 à CHF 155 —
+une cagnotte *moyenne* le franchit — et ressuscite les mises 7 à 10, mortes à
+dix zéros du seuil en solo. La politique occupe alors 22,7 % des tirages.
+
+Vérifié par simulation (2·10⁶ tirages × 5 mises, le pari du rang plein
+intégré **exactement** — sans quoi 2·10⁶ × p₆ ≈ 9 événements, la famine
+Monte-Carlo pour la quatrième fois) : accord sous 1 σ partout, et témoin
+d'égalité de Jensen — `B ≡ 1` rejoué dans la même machinerie rend exactement
+le monde 1, à 0,0 près.
+
+> **Précision qui change l'attribution, et je l'ai vérifiée dans le code :
+> le ×1,29 n'est pas un correctif à apporter à l'app — elle le fait déjà.**
+> `GridsView` calcule `ret` pour les **cinq** mises et bascule dès que
+> `rows.contains { $0.ret >= 100 }`. Ce que ce chiffre mesure, c'est l'écart
+> entre ce que l'app fait et ce que le §29 *analysait* : le dossier avait
+> raisonné sur la seule mise 6 alors que le produit surveillait déjà les
+> cinq. Ici c'est l'analyse qui rattrape l'implémentation, et non l'inverse.
+
+Recalibré sous l'hypothèse non rejetée du §44 (α·γ commun aux cinq mises), le
+**niveau** bouge d'un facteur 30 — c'est l'intervalle du §29 qui parle — mais
+la **structure** se renforce (×21 → ×439 pour la visibilité de B). Ce qui est
+porté par les rapports tient ; ce qui est porté par le niveau ne tient qu'au
+relevé unique.
+
+### Six demandes de données, classées par rapport coût/décision
+
+1. **Le prix du ticket** — une observation ; la seule donnée dont une
+   décision dépende (§36).
+2. **La règle du boost** — une lecture du règlement : est-il une option
+   payante, étend-il la cagnotte ? C'est elle qui décide si le monde 2
+   existe au-delà des rangs à gain fixe.
+3. **Le verdict de l'instrument B** — ~20 tirages OPEN, soit 100 minutes ;
+   l'enjeu est le facteur ×21 entre les deux mondes.
+4. **La latence signée et la dérive de clôture** — instruments C et D ;
+   l'archive est muette par construction.
+5. **La série de cagnottes** — déjà journalisée ; la précision se paie en
+   **chutes** et non en relevés (§36).
+6. **Le barème** — il fixe `R₀` (§50 le reprend).
+
+Ce qui n'est **pas** demandé : la répartition de la foule, non exposée par
+l'API — la réponse minimax du §44 tient lieu de mesure.
+
+### Ce qui est établi
+
+La deuxième pierre n'est plus « une case grande et vide » : c'est une **liste
+finie**. Six multiplicateurs, dont cinq visibles aujourd'hui et un suspendu à
+une observation de cent minutes ; une politique conjointe dont la forme ne
+dépend d'aucune loi ; une case d'archive close au registre ; et tout le reste
+démontré **sans valeur** — par dégénérescence, par lien nul à puissance
+mesurée, ou par le corollaire du post-clôture.
+
+Le mur ne tombe toujours pas là où il est fait de mathématiques. Mais on sait
+désormais exactement combien de portes il a, et laquelle n'a jamais été
+poussée.
+
+**Registre : +2** (`h33.champ_lag1_boost`, `h33.somme_lag1_boost`), les deux
+conformes après Holm.

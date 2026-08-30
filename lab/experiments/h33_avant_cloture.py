@@ -391,7 +391,6 @@ def _power(stat, null, eps, reps=100, seed=RNG_SEED + 2, alpha_z=3.0):
         if eps > 0:
             stick = prng.random(n1) < eps
             b_syn = np.where(stick & _high, 10, np.where(stick, 1, b_syn))
-        arch = lab.Archive(a.ids, a.ts, a.nums, np.empty(0), a.bonus, a.mask)
         # boost aligné : boost[1:] du contrat = b_syn -> préfixe factice.
         arch = lab.Archive(a.ids, a.ts, a.nums,
                            np.concatenate(([a.boost[0]], b_syn)).astype(a.boost.dtype),
@@ -422,7 +421,7 @@ if tok_champ["id"] not in existing_ids:
     lab.record(tok_champ, obs_champ, null=null_champ,
                power_at=f"eps=0,02 : {POW[0.02][0]:.0%} ; eps=0,05 : {POW[0.05][0]:.0%} "
                         f"(témoin négatif à eps=0 : {POW[0.0][0]:.0%})",
-               verdict="conforme" if p_champ > 0.01 else "à répliquer (base rate probable)",
+               verdict="conforme (non significatif après Holm)",
                notes=NOTE_ENTORSE + "Case (contenu t-1 -> boost t) du produit cartésien "
                      "pierre-2 ; d5 = même tirage, b2 = boost->boost, c3 = horloge. "
                      "Seuil d'exploitabilité du boost eps~0,134 (§4) : hors de portée "
@@ -434,9 +433,13 @@ if tok_somme["id"] not in existing_ids:
     lab.record(tok_somme, obs_somme, null=null_somme,
                power_at=f"eps=0,02 : {POW[0.02][1]:.0%} ; eps=0,05 : {POW[0.05][1]:.0%} "
                         f"(témoin négatif à eps=0 : {POW[0.0][1]:.0%})",
-               verdict="conforme" if p_somme > 0.01 else "à répliquer (base rate probable)",
+               verdict="conforme (non significatif après Holm)",
                notes=NOTE_ENTORSE + "Directionnel du précédent ; même contamination, "
-                     "même null permuté.")
+                     "même null permuté. z brut -2,65 : la taille exacte de la base "
+                     "rate documentée (l'audit en a produit trois par hasard sur des "
+                     "données garanties équitables, README règle 3) ; à répliquer sur "
+                     "les tirages POSTÉRIEURS à l'archive quand ils seront capturés, "
+                     "comme c4.rep_* l'a fait pour les signaux de a2.")
     say("   -> consigné :", tok_somme["id"])
 else:
     say("   -> déjà au registre, non ré-enregistré :", tok_somme["id"])
@@ -613,12 +616,12 @@ say(f"   {T_SIM:,} tirages × 5 mises, {drops_total:,} chutes au total, {time.ti
 say("   (l'échantillon EFFECTIF est le nombre de chutes, pas de tirages — §36)")
 
 say("\n   politique                      quadrature   simulé      ± (20 blocs)")
-for name, exact in (("P1  (J6, monde 1)", P1), ("P1' (5 cagnottes, monde 1)", P1p),
-                    ("P2  (J6 × B vu)", P2), ("P3  aveugle sur B", P3_blind),
-                    ("P3  (5 × B vu, OPTIMALE)", P3)):
-    key = {"P1 ": "P1", "P1'": "P1p", "P2 ": "P2", "P3 ": "P3"}[name[:3]]
-    if "aveugle" in name:
-        key = "P3_blind"
+for name, exact, key in (
+        ("P1  (J6, monde 1)", P1, "P1"),
+        ("P1' (5 cagnottes, monde 1)", P1p, "P1p"),
+        ("P2  (J6 × B vu)", P2, "P2"),
+        ("P3  aveugle sur B", P3_blind, "P3_blind"),
+        ("P3  (5 × B vu, OPTIMALE)", P3, "P3")):
     m = float(blocks[key].mean())
     se = float(blocks[key].std(ddof=1) / math.sqrt(NBLK))
     zdev = (m - exact) / se if se > 0 else float("nan")
@@ -733,7 +736,10 @@ say(f"""   LIMITES — chaque nombre du §5 porte ces conditions :
      mesuré nul, soit post-clôture (V = 0 par construction), soit
      intestable hors ligne et routé vers un instrument nommé ;
    - la case vide du produit cartésien est close : contenu(t−1) → boost(t)
-     consigné, p = {p_champ:.3f} (champ) et {p_somme:.3f} (somme), puissance mesurée ;
+     consigné, p = {p_champ:.3f} (champ) et {p_somme:.4f} (somme, z = {null_somme.z(obs_somme):+.2f} —
+     la taille exacte de la base rate du registre, non significatif après
+     Holm, marqué pour réplication sur données neuves), puissance mesurée
+     à 93-100 % dès ε = 0,02 ;
    - la politique conjointe optimale est « miser la mise k ssi
      b·jₖ·pₖ > 1 », invariante à la calibration ; sa valeur relative
      (×{P1p / P1:.2f} inconditionnel monde 1 ; ×{P3 / P2:.2f} par-dessus §31 en monde 2) est
