@@ -1900,6 +1900,51 @@
   </section>
 
   <section>
+    <h2>Le canal du bonus&nbsp;: 70 560 sorties ordonnées, peut-être</h2>
+    <div class="col">
+      <p>
+        L'ordre de sortie vaut deux fois le tirage trié — 122,69 bits contre 61,62 — mais il n'existe
+        que sur cinq tirages capturés à la main, quand l'archive en compte 70 560, triés donc muets
+        sur l'ordre. Sauf qu'il reste un champ, et une vérification élémentaire le rend
+        intéressant&nbsp;: le numéro bonus est <strong>toujours</strong> l'un des vingt numéros
+        tirés. 70 560 fois sur 70 560, là où l'indépendance en prédirait 17 640.
+      </p>
+      <p>
+        Le bonus n'est donc pas un tirage de plus&nbsp;: c'est une <em>désignation</em> parmi les
+        vingt. Et si cette désignation suit une règle de position — «&nbsp;la dernière boule
+        sortie&nbsp;», la convention la plus répandue — alors le bonus est une sortie ordonnée du
+        générateur, disponible sur toute l'archive.
+      </p>
+    </div>
+
+    <div class="col">
+      <p>
+        Premier test&nbsp;: si le bonus est la valeur brute d'un échantillonneur modulaire, ses
+        quatre bits de poids faible doivent obéir à une relation affine sur les 70 559 transitions.
+        L'objection évidente est que le rejet des doublons fait varier le nombre de sorties
+        consommées d'un tirage à l'autre, donc le multiplicateur effectif avec lui. C'est ce que
+        j'avais écrit, et les témoins l'ont démenti&nbsp;: modulo une puissance de deux, l'ordre
+        multiplicatif du multiplicateur est minuscule, si bien qu'il ne prend que quelques valeurs
+        quel que soit le nombre de pas. Le témoin correspondant sort à <strong>+433&nbsp;σ</strong>.
+      </p>
+      <p>
+        Sur l'archive&nbsp;: rien. Cinq modules, trois décalages, null par permutation — le plus
+        grand écart est +3,1&nbsp;σ, soit p = 0,014 après correction, très au-dessus du seuil du
+        registre. L'hypothèse «&nbsp;le bonus est une sortie brute&nbsp;» est écartée, et cette
+        fois le rien a du poids.
+      </p>
+      <p>
+        Mais la question de la <em>règle</em> reste entière — le bonus peut être la dernière boule
+        sans être une sortie brute. Et elle ne se tranche que sur des tirages dont l'ordre est
+        publié, ce que l'archive n'a pas et ce que l'app, elle, reçoit. D'où un neuvième test
+        embarqué qui relève la position du bonus dans l'ordre, tirage après tirage. Il signale
+        l'inverse de l'habitude&nbsp;: ici, une déviation par rapport à l'uniforme serait une
+        <em>découverte</em>. Douze tirages ordonnés suffisent à trancher.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Ce que ce labo ne peut pas trancher</h2>
     <ul class="limits">
       <li>
@@ -1914,9 +1959,11 @@
         moins chère de toutes, et la seule qui puisse renverser la conclusion précédente.
       </li>
       <li>
-        <strong>Des tirages ordonnés qui se suivent.</strong> Cinq ont été relevés à la main, à des
-        espacements irréguliers. Cinq <em>consécutifs</em> laisseraient une classe de trois solutions
-        au lieu de dix-sept, pour le même effort de capture.
+        <strong>Des tirages ordonnés qui se suivent — et leur numéro bonus.</strong> Cinq ont été
+        relevés à la main, à des espacements irréguliers. Cinq <em>consécutifs</em> laisseraient une
+        classe de trois solutions au lieu de dix-sept, pour le même effort. Et le bonus de ces cinq
+        tirages, avec sa position dans l'ordre de sortie, trancherait à lui seul si l'archive
+        entière porte de l'information d'ordre.
       </li>
       <li>
         <strong>Le flux en direct.</strong> Réseau fermé depuis l'environnement d'analyse. Le boost
@@ -1933,7 +1980,7 @@
   <footer>
     <span>Trente voies · registre pré-enregistré · nulls simulés</span>
     <span>Puissance mesurée à chaque voie</span>
-    <span>Zéro significatif après correction de multiplicité</span>
+    <span>3 328 tests, zéro significatif après correction de multiplicité</span>
   </footer>
 
 </div>
