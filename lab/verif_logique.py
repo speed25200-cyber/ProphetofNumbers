@@ -253,6 +253,34 @@ def main():
               f"[{lo:.6f}, {hi:.6f}] contre Garwood [{ref_lo:.6f}, {ref_hi:.6f}]"
               f"  {'ok' if okk else 'ÉCHEC'}")
 
+    # Le quantile du khi-deux, obtenu en Swift depuis la MÊME fonction de
+    # répartition de Poisson via P(χ²(2n) ≤ x) = P(Poisson(x/2) ≥ n). C'est
+    # ce qui donne l'intervalle du gain conditionnel (h16) sans fonction gamma.
+    def chi2_quantile(p, n):
+        return 2 * _solve(1 - p, n - 1)
+
+    for n in (1, 2, 5, 10, 30, 100):
+        for pq in (0.025, 0.975):
+            got, ref = chi2_quantile(pq, n), _st.chi2.ppf(pq, 2 * n)
+            okk = abs(got - ref) < 1e-6 * max(1.0, ref)
+            a &= okk
+            if not okk:
+                print(f"1 quinquies. χ²({2 * n}) au quantile {pq} : "
+                      f"{got:.6f} contre {ref:.6f}  ÉCHEC")
+    print(f"1 quinquies. quantiles du khi-deux depuis la loi de Poisson, "
+          f"12 points : {'ok' if a else 'ÉCHEC'}")
+
+    # Et le gain conditionnel lui-même : sur UN relevé il vaut exactement le
+    # rapport cagnotte/seuil, et son intervalle doit l'encadrer.
+    seuil6, j6 = 7753.0, 2287.0
+    edge = j6 / seuil6
+    e_lo = 2 * 1 * j6 / chi2_quantile(0.975, 1) / seuil6
+    e_hi = 2 * 1 * j6 / chi2_quantile(0.025, 1) / seuil6
+    d = e_lo < edge < e_hi and e_lo > 0
+    a &= d
+    print(f"1 quinquies. gain conditionnel sur 1 relevé : {edge:+.1%} "
+          f"dans [{e_lo:+.1%}, {e_hi:+.1%}]  {'ok' if d else 'ÉCHEC'}")
+
     # La chaîne complète : un journal fabriqué à r et q connus doit rendre
     # une fraction favorable qui encadre la vraie.
     def estimate(rows, seuil):

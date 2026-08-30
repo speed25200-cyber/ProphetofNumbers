@@ -656,3 +656,50 @@ une date de chute.
 le seuil de h9 étant suffisant et non nécessaire, la fraction vraie est
 également plus haute. Les deux biais structurels connus vont donc dans le
 sens du joueur, ce qui rend l'estimation ci-dessus conservatrice.
+
+---
+
+## Théorème K — le rendement conditionnel vaut la part de cagnotte
+
+**Cadre.** Un ticket de prix c à la mise k, p = P(k/k), seuil de bascule
+S = c/p (théorème de h9 : au-delà, la cagnotte seule rembourse la mise).
+Cagnotte sans mémoire de moyenne μ.
+
+**Énoncé.** Le rendement d'un franc misé, conditionnellement à ne jouer
+qu'au-dessus du seuil, vaut
+
+    p·E[J | J ≥ S]/c = p(S + μ)/c = 1 + μ/S
+
+Le gain est donc exactement **μ/S**. Ce rapport est celui que h9 affichait
+comme « fraction du seuil » : la même quantité mesure la distance au point
+de bascule et le profit disponible une fois ce point franchi.
+
+**Corollaire (invariance au nombre de joueurs).** Si N grilles sont jouées
+par tirage et que la cagnotte reçoit une fraction α de la mise collectée,
+alors μ = r/q = αNc/(Np) = α·S, donc
+
+    gain conditionnel = α
+
+soit exactement la part de la mise versée dans la cagnotte. N disparaît :
+davantage de joueurs font monter la cagnotte plus vite et la font tomber
+plus souvent dans la même proportion. Exactement, μ/S = α·κ avec
+κ = N·p·(1−q)/q et q = 1 − (1−p)^N ; κ → 1 quand λ = N·p → 0, c'est-à-dire
+dans le seul régime où une cagnotte s'accumule.
+
+**Corollaire (optimalité du seuil).** Le profit espéré par tirage en visant
+un seuil S' = x·μ vaut f(x) = e^(−x)·(α(x+1) − 1). Alors
+f'(x) = e^(−x)·(1 − αx), qui s'annule en x = 1/α — soit S' = μ/α = S. Le
+seuil de bascule maximise donc le profit par tirage : attendre davantage
+augmente le gain par occasion mais raréfie les occasions plus vite encore.
+
+**Corollaire (le partage ne mord pas).** Avec W ~ Poisson(λ) autres
+gagnants, le gain devient (1+α)·E[1/(1+W)] − 1, négatif dès que
+E[1/(1+W)] < 1/(1+α). Mais λ est aussi le taux de chute de la cagnotte : une
+cagnotte qui s'accumule visiblement a λ ≪ 1, donc E[1/(1+W)] ≈ 1. La
+condition de survie de la stratégie et la condition d'existence d'une
+cagnotte progressive sont la même condition.
+
+**Conditionnement.** Le gain conditionnel est linéaire en μ, là où la
+fréquence de franchissement (théorème J) en dépend exponentiellement. Un
+relevé unique suffit donc à en donner un intervalle utilisable — borne basse
++8 % à la mise 6 — quand le même relevé laisse la fréquence entre 0 et 92 %.

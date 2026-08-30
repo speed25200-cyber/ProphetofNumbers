@@ -87,11 +87,42 @@ enum JackpotLaw {
             favHi = loRate > 0 ? exp(-seuil * loRate / r) : 1
         }
 
+        // Gain conditionnel (h16). Par absence de mémoire, E[J | J ≥ S] =
+        // S + μ, donc jouer uniquement au-dessus du seuil rapporte
+        // exactement μ/S par franc misé. C'est le nombre qui décide s'il
+        // faut miser, et il ne demande ni r ni q — seulement la moyenne des
+        // relevés. Son intervalle vient de 2n·J̄/μ ~ khi-deux(2n), obtenu
+        // ici depuis la même fonction de répartition de Poisson :
+        // P(khi-deux(2n) ≤ x) = P(Poisson(x/2) ≥ n).
+        var edge: Double?
+        var edgeLo: Double?
+        var edgeHi: Double?
+        if seuil.isFinite, seuil > 0 {
+            let n = rows.count
+            let mean = rows.reduce(0) { $0 + $1.francs } / Double(n)
+            edge = mean / seuil
+            let hiChi = chiSquareQuantile(0.975, dfHalf: n)
+            let loChi = chiSquareQuantile(0.025, dfHalf: n)
+            if hiChi > 0 { edgeLo = 2 * Double(n) * mean / hiChi / seuil }
+            if loChi > 0 { edgeHi = 2 * Double(n) * mean / loChi / seuil }
+        }
+
         return JackpotLawEstimate(
             stake: stake, readings: rows.count, spanDraws: span,
             latest: last.francs, threshold: seuil, accrual: accrual,
             drops: drops, favourable: fav, favourableLo: favLo,
-            favourableHi: favHi)
+            favourableHi: favHi, conditionalEdge: edge, edgeLo: edgeLo,
+            edgeHi: edgeHi)
+    }
+
+    /// Quantile de la loi du khi-deux à 2·dfHalf degrés de liberté.
+    ///
+    /// Aucune fonction gamma n'est disponible ici. L'identité
+    /// P(khi-deux(2n) ≤ x) = P(Poisson(x/2) ≥ n) = 1 − F_Poisson(n−1, x/2)
+    /// ramène le quantile à la même bissection que l'intervalle de Poisson.
+    static func chiSquareQuantile(_ p: Double, dfHalf n: Int) -> Double {
+        guard n >= 1, p > 0, p < 1 else { return 0 }
+        return 2 * solve(target: 1 - p, k: n - 1)
     }
 
     // MARK: Outils

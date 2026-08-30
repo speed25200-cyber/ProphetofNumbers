@@ -766,6 +766,45 @@ final class OracleTests: XCTestCase {
                        -log(0.025), accuracy: 1e-5)
     }
 
+    func testChiSquareQuantileMatchesTabulatedValues() {
+        // L'identité P(khi-deux(2n) <= x) = P(Poisson(x/2) >= n) remplace ici
+        // une fonction gamma absente. Valeurs tabulées à 2n degrés de liberté.
+        let cases: [(Int, Double, Double)] = [
+            (1, 0.025, 0.050636), (1, 0.975, 7.377759),
+            (5, 0.025, 3.246973), (5, 0.975, 20.483177),
+            (30, 0.025, 40.481748), (30, 0.975, 83.297675),
+        ]
+        for (n, p, expected) in cases {
+            XCTAssertEqual(JackpotLaw.chiSquareQuantile(p, dfHalf: n), expected,
+                           accuracy: 1e-4, "khi-deux(\(2 * n)) au quantile \(p)")
+        }
+    }
+
+    func testConditionalEdgeIsTheJackpotOverThresholdRatio() {
+        // h16 : par absence de mémoire, ne miser qu'au-dessus du seuil
+        // rapporte exactement mu/S par franc. Avec un seul relevé, mu est
+        // estimé par ce relevé, donc le gain doit être exactement le rapport
+        // cagnotte/seuil — et l'intervalle doit encadrer cette valeur.
+        let seuil = 7753.0
+        let log = [JackpotReading(drawNumber: 1381028, stake: 6, francs: 2287,
+                                  at: Date())]
+        guard let est = JackpotLaw.estimate(log, stake: 6, pAllHit: 1 / seuil) else {
+            return XCTFail("aucune estimation")
+        }
+        XCTAssertEqual(est.conditionalEdge ?? 0, 2287 / seuil, accuracy: 1e-9)
+        guard let lo = est.edgeLo, let hi = est.edgeHi else {
+            return XCTFail("intervalle absent")
+        }
+        XCTAssertLessThan(lo, est.conditionalEdge ?? 0)
+        XCTAssertGreaterThan(hi, est.conditionalEdge ?? 0)
+        // Avec UN relevé, l'intervalle est 2J/khi-deux(2) de part et d'autre :
+        // large, et c'est le résultat honnête, pas un défaut.
+        XCTAssertEqual(lo, 2 * 2287 / 7.377759 / seuil, accuracy: 1e-4)
+        // Un seul relevé ne permet ni accumulation ni fréquence.
+        XCTAssertNil(est.accrual)
+        XCTAssertNil(est.favourable)
+    }
+
     func testJackpotLogNeverStoresTheSameDrawTwice() {
         let jacks = [Jackpot(stake: 6, amount: 2287), Jackpot(stake: 10, amount: 495_713)]
         var log = JackpotLaw.record([], drawNumber: 1381028, jackpots: jacks, at: Date())

@@ -2066,3 +2066,93 @@ intermédiaires qui ne peuvent qu'ajouter. La vraie fraction favorable est
 donc plus haute que celle estimée ici. La réserve qui va dans l'autre sens
 est le prix du ticket : tout est par franc misé, et ce prix reste la donnée
 manquante la moins chère à obtenir de tout le dossier.
+
+## 29. Le rendement conditionnel, et l'identité qui le rend calculable (`h16_rendement_conditionnel.py`)
+
+h15 répondait à « combien d'occasions se présentent ». Il restait la
+question qui décide s'il faut jouer : **quand une occasion se présente, elle
+vaut combien ?** La réponse a une forme fermée dont la simplicité n'était pas
+prévisible.
+
+**L'identité.** Soit c le prix du ticket, p = P(k/k), et S = c/p le seuil de
+h9. Sous l'absence de mémoire (h15), E[J | J ≥ S] = S + μ, donc le rendement
+d'un franc misé en ne jouant qu'au-dessus du seuil vaut
+
+    p·E[J | J ≥ S]/c = p(S + μ)/c = 1 + μ/S
+
+Le gain conditionnel est donc **exactement μ/S** — le nombre que h9 affichait
+comme « fraction du seuil » en croyant ne mesurer qu'une distance. Le même
+rapport, lu dans l'autre sens, est le taux de profit du jour où le seuil est
+franchi.
+
+**Et ce rapport est une constante du jeu.** Si N grilles sont jouées par
+tirage et que la cagnotte reçoit une fraction α de la mise collectée, alors
+μ = r/q = αNc/(Np) = α·c/p = α·S, d'où **μ/S = α**. Le nombre de joueurs
+disparaît : davantage de joueurs font monter la cagnotte plus vite *et* la
+font tomber plus souvent, exactement dans la même proportion. Le gain
+conditionnel est la part de la mise que l'opérateur verse dans la cagnotte,
+et rien d'autre.
+
+Vérifié sur le processus simulé, avec la correction exacte plutôt qu'une
+approximation cachée : μ/S = α·κ où κ = N·p·(1−q)/q, et κ vaut 0,997 à
+λ = 0,006, 0,968 à λ = 0,065, et ne s'effondre qu'à λ = 0,65 — un régime où
+la cagnotte tombe deux tirages sur trois et n'accumule plus rien. L'écart
+mesuré à α·κ est inférieur à 1 % partout.
+
+**Le seuil de bascule est l'optimum, pas un pis-aller.** Le profit espéré
+*par tirage* en visant un seuil S' = x·μ vaut e^(−x)·(α(x+1) − 1) ; sa
+dérivée s'annule en x = 1/α, c'est-à-dire exactement en S' = S. Attendre une
+cagnotte plus grosse augmente le gain par occasion mais raréfie les
+occasions plus vite encore. Vérifié numériquement : maximum en x = 3,390,
+prédit 1/α = 3,390.
+
+**Les chiffres, sur le seul relevé disponible.**
+
+| mise | cagnotte μ̂ | seuil S | α̂ = μ̂/S | gain conditionnel |
+|---|---|---|---|---|
+| 5 | CHF 355 | CHF 1 551 | 22,9 % | **+22,9 %** |
+| **6** | **CHF 2 287** | **CHF 7 753** | **29,5 %** | **+29,5 %** |
+| 7 | CHF 1 540 | CHF 40 979 | 3,8 % | +3,8 % |
+| 8 | CHF 9 292 | CHF 230 115 | 4,0 % | +4,0 % |
+| 10 | CHF 495 713 | CHF 8 911 711 | 5,6 % | +5,6 % |
+
+Et cette fois **l'incertitude est bien mieux conditionnée** qu'en h15 : le
+gain conditionnel est *linéaire* en μ là où la fréquence en dépendait
+exponentiellement. Avec un seul relevé, à 95 % : de **+8,0 % à +1 165 %** —
+et la borne basse est positive.
+
+**L'objection du partage se dissout.** Avec W ~ Poisson(λ) autres gagnants,
+le gain devient (1+α)·E[1/(1+W)] − 1, et la stratégie meurt si
+E[1/(1+W)] < 1/(1+α), soit λ > 0,54 pour α = 0,295. Mais λ n'est pas un
+paramètre libre : c'est aussi le taux auquel la cagnotte tombe. Une cagnotte
+qui atteint des milliers de francs en s'incrémentant de quelques dizaines
+par tirage tombe une fois toutes les dizaines ou centaines de tirages, soit
+λ ≈ 0,01 — deux ordres de grandeur de marge. Le partage coûte 0,3 % de gain
+à λ = 0,006 et 3 % à λ = 0,065. Il ne retourne le signe qu'à λ = 0,65, dans
+le même régime dégénéré que κ : **les deux limites de la stratégie sont la
+même limite**, et elle a un nom — une cagnotte qui tombe trop souvent pour
+s'accumuler.
+
+**La réserve qui devrait inquiéter.** Un α de 29,5 % est anormalement
+généreux : une cagnotte progressive reçoit typiquement 1 à 5 % de la mise
+collectée, pas trente. Trois explications, et le dossier ne peut pas
+trancher : l'estimation de μ sur un relevé est très bruitée ; la cagnotte
+affichée n'est peut-être pas purement progressive (une part fixe abondée par
+l'opérateur gonflerait μ sans correspondre à un α de turnover) ; ou le
+ticket ne coûte pas un franc, auquel cas le seuil se multiplie d'autant. Les
+trois se lèvent avec les mêmes données : une série de relevés, et le prix du
+ticket.
+
+**Et rien ici ne prédit un numéro.** Le gain vient du *moment* choisi, pas du
+choix des numéros — l'invariance reste intacte. À ce moment-là, c'est la
+géométrie de h13 qui dit comment répartir les grilles : disjointes, pour
+multiplier par n les chances de toucher le rang plein sans rien coûter en
+espérance.
+
+**Ce qui a été câblé.** `JackpotLawEstimate` porte désormais le gain
+conditionnel et son intervalle, et `GridsView` l'affiche en tête — avant la
+fréquence, parce qu'il ne demande qu'un relevé là où la fréquence en demande
+cent. Le quantile du khi-deux nécessaire à l'intervalle est obtenu depuis la
+même fonction de répartition de Poisson, via
+P(χ²(2n) ≤ x) = P(Poisson(x/2) ≥ n), et vérifié contre scipy sur douze
+points.

@@ -63,6 +63,14 @@ struct JackpotLawEstimate: Identifiable {
     var favourable: Double?
     var favourableLo: Double?
     var favourableHi: Double?
+    /// Gain espéré par franc misé en ne jouant QUE au-dessus du seuil.
+    /// Vaut μ/S par absence de mémoire (h16), donc s'estime directement par
+    /// la moyenne des relevés divisée par le seuil — sans passer par r ni q,
+    /// et beaucoup mieux conditionné que `favourable`, qui dépend de μ
+    /// exponentiellement là où celui-ci en dépend linéairement.
+    var conditionalEdge: Double?
+    var edgeLo: Double?
+    var edgeHi: Double?
     var id: Int { stake }
 }
 

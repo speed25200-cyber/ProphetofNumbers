@@ -196,6 +196,17 @@ struct GridsView: View {
                 + (est.readings > 1 ? "s" : "")
                 + " sur \(est.spanDraws) tirage" + (est.spanDraws > 1 ? "s" : "")
                 + ", \(est.drops) chute" + (est.drops > 1 ? "s" : "") + "."
+            // Le gain conditionnel est le nombre qui décide s'il faut miser :
+            // par absence de mémoire, ne jouer qu'au-dessus du seuil rapporte
+            // exactement μ/S par franc (h16). Il vient en premier parce qu'il
+            // ne demande qu'un relevé, là où la fréquence en demande cent.
+            let edge: String = {
+                guard let e = est.conditionalEdge else { return "" }
+                let base = String(format: " En ne misant QUE au-dessus du seuil, gain espéré %+.1f %% par franc",
+                                  e * 100)
+                guard let lo = est.edgeLo, let hi = est.edgeHi else { return base + "." }
+                return base + String(format: " (intervalle %+.1f à %+.1f %%).", lo * 100, hi * 100)
+            }()
             let body: String = {
                 guard let r = est.accrual else {
                     return " Deux relevés séparés suffiront à mesurer l'accumulation par tirage."
@@ -204,13 +215,13 @@ struct GridsView: View {
                     + String(format: "%.0f", r) + " par tirage."
                 guard let lo = est.favourableLo, let hi = est.favourableHi else { return rate }
                 if let f = est.favourable {
-                    return rate + String(format: " Fraction de tirages favorables à la mise %d : %.2f %% (intervalle %.2f–%.2f %%).",
-                                         stake, f * 100, lo * 100, hi * 100)
+                    return rate + String(format: " Fraction de tirages favorables : %.2f %% (intervalle %.2f–%.2f %%).",
+                                         f * 100, lo * 100, hi * 100)
                 }
                 return rate + String(format: " Aucune chute observée encore : la fraction de tirages favorables est au moins %.2f %%.",
                                      lo * 100)
             }()
-            Text(head + body)
+            Text(head + edge + body)
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.subtle)
         }
