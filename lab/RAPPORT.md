@@ -2534,3 +2534,34 @@ l'état ne suit aucune récurrence affine — chiffrement par bloc, éponge,
 source matérielle. C'est le cas le plus probable pour un opérateur certifié,
 et **aucune analyse de sorties publiques ne peut le trancher, quelle qu'en
 soit la profondeur.**
+
+### Un dernier test, et il n'a aucune puissance — c'est le résultat
+
+Le test d'anniversaire cherche une répétition exacte dans l'archive : si le
+générateur avait un espace d'états assez petit, deux tirages finiraient par
+coïncider entièrement, et cela se verrait **sans rien supposer de la
+récurrence**. C'est le seul test model-free capable de borner l'espace
+d'états.
+
+Résultat : 70 560 tirages, 70 560 distincts, zéro répétition. Attendu sous
+uniformité : 7,0·10⁻¹⁰.
+
+Mais l'absence ne prouve rien, et le calcul de puissance le dit sans
+ambiguïté :
+
+| espace d'états supposé | collisions attendues sur 70 560 tirages |
+|---|---|
+| 2³⁰ | 2,32 |
+| 2³² | 0,58 |
+| 2³⁴ | 0,14 |
+| 2⁴⁰ | 0,004 |
+
+Observer zéro collision est **compatible avec un état de trente bits**.
+L'archive est trop courte pour que ce test morde : il faudrait de l'ordre de
+2^(b/2) tirages pour sonder un état de b bits, soit 65 536 tirages pour
+32 bits — on y est tout juste — et 16 millions pour 48 bits.
+
+C'est donc un résultat négatif sur la MÉTHODE, pas sur l'archive, et il est
+consigné pour qu'on ne le refasse pas. Les espaces d'états que ce test aurait
+pu atteindre sont de toute façon ceux que les balayages de §34 couvrent
+exhaustivement — et bien mieux.
