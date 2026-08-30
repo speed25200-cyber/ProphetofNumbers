@@ -29,13 +29,18 @@ standard des convolutions séparables :
     au modèle ce qu'aucun des trois prédécesseurs n'a : un couplage appris
     ENTRE numéros à travers le temps (numéro a au t−k → numéro b au t) ;
   - un bloc DEPTHWISE : un noyau causal PAR NUMÉRO sur ses propres lags
-    1..12 (80 × 12 poids appris, ajoutés aux logits). Motif : une
-    application diagonale 80 → 80 (chaque numéro sur sa propre histoire —
-    la rémanence) est de rang 80, et un mélangeur à 24 canaux ne peut pas
-    la porter ; le premier jet, sans ce bloc, manquait la rémanence
-    synthétique même à ε = 0,10 (voir « mise au point » plus bas).
+    1..12 (80 × 12 poids appris, ajoutés aux logits), PLUS un noyau
+    PARTAGÉ sur les 80 numéros (12 poids, lien de poids standard des
+    convolutions). Motif du par-numéro : une application diagonale
+    80 → 80 (chaque numéro sur sa propre histoire — la rémanence) est de
+    rang 80, et un mélangeur à 24 canaux ne peut pas la porter ; le
+    premier jet, sans ce bloc, manquait la rémanence synthétique même à
+    ε = 0,10. Motif du partagé : une rémanence physique n'a aucune raison
+    de préférer des numéros — la version mise en commun apprend son poids
+    avec 80 fois plus d'événements (SE ÷ 9), exactement l'avantage que
+    les contextes PARTAGÉS donnent à h35 (voir « mise au point »).
 
-13 880 paramètres, et pas des millions : l'archive contient 70 560 × 80 =
+13 892 paramètres, et pas des millions : l'archive contient 70 560 × 80 =
 5,6 M d'événements binaires, soit ~407 événements par paramètre — le même
 ordre que le budget par feuille de h35 (1 378). Le §3 ter a mesuré que
 18 000 tirages ne suffisent pas à apprendre UN poids sur UN trait informatif
@@ -43,7 +48,7 @@ ordre que le budget par feuille de h35 (1 378). Le §3 ter a mesuré que
 du bruit, et son sur-apprentissage rendrait les deux unités illisibles.
 Petit et honnête plutôt que gros et invérifiable.
 
-Entraînement : Adam plein lot, 250 époques, lr 2·10⁻³, weight decay 10⁻⁴
+Entraînement : Adam plein lot, 250 époques, lr 2·10⁻³, weight decay 10⁻³
 sur les matrices du mélangeur (ni biais, ni depthwise), tête initialisée
 petite (0,01 — une tête exactement nulle coupe tout gradient vers les
 couches conv au départ), biais de sortie à logit(1/4), graine fixe —
@@ -64,6 +69,23 @@ rémanence même à ε = 0,10 — diagnostic : goulot de rang du mélangeur,
 d'où le bloc depthwise. C'est le symétrique exact de la leçon du §3 ter :
 là-bas, un trait informatif noyé sous des poids parasites ; ici, une
 famille entière hors du sous-espace que l'architecture sait représenter.
+(3) Le bloc depthwise du deuxième jet manquait ENCORE la rémanence : il
+commençait ses décalages à X[t-1] alors que S[t] prédit le tirage t+1 —
+un décalage d'indice d'un cran vers le PASSÉ, donc conservateur, donc
+invisible de leak_check ; seul le témoin positif l'a attrapé (z resté à 0
+là où l'échéance était certaine). Un contrôle de fuite protège du futur,
+pas d'un modèle qui regarde trop loin en arrière — les deux contrôles ne
+sont pas substituables. (4) À weight decay 10⁻⁴ le bruit de
+sur-apprentissage du mélangeur (~0,33 logit par événement, −1,1 bit/tirage
+sous H₀) noyait au classement les signaux appris par bo et Vdw ; à 10⁻³
+le prix H₀ tombe d'un facteur ~16 et les signaux repassent — le decay
+final est fixé sur ces témoins synthétiques, avant toute donnée réelle.
+(5) Même corrigé, le depthwise par-numéro ne captait que ~40 % de la
+rémanence à ε = 0,10 : son poids doit être ESTIMÉ par numéro (SE ≈ 0,05 à
+10 000 tirages) là où le contexte partagé de h35 met les 80 numéros en
+commun. D'où le noyau partagé — le même avantage de mise en commun,
+version apprise. Cinq itérations, toutes sur du synthétique : le fichier
+n'avait encore jamais vu l'archive.
 
 Les deux unités du dossier
 ---------------------------
@@ -160,12 +182,13 @@ ETAS = np.array([0.0, 0.0625, 0.125, 0.25, 0.5, 1.0])   # famille tempérée
 NMIX = len(ETAS)
 EPOCHS = 60 if FAST else 250
 LR = 2e-3
-WD = 1e-4
+WD = 1e-3
 SEED_FIT = 20260830
 BLOCK = 16                               # redémarrages par blocs (§14-D/§15)
 CPS_REAL = (4_000, 8_000) if FAST else (20_000, 45_000)
-T_CTRL = 6_000 if FAST else 20_000
-CP_CTRL = 3_000 if FAST else 10_000
+T_CTRL = 6_000 if FAST else 30_000       # évaluation sur 20 000 tirages :
+CP_CTRL = 3_000 if FAST else 10_000      # même horizon que les seuils publiés
+                                         # de f3/f4/h35 (T = 20 000)
 REPS = 1 if FAST else 2
 
 _PMF20 = lab.hits_pmf(K)
@@ -188,7 +211,7 @@ def n_params():
     n = 2 * POOL * CWID + CWID                       # couche 0
     n += (len(DIL) - 1) * (2 * CWID * CWID + CWID)   # couches dilatées
     n += CWID * POOL + POOL                          # tête
-    n += DW_LAGS * POOL                              # bloc depthwise
+    n += DW_LAGS * POOL + DW_LAGS                    # bloc depthwise + noyau partagé
     return n
 
 
@@ -224,6 +247,7 @@ def init_params(rng):
     # départ (dH = dS @ Wo.T = 0) — mesuré sur témoins synthétiques.
     p["bo"] = np.full(POOL, math.log(0.25 / 0.75))
     p["Vdw"] = np.zeros((DW_LAGS, POOL))             # noyaux par numéro, lags 1..12
+    p["Vsh"] = np.zeros(DW_LAGS)                     # noyau PARTAGÉ sur les 80
     return p
 
 
@@ -238,8 +262,15 @@ def forward(p, X, want_cache=False):
         H = np.maximum(Z, 0.0) + H
         zs.append(Z)
     S = H @ p["Wo"] + p["bo"]
-    for k in range(1, DW_LAGS + 1):                  # bloc depthwise (diagonal)
-        S += shift(X, k) * p["Vdw"][k - 1]
+    # Bloc depthwise (diagonal). S[t] prédit le tirage t+1 : le lag 1 par
+    # rapport à la CIBLE est X[t] lui-même (k = 0), pas X[t-1]. Le premier
+    # jet commençait à shift(X, 1) et couvrait donc les lags 2..13 en
+    # manquant le lag 1 — décalage d'indice CONSERVATEUR (données plus
+    # vieilles, pas futures) : invisible de leak_check, attrapé uniquement
+    # par le témoin rémanence qui restait à z ≈ 0. Voir « mise au point ».
+    S = S + X * (p["Vdw"][0] + p["Vsh"][0])
+    for k in range(1, DW_LAGS):
+        S += shift(X, k) * (p["Vdw"][k] + p["Vsh"][k])
     if want_cache:
         return S, (X, zs, hins, H)
     return S
@@ -248,7 +279,9 @@ def forward(p, X, want_cache=False):
 def backward(p, cache, dS):
     X, zs, hins, Hlast = cache
     g = {"Wo": Hlast.T @ dS, "bo": dS.sum(0)}
-    g["Vdw"] = np.stack([(shift(X, k) * dS).sum(0) for k in range(1, DW_LAGS + 1)])
+    g["Vdw"] = np.stack([(X * dS).sum(0)] +
+                        [(shift(X, k) * dS).sum(0) for k in range(1, DW_LAGS)])
+    g["Vsh"] = g["Vdw"].sum(1)
     dH = dS @ p["Wo"].T
     for l in reversed(range(len(DIL) - 1)):
         d = DIL[1:][l]
