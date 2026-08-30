@@ -783,3 +783,74 @@ qui augmente simultanément l'avantage et la fréquence des occasions.
 APRÈS la clôture des mises ne peut pas indexer A. Sa valeur est nulle, si
 informative soit-elle. L'ordre de sortie des boules n'a donc de valeur que
 par ce qu'il permet de PRÉDIRE — jamais par ce qu'il révèle.
+
+## Théorème N — la valeur de voir s'étend de l'admission à la mise (`h25_plan_releves.py`)
+
+Le théorème M répond à « faut-il miser ? ». Il ne dit rien de « combien ? »,
+et h17 tranchait cette seconde question par une fraction **figée**, calculée
+une fois pour toutes à la cagnotte moyenne. Or la cagnotte est visible au
+moment de miser, exactement comme l'est le multiplicateur X du théorème M.
+La même inégalité s'applique donc une seconde fois, un cran plus bas.
+
+**Énoncé.** Soit `g(f, b)` la croissance logarithmique d'un pari de fraction
+`f` à cote nette `b`, et `b` une variable observable **avant** de miser. Une
+règle à fraction figée doit choisir `f` sans voir `b` : son meilleur
+rendement vaut `max_f E_b[g(f, b)]`. Une règle adaptative voit `b` et
+atteint `E_b[max_f g(f, b)]`. Alors
+
+    E_b[ max_f g(f, b) ]  ≥  max_f E_b[ g(f, b) ]
+
+avec égalité si et seulement si un même `f*` maximise `g(·, b)` pour presque
+tout `b`.
+
+**Preuve.** Pour tout `f` et tout `b`, `g(f, b) ≤ max_{f'} g(f', b)`. En
+prenant l'espérance en `b` puis le supremum en `f` à gauche, l'inégalité
+suit. Le cas d'égalité est celui où le maximiseur ne dépend pas de `b`.
+
+Aucune convexité n'est requise ici : c'est l'échange d'un supremum et d'une
+espérance, et non l'inégalité de Jensen. Le théorème M en est d'ailleurs le
+cas particulier où la fraction est binaire — miser `f₀` ou ne pas miser —,
+ce qui range les deux énoncés sous une seule idée : **toute décision prise
+après avoir vu domine la même décision prise avant.**
+
+**Le cas d'égalité est le témoin, et il a été exécuté.** Si toutes les
+occasions portent la même cagnotte, `b` est dégénérée, un unique `f*` les
+maximise toutes, et les deux membres coïncident. Mesuré sur 20 000
+occasions homogènes : écart relatif **0,00e+00** entre la règle adaptative
+et la meilleure fraction figée. C'est ce qui établit que l'écart mesuré
+ci-dessous vient bien de l'hétérogénéité et non de la machinerie de rejeu.
+
+**L'écart, mesuré.** Sur le processus de cagnotte de h15 (400 000 tirages,
+13 072 occasions, 13 grilles disjointes à la mise 6) :
+
+| règle | croissance | rapport |
+|---|---|---|
+| meilleure fraction figée, choisie par un oracle | 0,51481 | ×0,708 |
+| fraction figée de h17, à la cagnotte moyenne | 0,50520 | ×0,695 |
+| **fraction recalculée sur la cagnotte affichée** | **0,72693** | ×1,000 |
+
+L'écart de Jensen vaut donc **×1,41 contre l'oracle** des fractions figées,
+et ×1,44 contre la règle effectivement écrite dans h17.
+
+**Corollaire (ce que la mise n'a pas besoin de savoir).** Les arguments de
+`g` au moment de miser sont la cote nette `b`, lue sur la cagnotte affichée,
+et la probabilité de gain `n·p`, combinatoire exacte. Le paramètre α — part
+de la mise versée dans la cagnotte, sur lequel repose tout le §29 — n'y
+figure pas. La décision de mise **ne demande donc aucune estimation**, et
+c'est le contraire de ce que la forme de h17 laissait croire.
+
+**Corollaire (l'asymétrie du risque, et pourquoi elle tranche).** La
+croissance logarithmique est concave en `f` mais s'effondre bien plus vite
+au-dessus de l'optimum qu'en dessous. Une fraction figée réglée sur un α
+surestimé d'un facteur 3 — l'ordre de grandeur de l'incertitude réelle du
+dossier, dont l'intervalle va de +8 % à +1 165 % — donne une croissance
+**négative** (−0,182). La règle adaptative n'est donc pas seulement
+meilleure en espérance : elle est la seule à ne pas exposer le joueur à la
+falaise de surmise, puisqu'elle ne dépend d'aucun paramètre estimé.
+
+**Portée, et il faut la borner.** Le théorème est général, mais l'écart
+×1,41 est mesuré sur *une* loi de cagnotte — celle de h15, sous ses trois
+hypothèses H1–H3. Une cagnotte dont la loi serait moins dispersée
+rapprocherait les deux membres, jusqu'à l'égalité du témoin. Ce qui ne
+dépend d'aucune hypothèse, en revanche, c'est le sens de l'inégalité et le
+fait que la règle adaptative n'a besoin d'aucun paramètre estimé.
