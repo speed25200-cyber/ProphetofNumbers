@@ -21,6 +21,8 @@ final class ProphetStore: ObservableObject {
     // le premier instant où l'app voit le résultat. Question que
     // l'historique ne contient pas (cf. Types.PublicationLatency).
     @Published var publicationLatencies: [PublicationLatency] = []
+    // Instrument B (a1) : le boost est-il exposé avant la clôture des mises ?
+    @Published var openBoostAudit: [OpenBoostObservation] = []
 
     struct LatencyStats {
         var count: Int
@@ -59,6 +61,7 @@ final class ProphetStore: ObservableObject {
     private let engine = SwarmEngine()
     private static let memoryKey = "prophet.tickets.v1"
     private static let latencyKey = "prophet.latency.v1"
+    private static let openBoostKey = "prophet.openboost.v1"
     private static let notifKey = "prophet.notifs.v1"
     private static let turboKey = "prophet.turbo.v1"
     private static let holdKey = "prophet.journal.hold.v1"
@@ -67,6 +70,7 @@ final class ProphetStore: ObservableObject {
     init() {
         tickets = Self.readTickets()
         publicationLatencies = Self.readLatencies()
+        openBoostAudit = Self.readOpenBoostAudit()
         notificationsOn = UserDefaults.standard.bool(forKey: Self.notifKey)
         turbo = UserDefaults.standard.bool(forKey: Self.turboKey)
         let storedHold = UserDefaults.standard.integer(forKey: Self.holdKey)
@@ -120,6 +124,7 @@ final class ProphetStore: ObservableObject {
                 payload = live
             }
             recordPublicationLatency(previous: previous, live: live)
+            recordOpenBoostObservation(live: live)
             if oracle == nil || newestDraw != lastOracleDraw {
                 // Variante incrémentale : grilles disponibles dans la foulée
                 // du résultat.
@@ -315,6 +320,37 @@ final class ProphetStore: ObservableObject {
         )
         publicationLatencies.append(entry)
         Self.writeLatencies(publicationLatencies)
+    }
+
+    // Instrument B : un instantané par tirage OPEN (première valeur vue,
+    // gelée), complété par la valeur définitive à la publication. C'est le
+    // seul point du dossier où une réponse positive changerait le SIGNE de
+    // l'espérance — d'où un instrument, pas une supposition.
+    private func recordOpenBoostObservation(live: LivePayload) {
+        if let next = live.nextDrawNumber {
+            let serverNow = Date().addingTimeInterval(live.clockOffset)
+            let secondsBeforeClose = live.wagerEndAt.map { $0.timeIntervalSince(serverNow) }
+            openBoostAudit = OpenBoostAudit.recordOpen(
+                openBoostAudit, drawNumber: next,
+                boost: live.nextBoost, secondsBeforeClose: secondsBeforeClose)
+        }
+        if let last = live.last {
+            openBoostAudit = OpenBoostAudit.recordResult(
+                openBoostAudit, drawNumber: last.drawNumber, boost: last.boost)
+        }
+        Self.writeOpenBoostAudit(openBoostAudit)
+    }
+
+    private static func readOpenBoostAudit() -> [OpenBoostObservation] {
+        guard let data = UserDefaults.standard.data(forKey: openBoostKey) else { return [] }
+        return (try? JSONDecoder().decode([OpenBoostObservation].self, from: data)) ?? []
+    }
+
+    private static func writeOpenBoostAudit(_ list: [OpenBoostObservation]) {
+        let clipped = Array(list.suffix(500))
+        if let data = try? JSONEncoder().encode(clipped) {
+            UserDefaults.standard.set(data, forKey: openBoostKey)
+        }
     }
 
     private static func readLatencies() -> [PublicationLatency] {

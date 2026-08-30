@@ -86,7 +86,8 @@ actor LoroClient {
                     history: history,
                     fetchedAt: Date(),
                     source: source,
-                    clockOffset: clockOffset
+                    clockOffset: clockOffset,
+                    nextBoost: clock.nextBoost
                 )
                 live = payload
                 liveAt = Date()
@@ -176,7 +177,8 @@ actor LoroClient {
             history: history,
             fetchedAt: Date(),
             source: source,
-            clockOffset: clockOffset
+            clockOffset: clockOffset,
+            nextBoost: clock.nextBoost
         )
         live = payload
         liveAt = Date()

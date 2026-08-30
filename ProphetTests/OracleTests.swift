@@ -401,6 +401,52 @@ final class OracleTests: XCTestCase {
         XCTAssertLessThan(abs(result.bonusEchoHat), 0.5)
     }
 
+    // Instrument B (a1) : le boost avant clôture — la seule hypothèse du
+    // théorème d'invariance qui soit une affirmation sur les HORLOGES du
+    // système et non des mathématiques. Quatre témoins, dont deux positifs :
+    // sans eux, un instrument qui ne dit jamais rien serait indistinguable
+    // d'un instrument cassé.
+
+    func testOpenBoostAuditCatchesBoostPresentBeforeResult() {
+        // Témoin positif : le champ existe déjà à l'ouverture des mises, et
+        // vaut la même chose que le résultat final.
+        var list = OpenBoostAudit.recordOpen([], drawNumber: 1, boost: 3, secondsBeforeClose: 12)
+        list = OpenBoostAudit.recordResult(list, drawNumber: 1, boost: 3)
+        let obs = list.first!
+        XCTAssertEqual(obs.boostAtOpen, 3)
+        XCTAssertEqual(obs.boostAtResult, 3)
+        XCTAssertEqual(obs.consistent, true)
+    }
+
+    func testOpenBoostAuditCatchesBoostAbsentBeforeResult() {
+        // Témoin négatif : si le champ n'apparaît qu'après le tirage,
+        // l'instrument doit le montrer sans jamais inventer une valeur.
+        var list = OpenBoostAudit.recordOpen([], drawNumber: 2, boost: nil, secondsBeforeClose: 12)
+        list = OpenBoostAudit.recordResult(list, drawNumber: 2, boost: 4)
+        let obs = list.first!
+        XCTAssertNil(obs.boostAtOpen)
+        XCTAssertEqual(obs.boostAtResult, 4)
+        XCTAssertNil(obs.consistent, "pas comparable : rien à comparer côté OPEN")
+    }
+
+    func testOpenBoostAuditFreezesFirstOpenSighting() {
+        // Deux sondages du même tirage encore ouvert ne doivent pas se
+        // remplacer l'un l'autre : on garde la première valeur vue.
+        var list = OpenBoostAudit.recordOpen([], drawNumber: 3, boost: 2, secondsBeforeClose: 30)
+        list = OpenBoostAudit.recordOpen(list, drawNumber: 3, boost: 5, secondsBeforeClose: 5)
+        XCTAssertEqual(list.count, 1)
+        XCTAssertEqual(list.first?.boostAtOpen, 2)
+    }
+
+    func testOpenBoostAuditFlagsInconsistentValue() {
+        // Témoin positif d'un cas différent, tout aussi important : le champ
+        // existe avant clôture mais change — donc pas exploitable tel quel,
+        // et l'instrument doit le dire plutôt que compter une confirmation.
+        var list = OpenBoostAudit.recordOpen([], drawNumber: 4, boost: 2, secondsBeforeClose: 10)
+        list = OpenBoostAudit.recordResult(list, drawNumber: 4, boost: 5)
+        XCTAssertEqual(list.first?.consistent, false)
+    }
+
     func testLogAddExpMatchesItsDefinition() {
         // Brique de la récurrence martingale S_t = f_t·(S_{t−1} + w_t).
         XCTAssertEqual(SwarmEngine.logAddExp(-.infinity, -2.5), -2.5, accuracy: 1e-15)

@@ -26,6 +26,9 @@ struct AnalyseView: View {
                 if let stats = store.publicationLatencyStats, stats.count >= 5 {
                     PublicationLatencyCard(stats: stats)
                 }
+                if store.openBoostAudit.count >= 5 {
+                    OpenBoostAvailabilityCard(audit: store.openBoostAudit)
+                }
                 RecoveryCard()
                 FieldCard(oracle: oracle, last: store.payload?.last)
                 GeoCard(oracle: oracle)
@@ -106,6 +109,45 @@ struct ForensicsCard: View {
 // la clôture officielle des mises ». L'archive historique ne peut pas y
 // répondre (elle ne contient pas l'heure de clôture) — seule une
 // collecte tirage après tirage depuis l'app le peut.
+// Voir lab/RAPPORT.md §4 : le seul endroit du dossier où une réponse
+// positive changerait le SIGNE de l'espérance, pas seulement son ampleur.
+// L'invariance interdit de mieux choisir les numéros ; elle ne dit rien
+// d'une information qui fuirait AVANT la clôture des mises — c'est une
+// hypothèse sur les horloges du système, et un instrument la mesure.
+struct OpenBoostAvailabilityCard: View {
+    var audit: [OpenBoostObservation]
+
+    private var withBoostAtOpen: Int { audit.filter { $0.boostAtOpen != nil }.count }
+    private var matched: [OpenBoostObservation] { audit.filter { $0.consistent != nil } }
+    private var consistentCount: Int { matched.filter { $0.consistent == true }.count }
+
+    var body: some View {
+        Card(tint: withBoostAtOpen > 0 ? Palette.live : Palette.teal) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Overline(text: "BOOST AVANT CLÔTURE")
+                    Text(withBoostAtOpen > 0 ? "Renseigné avant le tirage" : "Absent avant le tirage")
+                        .font(Typeface.display(20))
+                        .foregroundStyle(Palette.fg)
+                }
+                Spacer()
+                Image(systemName: withBoostAtOpen > 0 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(withBoostAtOpen > 0 ? Palette.live : Palette.gain)
+            }
+            Text("Le multiplicateur est-il déjà exposé pendant que les mises sont ouvertes ? S'il l'était, ne jouer que les tirages à boost élevé changerait le signe de l'espérance — c'est la seule porte que l'invariance laisse ouverte, et cet instrument la surveille. \(audit.count) tirages ouverts observés.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.muted)
+            HStack(spacing: 16) {
+                StatPill(label: "OUVERTS VUS", value: "\(audit.count)")
+                StatPill(label: "AVEC BOOST", value: "\(withBoostAtOpen)",
+                         accent: withBoostAtOpen > 0 ? Palette.live : Palette.fg)
+                StatPill(label: "COHÉRENT", value: matched.isEmpty ? "—" : "\(consistentCount)/\(matched.count)")
+            }
+        }
+    }
+}
+
 struct PublicationLatencyCard: View {
     var stats: ProphetStore.LatencyStats
 

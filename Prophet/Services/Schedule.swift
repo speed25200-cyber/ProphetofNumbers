@@ -40,6 +40,10 @@ enum Schedule {
         var hole: Bool
         var pendingDrawNumber: Int?
         var phase: String?
+        // Boost du tirage encore OPEN visé par nextDrawNumber, tel que reçu —
+        // question B de lab/experiments/a1_instruments.md : le multiplicateur
+        // est-il exposé avant la clôture des mises ?
+        var nextBoost: Int?
     }
 
     static func resolve(
@@ -111,7 +115,8 @@ enum Schedule {
             wagerEndAt: playSlot.flatMap { Zurich.parseISO($0.wagerEndDate ?? "") } ?? playAt,
             hole: hole,
             pendingDrawNumber: hole ? last!.drawNumber + 1 : nil,
-            phase: playSlot?.phase
+            phase: playSlot?.phase,
+            nextBoost: playSlot?.boost
         )
     }
 

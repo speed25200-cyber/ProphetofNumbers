@@ -186,6 +186,10 @@ struct LivePayload {
     var history: [Draw]
     var fetchedAt: Date
     var source: String
+    // Boost déjà visible sur le tirage OPEN visé, avant tout résultat.
+    // Question distincte de la latence : pas « quand », mais « quoi » est
+    // exposé avant clôture (cf. lab/RAPPORT.md §4 et a1_instruments.md B).
+    var nextBoost: Int? = nil
     // Horloge serveur Loro − horloge appareil : à ajouter à l'heure locale
     // pour se caler sur le flux réel.
     var clockOffset: TimeInterval = 0
@@ -198,6 +202,47 @@ struct LivePayload {
 // cryptographie — donc invisible à toute analyse rétrospective du flux
 // de numéros. Seule une collecte en direct, tirage après tirage, peut
 // répondre. `latencySeconds` négatif serait le signal à chercher.
+// Un instantané par tirage : la valeur de boost vue pendant qu'il était
+// encore OPEN, puis la valeur définitive une fois publiée. C'est le seul
+// point du dossier où une réponse positive changerait le SIGNE de
+// l'espérance (lab/RAPPORT.md §4) — d'où un instrument, pas une supposition.
+struct OpenBoostObservation: Codable, Identifiable {
+    var drawNumber: Int
+    var boostAtOpen: Int?
+    var secondsBeforeClose: Double?
+    var boostAtResult: Int?
+    var id: Int { drawNumber }
+    // nil tant que les deux valeurs ne sont pas connues — jamais un false
+    // par défaut, pour ne pas confondre « pas encore comparable » et
+    // « comparé et différent ».
+    var consistent: Bool? {
+        guard let boostAtOpen, let boostAtResult else { return nil }
+        return boostAtOpen == boostAtResult
+    }
+}
+
+enum OpenBoostAudit {
+    // La première valeur vue est gelée : si le champ apparaît puis change
+    // avant clôture, c'est `recordResult` + `consistent` qui le montrera.
+    static func recordOpen(_ list: [OpenBoostObservation], drawNumber: Int,
+                           boost: Int?, secondsBeforeClose: Double?) -> [OpenBoostObservation] {
+        guard !list.contains(where: { $0.drawNumber == drawNumber }) else { return list }
+        return list + [OpenBoostObservation(drawNumber: drawNumber, boostAtOpen: boost,
+                                            secondsBeforeClose: secondsBeforeClose,
+                                            boostAtResult: nil)]
+    }
+
+    // Complète avec la valeur définitive une fois le tirage publié.
+    static func recordResult(_ list: [OpenBoostObservation], drawNumber: Int,
+                             boost: Int?) -> [OpenBoostObservation] {
+        guard let idx = list.firstIndex(where: { $0.drawNumber == drawNumber && $0.boostAtResult == nil })
+        else { return list }
+        var out = list
+        out[idx].boostAtResult = boost
+        return out
+    }
+}
+
 struct PublicationLatency: Codable, Identifiable {
     var drawNumber: Int
     var wagerEndAt: Date
