@@ -119,7 +119,8 @@ de covariable exogène en temps (mais une modulation PÉRIODIQUE est visible
 depuis les indicatrices seules, par le champ réceptif — mesuré ci-dessous),
 pas de lag au-delà de 127, pas d'adaptation entre points de contrôle.
 
-Témoins positifs (T = 20 000, ajustement à 10 000, évaluation sur 10 000) :
+Témoins positifs (T = 30 000, ajustement à 10 000, évaluation sur 20 000 —
+le même horizon d'évaluation que les seuils publiés de f3/f4/h35) :
 marginale, rémanence lag-1, couplage de paires CROISÉ au lag 24 (hors classe
 pour h35 : ses contextes ne lisent que l'histoire PROPRE d'un numéro — c'est
 vérifié ici en faisant tourner le codeur de h35 sur la même contamination ;
@@ -817,11 +818,11 @@ def power_tables():
                lambda d, rg: gen_marginal(T_CTRL, d, rg),
                lambda m: m[:, FAV8].mean() - 0.25, "Dp")
     run_points("rémanence lag-1 (momentum de f3/f4/h35)",
-               (0.02, 0.05, 0.10, 0.20),
+               (0.05, 0.10, 0.20),
                lambda e, rg: contaminate_echo(lab.srs(T_CTRL, rg), rg, e, 1),
                lambda m: (m[1:] & m[:-1]).sum(1).mean() - 5.0, "+hits")
     run_points("paires croisées lag 24 (hors classe h35)",
-               (0.02, 0.05, 0.10),
+               (0.05, 0.10),
                lambda d, rg: gen_crosspair(T_CTRL, d, rg),
                crosspair_dp, "Dp|src")
     t_on = 3 * T_CTRL // 4
