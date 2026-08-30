@@ -44,12 +44,26 @@ du bruit, et son sur-apprentissage rendrait les deux unités illisibles.
 Petit et honnête plutôt que gros et invérifiable.
 
 Entraînement : Adam plein lot, 250 époques, lr 2·10⁻³, weight decay 10⁻⁴
-sur les matrices (pas les biais), init de la tête à ZÉRO (le modèle démarre
-exactement au codeur H₀ : logit(1/4) partout), graine fixe — l'ajustement
-est une fonction DÉTERMINISTE des données d'entraînement, condition du
-contrôle de fuite. Réajusté en marche avant aux points de contrôle
-(20 000, 45 000) comme c2/d3 : chaque ajustement ne voit que [0, cp).
-La rétropropagation est vérifiée par différences finies avant tout usage.
+sur les matrices du mélangeur (ni biais, ni depthwise), tête initialisée
+petite (0,01 — une tête exactement nulle coupe tout gradient vers les
+couches conv au départ), biais de sortie à logit(1/4), graine fixe —
+l'ajustement est une fonction DÉTERMINISTE des données d'entraînement,
+condition du contrôle de fuite. Réajusté en marche avant aux points de
+contrôle (20 000, 45 000) comme c2/d3 : chaque ajustement ne voit que
+[0, cp). La rétropropagation est vérifiée par différences finies avant
+tout usage.
+
+Mise au point, racontée parce qu'elle instruit : tout le réglage a été fait
+sur témoins SYNTHÉTIQUES, avant toute lecture de l'archive. (1) Le contrôle
+de gradients a attrapé une collision de clés (le biais de la couche 0 et
+celui de la première couche dilatée partageaient le nom « b0 » : le
+gradient de l'un écrasait l'autre). (2) À l'échelle réelle des contrôles
+(10 000 d'entraînement), le premier jet apprenait la marginale (z = +3,2 à
+Δp = 0,019) et la période 2 (z = +8,4 à δ = 0,30) mais MANQUAIT la
+rémanence même à ε = 0,10 — diagnostic : goulot de rang du mélangeur,
+d'où le bloc depthwise. C'est le symétrique exact de la leçon du §3 ter :
+là-bas, un trait informatif noyé sous des poids parasites ; ici, une
+famille entière hors du sous-espace que l'architecture sait représenter.
 
 Les deux unités du dossier
 ---------------------------
