@@ -1,2 +1,5 @@
+# Le numero de tirage du releve de 22:16 n'est PAS lisible sur la capture :
+# il est deduit (1381028 + 155 tirages a 5 min) et marque d'un ? pour cela.
 horodatage,tirage,source,j5,j6,j7,j8,j10
 2026-08-30T09:17+02:00,1381028,jeux.loro.ch,355,2287,1540,9292,495713
+2026-08-30T22:16+02:00,1381183?,jeux.loro.ch,245,3035,3838,13051,498218

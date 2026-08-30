@@ -1,0 +1,48 @@
+# Tableau des gains de Loto Express, releve sur jeux.loro.ch
+# le 2026-08-30 a 22:16 (heure locale), tirage du dimanche 30 aout 2026, BOOST x1.
+# Source : captures d'ecran fournies par l'utilisateur du depot.
+# gain_base  : gain fixe en CHF pour h numeros trouves sur une grille de k
+# gain_extra : gain de l'option EXTRA (portee et prix non etablis)
+# La colonne BANGO (cagnotte progressive) est dans lab/jackpots_observed.csv.
+mise,hits,gain_base,gain_extra
+5,5,360,1000
+5,4,36,100
+5,3,6,30
+5,2,0,7
+5,1,0,12
+5,0,0,0
+6,6,1000,2000
+6,5,60,240
+6,4,12,50
+6,3,4,16
+6,2,0,6
+6,1,0,10
+6,0,0,0
+7,7,2000,4000
+7,6,200,800
+7,5,25,75
+7,4,5,25
+7,3,3,10
+7,2,0,5
+7,1,0,10
+7,0,0,0
+8,8,10000,20000
+8,7,1000,1500
+8,6,80,230
+8,5,20,60
+8,4,5,15
+8,3,0,5
+8,2,0,4
+8,1,0,10
+8,0,0,0
+10,10,100000,200000
+10,9,5000,10000
+10,8,500,2000
+10,7,100,200
+10,6,10,50
+10,5,5,10
+10,4,3,7
+10,3,0,4
+10,2,0,4
+10,1,0,12
+10,0,2,2
