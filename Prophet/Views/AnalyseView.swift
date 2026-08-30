@@ -231,6 +231,7 @@ struct RecoveryCard: View {
             // candidats se referme, à pas pair jamais.
             if !store.orderedLog.isEmpty {
                 let run = store.longestConsecutiveRun
+                let budget = LeakBudget.status(run: run)
                 Text("Journal des tirages ordonnés : \(store.orderedLog.count) conservé"
                      + (store.orderedLog.count > 1 ? "s" : "")
                      + ", plus longue suite consécutive \(run)."
@@ -239,6 +240,15 @@ struct RecoveryCard: View {
                         : " Il en faut cinq consécutifs pour que la classe de solutions se referme ; l'app en accumule un toutes les cinq minutes."))
                     .font(.system(size: 11))
                     .foregroundStyle(run >= 5 ? Palette.goldSoft : Palette.subtle)
+                // Le budget de fuite (§68, §69). « modulo 80 » publie les
+                // quatre bits de poids faible du mot du générateur, donc 80
+                // équations linéaires par tirage ORDONNÉ : chaque palier de
+                // suite consécutive résout l'état d'une classe de plus, quelle
+                // que soit la graine. Le compteur cesse d'être un décompte
+                // pour devenir une cible.
+                Text(Self.leakLine(budget: budget))
+                    .font(.system(size: 10))
+                    .foregroundStyle(budget.closed > 0 ? Palette.goldSoft : Palette.subtle)
             }
 
             // La règle du bonus (h22, §36). L'archive triée ne peut PAS la
@@ -304,6 +314,25 @@ struct RecoveryCard: View {
     // Un pictogramme par état du verdict. Le sablier dit « pas encore assez
     // de tirages », et c'est le seul état honnête tant que le compte n'y est
     // pas — pas un « rien trouvé » déguisé.
+    /// Le libellé du budget de fuite (§68, §69). Séparé de la vue pour être
+    /// testable hors de SwiftUI.
+    static func leakLine(budget: (closed: Int, next: LeakBudget.Milestone?, minutes: Int)) -> String {
+        let n = budget.closed
+        let head = n == 0
+            ? "Fuite modulaire : aucune classe résolue pour l'instant."
+            : "Fuite modulaire : \(n) classe" + (n > 1 ? "s" : "")
+              + " de générateurs résolue" + (n > 1 ? "s" : "")
+              + " par cette suite, pour toute graine."
+        guard let next = budget.next else {
+            return head + " Toute l'échelle est franchie."
+        }
+        let d = budget.minutes < 120
+            ? "\(budget.minutes) min"
+            : String(format: "%.1f h", Double(budget.minutes) / 60)
+        return head + " Palier suivant à \(next.draws) consécutifs — \(d) de collecte — "
+            + "il ouvrirait \(next.family)."
+    }
+
     private static func bonusIcon(_ v: BonusRuleVerdict) -> String {
         switch v {
         case .positionRule: return "scope"

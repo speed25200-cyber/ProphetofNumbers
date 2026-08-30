@@ -609,6 +609,44 @@ def main():
     print(f"    gain conditionnel mu*p/c = {edge:.7f}, le naïf mu/S le "
           f"surestimerait de x{naive_over_true:.2f}   {'ok' if i and j else 'ÉCHEC'}")
 
+    # 10. Le budget de fuite (§68, §69) — LeakBudget.swift.
+    #     Transcription de la valuation 2-adique et de l'echelle, confrontee
+    #     aux paliers publies. C'est le controle que la version Swift ne peut
+    #     pas s'offrir : elle CALCULE l'echelle, on verifie ici qu'elle tombe
+    #     sur les nombres du rapport.
+    def _v2(n):
+        k = 0
+        while n and n % 2 == 0:
+            n //= 2
+            k += 1
+        return k
+
+    rej = 20 * _v2(80)
+    fy = sum(_v2(80 - i) for i in range(20))
+    need = lambda bits, per: -(-bits // per)
+    ladder = [need(64, rej), need(128, rej), need(256, rej),
+              need(128, 20), need(256, 20), need(19937, rej)]
+    sess = 204 * rej
+
+    a = _v2(80) == 4 and _v2(64) == 6 and _v2(79) == 0
+    b = rej == 80
+    c = fy == 22 and rej / fy > 3.5
+    d = ladder == [1, 2, 4, 7, 13, 250]
+    e = ladder == sorted(ladder)
+    f = sess == 16320 and sess < 19937
+    g = abs(19937 / sess - 1.22) < 0.01
+    ok &= a and b and c and d and e and f and g
+
+    print(f"\n10. Budget de fuite (§68, §69) — LeakBudget.swift")
+    print(f"    v2(80)={_v2(80)} v2(64)={_v2(64)} v2(79)={_v2(79)}   "
+          f"{'ok' if a else 'ÉCHEC'}")
+    print(f"    rejet modulo 80 : {rej} bits/tirage   {'ok' if b else 'ÉCHEC'}")
+    print(f"    Fisher-Yates : {fy} bits/tirage, rapport x{rej/fy:.1f}   "
+          f"{'ok' if c else 'ÉCHEC'}")
+    print(f"    échelle {ladder} croissante   {'ok' if d and e else 'ÉCHEC'}")
+    print(f"    MT19937 hors d'une session : {sess:,} bits < 19 937, "
+          f"facteur {19937/sess:.2f}   {'ok' if f and g else 'ÉCHEC'}")
+
     print(f"\n{'=' * 74}")
     print("VERDICT :", "toutes les assertions des tests Swift sont satisfaites"
           if ok else "AU MOINS UNE ASSERTION ÉCHOUERAIT")

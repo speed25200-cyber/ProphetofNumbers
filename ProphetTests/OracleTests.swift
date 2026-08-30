@@ -877,6 +877,57 @@ final class OracleTests: XCTestCase {
         XCTAssertNil(est.favourable)
     }
 
+    func testLeakBudgetIsComputedFromTheTheoremNotTabulated() {
+        // Le theoreme du §68 : 80 = 16 x 5, donc n = (out mod 80) + 1 publie
+        // les quatre bits de poids faible du mot. L'echelle doit se DEDUIRE de
+        // cette valuation, pas etre recopiee a la main.
+        XCTAssertEqual(LeakBudget.v2(80), 4)
+        XCTAssertEqual(LeakBudget.v2(64), 6, "le pas modulo 64 publie six bits")
+        XCTAssertEqual(LeakBudget.v2(79), 0, "un modulo impair ne publie rien")
+        XCTAssertEqual(LeakBudget.rejectionBitsPerDraw, 80)
+
+        // Fisher-Yates tire modulo 80 - i : la plupart de ces modules sont
+        // impairs. L'ecart avec le rejet modulo 80 est un facteur, pas une
+        // nuance.
+        XCTAssertEqual(LeakBudget.fisherYatesBitsPerDraw, 22)
+        XCTAssertGreaterThan(Double(LeakBudget.rejectionBitsPerDraw)
+                             / Double(LeakBudget.fisherYatesBitsPerDraw), 3.5)
+    }
+
+    func testLeakLadderMatchesTheMeasuredMilestones() {
+        // Les six paliers du §69, chacun = ceil(bits d'etat / bits par tirage).
+        let expected = [1, 2, 4, 7, 13, 250]
+        XCTAssertEqual(LeakBudget.ladder.map(\.draws), expected)
+        // L'echelle doit etre croissante : un palier plus haut ne peut pas
+        // demander moins de tirages.
+        XCTAssertEqual(LeakBudget.ladder.map(\.draws), expected.sorted())
+
+        // Le statut, aux trois points qui comptent.
+        XCTAssertEqual(LeakBudget.status(run: 0).closed, 0)
+        XCTAssertEqual(LeakBudget.status(run: 0).next?.draws, 1)
+        XCTAssertEqual(LeakBudget.status(run: 2).closed, 2,
+                       "deux consecutifs ferment xorshift jusqu'a 128 bits")
+        XCTAssertEqual(LeakBudget.status(run: 2).next?.draws, 4)
+        XCTAssertEqual(LeakBudget.status(run: 2).minutes, 10)
+        XCTAssertEqual(LeakBudget.status(run: 250).closed, 6)
+        XCTAssertNil(LeakBudget.status(run: 250).next)
+    }
+
+    func testMT19937IsOutOfReachWithinASingleSession() {
+        // Le mur du §69, et il tient a 22 % pres : une session dure 204
+        // tirages, MT19937 en demande 250. Si le generateur se re-amorce a
+        // chaque ouverture, la fenetre maximale ne suffit pas.
+        XCTAssertFalse(LeakBudget.mtReachableWithinOneSession)
+        XCTAssertEqual(LeakBudget.sessionLength * LeakBudget.rejectionBitsPerDraw,
+                       16_320)
+        XCTAssertLessThan(LeakBudget.sessionLength * LeakBudget.rejectionBitsPerDraw,
+                          19_937)
+        // Et l'ecart est bien celui annonce.
+        let ratio = 19_937.0 / Double(LeakBudget.sessionLength
+                                      * LeakBudget.rejectionBitsPerDraw)
+        XCTAssertEqual(ratio, 1.22, accuracy: 0.01)
+    }
+
     func testPayTableExpectationsCollapseAcrossStakes() {
         // Le barème a été transcrit à l'œil depuis cinq captures d'écran
         // séparées (lab/bareme_observed.csv, §56). Relire un tableau ne

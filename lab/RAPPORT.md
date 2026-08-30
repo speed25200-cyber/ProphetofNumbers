@@ -6965,3 +6965,70 @@ comme tout CSPRNG restent hors d'atteinte **quel que soit** le nombre de
 tirages collectés : aucun calendrier ne les concerne.
 
 **Registre : inchangé.** `h51` ne teste pas l'archive — il compte.
+
+## 70. Le compteur devient une cible (`LeakBudget.swift`)
+
+Le §51 a posé la règle : *un résultat théorique qui déplacerait un affichage
+ne se câble que si sa démonstration ne repose que sur des quantités
+observables.* Le théorème de la fuite modulaire y satisfait exactement — il
+est **exact** (une congruence, pas une estimation) et son entrée, la plus
+longue suite de tirages **ordonnés consécutifs**, est déjà collectée par l'app
+depuis le §38.
+
+### Ce que l'app faisait, et ce qui lui manquait
+
+`ProphetStore.longestConsecutiveRun` existait et était affiché : *« il en faut
+cinq consécutifs pour que la classe de solutions se referme »* — le critère de
+h14, qui reste vrai. Mais le théorème du §68 dit bien davantage : **chaque
+palier ferme une classe de générateurs de plus, pour toute graine.** Le
+compteur cessait d'être un décompte pour devenir une **cible**, et l'app ne le
+savait pas.
+
+### Ce qui est câblé
+
+`LeakBudget.swift` encode le théorème, et **calcule** l'échelle au lieu de la
+recopier :
+
+```swift
+static var rejectionBitsPerDraw: Int { drawn * v2(pool) }          //  80
+static var fisherYatesBitsPerDraw: Int {                            //  22
+    (0..<drawn).reduce(0) { $0 + v2(pool - $1) }
+}
+```
+
+d'où les six paliers `ceil(bits d'état / bits par tirage)` — **1, 2, 4, 7, 13,
+250** — et la ligne affichée sous le journal : combien de classes la suite
+courante a déjà résolues, quel est le palier suivant, et **en minutes de
+collecte**.
+
+Le mur du §69 y est aussi, sous forme exécutable :
+
+```swift
+static var mtReachableWithinOneSession: Bool {
+    sessionLength * rejectionBitsPerDraw >= 19_937      // 16 320 >= 19 937 : faux
+}
+```
+
+### Vérification
+
+Aucune toolchain Swift ici (note datée du §53). Les deux vérificateurs passent :
+
+- **`verif_swift.py`** — grammaire Swift réelle : **0 nœud invalide introduit**
+  sur les trois fichiers touchés.
+- **`verif_logique.py`** gagne une **section 10** qui transcrit la valuation
+  2-adique et l'échelle, et les confronte aux paliers publiés : `v₂(80) = 4`,
+  `v₂(64) = 6`, `v₂(79) = 0`, 80 contre 22 bits par tirage (rapport ×3,6),
+  échelle `[1, 2, 4, 7, 13, 250]` croissante, et `204 × 80 = 16 320 < 19 937`
+  au facteur 1,22. **Tout passe.**
+
+Trois tests XCTest sont ajoutés, dont un qui vise la **dérivation** plutôt que
+le résultat : l'échelle doit tomber sur les six paliers *en les calculant*, ce
+qu'une table recopiée à la main ne garantirait pas.
+
+### Ce que cela change pour l'utilisateur
+
+Rien sur les numéros à cocher — le théorème ne prédit rien, il **résout** un
+générateur s'il en existe un de la bonne famille. Ce qu'il change est que
+l'app dit désormais **ce que sa propre collecte vaut**, et à quelle échéance :
+*« palier suivant à 7 consécutifs — 35 min de collecte — il ouvrirait les
+familles additives. »* Une instruction, pas un décompte.
