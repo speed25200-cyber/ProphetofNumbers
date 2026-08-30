@@ -1553,3 +1553,28 @@ et corrige.** Zéro significatif.
 Ces deux changements sont la réponse exacte à « comment mieux prédire » :
 pas un choix de numéros (impossible, théorème), mais une politique qui
 capte plus vite tout biais réel et n'invente jamais rien sous H₀.
+
+## 16. Le mur de l'invariance, attaqué à ses hypothèses (`h3_partage.py`)
+
+Le théorème a trois hypothèses ; une seule est des mathématiques.
+
+- **Pierre 1 (uniformité)** : tient, à sensibilité mesurée — 30 voies,
+  zéro significatif, essaim en assurance gratuite.
+- **Pierre 2 (pas d'information avant clôture)** : une affirmation sur les
+  horloges, pas un théorème. L'instrument B de `a1_instruments.md` est
+  désormais CÂBLÉ : le boost du tirage OPEN est gelé à la première
+  observation et comparé à la valeur publiée, verdict à trois états,
+  4 témoins testés. C'est le seul point du dossier où une fuite changerait
+  le signe de l'espérance.
+- **Pierre 3 (le gain ne dépend que de ses hits)** : fausse sous partage.
+  Théorie quantifiée : multiplicateur (1−e^{−λ})/λ exact, λ par grille
+  sous un modèle de foule conservateur (1,40× sur 1–31). Avantage furtif
+  ×1,77 à ×2,67 à la mise 5 ; rapport de co-gagnants 52,9× à la mise 10.
+  Et une famine Monte-Carlo de ma fabrication (« 0,0× » sur zéro
+  événement) corrigée en renversant le conditionnement — la troisième fois
+  que ce piège apparaît dans ce dossier, la troisième fois que le même
+  remède le règle.
+
+Le mur ne tombe pas là où il est fait de mathématiques ; il tombe là où il
+est fait d'hypothèses sur le monde. La pierre 2 est sous surveillance
+permanente, la pierre 3 a sa réponse minimax câblée (« Furtif »).

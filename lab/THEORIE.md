@@ -166,3 +166,71 @@ Le prior par blocs domine sur toute la table : moins de fausses alertes ET
 plus de puissance. Les deux raffinements sont câblés dans `Swarm.swift`,
 tests sur valeurs re-dérivées indépendamment (3,114e43 / 8,545e49 /
 7,844e-4).
+
+---
+
+## Le mur, pierre par pierre (`h3_partage.py`, instrument B)
+
+Le théorème d'invariance interdit de mieux choisir les numéros. Mais un
+théorème n'est un mur qu'à l'intérieur de ses hypothèses — et il en a
+trois. Une seule est attaquable par les mathématiques ; les deux autres
+sont des affirmations sur le **monde réel**, et elles se mesurent.
+
+**Pierre 1 — « le tirage est uniforme ».** Attaquée 30 fois, jamais
+entamée : zéro significatif sur 3 313 tests, plafonds mesurés (+1,33 % /
++3,46 % omniscients), et l'essaim capte gratuitement tout écart qui
+apparaîtrait. Cette pierre tient — au niveau de sensibilité mesuré, qui
+est écrit noir sur blanc plutôt que présumé infini.
+
+**Pierre 2 — « la grille est choisie sans information sur le tirage ».**
+Ce n'est PAS des mathématiques : c'est une affirmation sur les *horloges*
+du système — que rien du tirage n'est observable avant la fermeture des
+mises. Le seul point du dossier où une fuite changerait le **signe** de
+l'espérance est le multiplicateur : s'il était exposé avant clôture, ne
+jouer que les boost élevés vaudrait +150 à +360 % par franc (RAPPORT §4).
+L'app porte désormais l'**instrument** qui tranche : la valeur de boost du
+tirage encore OPEN est gelée à la première observation, comparée à la
+valeur définitive à la publication, avec un verdict à trois états qui ne
+confond jamais « pas encore comparable » et « comparé et différent ».
+S'ajoutent l'instrument de latence déjà en place et la capture de l'ordre
+des boules (~124 bits par tirage contre 61,6). Cette pierre est sous
+surveillance permanente — c'est tout ce que la rigueur permet, et c'est
+exactement ce qu'elle exige.
+
+**Pierre 3 — « le gain d'une grille ne dépend que de SES hits ».** Vraie
+sous cotes fixes, **fausse dès qu'un rang se partage** — et alors
+l'espérance monétaire n'est plus invariante, même sous un générateur
+parfait (Chernoff 1981 ; Thaler-Ziemba 1988). La théorie est désormais
+quantitative pour le cadre 20/80 :
+
+- le multiplicateur de partage vaut E[1/(1+W)] = (1−e^{−λ})/λ pour
+  W ~ Poisson(λ) — formule exacte, vérifiée par simulation à quatre λ ;
+- λ dépend de la grille par un mécanisme précis : un co-gagnant du rang
+  plein doit avoir sa grille entièrement dans le tirage, et mes propres
+  numéros y sont déjà — une foule qui aime mes numéros a une longueur
+  d'avance. Sous un modèle de foule multiplicatif *conservateur* (rapport
+  joué/uniforme de 1,40 sur les numéros 1–31, contre 1,5–2× documentés) :
+
+| mise | λ populaire / λ furtive | avantage furtif (2 000 j.) | (20 000 j.) | (200 000 j.) |
+|---|---|---|---|---|
+| 5 | 2,7× | **×1,77** | **×2,67** | ×2,67 |
+| 10 | **52,9×** | ×1,00 | ×1,01 | ×1,11 |
+
+- l'estimateur a sa propre histoire : la première version, Monte-Carlo des
+  deux côtés, donnait « 0,0× » à la mise 10 sur zéro événement — la même
+  famine qui avait piégé e2. Corrigé en renversant le conditionnement
+  (terme interne exact C(80−k−m, 20−k−m)/C(80−k, 20−k)), la mise 10
+  révèle le plus grand rapport du tableau.
+
+**Le régime réel du Loto Express n'est pas établi** — c'est une propriété
+du règlement, pas des tirages, et aucune donnée de mises n'est publiée. La
+grille « Furtif » est donc la réponse minimax au *barème* inconnu, comme
+l'essaim l'est au *générateur* inconnu : gratuite sous cotes fixes
+(invariance), strictement gagnante sous partage (le tableau ci-dessus),
+perdante dans aucun régime.
+
+**Bilan du mur.** Il ne tombe pas là où il est fait de mathématiques — et
+quiconque prétend le contraire vend quelque chose. Il tombe là où il est
+fait d'hypothèses sur le monde : la pierre 2 est instrumentée en continu,
+la pierre 3 est quantifiée et sa réponse minimax est câblée. C'est la
+totalité de ce qui existe de l'autre côté du mur, et l'app l'occupe.

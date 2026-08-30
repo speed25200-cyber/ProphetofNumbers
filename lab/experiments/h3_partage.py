@@ -93,8 +93,9 @@ for n in range(1, POOL + 1):
     pop[n - 1] = s
 
 # Foule multiplicative : P(la foule joue le numéro i) ∝ exp(β·pop_i).
-# β = 0,55 calibre le rapport joué/attendu des numéros 1-31 à ≈ 1,9 —
-# l'ordre de grandeur documenté (dates de naissance, Haigh 1997).
+# β = 0,55 donne un rapport joué/uniforme de 1,40 pour les numéros 1-31 —
+# CONSERVATEUR par rapport aux 1,5-2× documentés (Chernoff 1981, Haigh
+# 1997) : les avantages calculés plus bas sont donc des planchers du modèle.
 BETA = 0.55
 w_crowd = np.exp(BETA * pop)
 p_crowd = w_crowd / w_crowd.sum()
@@ -106,18 +107,33 @@ def crowd_grid(rng, k):
     return rng.choice(POOL, size=k, replace=False, p=p_crowd)
 
 
-def lam_per_player(my, k, reps=300_000):
-    """P(une grille de foule ⊆ D | D ⊇ my), par Monte-Carlo conditionnel."""
-    my = np.asarray(my)
-    others = np.setdiff1d(np.arange(POOL), my)
-    hits = 0
+def lam_per_player(my, k, reps=200_000):
+    """P(une grille de foule ⊆ D | D ⊇ my) — Monte-Carlo sur la FOULE
+    seulement, terme interne EXACT.
+
+    Première version : Monte-Carlo des deux côtés — et à la mise 10, zéro
+    événement en 300 000 réplicats, un « rapport 0,0 » qui n'était pas une
+    mesure. La famine Monte-Carlo a déjà piégé ce dossier deux fois (e2,
+    rangs 9-10 ; le jackpot de b1) ; même remède ici : renverser le
+    conditionnement. Sachant la grille de foule, la probabilité que ses
+    m numéros hors de la mienne tombent tous dans les 20−k restants du
+    tirage est EXACTE :
+
+        P = C(80−k−m, 20−k−m) / C(80−k, 20−k)
+
+    Chaque échantillon de foule contribue sa probabilité exacte : plus
+    aucun événement rare à attendre.
+    """
+    my_set = set(int(x) for x in my)
+    denom = [math.comb(POOL - k - m, DRAWN - k - m) / math.comb(POOL - k, DRAWN - k)
+             if DRAWN - k - m >= 0 else 0.0
+             for m in range(k + 1)]
+    acc = 0.0
     for _ in range(reps):
-        u = rng.choice(others, size=DRAWN - k, replace=False)
-        d = set(my.tolist()) | set(u.tolist())
         g = crowd_grid(rng, k)
-        if all(int(x) in d for x in g):
-            hits += 1
-    return hits / reps
+        m = sum(1 for x in g if int(x) not in my_set)
+        acc += denom[m]
+    return acc / reps
 
 
 for k in (5, 10):
