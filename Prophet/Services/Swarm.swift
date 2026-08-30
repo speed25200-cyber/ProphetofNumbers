@@ -693,13 +693,26 @@ final class SwarmEngine {
     // 0,00 — parce qu'il doit d'abord rembourser une richesse déjà effondrée
     // avant de commencer à accumuler sa propre preuve.
     //
-    // D'où le mélange sur les instants de redémarrage (Shiryaev-Roberts) :
+    // D'où le mélange sur les instants de redémarrage — dans sa forme
+    // MARTINGALE, car la forme naïve R_t/t (Shiryaev-Roberts normalisé) a
+    // une faille que le labo a mesurée (`lab/experiments/h1_theoremes.py`) :
+    // R_t = (1 + R_{t-1})·f_t est une SOUS-martingale (E[R_{t+1}|F] = 1+R_t),
+    // donc R_t/t est une e-valeur à chaque instant FIXÉ mais son supremum au
+    // fil du temps n'est pas couvert par Ville — surveiller le chiffre en
+    // continu donnait 12 % de fausses alertes là où l'écran promet 5 %.
     //
-    //     R_t = (1 + R_{t-1}) · f_t   =   Σ_{k≤t} Π_{s=k..t} f_s
+    // Le correctif canonique : un poids a priori w_k = 1/(k(k+1)) par
+    // instant de relance (Σ w_k = 1), et la trésorerie des paris pas encore
+    // lancés reste comptée :
     //
-    // R_t/t est la moyenne de t e-processus démarrés à t instants différents,
-    // donc une e-valeur — et la récurrence coûte une ligne, en O(1) de temps
-    // comme de mémoire. Un biais apparu hier est vu par le pari relancé hier.
+    //     S_t = f_t · (S_{t-1} + w_t)          récurrence O(1)
+    //     N_t = S_t + Σ_{k>t} w_k = S_t + 1/(t+1)
+    //
+    // N_t est une VRAIE martingale positive de moyenne 1 : Ville s'applique
+    // au supremum, le seuil 20 garde sa garantie α = 5 % à tout instant —
+    // mesuré à 0,042 ± 0,013 sur 240 archives simulées. Un biais apparu au
+    // pas k se paie ln(k(k+1)) de plus qu'un biais initial : c'est le prix
+    // exact de l'honnêteté uniforme dans le temps.
     //
     // Deux familles de paris, sur les deux seules quantités dont la loi sous
     // H0 est EXACTE ici : le recouvrement du top-20 (hypergéométrique) et
@@ -876,14 +889,18 @@ final class SwarmEngine {
         // biais apparu tard. Le plafond à 80 ne fait que RÉDUIRE la richesse :
         // il garde l'objet sur-martingale, donc l'e-valeur reste valide.
         let echoHit = lastBonus.map { drawn.contains($0) ? 1.0 : 0.0 }
+        let tOv = Double(eSteps + 1)
+        let lwOv = -log(tOv * (tOv + 1))
+        let tBo = Double(eBonusSteps + 1)
+        let lwBo = -log(tBo * (tBo + 1))
         for j in 0..<Self.thetaGrid.count {
             let logF = Self.thetaGrid[j] * overlap - logMs[j]
             eLogs[j] = min(80, eLogs[j] + logF)
-            srLogs[j] = min(80, Self.logOnePlusExp(srLogs[j]) + logF)
+            srLogs[j] = min(80, Self.logAddExp(srLogs[j], lwOv) + logF)
             guard let x = echoHit else { continue }
             let logG = Self.thetaGrid[j] * x - logMsBonus[j]
             eBonusLogs[j] = min(80, eBonusLogs[j] + logG)
-            srBonusLogs[j] = min(80, Self.logOnePlusExp(srBonusLogs[j]) + logG)
+            srBonusLogs[j] = min(80, Self.logAddExp(srBonusLogs[j], lwBo) + logG)
         }
         eSteps += 1
         if echoHit != nil { eBonusSteps += 1 }
@@ -1036,12 +1053,12 @@ final class SwarmEngine {
         // La moyenne d'e-valeurs est une e-valeur : aucune correction due.
         var eSum = 0.0
         var eCount = 0
-        let logT = log(Double(max(1, eSteps)))
-        let logTB = log(Double(max(1, eBonusSteps)))
+        let cashOv = 1 / Double(eSteps + 1)
+        let cashBo = 1 / Double(eBonusSteps + 1)
         for logW in eLogs { eSum += exp(min(60, logW)); eCount += 1 }
         for logW in eBonusLogs { eSum += exp(min(60, logW)); eCount += 1 }
-        for logR in srLogs { eSum += exp(min(60, logR - logT)); eCount += 1 }
-        for logR in srBonusLogs { eSum += exp(min(60, logR - logTB)); eCount += 1 }
+        for logR in srLogs { eSum += exp(min(60, logR)) + cashOv; eCount += 1 }
+        for logR in srBonusLogs { eSum += exp(min(60, logR)) + cashBo; eCount += 1 }
         let eValue = (eCount == 0 || eSteps == 0) ? 1 : eSum / Double(eCount)
 
         // Anti-rejeu : borne d'union sur toutes les paires de l'archive.
@@ -1498,8 +1515,17 @@ final class SwarmEngine {
         return c
     }
 
-    /// log(1 + e^x), stable des deux côtés — et log(1) = 0 en −∞, ce qui
-    /// démarre correctement la récurrence de Shiryaev-Roberts.
+    /// log(e^a + e^b), stable ; −∞ se comporte comme un terme absent.
+    /// C'est la brique de la récurrence S_t = f_t·(S_{t−1} + w_t).
+    static func logAddExp(_ a: Double, _ b: Double) -> Double {
+        if a == -.infinity { return b }
+        if b == -.infinity { return a }
+        let m = max(a, b)
+        return m + log1p(exp(min(a, b) - m))
+    }
+
+    /// log(1 + e^x), stable des deux côtés. Cas particulier b = 0 du
+    /// précédent, gardé pour les tests du mécanisme de relance.
     static func logOnePlusExp(_ x: Double) -> Double {
         if x == -.infinity { return 0 }
         return x > 0 ? x + log1p(exp(-x)) : log1p(exp(x))

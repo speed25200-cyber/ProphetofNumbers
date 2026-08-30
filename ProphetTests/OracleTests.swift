@@ -296,26 +296,30 @@ final class OracleTests: XCTestCase {
     }
 
     func testRestartMixtureSeesALateDefectThatACumulativeBetCannot() {
-        // Le labo (`lab/experiments/f2_eprocessus.py`) a mesuré ce que coûte un
-        // pari jamais relancé : le MÊME défaut est détecté 1,00 fois sur 1
-        // quand il tombe tôt dans la série, 0,00 quand il tombe tard.
+        // Deux résultats du labo se superposent ici.
         //
-        // La cause n'est pas un manque de sensibilité, c'est de l'arithmétique.
-        // Un pari cumulé depuis le premier tirage vaut exp(Σ log f), et une
-        // somme ne dépend pas de l'ordre : sa valeur FINALE est identique que
-        // le défaut soit au début ou à la fin. Ce qui change, c'est son
-        // maximum courant — le seul chiffre que l'inégalité de Ville autorise
-        // à lire. Un défaut tardif arrive sur une richesse déjà effondrée par
-        // 20 000 pas de dérive négative, et le maximum ne bouge plus.
+        // f2 : un pari jamais relancé est aveugle à un défaut tardif — sa
+        // valeur finale vaut exp(Σ log f), et une somme ne dépend pas de
+        // l'ordre ; son maximum courant ne bouge plus une fois la richesse
+        // effondrée.
         //
-        // Ce test rejoue le mécanisme sur la famille de l'écho du bonus, dont
-        // la loi sous H0 est une Bernoulli(20/80) exacte.
+        // h1 : la relance NAÏVE R_t/t est elle-même fautive. R_t est une
+        // sous-martingale, donc sup_t R_t/t n'est pas couvert par Ville :
+        // 12 % de fausses alertes mesurées pour 5 % promis. La forme
+        // honnête pèse la relance de l'instant k par w_k = 1/(k(k+1)) et
+        // garde la trésorerie des paris à venir :
+        //     S_t = f_t·(S_{t−1} + w_t),  N_t = S_t + 1/(t+1)
+        // N_t est une vraie martingale de moyenne 1 (fausses alertes
+        // mesurées : 0,042 ± 0,013 sur 240 archives simulées).
+        //
+        // Ce test rejoue le mécanisme corrigé sur la famille de l'écho du
+        // bonus, dont la loi sous H0 est une Bernoulli(20/80) exacte.
         let theta = 0.40
         let p = ProphetConst.baseP
         let logM = log(p * exp(theta) + (1 - p))
 
         func trajectory(defectFirst: Bool) -> (cumFinal: Double, cumSup: Double,
-                                               srFinal: Double, srSup: Double) {
+                                               nFinal: Double, nSup: Double) {
             var seed: UInt64 = 20260827
             func bernoulli(_ q: Double) -> Double {
                 seed = seed &* 6364136223846793005 &+ 1442695040888963407
@@ -323,17 +327,20 @@ final class OracleTests: XCTestCase {
             }
             let quiet = 20_000, loud = 400
             var cum = 0.0, sr = -Double.infinity
-            var maxCum = 0.0, maxSR = -Double.infinity
+            var maxCum = 0.0, maxN = 0.0
+            var n = 0.0
             for t in 0..<(quiet + loud) {
                 let biased = defectFirst ? t < loud : t >= quiet
                 let x = biased ? 1.0 : bernoulli(p)
                 let logF = theta * x - logM
                 cum += logF
-                sr = SwarmEngine.logOnePlusExp(sr) + logF
+                let lw = -log(Double(t + 1) * Double(t + 2))
+                sr = SwarmEngine.logAddExp(sr, lw) + logF
                 maxCum = max(maxCum, cum)
-                maxSR = max(maxSR, sr - log(Double(t + 1)))
+                n = exp(min(700, sr)) + 1 / Double(t + 2)
+                maxN = max(maxN, n)
             }
-            return (exp(cum), exp(maxCum), exp(sr - log(Double(quiet + loud))), exp(maxSR))
+            return (exp(cum), exp(maxCum), n, maxN)
         }
 
         let late = trajectory(defectFirst: false)
@@ -347,14 +354,34 @@ final class OracleTests: XCTestCase {
         // même en regardant son maximum sur toute la trajectoire.
         XCTAssertLessThan(late.cumSup, 20,
                           "un pari jamais relancé reste aveugle à un défaut tardif")
-        // Le mélange de redémarrages, lui, le voit — et de très loin.
-        XCTAssertGreaterThan(late.srFinal, 1e20)
+        // Le mélange de relances martingale, lui, le voit — et de très loin
+        // (valeur exacte re-dérivée en Python : 1,666e42).
+        XCTAssertGreaterThan(late.nFinal, 1e40)
 
-        // Témoin POSITIF : quand le défaut est au DÉBUT, le pari cumulé le voit
-        // parfaitement. Sans ce témoin, le test ne distinguerait pas « aveugle
-        // à un défaut tardif » de « cassé ».
+        // Témoin POSITIF : quand le défaut est au DÉBUT, le pari cumulé le
+        // voit parfaitement. Sans ce témoin, le test ne distinguerait pas
+        // « aveugle à un défaut tardif » de « cassé ».
         XCTAssertGreaterThan(early.cumSup, 20)
-        XCTAssertGreaterThan(early.srSup, 1e20)
+        XCTAssertGreaterThan(early.nSup, 1e45)
+        // Et l'honnêteté du schéma : une fois le défaut passé depuis 20 000
+        // pas, la richesse relancée est DÉPENSÉE (4,9e-5 re-dérivé) — c'est
+        // le supremum courant qu'un moniteur en direct aurait lu, pas la
+        // valeur finale.
+        XCTAssertLessThan(early.nFinal, 1)
+    }
+
+    func testLogAddExpMatchesItsDefinition() {
+        // Brique de la récurrence martingale S_t = f_t·(S_{t−1} + w_t).
+        XCTAssertEqual(SwarmEngine.logAddExp(-.infinity, -2.5), -2.5, accuracy: 1e-15)
+        XCTAssertEqual(SwarmEngine.logAddExp(-2.5, -.infinity), -2.5, accuracy: 1e-15)
+        XCTAssertEqual(SwarmEngine.logAddExp(0, 0), log(2.0), accuracy: 1e-12)
+        XCTAssertEqual(SwarmEngine.logAddExp(3.0, 1.0), log(exp(3.0) + exp(1.0)),
+                       accuracy: 1e-12)
+        XCTAssertEqual(SwarmEngine.logAddExp(700, 700), 700 + log(2.0), accuracy: 1e-9)
+        XCTAssertTrue(SwarmEngine.logAddExp(700, 690).isFinite)
+        // Symétrie — la définition ne distingue pas ses arguments.
+        XCTAssertEqual(SwarmEngine.logAddExp(-1.3, 2.2),
+                       SwarmEngine.logAddExp(2.2, -1.3), accuracy: 1e-15)
     }
 
     func testDisplayedSigmaUsesTheExactLawNotAnEstimate() {

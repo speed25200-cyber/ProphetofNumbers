@@ -1183,6 +1183,43 @@
   </section>
 
   <section>
+    <h2>La théorie, développée puis vérifiée</h2>
+    <div class="col">
+      <p>
+        Quatre théorèmes ferment ce que la mesure avait laissé ouvert — chacun vérifié par calcul
+        exact ou simulation fidèle avant d'être énoncé (<code>THEORIE.md</code>).
+      </p>
+      <p>
+        <strong>La loi jointe de deux grilles est monotone en leurs numéros partagés</strong> — zéro
+        violation sur tout le domaine de l'app. Corollaire prouvé par bornes de Bonferroni exactes
+        et inclusion-exclusion complète au rang plein&nbsp;: l'étalement domine l'ancienne géométrie
+        <em>à tous les rangs</em> (12/12, rapport 1,0269 au rang plein) — le «&nbsp;non&nbsp;» de la
+        vérification Monte-Carlo aux rangs 9-10 était un artefact de comptage sur ~5 événements.
+        <strong>La franchise de l'assurance gratuite est bornée</strong>&nbsp;: 0,272 hit/tirage au
+        pire, 0,016 mesuré.
+      </p>
+    </div>
+
+    <div class="pull is-flagged">
+      Et une faille de mon propre câblage, débusquée par une contradiction théorie-simulation&nbsp;:
+      la relance R/t du moniteur est une e-valeur à chaque instant fixé, mais pas en surveillance
+      continue — 12&nbsp;% de fausses alertes mesurées pour 5&nbsp;% promis à l'écran.
+    </div>
+
+    <div class="col">
+      <p>
+        Le correctif est câblé et vérifié&nbsp;: chaque relance de l'instant <code>k</code> pèse
+        <code>1/(k(k+1))</code> et la trésorerie des paris à venir reste comptée — l'ensemble
+        redevient une vraie martingale de moyenne 1, et la garantie α = 5&nbsp;% vaut à tout
+        instant&nbsp;: fausses alertes mesurées <strong>0,042 ± 0,013</strong> sur 240 archives
+        simulées. Le prix, documenté plutôt que caché&nbsp;: un biais apparu au pas <code>k</code>
+        coûte <code>2·ln k</code> nats de preuve en plus. C'est le prix exact de l'honnêteté
+        uniforme dans le temps.
+      </p>
+    </div>
+  </section>
+
+  <section>
     <h2>Ce qui a été corrigé dans l'app, et ce qui reste ouvert</h2>
     <div class="col">
       <p>

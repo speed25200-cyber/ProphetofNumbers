@@ -273,7 +273,7 @@ struct BacktestCard: View {
                     )
                 }
 
-                Text("E-valeur : moyenne de 32 paris séquentiels — recouvrement du top-20 et écho du bonus, huit tailles d'effet, chacun tenu depuis le premier tirage ET relancé à chaque tirage. La moyenne d'e-valeurs étant une e-valeur, aucune correction de multiplicité n'est due, et le résultat reste valide à tout instant. Une richesse ≥ 20 signalerait un biais (α = 5 %), y compris apparu récemment : un pari jamais relancé, lui, décroît vers zéro et devient aveugle à un défaut tardif.")
+                Text("E-valeur : moyenne de 32 paris séquentiels — recouvrement du top-20 et écho du bonus, huit tailles d'effet, chacun tenu depuis le premier tirage ET relancé à chaque tirage, la relance de l'instant k pesant 1/(k(k+1)) avec la trésorerie des paris à venir. L'ensemble est une vraie martingale de moyenne 1 : le seuil garde sa garantie α = 5 % même en surveillant le chiffre en continu, et une richesse ≥ 20 signalerait un biais — y compris apparu récemment, ce qu'un pari jamais relancé ne voit pas.")
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.subtle)
 

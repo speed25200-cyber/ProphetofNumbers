@@ -1504,3 +1504,36 @@ espérance k/4).
 
 **113 tests consignés, m = 3 313, seuil de Holm 1,509·10⁻⁵. Zéro
 significatif.** Le plus petit p du dossier reste 2,0·10⁻⁴ (`audit.paires`).
+
+## 14. La théorie, développée puis vérifiée (`h1_theoremes.py`, `THEORIE.md`)
+
+Quatre théorèmes, chacun vérifié par calcul exact ou simulation fidèle
+avant d'être énoncé — le détail complet est dans `THEORIE.md` :
+
+- **A (monotonie de la loi jointe).** P(deux grilles ≥ t) croît avec leurs
+  numéros partagés — 0 violation sur tout le domaine de l'app, formule
+  contre-vérifiée par Monte-Carlo brut. Corollaire : l'étalement maximise
+  P(au moins une ≥ t) à tout rang.
+- **B (e2 tranché).** Le « l'étalement ne domine pas aux rangs 9-10 » de e2
+  était un artefact de comptage Monte-Carlo (~85 et ~5 événements). Bornes
+  de Bonferroni exactes et inclusion-exclusion complète au rang plein :
+  **dominance prouvée 12/12 aux trois rangs**, rapport 1,0269 au rang 10.
+- **C (minimax quantifié).** La franchise de l'assurance gratuite est
+  bornée par 2·√(T ln N)·20/T = 0,272 hit/tirage ; la franchise réelle
+  mesurée par f3 est 0,016 — six pour cent de la borne.
+- **D (la faille du moniteur — trouvée, mesurée, corrigée).** La relance
+  R_t/t que f2 m'avait fait câbler est une e-valeur à chaque instant fixé
+  mais PAS uniformément dans le temps : R_t est une sous-martingale, Ville
+  ne couvre pas son supremum. Mesuré : **12 % de fausses alertes pour 5 %
+  promis**. Correctif câblé : poids a priori w_k = 1/(k(k+1)) et trésorerie
+  des paris à venir — N_t est une vraie martingale, fausses alertes
+  mesurées **0,042 ± 0,013** sur 240 archives. Le prix, documenté : 2·ln k
+  nats de budget en plus pour un défaut commençant au pas k.
+
+La leçon de D vaut d'être dite : c'est la *contradiction* entre une
+prédiction théorique et une simulation (0,77 mesuré là où la frontière
+disait « invisible ») qui a mis la faille au jour. Une théorie qu'on ne
+confronte pas à une simulation fidèle ne protège de rien.
+
+**Registre : inchangé à 113 entrées — h1 ne teste pas l'archive, il prouve
+et corrige.** Zéro significatif.
