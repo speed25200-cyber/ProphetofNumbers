@@ -6507,3 +6507,135 @@ de 600 s sur l'heure de démarrage échapperaient. Et le **régime A reste ouver
 par défaut de calcul, pas par mesure** : 2⁴⁸ n'a jamais été parcouru.
 
 **Sources :** [Hot Lotto fraud scandal](https://en.wikipedia.org/wiki/Hot_Lotto_fraud_scandal) · [The Register — lottery-hacking sysadmin](https://www.theregister.com/2017/08/23/florida_judge_gives_lottery_scammer_more_private_time/)
+
+## 66. La classe jamais essayée : le modèle de séquence à représentation apprise (`h39_sequence.py`)
+
+Les trois familles de modèles appris du dossier partagent une servitude que
+personne n'avait nommée : **leur représentation est choisie, jamais apprise.**
+La régression logistique du §3 ter et le gradient boosting de `d3` voient le
+tirage à travers quatorze puis six traits agrégés ; le codeur universel du §52
+mélange des contextes markoviens fixés d'avance, et ses angles morts sont
+déclarés — pas d'interaction entre numéros, pas de lag au-delà de 12, pas de
+contexte exogène en temps.
+
+Un modèle de séquence à représentation apprise appartient à une **classe de
+fonctions différente** : il peut apprendre un couplage entre le numéro `a` au
+tirage `t−k` et le numéro `b` au tirage `t`, pour tout `k ≤ 127`, sans qu'on le
+lui nomme. C'est l'angle mort que le §52 laisse ouvert, et personne ne l'avait
+essayé.
+
+### L'architecture, et pourquoi cette taille
+
+Ni torch ni tensorflow ici — et c'est préférable : le réseau est en numpy,
+rétropropagation comprise, **gradient vérifié par différences finies** (75
+coordonnées, pire écart relatif 7,5 × 10⁻⁶) avant tout usage. TCN causal
+dilaté : mélangeur 80 → 24 canaux, dilatations 1 à 64, champ réceptif **128**
+(au-delà du plafond lag-12 de h35), résidus ; plus un bloc **depthwise** par
+numéro (lags 1..12) et un noyau partagé sur les 80. **13 892 paramètres**, soit
+406 événements binaires par paramètre — l'ordre du budget par feuille de h35.
+Le §3 ter avait mesuré que 18 000 tirages n'apprennent pas *un* poids sur *un*
+trait informatif : un modèle à 10⁶ paramètres n'apprendrait ici que du bruit.
+
+### Sur les vraies données : rien, dans les deux unités
+
+| | valeur |
+|---|---|
+| recouvrement moyen du top-20 (50 560 tirages, marche avant stricte) | **4,9979** (espérance exacte 5,0000) |
+| z | **−0,28** |
+| E final du mélange tempéré | 10⁻⁰·⁷⁷³ — *collé au plancher déclaré* 10⁻⁰·⁷⁷⁸ |
+| taux de Kelly du mélange | **−5,08 × 10⁻⁵ bit/tirage** |
+| sup mélange ; sup redémarrages | 10⁺⁰·⁹¹⁶ ; 10⁺⁰·⁸³⁷ (Ville : 10⁺¹·³⁰¹) |
+
+`leak_check` propre (futur réécrit depuis chaque sonde, cumuls compris),
+accord voie vectorisée / voie causale exact à 0,0.
+
+> **Le recoupement qui ferme la lecture.** Le modèle brut paie −2,83 × 10⁻²
+> bit/tirage sur le réel, contre **−2,79 × 10⁻²** sous H₀ (deux archives SRS,
+> pipeline identique). **L'archive ne lui coûte rien de plus que du bruit.**
+
+Et les bits **apparents** in-sample valent **+0,0393/tirage** : l'écart
+train/éval *est* le sur-apprentissage, mesuré plutôt qu'invoqué.
+
+### Le prix de la richesse, mesuré pour la première fois
+
+| classe | Kelly sous H₀ (bit/tirage) |
+|---|---|
+| f4 — 174 paris nommés, figés (§12.2) | −3,33 × 10⁻³ |
+| h35 — codeur universel, 5 133 paramètres (§52) | −6,2 × 10⁻⁵ |
+| **h39 brut — monolithe appris, 13 892 paramètres** | **−2,79 × 10⁻²** |
+| **h39 couvert — famille tempérée + membre cash** | **−5,0 × 10⁻⁵** |
+
+Le monolithe brut paie **450 fois** le prix de l'universel, et même **8 fois**
+celui des paris figés : une architecture riche est un **handicap mesurable**,
+pas un outil, quand on la lit brute. Couverte par sa propre famille tempérée —
+six lignes, déclarées d'avance — elle cesse de payer aussi vite que le codeur
+universel. **Le sur-apprentissage n'est pas une fatalité de l'architecture,
+c'est une fatalité de la lecture brute.**
+
+### Où la classe compte — et c'est sur exactement une famille
+
+| famille | c2 (§3 ter) | f3 (§12.1) | h35 (§52) | **h39** |
+|---|---|---|---|---|
+| marginale | aveugle sous Δp = 0,020 | — | Δp = +0,019 | **+0,019 — pareil** |
+| rémanence lag-1 | mord à d = 0,003 | +0,043 hit | ≈ +0,044 hit | **+0,19 hit — 4× plus tard** |
+| paires croisées lag 24 | hors traits | hors têtes | **hors classe**, vérifié ici | en classe, **non trouvé** (0/2) |
+| transitoire tardif | hors classe | — | mord | **jamais** (0/2 à Δp = +0,18) |
+| **période 2** | hors traits | — | **jamais** (0/2 à δ = 0,30) | **mord à δ = 0,30 (2/2)** |
+
+> La classe de fonctions comptait donc, sur **une** famille : la modulation
+> périodique pure en temps — l'angle mort **déclaré et mesuré** de h35. Aucun
+> contexte exogène n'est nécessaire : la parité se lit dans le motif alterné
+> des indicatrices, et le champ réceptif la décode. La détection *passive* de
+> cette famille était couverte (c3, f5-B) ; **aucun prédicteur du dossier ne
+> l'exploitait.**
+
+Que h35 soit aveugle aux paires croisées est **vérifié** — son codeur relancé
+sur la même contamination, aveugle 2/2 — et non affirmé.
+
+### La leçon structurelle : le plancher de bruit du monolithe
+
+Pourquoi quatre fois plus tard sur la rémanence ? Le mécanisme est **isolé**,
+pas supposé. À ε = 0,05 le signal vaut 0,013 logit par numéro ; le noyau
+partagé l'**apprend** (mise en commun des 80, SE ≈ 0,005) — et cela ne suffit
+pas, parce que le classement porte les 80 logits **entiers**, bruit
+d'estimation des 13 892 paramètres compris (≈ 0,1 logit). Tempérer n'y change
+rien : `η` multiplie signal et bruit dans le même rapport. f3 et f4
+**postulent** le poids (aucune estimation), h35 mélange des experts minuscules
+dont chacun ne paie que sa propre redondance — le monolithe paie son plancher
+de bruit sur **chaque** pari.
+
+> C'est le §3 ter généralisé : « enrichir dégrade » n'était pas une anecdote de
+> régression logistique, **c'est la structure de tout modèle monolithique
+> appris** — et c'est pourquoi un mélange de contextes markoviens bat une
+> architecture moderne sur cette source, sauf là où la représentation doit être
+> **découverte**.
+
+### Les erreurs, dont une que `leak_check` ne pouvait pas voir
+
+Cinq itérations, toutes sur synthétique, toutes racontées dans le fichier. Une
+mérite d'être ici : le bloc depthwise démarrait à `x[t−1]` alors que `S[t]`
+prédit le tirage `t+1` — un décalage d'un cran **vers le passé**. Fuite il n'y
+a pas, et `leak_check` **ne peut pas** l'attraper : un contrôle de fuite
+protège du futur, pas d'un modèle qui regarde trop loin en arrière. Seul le
+**témoin positif** l'a vu, en restant à `z ≈ 0` là où la détection était
+certaine.
+
+> Sans témoins, ce modèle aurait produit un « rien trouvé » parfaitement propre
+> et parfaitement cassé — la leçon de c2, rejouée à l'identique dans une classe
+> neuve.
+
+### Limites nommées
+
+Un couplage de paires **intra-tirage** à marginales neutres est invisible des
+deux unités **par théorème** : `E[recouvrement] = Σ P(i ∈ D) = 5` et `E[log e_t]`
+ne dépendent que des marginales — le réseau peut représenter l'interaction dans
+ses couches, la loi de sortie produit-forme ne peut pas la facturer (le §40
+reste la voie de détection de cette famille). Pas de canal bonus, pas de
+covariable exogène, pas de lag au-delà de 127, pas d'adaptation entre points de
+contrôle — d'où les transitoires manqués. Et les paires croisées au lag 24,
+**en classe mais non apprises** à 250 comme à 600 époques : *la classe de
+fonctions n'est pas la classe de ce que l'optimisation atteint*, et l'écart
+entre les deux est ici mesuré.
+
+**Registre : 3 entrées** (`h39.wf` z = −0,28 ; `h39.bits` et `h39.sup`, piste C,
+p de Ville 1,0 et 0,145), **m = 3 335, zéro significatif.**
