@@ -3639,3 +3639,111 @@ Ce n'est pas la même affirmation, et c'est la seconde qui tient.
 > ci-dessus reste donc vraie ; c'est le mécanisme qui était mal nommé.
 
 **Registre : inchangé.** `h30` ne teste pas l'archive — il démontre.
+
+## 42. La pénalité d'identification a sa propre loi d'échelle (`h31_identification_echelle.py`)
+
+Le §41 démontre que le plafond d'**omniscience** croît en `m^{1/4}`, puis
+affirme — sans le démontrer — que le plafond **réalisable** « croît puis
+décroît, et qu'il existe donc un ordre optimal pour l'adversaire ». Cette
+seconde moitié se dérive. Elle est fausse, et sa correction donne un
+résultat plus fort.
+
+### Une coïncidence d'exposants qui n'en est pas une
+
+Le joueur doit estimer la déviation sur les mêmes données qui servent à la
+tester. Deux quantités s'affrontent alors, et toutes deux dépendent de `m` :
+
+```
+SIGNAL   la déviation qu'un seuil laisse passer   ‖ε‖² = z√(2m)/N
+BRUIT    l'erreur d'estimation sur m cellules     ‖η‖² ≈ m/N
+
+         SNR² = ‖ε‖²/‖η‖² = z√2 / √m
+```
+
+**Le rapport signal sur bruit de l'identification décroît en `m^{−1/4}` —
+exactement l'exposant par lequel le plafond d'omniscience croît.** Les deux
+effets se compensent au premier ordre, et ce qui décide du sens final est la
+façon dont la part captée dépend du SNR : proportionnelle au SNR, le plafond
+réalisable serait constant en `m` ; proportionnelle à son carré, il
+décroîtrait. **Un exposant sépare « la piste A reste ouverte à tous les
+ordres » de « elle se referme d'elle-même ».**
+
+### Mesuré
+
+Même modèle abstrait qu'au §41 pour que les deux fichiers parlent de la même
+chose, avec une différence nécessaire : la déviation est tirée **isotrope**
+et non en créneau `±ε`. Avec un créneau à deux valeurs le classement des
+cellules serait trivial, et la part captée mesurerait la chance de
+distinguer deux paquets plutôt que la difficulté d'identifier une règle. Le
+joueur coche `K/m = 1/8` des cellules, pour reproduire une grille de 10
+numéros sur 80.
+
+| m | ‖ε‖ plafond | ‖η‖ estimation | SNR | SNR·m^{1/4} |
+|---|---|---|---|---|
+| 64 | 0,05012 | 0,05576 | 0,8989 | 2,5424 |
+| 256 | 0,07263 | 0,11290 | 0,6433 | 2,5733 |
+| 1 024 | 0,10005 | 0,22512 | 0,4444 | 2,5140 |
+| 4 096 | 0,13716 | 0,45280 | 0,3029 | 2,4233 |
+
+**Exposant du SNR mesuré : −0,2621** contre −0,2500 en théorie. Le bruit se
+contrôle à part : `√(m/N)` vaut 0,45255 pour `m = 4096`, contre 0,45280
+mesuré.
+
+| m | SNR | part captée | plafond omniscience | plafond réalisable |
+|---|---|---|---|---|
+| 64 | 0,8989 | 0,664 ± 0,011 | 3,36 | 2,23 |
+| 256 | 0,6433 | 0,554 ± 0,006 | 4,76 | 2,63 |
+| 1 024 | 0,4444 | 0,412 ± 0,004 | 6,73 | 2,77 |
+| 4 096 | 0,3029 | 0,307 ± 0,002 | 9,51 | 2,92 |
+
+Part captée ∝ `SNR^{0,721}`, d'où un plafond **réalisable en `m^{+0,0616}`**.
+
+### L'erratum, et pourquoi le résultat corrigé est meilleur
+
+Le plafond réalisable **croît encore**, de façon monotone sur toute la plage.
+Le §41 annonçait un retournement et un ordre optimal pour l'adversaire : il
+n'y en a pas. C'était une intuition présentée comme une prédiction, et elle
+n'a pas tenu une heure.
+
+Ce qui la remplace est plus fort, et procède d'un autre mécanisme. La
+pénalité d'identification mange **75 % de l'exposant** — +0,25 devient
++0,06 — sans le retourner. Conséquence, transposée aux ordres réels :
+
+| ordre | cellules | omniscience rel. | part captée rel. | **réalisable rel.** |
+|---|---|---|---|---|
+| 0 | 80 | 1,00 | 1,000 | **1,000** |
+| 1 | 6 400 | 2,99 | 0,454 | **1,358** |
+| 2 | 252 800 | 7,50 | 0,234 | **1,756** |
+| 3 | 6 572 800 | 16,93 | 0,130 | **2,205** |
+| 4 | 126 526 400 | 35,46 | 0,076 | **2,711** |
+
+Passer de 80 cellules à 126 **millions** — un facteur 1,6 million en
+complexité — ne multiplie le plafond réalisable que par **2,7**. Rapporté au
+seul plafond réalisable que le dossier ait mesuré sur le vrai processus
+(+0,99 % pour le cas marginal, §3 bis), l'ordre 4 vaudrait environ **2,7 %**.
+L'avantage de la maison est de 25 à 35 %.
+
+> Ce n'est donc ni la petitesse des plafonds d'omniscience — le §41 montre
+> qu'ils franchissent l'avantage de la maison vers l'ordre 4 — ni un
+> retournement de la courbe réalisable, qui n'a pas lieu, qui ferme la piste
+> A. **C'est que les deux exposants se compensent presque exactement :**
+> +0,25 pour ce qu'on gagne à se cacher dans une grande famille, −0,19 pour
+> ce qu'on perd à devoir l'identifier. Il reste +0,06, et 0,06 ne mène nulle
+> part.
+
+### Limites, et la troisième pourrait renverser le signe
+
+1. Le modèle est multinomial à cellules équiprobables, pas le vrai processus
+   de tirage — c'est le prix d'un modèle où le plafond est calculable
+   exactement, et c'est pourquoi tout est rapporté en **relatif**.
+2. L'estimateur employé est la fréquence empirique, exhaustive pour un biais
+   marginal. Les familles conditionnelles demanderaient la matrice de
+   couplage ; `h26` mesure ce cas-là sur le vrai processus, et si son
+   exposant diffère du mien c'est **le sien qui fait foi**.
+3. Le joueur estime ici sur les **mêmes** observations que celles du test.
+   Un joueur réel estimerait sur le passé et jouerait sur l'avenir, ce qui
+   est strictement plus dur. La part captée mesurée est donc un **majorant**,
+   l'exposant +0,06 aussi — et une mesure en marche avant pourrait le rendre
+   négatif, ce qui redonnerait raison au §41 pour de mauvaises raisons.
+
+**Registre : inchangé.** `h31` ne teste pas l'archive — il démontre.
