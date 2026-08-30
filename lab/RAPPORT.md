@@ -6870,3 +6870,98 @@ facteur **illimité**, puisqu'elle ne dépend plus de la taille de l'espace.
 
 **Registre :** `h50.fuite_modulaire`, 0 état compatible, m = 3 335, zéro
 significatif.
+
+## 69. Le budget de fuite, et le calendrier qu'il impose (`h51_budget_de_fuite.py`)
+
+Les limites du §68 sont toutes de la même forme : *il faudrait plus de tirages
+ordonnés consécutifs.* Ce n'est pas une limite théorique, c'est une
+**commande**. Cette section la chiffre — et découvre en chemin que
+l'échantillonneur décide de tout.
+
+### Le budget dépend de l'implémentation, pas du jeu
+
+Un modulo par `n` publie exactement `v₂(n)` bits de poids faible du mot. Le
+§68 traitait `n = 80` ; écrit pour un `n` quelconque, le théorème donne des
+budgets très différents selon l'échantillonneur.
+
+**Rejet modulo 80** — tous les numéros passent par le même modulo :
+`v₂(80) = 4`, donc **4 × 20 = 80 bits par tirage.**
+
+**Fisher-Yates** — le pas `i` tire modulo `80 − i` :
+
+| 80 | 79 | 78 | 77 | 76 | 75 | 74 | 73 | 72 | 71 |
+|---|---|---|---|---|---|---|---|---|---|
+| **4** | 0 | 1 | 0 | 2 | 0 | 1 | 0 | 3 | 0 |
+
+| 70 | 69 | 68 | 67 | 66 | 65 | **64** | 63 | 62 | 61 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 0 | 2 | 0 | 1 | 0 | **6** | 0 | 1 | 0 |
+
+Somme : **22 bits par tirage.**
+
+> **Le rejet modulo 80 fuit 3,6 fois plus qu'un Fisher-Yates**, sur exactement
+> le même jeu et les mêmes vingt numéros. La différence tient entièrement à ce
+> que 80 = 16 × 5 est divisible par 16, alors que 79, 77, 75, 73, 71, 69, 67,
+> 65, 63 et 61 sont impairs et **ne publient rien du tout**.
+
+Et un seul pas rapporte plus que tous les autres réunis moins un : le
+**dix-septième**, qui tire modulo 64 = 2⁶ et publie **six bits d'un coup**.
+C'est exactement la borne dont le §34 signalait qu'elle est traitée à part par
+`nextInt` — *là où java.util.Random change de chemin, la fuite est maximale.*
+
+Le **multiply-shift** `(out × n) >> 32`, lui, ne fuit **aucun** bit linéaire :
+il donne un encadrement, pas une congruence. C'est un problème de **réseau**,
+hors du cadre de ce théorème.
+
+### Ce qu'il manque, famille par famille
+
+| famille | état | bits/tirage | **tirages ordonnés consécutifs requis** |
+|---|---|---|---|
+| xorshift32, xorshift64 | 32–64 | 80 | **1** |
+| xorshift96, xorshift128, taus88 | 96–128 | 80 | **2** ← *le §68 s'arrête ici* |
+| xoshiro256 (état seul) | 256 | 80 | 4 |
+| **xorshift128+, xoroshiro128+** | 128 | **20** | **7** |
+| **MT19937** | **19 937** | 80 | **250** |
+
+Les familles **additives** ne sont linéaires que sur le **bit 0** — 20
+équations par tirage au lieu de 80 — d'où le facteur 4 sur la collecte.
+
+### Le calendrier
+
+L'app collecte l'ordre à chaque tirage depuis le §38. Un tirage toutes les
+cinq minutes :
+
+| tirages | durée | ce qui devient testable |
+|---|---|---|
+| 2 | 10 min | *déjà fait* (§68) |
+| 4 | 20 min | xoshiro256, si la sortie n'est pas brouillée |
+| **7** | **35 min** | **les familles additives** |
+| 13 | 65 min | toute famille additive jusqu'à 256 bits |
+| **250** | **20,8 h** | **MT19937** |
+
+### Et un mur que la collecte ne franchira pas
+
+MT19937 — `random` de Python, `mt_rand` de PHP, la famille la plus répandue du
+logiciel ordinaire — demande **250 tirages consécutifs**. Mais une session dure
+**204 tirages** (§65), donc 250 consécutifs traversent **nécessairement** une
+coupure nocturne.
+
+> Si le générateur se ré-amorce à l'ouverture — le régime C du §65 — la chaîne
+> casse, et il faudrait 250 consécutifs **dans** une session. Une session n'en
+> compte que 204 : `204 × 80 = 16 320` bits contre **19 937** nécessaires.
+> **Il manque un facteur 1,2.**
+
+Le §65 a mesuré que le système se coupe **345 fois** dans l'archive. La
+question « tourne-t-il en continu ou se ré-amorce-t-il ? » n'est donc pas
+académique : **elle décide seule si la plus répandue des familles est
+atteignable.** Et il s'en faut de 22 %.
+
+### Ce que cela ne fait pas
+
+Rien ici ne touche l'archive — c'est un calcul de budget, pas un test. Le
+multiply-shift demande une attaque par réseau, non traitée. Et les générateurs
+à sortie brouillée non linéairement (PCG, xoshiro `**` et `++`, splitmix64)
+comme tout CSPRNG restent hors d'atteinte **quel que soit** le nombre de
+tirages collectés : aucun calendrier ne les concerne.
+
+**Registre : inchangé.** `h51` ne teste pas l'archive — il compte.
