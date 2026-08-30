@@ -6741,3 +6741,132 @@ rend 90 %.
    qu'aggraver la conclusion.
 
 **Registre : inchangé.** `h49` ne teste pas l'archive — il ajuste et extrapole.
+
+## 68. Le théorème de la fuite modulaire (`h50_fuite_modulaire.py`)
+
+Le §67 a nommé ce qui restait ouvert côté générateur : *« les espaces de
+graines de 2⁶⁴ ou plus **sans structure exploitable** — là, aucune machine ne
+remplace un théorème. »* Le §34 avait montré la voie sur `java.util.Random` :
+une attaque 2-adique y a gagné un facteur **70 000** là où un A100 en aurait
+gagné 1 282.
+
+Cette section fait le même geste sur une autre classe. Elle n'a besoin
+d'**aucune recherche de graine**.
+
+### Le théorème
+
+> **80 = 16 × 5.**
+>
+> Donc `n = (out mod 80) + 1` entraîne **`out ≡ n − 1 (mod 16)`**.
+>
+> Les **quatre bits de poids faible** du mot de sortie du générateur sont
+> publiés en clair par chaque numéro tiré. Ce n'est pas une approximation :
+> c'est une égalité.
+
+**Corollaire (le cas F₂-linéaire).** Si le générateur est linéaire sur F₂ —
+xorshift, LFSR, Tausworthe, et le tempérage de MT19937 — chaque bit de sortie
+est une **forme linéaire** des bits d'état. Chaque numéro tiré fournit donc
+**quatre équations linéaires sur F₂**, et un tirage ordonné de 20 numéros en
+fournit **quatre-vingts**.
+
+| état | équations disponibles | tirages nécessaires |
+|---|---|---|
+| 32 bits | 80 | **1** |
+| 64 bits | 80 | **1** |
+| 96 bits | 160 | 2 |
+| 128 bits | 160 | 2 |
+
+> L'état se retrouve par **élimination de Gauss**, en microsecondes, **quelle
+> que soit la graine**. Que l'espace fasse 2⁶⁴ ou 2¹²⁸ ne change rien : on ne
+> cherche plus la graine, on **résout** l'état.
+
+### L'attaque, et le point délicat
+
+L'échantillonnage par rejet consomme plus de 20 mots par tirage — espérance
+**2,849 rejets**, loi exacte obtenue par convolution de 20 géométriques de
+raison `i/80`. On ignore *où* sont les rejets.
+
+Trois choses rendent la descente praticable là où l'énumération ne l'était
+pas :
+
+1. **Le pivot est partagé** le long du chemin : accepter un numéro coûte
+   quatre réductions et non quatre-vingts. (Une première version recalculait
+   les coefficients à chaque motif — dix mille fois le prix.)
+2. **Un motif faux rend le système incohérent**, en général très tôt, et
+   élague alors tout son sous-arbre.
+3. **Dès que le rang est plein, on résout et on remonte** : la solution est
+   unique et lui ajouter des équations ne peut plus la changer. Cela borne
+   l'arbre à la profondeur où le rang se remplit.
+
+Une contrainte gratuite s'ajoute : le **premier mot de chaque tirage est
+toujours accepté**, aucun numéro n'y ayant encore été vu.
+
+Et le plafond de rejets est compté **par tirage** et non globalement — un
+budget global autorise à mettre tous les rejets dans le premier tirage, et
+l'arbre passe de 177 000 à 141 millions de feuilles sans qu'aucun élagage ne
+morde, puisque le système reste sous-déterminé tant que le rang n'est pas
+atteint.
+
+### Le témoin : cinq familles sur cinq
+
+Chaque famille est amorcée sur un état **tiré au hasard dans tout son
+espace**, et l'attaque doit le retrouver sans jamais énumérer de graine.
+
+| famille | bits | tirages | retrouvé | temps |
+|---|---|---|---|---|
+| xorshift32 | 32 | 1 | **oui** | 0,00 s |
+| xorshift64 | 64 | 1 | **oui** | 0,00 s |
+| xorshift96 | 96 | 2 | **oui** | 3,9 s |
+| **xorshift128** | **128** | 2 | **oui** | **12,5 s** |
+| taus88 (L'Écuyer) | 96 | 2 | **oui** | 0,03 s |
+
+> Un état de **128 bits**, tiré uniformément dans 2¹²⁸, retrouvé en **douze
+> secondes** depuis deux tirages. Aucun balayage n'approchera jamais cet
+> espace ; l'algèbre le traverse sans le voir.
+
+### Sur les cinq tirages ordonnés de l'archive
+
+Le dossier possède cinq tirages ordonnés (§20–22), dont **une seule paire
+consécutive** (1381030, 1381031).
+
+| famille | bits | chaînes | couverture | états compatibles |
+|---|---|---|---|---|
+| xorshift32 | 32 | 5 | 99,3 % | **0** |
+| xorshift64 | 64 | 5 | 99,3 % | **0** |
+| xorshift96 | 96 | 1 | 83,3 % | **0** |
+| xorshift128 | 128 | 1 | 46,1 % | **0** |
+| taus88 | 96 | 1 | 92,2 % | **0** |
+
+La colonne **couverture** est la fraction des tirages dont le motif de rejet
+tient sous le plafond atteint : c'est la **puissance** de l'attaque, déclarée
+plutôt que supposée totale.
+
+La vérification est **exacte et sans marge** — un état retenu doit reproduire
+les 20 numéros *dans l'ordre*, ce qui élimine tout faux positif (probabilité
+1/C(80,20) = 2,8 × 10⁻¹⁹ par état).
+
+### Ce que cela ferme, et ce que cela ne ferme pas
+
+**Fermé.** Les familles F₂-linéaires d'état ≤ 128 bits, **pour toute graine**.
+C'est précisément la région que le §67 déclarait hors de portée. Le §34 avait
+gagné un facteur 70 000 par une réduction algébrique ; celle-ci gagne un
+facteur **illimité**, puisqu'elle ne dépend plus de la taille de l'espace.
+
+**Non fermé, et les limites sont structurelles.**
+
+1. **Il faut l'ordre de sortie.** L'archive triée est inutilisable ici : cinq
+   tirages ordonnés sont tout ce dont on dispose, et c'est cette contrainte
+   qui borne le résultat, pas l'algèbre. **C'est le levier le moins cher du
+   dossier** — chaque tirage ordonné collecté vaut une famille testée.
+2. **Les générateurs non linéaires sur F₂ échappent au théorème** : PCG
+   (permutation de sortie), xoshiro `**` et `++` (multiplication, rotation),
+   splitmix64, tout CSPRNG. La linéarité est l'hypothèse, et elle est forte.
+3. **Les sorties additives** (xorshift128+, xoroshiro128+) ne sont linéaires
+   que sur le **bit 0** : 20 équations par tirage au lieu de 80, donc sept
+   tirages ordonnés consécutifs, que le dossier n'a pas.
+4. **MT19937 est linéaire mais fait 19 937 bits** : il faudrait 250 tirages
+   ordonnés consécutifs. C'est la seule famille linéaire courante qui
+   résiste, et **elle résiste par la taille, pas par la structure.**
+
+**Registre :** `h50.fuite_modulaire`, 0 état compatible, m = 3 335, zéro
+significatif.
