@@ -3625,4 +3625,17 @@ D'où la contribution réelle de cette section, qui est une prédiction double :
 fermée par le fait qu'on ne peut pas apprendre ce qu'on a le droit de cacher.
 Ce n'est pas la même affirmation, et c'est la seconde qui tient.
 
+> **ERRATUM — la seconde puce est fausse, et `h31` la corrige.** Elle
+> annonçait un plafond réalisable qui « croît puis décroît », donc un ordre
+> optimal pour l'adversaire. Mesuré au §42 : il croît encore, de façon
+> monotone, sur toute la plage testée. C'était une intuition présentée comme
+> une prédiction, et elle n'a pas tenu une heure.
+>
+> La conclusion qui la remplace est plus forte et procède d'un autre
+> mécanisme : le plafond réalisable croît en `m^{0,06}` au lieu de
+> `m^{0,25}` — la pénalité d'identification mange 75 % de l'exposant, mais
+> ne le retourne pas. Passer de 80 cellules à 126 millions ne multiplie le
+> plafond réalisable que par **2,7**. La dernière phrase du paragraphe
+> ci-dessus reste donc vraie ; c'est le mécanisme qui était mal nommé.
+
 **Registre : inchangé.** `h30` ne teste pas l'archive — il démontre.
