@@ -11308,3 +11308,120 @@ tirages consécutifs pour MT19937 ; il en faut 225 **ordonnés**, et ils peuvent
 différente, et bien plus facile.
 
 **Registre : consigné.** `m = 58 071`, zéro significatif.
+
+---
+
+## 111. Rejet et troncature : la case vide de la carte (`h92_rejet_troncature.py`)
+
+### La case que personne n'avait vue
+
+La carte du dossier a deux axes : l'**échantillonneur** et le **pas**.
+
+| | pas **fixe** (Fisher-Yates) | pas **variable** (rejet) |
+|---|---|---|
+| **modulo** (`s mod 80`) | §68, §89, §99, §100 | §96 |
+| **troncature** (`u·80`) | §103, §104, §105, §110 | *— vide —* |
+
+Or la cellule vide est celle de l'implémentation **la plus naïve qui soit** :
+
+    do { n = Math.floor(Math.random()*80) + 1 } while (déjà_vu(n));
+
+Trois lignes de JavaScript, ce qu'écrit quiconque n'a jamais entendu parler de
+Fisher-Yates — et aucune attaque du dossier ne la couvrait.
+
+### Le rejet donne plus, et coûte l'alignement
+
+Sous rejet, le numéro émis vaut **exactement** `floor(u·80)+1` : le
+dénominateur reste 80 pour les vingt numéros, là où Fisher-Yates le fait
+descendre de 80 à 61.
+
+| échantillonneur | bits/numéro | équations/tirage |
+|---|---|---|
+| Fisher-Yates (K = 80…61) | 4,48 | 89,7 |
+| **rejet (K = 80)** | **5,20** | **104,0** |
+
+Un seul tirage détermine donc tout état de **104 bits ou moins** — *si l'on
+sait où sont les rejets*. Or le nombre de mots consommés vaut `20 + r`, `r`
+inconnu. C'est la leçon du §95.
+
+### Le théorème de l'arbre de rejet
+
+> **Théorème.** L'ordre étant **connu**, on ne branche que sur les **rejets** :
+> il y a `C(20+r, r)` motifs à `r` rejets, et l'incompatibilité n'apparaît
+> qu'après `n/5,20` numéros. L'arbre à explorer avant tout élagage compte donc
+>
+>     C( n/5,20 + r , r )  nœuds
+>
+> et non `20^(n/4,48)` comme dans le cas **trié** du §110. ∎
+
+| état `n` | numéros requis | nœuds (r ≤ 10) |
+|---|---|---|
+| 32 | 6,2 | 3 003 |
+| 64 | 12,3 | 646 646 |
+| 96 | 18,5 | 13 123 110 |
+| 128 | 24,6 | 183 579 396 |
+
+> **Le rejet coûte un facteur combinatoire ; le tri coûte un facteur
+> exponentiel.** C'est la valeur exacte de l'ordre, chiffrée.
+
+### Le témoin, et les nœuds mesurés
+
+| famille | état | rejets réels | nœuds | retrouvé |
+|---|---|---|---|---|
+| xorshift32 | 32 | [1] | 10 105 | **oui** |
+| xorshift64 | 64 | [1] | 423 482 | **oui** |
+| xorshift96 | 96 | [0] | > 4 000 000 | non (plafond) |
+| taus88 | 96 (88 utiles) | [5] | 3 165 538 | **oui** |
+
+**3/4**, motif de rejets inconnu du solveur. Les comptes de nœuds suivent la
+prédiction du théorème à un petit facteur près.
+
+### L'archive
+
+| famille | essais | exclus | débordés | compatibles |
+|---|---|---|---|---|
+| xorshift32 | 9 | **9** | 0 | 0 |
+| xorshift64 | 9 | **9** | 0 | 0 |
+| xorshift96 | 9 | 0 | 9 | 0 |
+| taus88 | 9 | 3 | 6 | 0 |
+
+**0 état compatible sur 36 systèmes** — 21 exclus par incompatibilité, 15
+débordés au plafond de 4 millions de nœuds.
+
+### Une erreur que le rejeu a rattrapée, et il faut la raconter
+
+La première version de ce fichier a consigné **15 104 « états compatibles »**
+pour taus88. Ce n'était pas une découverte : c'était un **défaut de code**.
+
+`explore` ajoutait chaque élément du noyau à la liste des solutions **sans
+jamais rejouer le tirage**. Or les équations ne portent que sur les bits de
+**préfixe** ; une direction du noyau peut les laisser intactes et changer le
+numéro émis — c'est exactement ce dont la docstring de `kernel_basis` du §68
+met en garde. taus88 loge 88 bits utiles dans 96 : son noyau fait 8
+dimensions, soit 256 candidats par feuille, dont **aucun** ne reproduit le
+tirage.
+
+Correction : vérification par **rejeu complet** de chaque candidat. Résultat :
+**0**. La ligne fautive a été retirée du registre par `lab.dedupe()`, qui ne
+garde que la dernière consignation de chaque identifiant.
+
+> Le rejeu est la seule chose qui distingue une solution d'une coïncidence
+> algébrique. C'est la troisième fois de la session qu'un témoin ou un rejeu
+> attrape une erreur invisible dans le résultat (§102, §104, §111) — et la
+> seule fois où elle avait déjà atteint le registre.
+
+### Ce que cela ferme
+
+La carte n'a plus de case vide sur ces deux axes. Et le théorème qui reste
+vaut au-delà de ce dossier :
+
+| régime | coût |
+|---|---|
+| ordre connu, pas connu | **pivot de Gauss** |
+| ordre connu, pas inconnu | arbre **combinatoire**, `C(n/5,2 + r, r)` |
+| ordre inconnu | arbre **exponentiel**, `20^(n/4,48)` |
+
+Trois régimes, trois coûts, et la frontière entre le deuxième et le troisième
+est ce qui sépare une attaque possible d'une attaque impossible.
+
+**Registre : consigné.** `m = 58 072`, zéro significatif.
