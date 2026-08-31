@@ -9531,6 +9531,20 @@ Et ce que le dossier utilisait :
 > lignes. Ce n'est pas une donnée à filmer : elle est dans le fichier depuis
 > le premier jour.**
 
+**Une précision qui borne ce facteur, et il faut la donner.** Les balayages de
+graines — §63 et les campagnes `sweep_*` — comparaient déjà le tirage engendré
+au tirage réel par **recouvrement**, donc sur l'**ensemble complet** : 61,6 bits
+par tirage, pas 4. Le facteur 6,8 ne dormait que dans la branche **algébrique**.
+
+| | ce qu'un tirage trié vaut |
+|---|---|
+| **vérifier** un candidat (balayage) | **61,62 bits** — utilisé depuis le §63 |
+| **dériver** un candidat (résolution linéaire) | **27,26 bits** — et les §88/§89 n'en prenaient que 4 |
+
+La distinction est nette : pour *vérifier*, l'archive triée a toujours valu un
+tirage entier ; pour *dériver*, elle vaut la part mod 16 — et le dossier n'en
+dérivait rien.
+
 ### Pourquoi personne ne l'a prise : le théorème de la parité
 
 La tentation immédiate est de chercher une forme **linéaire** invariante par
@@ -9642,3 +9656,92 @@ supplémentaire — 3 bits contre 27,26.
 4. **Le facteur 6,8 est un contenu, pas un algorithme.**
 
 **Registre : inchangé.** h73 démontre et mesure, il ne teste pas.
+
+## 95. L'angle mort du §89, démontré par un faux négatif (`h74_pas_variable.py`)
+
+Le §94 a nommé une condition que le §89 portait sans l'écrire. Ce fichier ne la
+discute pas : **il fabrique le contre-exemple.**
+
+Le §89 conclut — c'est l'énoncé le plus large du dossier, il ne nomme aucune
+famille : *« la suite des bonus n'est engendrée par aucun générateur F₂-linéaire
+dont l'état tienne sous 35 280 bits »*. Le §90 a vérifié qu'il ne dépendait pas
+de `W` et en a conclu qu'il était **plus fort** qu'annoncé.
+
+Or la suite des bonus vaut `b_t = φ(L^{S_t}x)`, où `S_t` est la position du
+premier mot du tirage `t`. **Si le pas est constant**, `b_t = φ((L^W)^t x)` est
+linéaire récurrente, de complexité ≤ n, et BM la voit. **Si le pas varie**, c'est
+une décimation à positions irrégulières — rien ne garantit la récurrence.
+
+### Le faux négatif, sur MT19937 lui-même
+
+Même générateur, même état initial, **même formule de bonus**. Une seule chose
+change : l'échantillonneur, donc le pas. 45 000 tirages synthétiques (BM peut
+donc constater jusqu'à 22 500, au-dessus de la cible 19 937).
+
+| échantillonneur | pas moyen | pas min/max | complexité, les 4 bits |
+|---|---|---|---|
+| Fisher-Yates | 20,00 | 20 / 20 | **19 937 · 19 937 · 19 937 · 19 937** |
+| rejet modulo 80 | 22,85 | 20 / 35 | 22 500 · 22 501 · 22 500 · 22 501 |
+
+Sous Fisher-Yates, BM rend **exactement la taille d'état de MT19937**, sur les
+quatre bits. Sous rejet, il rend **N/2** — la signature d'une suite aléatoire.
+
+> **Le §89, appliqué à cette archive synthétique, aurait écrit exactement sa
+> phrase. Et le générateur est MT19937, il est là, on connaît son état.**
+
+### De combien le pas doit-il varier ?
+
+xorshift64 (64 bits), pas `20 + Bernoulli(p)`, 900 tirages, 12 graines par point.
+`p = 0` et `p = 1` sont tous deux des pas **constants** (20 et 21) — c'est le
+contrôle interne du test.
+
+| p | 0 | 0,002 | 0,005 | 0,01 | 0,05 | 0,50 | 1,0 |
+|---|---|---|---|---|---|---|---|
+| complexité moyenne | **64,0** | 385,7 | 436,9 | 450,2 | 450,0 | 450,2 | **64,0** |
+| BM voit | **12/12** | 1/12 | 0/12 | 0/12 | 0/12 | 0/12 | **12/12** |
+
+La falaise est brutale, et le plateau tombe sur `N/2 = 450` au bit près.
+`p = 1` redonne 64 : **c'est l'irrégularité du pas qui aveugle BM, pas sa
+valeur.** Il suffit qu'**un tirage sur 200** consomme un mot de plus. Le rejet,
+lui, en fait varier **93 %** (§94 : `P(r=0) = 7,46 %`).
+
+> **Le §89 n'est pas « presque » valide sous rejet. Il l'est zéro fois.**
+
+### Ce que le §89 exclut vraiment
+
+| | |
+|---|---|
+| énoncé consigné | « aucun générateur F₂-linéaire d'état sous 35 280 bits » |
+| **énoncé correct** | « … **et qui consomme un nombre de mots constant par tirage** » |
+
+**Reste couvert** : Fisher-Yates partiel — l'échantillonneur le plus courant en
+bibliothèque — et tout schéma à budget de mots fixe. **Sort de la couverture** :
+l'échantillonneur par **rejet**, sous toutes ses variantes, et tout schéma dont
+la consommation dépend des valeurs tirées.
+
+**Le résultat numérique du §89 ne bouge pas.** Les complexités mesurées sur
+l'archive réelle — 35 279, 35 281, 35 281, 35 281 pour N/2 = 35 280 — restent
+exactes. C'est leur **interprétation** qui rétrécit.
+
+### Pourquoi rien n'est consigné, et c'est du protocole
+
+Ce fichier ne teste pas l'archive : il fabrique deux archives **synthétiques** à
+générateur connu. Pas d'hypothèse sur le tirage réel, donc pas de p.
+
+Et il serait tentant de **re-consigner h68** avec l'hypothèse corrigée —
+`lab.dedupe()` le permettrait techniquement, la dernière écriture d'un `id`
+écrasant les précédentes. **Ce serait une faute** : réécrire une hypothèse
+pré-enregistrée après avoir vu le résultat est exactement ce que le
+pré-enregistrement interdit. L'entrée de h68 reste scellée telle quelle ; la
+correction de portée vit ici, datée.
+
+### Ce que cela rouvre
+
+Une famille que le dossier croyait fermée ne l'est pas : **les générateurs
+F₂-linéaires à échantillonneur par rejet**, jamais testés que sur neuf tirages
+ordonnés (§86) et cinq (§61). Et le §94 dit où chercher : 27,26 bits par tirage
+trié sur la classe mod 16, dont 12,04 vérifiables sans affectation, contre 3 bits
+d'inconnue de pas. **Le budget est largement positif ; c'est l'algorithme qui
+manque** — la contrainte est un multiensemble, pas une équation.
+
+**Registre : inchangé, à dessein.**
