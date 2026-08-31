@@ -8696,3 +8696,94 @@ Les quatre cases « jamais » qui comptent sont les deux familles **additives** 
 troncature et sous bits hauts. Ce n'est pas un oubli : le théorème de la retenue
 démarre à la retenue nulle, donc aux bits **bas**, et ces deux échantillonneurs
 publient les bits **hauts**. Le §84 a mesuré ce que coûte d'y aller quand même.
+
+---
+
+## 88. Reconstituer l'état interne depuis le bonus — MT19937 enfin testé (`h67_reconstitution.py`)
+
+Toutes les attaques du dossier reconstituent l'état depuis l'**ordre** de
+sortie, et le dossier n'a que neuf tirages ordonnés. L'archive en compte
+70 560, mais triée : l'ordre y est perdu.
+
+Sauf pour une chose. Le §77 a établi que le bonus est **toujours** l'un des vingt
+numéros tirés — vérifié 70 560 fois sur 70 560. Ce n'est donc pas un tirage
+supplémentaire mais un **pointeur**. Et s'il désigne le **premier** numéro sorti,
+chaque ligne de l'archive publie `out(20t) ≡ bonus_t − 1 (mod 80)`, car sous
+Fisher-Yates le pas 0 lit le tableau intact `1..80`.
+
+> **70 560 tirages × 4 bits = 282 240 équations** — quatorze fois ce que
+> MT19937 demande.
+
+### Ce que le §77 n'avait pas pu faire
+
+Le §77 menait cette attaque **session par session** (204 tirages, 816 bits) et
+s'arrêtait là : *« MT19937 demanderait 4 985 tirages ; informationnellement
+disponible, mais son élimination porte sur 19 937 inconnues, ce que Python ne
+fait pas en temps raisonnable. La limite est ici computationnelle, pas
+informationnelle. »*
+
+Le §80 a levé cette limite en construisant les formes de MT19937 par la
+**récurrence** plutôt que par propagation de base. Ce fichier applique cette
+machinerie à l'archive entière.
+
+### Deux bugs, encore attrapés par le témoin
+
+1. **L'artefact du mot 0.** Le mot 0 est `x[0]`, dont les 31 bits de poids
+   faible n'entrent pas dans l'état de MT19937 : trois de ses quatre formes
+   basses sont identiquement nulles, et une équation `0 = 1` criait
+   « incohérent » pour un simple défaut de paramétrage. Corrigé en démarrant au
+   tirage 1. Le §80 avait déjà rencontré ce piège.
+2. **S'arrêter au rang plein.** Un système de rang plein n'est pas un succès :
+   c'est une solution *unique*, qu'il reste à confronter aux équations suivantes
+   puis à rejouer. La première version s'arrêtait là — et déclarait
+   « rang plein » pour xoshiro256, qui est en réalité incohérent 150 équations
+   plus loin.
+
+### Le témoin, puis l'archive
+
+| | résultat | rang | tirages | temps |
+|---|---|---|---|---|
+| **MT19937 synthétique** | **cohérent, rang plein + 400 équations** | **19 937 / 19 937** | 5 386 | 40 s |
+| **MT19937, archive réelle** | **INCOHÉRENT** | 19 936 / 19 937 | 4 985 | 35 s |
+
+| famille | n | tirages | rang | verdict |
+|---|---|---|---|---|
+| xorshift32 | 32 | 84 | 31 | **INCOHÉRENT** |
+| xorshift64 | 64 | 108 | 62 | **INCOHÉRENT** |
+| xorshift128 | 128 | 156 | 125 | **INCOHÉRENT** |
+| xoshiro256 | 256 | 252 | 256 | **INCOHÉRENT** |
+| WELL512a | 512 | 444 | 512 | **INCOHÉRENT** |
+
+**Six familles exclues, MT19937 compris** — celle que le §77 avait laissée
+ouverte faute de machine.
+
+### Le prix, et il est lourd
+
+Le résultat est **conjoint sur quatre facteurs** :
+
+1. le bonus est le **premier** numéro sorti (§37 : indécidable sur l'archive
+   triée seule) ;
+2. l'échantillonnage est de type **Fisher-Yates** — 20 mots par tirage
+   exactement ;
+3. le générateur n'est **pas ré-amorcé** sur toute l'archive (§65 : non
+   tranché) ;
+4. la famille.
+
+Et il faut dire ce qui suit sans le maquiller : **avec 282 240 équations, une
+règle de bonus fausse produirait elle aussi l'incohérence.** Le test exclut donc
+le **paquet**, pas la famille isolément. Sa valeur est réelle — il ferme d'un
+coup une région entière de l'espace d'hypothèses — mais elle n'est pas celle
+d'une exclusion de MT19937 tout court.
+
+### La mesure qui lèverait l'hypothèse 1, et elle est minuscule
+
+Les tirages ordonnés collectés jusqu'ici (les neuf du §86) ne montrent **pas** le
+bonus. Or il suffirait de relever **un seul tirage ordonné où le bonus est
+visible** pour comparer directement le bonus au premier numéro sorti, et
+trancher la règle que le §37 déclarait indécidable.
+
+> Une capture. Le §37 tombe, l'hypothèse 1 disparaît, et les 282 240 équations
+> de l'archive deviennent exploitables avec **une hypothèse de moins**.
+
+**Registre : `h67.reconstitution_bonus`, conforme. m = 3 475, zéro
+significatif.**
