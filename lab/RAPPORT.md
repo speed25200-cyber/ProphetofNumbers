@@ -7415,3 +7415,81 @@ quantités observables — et il l'a bien fait. Ce qu'il ne pouvait pas faire,
 c'est anticiper qu'une section ultérieure élargirait le théorème sur lequel il
 s'appuyait. **Un câblage correct peut devenir périmé sans jamais avoir été
 faux**, et le seul remède est de le relire quand le théorème bouge.
+
+## 76. L'ombre du théorème, testable sans l'ordre (`h56_classes_residuelles.py`)
+
+Les §68 à §75 exigent l'**ordre de sortie**, et le dossier n'en a que cinq
+tirages. L'archive triée — **70 560 tirages** — leur est inutile.
+
+Or le théorème a une ombre qui, elle, ne demande pas l'ordre.
+
+### L'ombre
+
+Considérons un générateur **congruentiel modulo une puissance de deux** dont la
+sortie est l'état brut :
+
+    s_{i+1} = a·s_i + c  (mod 2^k)      puis   n = (s mod 80) + 1
+
+Les bits de poids faible d'un LCG modulo 2^k sont **fermés** : `s mod 16` suit
+lui-même un LCG modulo 16, de période exactement 16 pour les constantes
+usuelles. Seize mots consécutifs visitent donc **les seize résidus**.
+
+> Un tirage consomme ~23 mots et en retient 20. Ses vingt numéros se
+> répartiraient donc **presque uniformément** entre les seize classes
+> résiduelles — jamais zéro dans une classe, jamais quatre — là où le hasard
+> laisse des trous. **Et cela se lit sur l'ensemble des numéros : l'ordre
+> n'intervient pas.**
+
+Aucun test du registre ne visait cette partition. Une telle structure se
+diluerait dans les 3 160 paires d'`audit.paires` : les 160 paires intra-classe
+seraient déprimées, mais un maximum sur 3 160 ne le verrait pas.
+
+### Le témoin, et il confirme la théorie plus finement qu'attendu
+
+Archive contaminée par un LCG modulo 2³² à sortie brute, χ² des comptes par
+classe, rapporté au SRS :
+
+| m | 2 | 4 | **5** | 8 | **10** | 16 | **20** | **40** |
+|---|---|---|---|---|---|---|---|---|
+| rapport | **0,078** | **0,083** | 1,19 | **0,150** | 1,07 | **0,210** | 1,01 | 1,00 |
+
+> Le χ² **s'effondre** exactement aux diviseurs qui sont des **puissances de
+> deux** (2, 4, 8, 16) et reste à 1 sur ceux qui portent le facteur 5. C'est
+> précisément ce que la fermeture 2-adique prédit : les bits de poids faible
+> se ferment modulo 2^j, **jamais modulo 5**. Le témoin ne se contente pas de
+> détecter — il détecte *au bon endroit*.
+
+### Sur l'archive réelle : rien
+
+Null simulé, 400 archives, loi hypergéométrique multivariée exacte :
+
+| m | observé | null | z | p |
+|---|---|---|---|---|
+| 2 | 53 441 | 53 585 ± 283 | −0,51 | 0,651 |
+| 4 | 160 294 | 160 750 ± 489 | −0,93 | 0,372 |
+| **5** | 213 718 | 214 313 ± 508 | **−1,17** | **0,267** |
+| 8 | 374 506 | 375 119 ± 711 | −0,86 | 0,367 |
+| 16 | 804 120 | 803 820 ± 947 | +0,32 | 0,783 |
+| 40 | 2 090 068 | 2 090 006 ± 1 229 | +0,05 | 0,958 |
+
+Le plus petit `p` vaut **0,267** sur 8 tests. Registre **m = 3 336**, zéro
+significatif.
+
+### Ce que cela ajoute
+
+Le théorème de la fuite avait une ombre que personne n'avait cherchée : sa
+conséquence sur l'**ensemble** des numéros, là où le théorème porte sur leur
+ordre. Cette ombre se teste sur **70 560 tirages au lieu de cinq** — quatre
+ordres de grandeur de données en plus.
+
+### Ce que cela ne fait pas
+
+1. Un générateur qui **décale avant de réduire** (`java.util.Random` rend
+   `s >> 17`) n'a pas ses bits de poids faible en sortie : la fermeture ne
+   s'applique pas. Le §34 le couvrait déjà.
+2. Un générateur **F₂-linéaire** (xorshift) n'a pas de bits fermés non plus —
+   c'est le §68 qui le vise, et lui exige l'ordre.
+3. Le test **détecte sans résoudre**. Une détection renverrait vers les §68 à
+   §72 pour l'exploitation.
+
+**Registre :** `h56.classes_residuelles`, `p` = 0,267, `m_extra` = 7.
