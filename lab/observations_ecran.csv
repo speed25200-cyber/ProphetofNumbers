@@ -1,0 +1,16 @@
+# Ce que l'ecran du jeu publie, releve tel quel, sans interpretation.
+#
+# Ce fichier n'est PAS `draws_ordered.csv` : celui-la ne contient que des
+# tirages dont l'ORDRE DE SORTIE est visible, et lui seul alimente les
+# attaques des §68 a §86. Ici l'ordre peut etre absent — la grille est
+# parfois affichee TRIEE — mais d'autres champs sont presents que l'archive
+# ne porte pas, ou pas fidelement.
+#
+# ordre    "sortie" si la grille est dans l'ordre d'emission, "trie" sinon
+# boost    le multiplicateur TEL QU'AFFICHE, y compris 1.5 que l'archive
+#          ne sait pas representer (§92)
+# bonus    la boule EXTRA du meme tirage
+# source   d'ou vient le releve
+#
+id,date_locale,ordre,boost,bonus,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10,n11,n12,n13,n14,n15,n16,n17,n18,n19,n20,source
+1381278,2026-08-31T13:07,trie,1.5,45,4,7,8,12,15,17,22,25,28,36,45,47,52,54,56,60,62,69,74,75,video-ecran

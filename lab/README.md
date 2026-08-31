@@ -146,3 +146,16 @@ l'ordre de sortie des boules — qui doublerait l'information par tirage, de
 depuis cet environnement (403 au CONNECT). Les questions qui exigent le flux
 live sont donc spécifiées ici comme **instruments à embarquer dans l'app**,
 pas conclues.
+
+Ce qui est relevé à l'écran va dans deux fichiers, et la distinction compte :
+
+| fichier | contenu | qui l'utilise |
+|---|---|---|
+| `draws_ordered.csv` | tirages dont **l'ordre de sortie** est visible | §68 à §86 — et eux seuls |
+| `observations_ecran.csv` | ce que l'écran publie tel quel, ordre absent possible, mais avec le **boost affiché** (`1.5` compris) et le **bonus** | §92 |
+
+**Deux relevés manquent, et ils sont petits.** (1) Un enregistrement d'un *seul*
+tirage montrant la grille **se remplir boule après boule** puis la boule EXTRA
+du même tirage : il tranche le §37, indécidable depuis. (2) **Vingt arrêts de la
+roue du boost**, avec la fraction de l'aiguille dans son secteur : ils disent si
+la roue publie une variable continue en plus du multiplicateur (§92, section 5).

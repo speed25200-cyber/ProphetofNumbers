@@ -9056,3 +9056,589 @@ case que le dossier n'avait jamais ouverte, et le §91 la nomme pour la premièr
 fois.*
 
 **Registre : inchangé.** h70 établit la portée d'un test déjà consigné.
+
+## 92. La roue du boost : sept secteurs égaux, une loi qui ne l'est pas (`h71_roue.py`)
+
+Deux enregistrements d'écran de `jeux.loro.ch`, tirage **1381278**, 2026-08-31
+à 13:05 et 13:07. Le premier filme la **roue du boost**, le second l'affichage
+du tirage puis la boule EXTRA.
+
+| ce que la vidéo publie | |
+|---|---|
+| les 20 numéros | 4 7 8 12 15 17 22 25 28 36 45 47 52 54 56 60 62 69 74 75 — **affichés triés** |
+| le boost | **×1,5** |
+| le bonus | **45**, présent dans la grille (conforme au §77) |
+
+Relevé dans `lab/observations_ecran.csv`. Ce fichier est **distinct** de
+`draws_ordered.csv` : celui-là ne porte que des tirages dont l'ordre de sortie
+est visible, et lui seul alimente les §68 à §86.
+
+### La roue, mesurée
+
+Le cercle est ajusté par moindres carrés sur les pixels colorés de la couronne
+(résidu radial 2,0 px sur un rayon de 241) ; la teinte est échantillonnée tous
+les 0,25° sur une bande radiale extérieure aux étiquettes ; une frontière est le
+milieu d'une transition de teinte. L'aiguille est à 0°, le sens est horaire.
+
+| début | fin | largeur | écart à 360/7 | multiplicateur | couleur |
+|---|---|---|---|---|---|
+| 320,62 | 12,38 | 51,75 | +0,32 | **×1,5** | jaune vif |
+| 12,38 | 64,12 | 51,75 | +0,32 | ×3 | rouge |
+| 64,12 | 116,12 | 52,00 | +0,57 | ×5 | jaune pâle |
+| 116,12 | 167,62 | 51,50 | +0,07 | ×2 | orange |
+| 167,62 | 219,12 | 51,50 | +0,07 | ×4 | rouge |
+| 219,12 | 269,38 | 50,25 | −1,18 | ×1 | ambre |
+| 269,38 | 320,62 | 51,25 | −0,18 | ×10 | vermillon |
+
+Moyenne **51,4286°**, et 360/7 = **51,4286°**. Écart maximal 1,18°, soit **2,3 %**
+d'une largeur de secteur. **Les sept secteurs sont égaux.** L'ordre angulaire,
+dans le sens horaire, est
+
+> **×1 ×10 ×1,5 ×3 ×5 ×2 ×4**
+
+lu sur les étiquettes de deux images de rotations différentes (×1 en haut,
+puis ×1,5 en haut), qui donnent le même ordre cyclique. L'aiguille tombe dans le
+secteur ×1,5 — et l'écran affiche BOOST ×1,5 : la mesure et l'affichage se
+recoupent.
+
+### Le théorème de la roue
+
+> **Théorème.** Soit une roue à *n* secteurs de même largeur et Θ l'angle où elle
+> s'arrête. Si Θ est la variable aléatoire publiée et qu'elle est uniforme sur le
+> cercle, le secteur désigné est uniforme sur les *n* secteurs.
+>
+> *Preuve.* Le secteur est `k = ⌊nΘ/2π⌋` ; l'image d'une uniforme par une
+> partition en parts égales est uniforme. ∎
+
+C'est la **réciproque** qui sert. L'archive ne connaît que six valeurs de boost —
+`{1, 2, 3, 4, 5, 10}` — et le ×1,5 n'y est pas : il est donc fondu dans un seau,
+soit **tronqué vers 1** (cas A), soit **arrondi vers 2** (cas B). On teste les deux.
+
+| boost | observé | fréquence | uniforme, cas A | cas B |
+|---|---|---|---|---|
+| 1 | 36 122 | 0,51193 | 20 160 | 10 080 |
+| 2 | 16 791 | 0,23797 | 10 080 | 20 160 |
+| 3 | 10 626 | 0,15060 | 10 080 | 10 080 |
+| 4 | 3 525 | 0,04996 | 10 080 | 10 080 |
+| 5 | 1 739 | 0,02465 | 10 080 | 10 080 |
+| 10 | 1 757 | 0,02490 | 10 080 | 10 080 |
+
+**cas A : χ² = 35 173. cas B : χ² = 85 910.** Pour 5 degrés de liberté, dont la
+moyenne vaut 5 et le seuil de 5 % 11,07.
+
+> **L'angle d'arrêt n'est pas la variable publiée. Le résultat est tiré
+> d'abord, d'une loi pondérée, et l'angle est calculé à partir de lui.**
+
+Ce rejet **n'est pas consigné**, et délibérément : « la roue est uniforme » n'est
+défendu par personne. Le consigner gonflerait *m* d'un homme de paille. C'est de
+l'arithmétique, pas une découverte statistique.
+
+**Ce que la pondération coûte.** La roue uniforme publierait log₂7 = 2,8074 bits
+par tirage. Les six seaux en publient 1,8790 ; la vraie loi à sept valeurs, entre
+1,8790 et 2,3909 (l'écart est la part du seau fondu, au plus un bit). **La
+pondération coûte entre 0,42 et 0,93 bit par tirage** à qui veut reconstituer
+l'état.
+
+### Ce que le septième secteur corrige au §90
+
+**Premier point — le seuil « incertain » est expliqué.** Le §90 relevait cinq
+seuils cumulés : 0,51193 puis 0,74990, 0,90050, 0,95045, 0,97510. Les quatre
+derniers sont ronds à moins de 0,6 σ ; le premier ne l'est pas, et ½ y est écarté
+à 6,3 σ. La réponse n'était pas dans le générateur, elle était dans le **format** :
+le premier seau de l'archive est **l'union de deux secteurs de la roue**, et une
+somme de deux probabilités n'a aucune raison d'être ronde. *Le §90 cherchait une
+structure là où il y avait un défaut de format.*
+
+**Deuxième point — le §90 ne perd rien.** Sous l'hypothèse que l'échelle de
+seuils suit l'ordre des multiplicateurs, le seau ×1,5 est adjacent au seau fondu
+dans les deux cas, et le seau « 2 » reste l'intervalle [0,51193 ; 0,750) que le
+§90 utilisait. **Sa table de formes linéaires — 1,151 bit par tirage, 81 215
+équations — est intacte.**
+
+**Troisième point — une hypothèse du §90 que la roue rend visible.** Cette table
+suppose que chaque seau est *un seul* intervalle, donc que l'échelle suit l'ordre
+des multiplicateurs. Or l'ordre **angulaire** mesuré plus haut ne le suit pas.
+Rien n'oblige l'échelle à le suivre non plus. Si elle suivait l'ordre angulaire,
+chaque seau resterait un intervalle sauf le seau fondu — justement celui dont le
+§90 se passe. *La table tient dans les deux lectures ; mais l'hypothèse existait
+sans être écrite, et elle l'est maintenant.*
+
+**Quatrième point — cas A ou cas B ? La donnée ne tranche pas.** L'espérance du
+multiplicateur, calculée sur les seaux, vaut **2,0117 ± 0,0062** : 2 est à
++1,90 σ. Si le jeu visait « le boost double en moyenne », le cas A la pousse
+au-dessus de 2, tandis que le cas B la ramène à 2 pour P(×1,5) = 0,0234 ± 0,0123.
+C'est compatible, ce n'est pas une preuve. L'API publique du jeu trancherait en
+une requête ; le réseau de cet environnement la refuse (403 à l'établissement du
+tunnel). *Limite de l'environnement, pas du raisonnement.*
+
+### La loi du boost est-elle stationnaire ? (le test consigné)
+
+L'archive s'arrête le 2026-08-25, la vidéo est du 2026-08-31. **Si le ×1,5 avait
+été ajouté pendant la période couverte, la fréquence d'un seau aurait sauté à
+cette date.** On balaie donc toutes les ruptures : χ² d'homogénéité à deux
+échantillons entre préfixe et suffixe, **maximisé sur les 3 329 points de coupe**.
+Le maximum absorbe le balayage ; le null le recalcule à l'identique sur des
+permutations, donc la multiplicité est traitée exactement.
+
+| | |
+|---|---|
+| observé | χ² = **15,74** à la coupe 34 320 (tirage 1343934) |
+| null, 400 permutations | moyenne 13,02, écart-type 3,89 |
+| seuil 5 % | 20,52 |
+| **p** | **0,2095** |
+
+**Témoin positif** — on fabrique la rupture cherchée : à mi-archive, une fraction
+de la masse du seau 1 bascule vers le seau 2, exactement ce que ferait
+l'apparition d'un septième secteur ré-encodé.
+
+| bascule sur la 2ᵉ moitié | 0,20 pt | 0,40 pt | 0,60 pt | 1,00 pt |
+|---|---|---|---|---|
+| détections | 0/20 | **20/20** | **20/20** | **20/20** |
+
+> **Le test voit 0,4 point de pourcentage à tous les coups. Il n'en voit aucun.**
+
+Donc : ou bien le ×1,5 existait sur toute l'archive, et un seau est bien une
+union — ou bien il a été ajouté dans les **six jours** entre la fin de l'archive
+et la vidéo. La fenêtre est étroite, et elle est nommée.
+
+### L'angle résiduel : la seule chose que cette section ouvre
+
+La roue s'est arrêtée à **0,761** de la largeur de son secteur, pas au milieu —
+soit 13,4° du centre, **onze fois** la plus grande erreur que la mesure des sept
+largeurs ait laissée voir (1,18°). Deux lectures, et elles ne coûtent pas la même
+chose :
+
+| | |
+|---|---|
+| **décalage constant** | l'animation vise toujours le même point du secteur. La roue ne publie rien de plus que le boost. |
+| **décalage tiré** | l'animation vise un point tiré au sort. La roue publie le boost **et** une variable continue. |
+
+Un seul tirage filmé ne tranche pas. Mais il écarte déjà le cas le plus simple —
+« la roue s'arrête au centre ».
+
+**Et si le décalage est tiré, il est de la meilleure espèce.** Un décalage écrit
+`random() × largeur` publie les bits de **poids fort** du mot brut : c'est
+exactement l'échantillonneur du §87 dont le plafond exact vaut **7,00 bits par
+mot** — le plus fuyant des trois, là où le modulo du §68 en publie 4,00 et la
+troncature 5,60.
+
+| précision de lecture | entropie angulaire | + le boost |
+|---|---|---|
+| 2° | 4,68 | 6,56 |
+| 1° | 5,68 | 7,56 |
+| 0,25° | 7,68 | 9,56 |
+| 0,1° | 9,01 | **10,89** |
+
+Le dossier n'est **pas** limité par l'archive : elle porte 70 560 tirages, le §88
+les a tous consommés et n'a rien trouvé. Il est limité par ce qu'on peut
+**filmer** — neuf tirages ordonnés au §86, et c'est tout. L'angle est une donnée
+qui ne s'archive pas : elle se filme.
+
+| ce qu'on filme | bits/tirage | nature | tirages | jours |
+|---|---|---|---|---|
+| le boost seul | 1,151 | formes exactes (§90) | 17 321 | 60,1 |
+| le boost seul | 1,879 | entropie, majorant | 10 610 | 36,8 |
+| le boost + angle lu à 1° | 7,564 | entropie, majorant | 2 636 | 9,2 |
+| le boost + angle lu à 0,1° | 10,885 | entropie, majorant | 1 832 | 6,4 |
+
+L'entropie **majore** le nombre de formes sans l'égaler — le §90 mesure le
+rapport réel pour le boost : 1,151 forme pour 1,879 bit, soit 61 %. Les jours
+sont donc un **plancher**, pas une promesse ; mais le **rapport** de 5,8 entre la
+première ligne et la dernière ne dépend pas de ce taux de conversion.
+
+> **Ce qu'il faut pour le savoir, et c'est petit : filmer vingt arrêts de roue et
+> mesurer la fraction dans le secteur.** Si les vingt valeurs se serrent sur une
+> constante, la roue ne publie rien de plus et la section se ferme. Si elles se
+> répartissent sur [0, 1), la roue publie les bits de poids fort du générateur —
+> et c'est la meilleure observation que le dossier ait jamais eue.
+
+### Ce que cela ne fait pas
+
+**Le §37 n'est pas tranché, et c'est la déception de ces vidéos.** Le bonus 45 est
+bien visible, mais la grille du même tirage est **triée** : on ne peut donc pas
+comparer le bonus au *premier numéro sorti*. Les neuf tirages ordonnés du §86
+n'ont pas de bonus ; ce tirage-ci a un bonus et pas d'ordre. **Il manque toujours
+la conjonction.**
+
+> **Ce qu'il faut, exactement : un enregistrement d'un SEUL tirage montrant la
+> grille se remplir boule après boule, puis la boule EXTRA du même tirage.** Pas
+> deux tirages, pas deux écrans : un seul, continu.
+
+**La roue ne prédit rien.** Elle publie un multiplicateur de gain, pas un numéro.
+Son intérêt est entier dans l'angle résiduel — des **bits**, si le décalage est
+tiré.
+
+**Registre.** `h71_roue.py` porte la consignation de `h71.stationnarite_boost`
+(voie A, `m_extra = 0`, le maximum absorbant le balayage). **Elle n'a pas encore
+été exécutée dans cet environnement** : l'exécution de Python y a été bloquée
+après l'écriture du fichier. Les valeurs ci-dessus proviennent d'un calcul
+identique mené avant le blocage (400 permutations, graine 20260831). Le registre
+reste donc à *m* = 3 488 (deux doublons de re-passe retirés par `lab.dedupe()`),
+**zéro significatif**, plus petit p = 2,0 · 10⁻⁴.
+
+## 93. Le théorème du convertisseur : ce qu'une fuite doit valoir, en francs (`h72_convertisseur.py`)
+
+Le dossier a deux moitiés qui ne se parlent pas.
+
+| | ce que ça produit |
+|---|---|
+| **§68 à §92** — reconstituer l'état | une loi a posteriori sur le **prochain tirage entier** : des tirages candidats, avec des poids |
+| **§78 et toute l'app** — choisir une grille | une décision prise sur des **marginales** : une probabilité par numéro |
+
+Personne n'a jamais démontré que la droite sait recevoir ce que la gauche
+produit. **Elle ne sait pas.** Et le barème réel dit pourquoi, exactement.
+
+### Théorème de linéarisation
+
+> **Théorème.** Soit `D` le tirage (un 20-sous-ensemble aléatoire de [80]), `G` une
+> grille de `k` numéros, `h = |G ∩ D|`, et `g` le barème. Posons
+> `π(S) = P(S ⊆ D)`. Alors
+>
+> ```
+> E[g(h)] = Σ_j  Δ^j g(0) · Σ_{S ⊆ G, |S| = j}  π(S)
+> ```
+>
+> *Preuve.* Tout `g` sur `{0..k}` s'écrit de façon unique dans la base de Newton
+> `g(h) = Σ_j Δ^j g(0)·C(h,j)` — interpolation exacte sur `k+1` points. Or
+> `C(h,j)` **compte** les `j`-sous-ensembles de `G` contenus dans `D`, donc
+> `C(h,j) = Σ_{S ⊆ G, |S|=j} 1[S ⊆ D]` ; l'espérance d'une indicatrice est `π(S)`,
+> et la somme finie s'échange avec l'espérance. ∎
+
+L'identité est **exacte** : aucune indépendance, aucune approximation, aucune
+hypothèse sur la loi. Le gain espéré n'est pas une fonction quelconque de la
+loi — c'est une **forme linéaire sur les probabilités d'inclusion**, et ses
+coefficients se lisent dans le barème.
+
+### Le barème réel ignore les marginales
+
+Décomposition du relevé du 2026-08-30 (BOOST ×1, gain de base) — chaque ligne
+vérifiée à la main par reconstruction `Σ_j c_j C(h,j) = g(h)` :
+
+| mise | c₀ | c₁ | c₂ | c₃ | c₄ | c₅ | c₆ | c₇ | c₈ | c₉ | c₁₀ |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | 0 | 0 | 0 | **+6** | +12 | +240 | | | | | |
+| 6 | 0 | 0 | 0 | **+4** | −4 | +40 | +740 | | | | |
+| 7 | 0 | 0 | 0 | **+3** | −7 | +30 | +65 | +1 055 | | | |
+| 8 | 0 | 0 | 0 | 0 | **+5** | −5 | +35 | +685 | +3 470 | | |
+| 10 | +2 | −2 | +2 | −2 | +5 | −12 | +27 | +28 | −88 | +3 510 | **+61 972** |
+
+> **Aux mises 5, 6 et 7, les coefficients d'ordre 0, 1 et 2 sont nuls ; à la
+> mise 8, les ordres 0 à 3 le sont.**
+
+Le gain espéré ne dépend donc **que** des inclusions d'ordre ≥ 3 (≥ 4 à la
+mise 8). Ce n'est pas « les marginales comptent peu » : **elles n'apparaissent
+pas dans la formule**. Un prédicteur qui publie une probabilité par numéro —
+chauds, froids, retards, essaim, réseau de neurones — ne fournit pas les
+arguments que `E[g]` prend. Ce n'est pas un prédicteur faible : c'est un
+prédicteur dont la sortie n'est pas du bon type.
+
+*Ce qui sauve le §78* : il travaille sur des **classes résiduelles**, et sa loi a
+posteriori est échangeable dans chaque classe. Sous échangeabilité, `π(S)` ne
+dépend que du profil de `S` par classe et le tri par comptes décroissants
+redevient optimal. Le §78 est un **cas particulier correct** — pas une règle
+générale.
+
+### Théorème de domination
+
+> **Théorème.** Il existe une loi a posteriori et deux grilles de **mêmes
+> marginales** dont les gains espérés sont dans un rapport de 60.
+>
+> *Preuve par construction.* `D` uniforme sur deux tirages : `D₁ = {1..20}` et
+> `D₂ = {21..40}`, chacun avec probabilité ½. Toutes les marginales valent ½
+> sur 1..40. À la mise 5, prenons `G₁ = {1,2,3,4,5} ⊂ D₁` et
+> `G₂ = {1,2,3,21,22}`, de même somme de marginales 2,5.
+>
+> `E[g(G₁)] = ½·g(5) + ½·g(0) = ½·360 = 180`
+> `E[g(G₂)] = ½·g(3) + ½·g(2) = ½·6 = 3`
+>
+> Rapport **60**, à marginales identiques. ∎
+
+Et ce n'est pas un contre-exemple artificiel : **une loi issue d'une
+reconstitution d'état est exactement de cette forme** — quelques tirages
+candidats entiers, avec des poids. Elle ne ressemble jamais à un nuage de
+numéros indépendants légèrement penchés. *Le convertisseur de l'application est
+conçu pour une entrée que la moitié gauche du dossier ne produit pas.*
+
+**Contrôle.** Sous H₀, `π(S)` ne dépend que de `|S|`, donc le théorème de
+linéarisation rend le même `E[g]` pour toutes les grilles de même taille : le
+théorème d'invariance du §1 retombe comme corollaire. `h72` le vérifie en
+arithmétique exacte (fractions), les deux voies devant coïncider au dernier
+chiffre.
+
+### Le convertisseur correct : le théorème de la min-entropie
+
+Une reconstitution partielle produit `P = Σ_m w_m δ_{D_m}`. Posons
+`H = −log₂(max_m w_m)`, la **min-entropie du prochain tirage**.
+
+> **Théorème.** Soit `m*` le candidat le plus lourd et `G` n'importe quelle
+> grille de `k` numéros **incluse dans `D_{m*}`**. Alors
+>
+> ```
+> E[g(h)]  ≥  w_{m*}·g_k(k)  =  g_k(k)·2^(−H)
+> ```
+>
+> et le pari à la mise `k` est favorable dès que
+>
+> ```
+> H  <  log₂( g_k(k) / prix du ticket ).
+> ```
+>
+> *Preuve.* `E[g(h)] = Σ_m w_m g(|G ∩ D_m|) ≥ w_{m*}·g(k)`, tous les termes étant
+> ≥ 0 et le terme `m*` valant `g(k)` puisque `G ⊆ D_{m*}`. ∎
+
+Deux remarques qui comptent. **(1) C'est suffisant, pas nécessaire** : on jette
+tous les rangs intermédiaires et tous les autres candidats, donc le vrai seuil
+est plus bas — même argument que le §29 sur le jackpot. **(2) La grille optimale
+exacte** est `argmax_G Σ_m w_m g(|G ∩ D_m|)`, une couverture pondérée sur `M`
+candidats : calculable exactement dès que `M` est énumérable — et `M` énumérable
+est précisément le régime que le théorème vise.
+
+### Le chiffre que le dossier cherchait depuis le §68
+
+Un tirage complet pèse `log₂ C(80,20) = 61,62 bits`. Ticket à CHF 2 :
+
+| mise | rang plein fixe | + cagnotte BANGO | **H max** | **bits à retirer** |
+|---|---|---|---|---|
+| 5 | 360 | 605 | 8,24 | 53,4 |
+| 6 | 1 000 | 4 035 | 10,98 | 50,6 |
+| 7 | 2 000 | 5 838 | 11,51 | 50,1 |
+| 8 | 10 000 | 23 051 | 13,49 | 48,1 |
+| **10** | 100 000 | **598 218** | **18,19** | **43,4** |
+
+*(cagnottes du relevé 2026-08-30 22:16, supposées s'ajouter au rang plein fixe ;
+si elles le remplacent, le seuil baisse de moins de 0,3 bit.)*
+
+> **Le prochain tirage pèse 61,6 bits. Il faut le ramener sous 18,2. Il faut
+> donc en retirer 43,4 — et pas un de plus.**
+
+Ce n'est pas « casser le générateur ». C'est **réduire le prochain tirage à au
+plus 2¹⁸ candidats énumérables**.
+
+### Ce que cela change aux §80, §88 et §92
+
+Si le système linéaire laisse un espace de solutions de dimension `d` sur F₂, le
+prochain tirage a au plus `2^d` candidats, donc `H ≤ d`. La condition devient une
+condition sur le **rang** :
+
+```
+rang ≥ n − 18        au lieu de        rang = n.
+```
+
+Pour MT19937 (`n = 19 937`), cela demande 19 919 au lieu de 19 937. **L'économie
+est réelle mais petite, et il faut le dire** : le §80 montre que le rang sature
+brutalement, donc les derniers bits ne coûtent presque rien.
+
+**La vraie portée est ailleurs : le critère d'arrêt cesse d'être binaire.** Le
+§88 s'arrêtait à « rang plein ou rien ». Il peut désormais s'arrêter à « 2¹⁸
+candidats », les énumérer, et **jouer** — sans jamais identifier l'état. C'est un
+critère opérationnel, pas algébrique. Et `H` peut être **plus petit** que `d` :
+deux états distincts peuvent produire le même tirage, et les collisions ne
+coûtent rien, elles rapportent.
+
+Pour le **§92** : l'angle de la roue, s'il est tiré, publie 10,9 bits par tirage
+filmé contre 1,9 pour le boost seul. Ce théorème dit à quoi ces bits servent —
+à descendre de 61,6 sous 18,2.
+
+### Ce que cela ne fait pas
+
+1. **Cela ne produit aucune fuite.** Le théorème dit ce qu'une fuite doit valoir,
+   pas qu'il en existe une. Les §68 à §92 n'en ont trouvé aucune, et ce bilan
+   est inchangé.
+2. **Cela ne teste rien.** Aucune statistique sur l'archive, donc **rien n'est
+   consigné**. C'est la seule façon honnête de traiter un théorème.
+3. **Le barème est un relevé d'écran** à BOOST ×1. Le fait structurel — les
+   ordres bas sont nuls — tient tant que rien n'est payé en dessous de trois
+   coïncidences, ce qui est le cas sur tout le relevé.
+4. **La grille optimale exacte** reste un problème de couverture pondérée. Le
+   théorème n'en donne qu'une minoration — celle qui suffit à décider de jouer.
+
+**Registre : inchangé.** h72 démontre, il ne teste pas.
+
+## 94. Le théorème du contenu : l'archive triée n'était pas muette (`h73_contenu.py`)
+
+Trois sections répètent la même chose, et toutes les attaques algébriques en
+dépendent :
+
+| | |
+|---|---|
+| §11 | « l'archive est triée, l'ordre est perdu » |
+| §47 | « contre toute hypothèse d'ordre, la puissance est **exactement nulle** » |
+| §88 | « l'ordre y est perdu. **Sauf pour une chose** » — le bonus, 4 bits/tirage |
+
+D'où les neuf tirages ordonnés du §86, les cinq du §61, et l'aveu répété que
+l'archive de 70 560 lignes ne sert qu'au bonus.
+
+**C'est faux.** Et l'erreur tient dans une identité que personne n'a écrite :
+
+> **80 = 16 × 5**
+
+Seize **divise** quatre-vingts. Donc, sous l'échantillonneur par modulo,
+`(n−1) mod 16 = (out mod 80) mod 16 = out mod 16` : le **quartet de poids
+faible du numéro est celui du mot de sortie**, c'est-à-dire quatre formes
+F₂-linéaires exactes de l'état. Et le **multiensemble des vingt quartets est
+invariant par permutation** — le tri ne le détruit pas.
+
+### Le théorème
+
+> **Théorème.** Soit `D` un 20-sous-ensemble uniforme de [80] et
+> `m = (m_0,…,m_15)` le vecteur des comptes par classe résiduelle mod 16. Alors
+>
+> ```
+> H(m) = log₂ C(80,20) − 16 · E[ log₂ C(5, m_v) ]
+> ```
+>
+> *Preuve.* Le multiensemble des quartets équivaut à `m`. La chaîne
+> `H(D) = H(m) + E[H(D|m)]` est exacte. Conditionnellement à `m`, `D` est
+> **uniforme** sur les `Π_v C(5,m_v)` tirages réalisant ces comptes — chaque
+> classe a exactement 5 membres et on en choisit `m_v`. Donc
+> `H(D|m) = Σ_v log₂ C(5,m_v)`, et la **linéarité de l'espérance** conclut par
+> échangeabilité des classes. Aucune indépendance n'est invoquée — les `m_v`
+> sont fortement dépendants, et cela ne change rien. ∎
+
+Loi marginale exacte (hypergéométrique, `N=80, K=5, n=20`), calculée à la main :
+
+| m | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| P(m) | 0,22718 | 0,40569 | 0,27046 | 0,08393 | 0,01209 | 0,00064 |
+| log₂C(5,m) | 0 | 2,3219 | 3,3219 | 3,3219 | 2,3219 | 0 |
+
+`E[log₂C(5,m)] = 2,1473`, donc `16 × 2,1473 = 34,357`, et
+`log₂ C(80,20) = 61,614`.
+
+> **H(multiensemble) = 61,614 − 34,357 = 27,26 bits par tirage.**
+
+`h73` refait le calcul par une **programmation dynamique sur les seize
+classes** qui n'utilise pas la linéarité de l'espérance ; les deux voies
+doivent coïncider, et la PD doit retrouver `C(80,20)` exactement.
+
+### La décomposition exacte de 61,61
+
+| | bits | |
+|---|---|---|
+| classe **mod 16** | **27,26** | F₂-**linéaire** pour un générateur à sortie brute → exploitable |
+| « lequel des 5 » = part **mod 5** | 34,36 | non linéaire sur F₂ → muette |
+| **total** | **61,61** | l'entropie d'un tirage |
+
+Et ce que le dossier utilisait :
+
+| source | bits/tirage | sur l'archive |
+|---|---|---|
+| le bonus seul (§88, §89) | 4,00 | 282 240 |
+| **le multiensemble des quartets** | **27,26** | **1 923 000** |
+| rapport | **×6,8** | |
+
+> **Le dossier laissait dormir un facteur 6,8 sur chacune de ses 70 560
+> lignes. Ce n'est pas une donnée à filmer : elle est dans le fichier depuis
+> le premier jour.**
+
+### Pourquoi personne ne l'a prise : le théorème de la parité
+
+La tentation immédiate est de chercher une forme **linéaire** invariante par
+permutation. Il n'y en a qu'une par position de bit : le XOR.
+`P_b = ⊕_i bit_b(n_i − 1) = ⟨e_b, (Σ_{j∈J} L^j)x⟩`, où `J` est l'ensemble des
+positions **acceptées**. C'est une forme linéaire — *dès qu'on connaît `J`*.
+
+> **Théorème (négatif).** Sous l'échantillonneur par rejet, cette forme ne
+> porte aucune information exploitable.
+>
+> *Preuve.* Soit `W` le nombre de mots consommés, `r = W − 20` le nombre de
+> rejets. La somme sur le **préfixe complet**
+> `Q_b = ⊕_{j≤W} bit_b(out_j) = ⟨e_b, (Σ_{j≤W}L^j)x⟩` ne dépend que de `W` —
+> un seul entier inconnu. Or `Q_b = P_b ⊕ R_b`, où `R_b` est le XOR des
+> quartets des mots **rejetés**. Un mot rejeté a par définition sa valeur mod
+> 80 égale à une valeur déjà acceptée : son quartet est celui d'un des vingt
+> numéros observés. `R` est donc le XOR d'un sous-multiensemble inconnu de
+> taille `r` des vingt quartets connus, et parcourt le sous-espace qu'ils
+> engendrent — qui est `F₂⁴` presque toujours. ∎
+
+Et `r` vaut rarement zéro : `P(r=0) = Π_{i<20}(80−i)/80 = 7,46 %`, pour
+`E[W] = 22,85` mots consommés. Les équations de parité forment donc une
+instance de **parité bruitée** (LPN) à taux d'erreur **0,463** : une équation
+sur treize est juste, et rien ne dit laquelle. À cette dimension, intraitable.
+
+> **Voilà pourquoi l'information dormait.** Elle est là — 27,26 bits, le
+> théorème le prouve — mais la seule voie **linéaire** qui y mène est fermée
+> par le rejet. Ce n'est pas une limite de calcul, c'est une propriété de
+> l'échantillonneur ; il fallait la démontrer avant de déclarer l'archive
+> pauvre.
+
+### Ce que coûte et ce que rapporte la contrainte de multiensemble
+
+Elle n'est pas linéaire, mais elle est **exactement vérifiable** : pour un état
+candidat et un motif de pas donné, on calcule les vingt quartets prédits et on
+les compare au multiensemble observé. Coût `O(20)` ; une hypothèse fausse
+survit avec probabilité `2⁻²⁷,²⁶`.
+
+| par tirage | |
+|---|---|
+| inconnues ajoutées | le nombre de rejets `r`, **≤ 3 bits** |
+| contraintes ajoutées | le multiensemble, **27,26 bits** |
+| **gain net** | **24,26 bits/tirage** |
+
+| famille | n | tirages requis | minutes de jeu |
+|---|---|---|---|
+| xorshift64 | 64 | 2,6 | 13 |
+| xorshift128 | 128 | 5,3 | 26 |
+| xoshiro256 | 256 | 10,6 | 53 |
+| WELL512a | 512 | 21,1 | 106 |
+| **MT19937** | **19 937** | **822** | 4 110 |
+
+À comparer aux **neuf** tirages ordonnés du §86 : le §80 exigeait 343 tirages
+*ordonnés* pour MT19937, le §61 en exigeait 6,4 pour WELL512a et n'en avait que
+cinq. **Ici les tirages sont triés, et l'archive en contient 70 560 — soit 86
+fois ce que MT19937 demande.**
+
+**Ce qui reste à payer, et je ne vais pas l'enjoliver.** La contrainte étant un
+multiensemble et non une équation, la résolution n'est pas une élimination de
+Gauss : c'est une **recherche avec affectation**. L'attaque naïve fixe les
+quartets position par position, branchement ≤ 16, et **aucun élagage avant la
+saturation du rang** : le coût est `16^(n/4) = 2ⁿ`, c'est-à-dire exactement
+l'énumération de l'état. **Aucun gain.** Une rencontre-au-milieu à `2^(n/2)`
+n'est pas démontrée ici.
+
+**Mais une part du contenu se lit sans aucune affectation, et c'est elle qui
+est immédiatement utilisable.** Pour chaque position de bit `b`, le **compte**
+`c_b = #{i : bit_b(n_i − 1) = 1}` est observable, et c'est le poids de Hamming
+du vecteur des vingt formes `⟨e_b, L^j x⟩`. Le vérifier ne demande **aucune**
+affectation : on calcule les vingt formes et on compte. Or
+`c_b ~ hypergéométrique(80, 40, 20)`, de variance `20·¼·(60/79) = 3,797`, donc
+`H(c_b) ≈ 3,01 bits` — et les quatre comptes valent jusqu'à **≈ 12 bits par
+tirage, trois fois le bonus**, en `O(20)` par vérification.
+
+> Le théorème donne le **contenu** (27,26 bits), la **part gratuite** (≈ 12 bits,
+> sans affectation) — et laisse ouvert l'algorithme qui prendrait le reste.
+
+### L'angle mort du §89, que ceci ouvre
+
+Le §89 exclut tout générateur F₂-linéaire d'état ≤ 35 280 bits par
+Berlekamp-Massey sur la suite des bonus. Le §90 a vérifié que sa portée ne
+dépend pas de `W`. Mais il reste une condition **jamais nommée** :
+
+> BM ne voit une suite linéaire récurrente que si le **pas entre bonus
+> consécutifs est constant**.
+
+Sous **Fisher-Yates**, le pas vaut exactement 20 : le §89 s'applique. Sous
+**rejet**, le pas vaut `20 + r_t` avec `r_t` aléatoire, et une décimation à
+positions irrégulières d'une suite linéaire **n'est pas** linéaire récurrente.
+
+> **Le §89 ne dit rien de l'échantillonneur par rejet** — l'implémentation que
+> le §76 appelle lui-même « la naïve par excellence », et qui n'a jamais été
+> testée que sur neuf tirages ordonnés.
+
+C'est exactement le trou que le théorème du contenu remplit : 27,26 bits par
+tirage **trié**, sur 70 560 tirages, avec le motif de pas comme seule inconnue
+supplémentaire — 3 bits contre 27,26.
+
+### Ce que cela ne fait pas
+
+1. **Cela ne reconstitue aucun état.** Ce fichier mesure une capacité, il
+   n'exécute pas d'attaque. Rien ici ne contredit le bilan des §68 à §92 :
+   zéro état compatible partout.
+2. **Cela ne vaut que pour l'échantillonneur par modulo.** Sous troncature
+   (§82) ou bits de poids fort (§87), le quartet du numéro n'est pas celui du
+   mot et l'identité 80 = 16 × 5 ne mord pas.
+3. **Cela ne vaut que pour une sortie brute.** PCG, xoshiro\*\*/++, splitmix64
+   n'ont pas de quartet linéaire — le §91 le disait déjà.
+4. **Le facteur 6,8 est un contenu, pas un algorithme.**
+
+**Registre : inchangé.** h73 démontre et mesure, il ne teste pas.
