@@ -7493,3 +7493,93 @@ ordres de grandeur de données en plus.
    §72 pour l'exploitation.
 
 **Registre :** `h56.classes_residuelles`, `p` = 0,267, `m_extra` = 7.
+
+## 77. Le bonus, seule donnée ordonnée que l'archive triée contienne (`h57_bonus_ordonne.py`)
+
+Le §11 conclut que l'archive triée a perdu l'ordre de sortie. **C'est vrai des
+vingt numéros, et faux du bonus.**
+
+### L'observation
+
+Chaque tirage porte un bonus, présent sur les **70 560** lignes, et qui
+appartient **toujours** aux vingt numéros tirés (70 560 / 70 560 vérifié). Le
+bonus n'est donc pas un vingt-et-unième numéro : c'est un **pointeur** vers
+l'un des vingt.
+
+> Si ce pointeur désigne une **position fixe** de l'ordre de sortie, l'archive
+> triée contient 70 560 données ordonnées que personne n'avait lues comme
+> telles.
+
+### La position qui se teste, et pourquoi c'est la seule
+
+Sous Fisher-Yates, le numéro du pas `i` est l'ancien `a[j]` avec
+`j = i + out_i mod (80−i)` : le retrouver demande **tout le préfixe**. Sauf au
+pas 0, où le tableau est encore `1..80` :
+
+    premier numéro tiré = (out₀ mod 80) + 1
+
+Donc si le bonus est le **premier** numéro sorti, chaque tirage publie
+`out₀ mod 16` — quatre bits — à un indice de mot **exactement connu** (20 mots
+par tirage sous Fisher-Yates). Pour les positions `j > 0` le préfixe manque, et
+le bonus ne dit rien d'exploitable.
+
+### Le budget que cela ouvre
+
+| source | tirages | bits |
+|---|---|---|
+| les cinq tirages ordonnés (§72) | 5 | 110 |
+| **une session** | 204 | **816** |
+| **l'archive entière** | 70 560 | **282 240** |
+
+Trois ordres de grandeur, sur des données **déjà collectées**.
+
+### Le témoin
+
+Une archive fabriquée où le bonus est *posé* comme premier numéro :
+
+| famille | bits | tirages | équations | retrouvé | temps |
+|---|---|---|---|---|---|
+| xorshift32 | 32 | 32 | 128 | **oui** | 0,02 s |
+| xorshift64 | 64 | 64 | 256 | **oui** | 0,07 s |
+| xorshift96 | 96 | 96 | 384 | **oui** | 0,23 s |
+| xorshift128 | 128 | 128 | 512 | **oui** | 0,46 s |
+
+**Quatre sur quatre, depuis les seuls bonus.** *(Une première version prenait
+le strict minimum d'équations — `nbits/4` tirages — et échouait au-delà de 32
+bits : les quatre équations d'un tirage ne sont pas indépendantes. Une session
+en offre 816 ; il n'y avait aucune raison d'être avare.)*
+
+### Sur l'archive
+
+**346 sessions × 4 familles = 1 384 attaques, 0 état compatible.** Registre
+`m = 3 336`, zéro significatif.
+
+### Ce que cela n'est pas
+
+Un échec a **deux lectures**, comme au §73 :
+
+1. le générateur n'est d'aucune famille testée ;
+2. **le bonus n'est pas le premier numéro sorti.**
+
+Le test est donc **conjoint**, et il établit une implication : *si le bonus est
+le premier numéro, alors aucune famille testée ne convient.*
+
+### Ce qui lèverait l'ambiguïté
+
+Le §37 a montré que l'archive triée ne peut **pas** trancher la règle du bonus
+— non pas difficilement, mais par **non-identifiabilité**. Les tirages ordonnés
+que l'app accumule depuis le §38 donnent la position du bonus *directement* :
+une dizaine suffirait, et ils sont collectés un toutes les cinq minutes.
+
+> C'est la deuxième fois que la même mesure — quelques tirages ordonnés —
+> débloque deux choses à la fois : elle valide l'hypothèse d'ordre du §73 **et**
+> la règle de position d'ici.
+
+### Limite de calcul
+
+MT19937 demanderait 4 985 tirages, soit 24 sessions chaînées — informationnellement
+disponible, mais son élimination porte sur 19 937 inconnues, ce que Python ne
+fait pas en temps raisonnable. **La limite est ici computationnelle, pas
+informationnelle**, et c'est la première fois dans ce volet.
+
+**Registre :** `h57.bonus_ordonne`, 0 état compatible.
