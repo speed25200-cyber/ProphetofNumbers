@@ -11183,3 +11183,128 @@ le générateur, l'état, et **les vingt numéros du tirage suivant**.
 **Registre : inchangé.** Ce fichier ne teste rien de neuf sur l'archive — il
 rejoue les exclusions déjà consignées aux §103–§106. Les consigner une seconde
 fois gonflerait `m` sans rien mesurer de plus.
+
+---
+
+## 110. Le flux unique, et le théorème du confinement (`h91_flux_unique.py`)
+
+Deux apports, et **le premier est une correction de mon propre travail**.
+
+### I. Le flux unique — une erreur de découpage, pas une limite de données
+
+Le §105 a construit un système linéaire **par bloc** de tirages consécutifs.
+L'archive ordonnée compte cinq blocs — 1, 1, 1, 2 et 4 tirages — donc au mieux
+`4 × 89,7 = 359` équations, et une portée de 359 bits d'état. D'où ses **126
+systèmes « non testés »**.
+
+C'était une erreur de **découpage**. Sous l'hypothèse d'un flux continu à stride
+constant, le mot qui engendre le pas `k` du tirage d'identifiant `i` occupe la
+position
+
+    (i − i₀) · stride + k
+
+**parfaitement connue**. Les tirages absents laissent des cases vides ; ils ne
+rompent pas l'alignement. Les neuf tirages contraignent donc **un seul état** :
+
+> **portée : 359 bits → 807 bits, sans une seule donnée de plus.**
+
+L'étendue du flux vaut 237 tirages, soit 4 740 mots au stride 20, dont 180
+observés.
+
+**Le témoin devait vérifier que l'alignement traverse vraiment les trous** — si
+non, j'aurais conclu « exclu » sur une erreur de ma part. On plante donc un
+état, on engendre le flux entier, on n'en garde que les tirages aux
+identifiants **réels** de l'archive, trous compris.
+
+| famille | état | équations | rang | noyau | retrouvé |
+|---|---|---|---|---|---|
+| xorshift32 | 32 | 806 | 32 | 0 | **oui** |
+| xorshift64 | 64 | 796 | 64 | 0 | **oui** |
+| xorshift96 | 96 | 833 | 96 | 0 | **oui** |
+| xorshift128 | 128 | 786 | 128 | 0 | **oui** |
+| taus88 | 96 | 806 | 88 | 8 | **oui** |
+| xoroshiro128 (brut) | 128 | 820 | 128 | 0 | **oui** |
+| xoshiro128 (brut) | 128 | 782 | 128 | 0 | **oui** |
+| xoshiro256 (brut) | 256 | 837 | 256 | 0 | **oui** |
+| LFSR113 | 128 | 819 | 109 | 19 | **oui** |
+| **WELL512a** | **512** | 788 | 512 | 0 | **oui** |
+
+**10/10 états retrouvés à travers les trous.** Un identifiant manquant est un
+décalage connu, pas une rupture.
+
+### Le résultat sur l'archive
+
+| | §105 (par bloc) | §110 (flux unique) |
+|---|---|---|
+| systèmes | 300 | **120** |
+| exclus par incompatibilité | 147 | **120** |
+| **non testés** | **126** | **0** |
+| états compatibles | 0 | **0** |
+
+**Le trou est comblé.** Tout le catalogue F2-linéaire, WELL512a compris, est
+désormais exclu — à six strides et deux conventions — sans qu'aucun système ne
+reste hors de portée.
+
+### II. Le théorème du confinement
+
+Les neuf tirages ordonnés sont une goutte ; l'archive en compte 70 560, triée.
+Que peut-on en tirer **sans l'ordre** ?
+
+> **Théorème du confinement.** Sous Fisher-Yates, au pas `k`, la valeur émise
+> vaut `a[j_k]`, où `a` ne diffère de l'identité qu'aux `k` positions déjà
+> échangées. Donc `valeur = j_k + 1` sauf si `j_k` a déjà été touché, ce qui
+> arrive avec probabilité au plus `k/80`. Si `S` désigne l'**ensemble** non
+> ordonné des vingt numéros,
+>
+>     P( j_k + 1 ∈ S ) ≥ 1 − k/80
+>
+> et au pas 0 l'inclusion est **exacte** — le tableau est encore l'identité. ∎
+
+Chaque mot est donc confiné à vingt intervalles sur quatre-vingts, soit **2 bits
+sans connaître l'ordre**. Sur 70 560 tirages et vingt mots : **2,8 millions de
+bits disponibles**, pour un état qui en fait 128.
+
+**L'information est là. Elle est pourtant hors d'atteinte** — et voici la
+démonstration.
+
+> **Corollaire de branchement.** Le confinement ne détermine **aucun** bit du
+> mot : une réunion de vingt intervalles sur quatre-vingts n'est jamais
+> contenue dans une moitié dyadique — il faudrait que les vingt numéros soient
+> tous sous 41 ou tous au-dessus, ce qui arrive avec probabilité
+> `2·C(40,20)/C(80,20) = 7,8·10⁻⁸`, soit jamais.
+>
+> Pour obtenir des équations il faut donc **brancher** sur la valeur — vingt
+> choix, `log₂20 = 4,32` bits — et chaque valeur supposée rend 4,48 équations
+> (§105). Le bilan par mot vaut **+0,16 bit**.
+>
+> Mais **aucun branchement ne peut être élagué tant que le système est
+> sous-déterminé** : l'incompatibilité n'apparaît qu'au-delà de `n` équations.
+> L'arbre atteint donc `20^(n/4,48)` nœuds **avant** de commencer à se
+> contracter. ∎
+
+| état `n` | mots requis | nœuds d'arbre |
+|---|---|---|
+| 32 | 7,1 | 2³¹ |
+| 64 | 14,3 | 2⁶² |
+| **128** | 28,6 | **2¹²³** |
+| 256 | 57,1 | 2²⁴⁷ |
+
+C'est la démonstration **quantitative** de ce que tout le dossier constatait
+sans le dire : l'archive triée contient largement assez d'information — 2,8
+millions de bits pour 128 — et elle reste hors d'atteinte par manque de
+**levier**, pas par manque de bits.
+
+> **Le levier, c'est l'ordre.** Il change 4,32 bits de branchement en 4,48 bits
+> d'équations **gratuites**. Et c'est là la valeur exacte d'un tirage ordonné :
+> il ne vaut pas 89,7 bits de plus qu'un tirage trié — il vaut la différence
+> entre **2¹²³ nœuds et un pivot de Gauss**.
+
+### La règle générale qui en sort
+
+Ce qui compte n'est **pas** le nombre de tirages **consécutifs** mais le nombre
+de tirages **ordonnés**, quelle que soit leur dispersion. Le §105 demandait 225
+tirages consécutifs pour MT19937 ; il en faut 225 **ordonnés**, et ils peuvent
+être pris n'importe où — c'est une contrainte de collecte entièrement
+différente, et bien plus facile.
+
+**Registre : consigné.** `m = 58 071`, zéro significatif.
