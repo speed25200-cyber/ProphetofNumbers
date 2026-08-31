@@ -8462,3 +8462,126 @@ Alors il reste exactement une chose, et le §84 en donne la mesure : la
 combinaison **additive + troncature**, à un facteur 3,08 de ce qu'un solveur SMT
 généraliste sait digérer. Ce n'est pas une porte fermée, c'est une porte dont on
 connaît l'épaisseur.
+
+---
+
+## 86. La chaîne Fisher-Yates complète, enfin assez longue (`h65_chaine_complete.py`)
+
+Quatre tirages ordonnés **consécutifs** — 1381256 à 1381259 — ont été relevés à
+l'écran et versés au dossier. Contrôles de transcription : 20 numéros distincts
+dans 1..80 chacun, identifiants consécutifs, **tous en session 350**. Le dossier
+en compte désormais **neuf**, dont une suite de quatre.
+
+### Ce que ces quatre-là débloquent, et ce n'est pas ce que j'attendais
+
+J'avais annoncé qu'ils permettraient d'attaquer les familles **additives** sous
+rejet — `Math.random` de V8. C'est vrai informationnellement (80 numéros ×
+1,875 = 150 équations pour 128 inconnues) mais **faux en pratique** : sous
+rejet, les positions des ~11 mots rejetés sont inconnues, et l'entropie de ce
+motif vaut ~2⁴² — un mur du même genre que celui du §77.
+
+Ce qu'ils débloquent réellement est ailleurs, et c'est mieux : la chaîne
+**Fisher-Yates**, où il n'y a **aucune recherche du tout**.
+
+| | |
+|---|---|
+| Fisher-Yates publie (§71) | **22 bits par tirage** |
+| 5 tirages (avant) | 110 bits — **< 128** |
+| **9 tirages (maintenant)** | **198 bits — > 128** |
+
+Sous Fisher-Yates il n'y a pas de rejet, chaque tirage consomme exactement vingt
+mots, et les indices `j` du mélange se reconstruisent **exactement** depuis
+l'ordre publié. Une famille = **une élimination de Gauss**, sans le moindre
+branchement.
+
+### Une occasion manquée du §52, corrigée
+
+Le §52 se limitait à la plus longue suite **consécutive** — alors que son propre
+théorème du trou (§72) l'en dispensait : l'état avance de vingt mots par tirage,
+donc deux tirages séparés de `g` tirages le sont de `20g` mots, un nombre
+**connu**. Toute la collecte se chaîne, consécutive ou non. Les écarts réels du
+dossier sont `[0, 3, 5, 7, 8, 233, 234, 235, 236]`, et ils ne coûtent rien.
+
+### L'hypothèse, déclarée et facturée
+
+Chaîner les neuf suppose que le générateur n'a pas été **ré-amorcé** entre eux.
+Or les cinq premiers sont en session 349 et les quatre nouveaux en session 350,
+et le §65 n'a jamais tranché. Les trois attaques sont donc menées :
+
+| chaîne | tirages | bits | ≥ 128 ? | hypothèse |
+|---|---|---|---|---|
+| **continu (les neuf)** | 9 | **198** | **oui** | continuité entre sessions |
+| session 349 | 5 | 110 | non | aucune |
+| session 350 | 4 | 88 | non | aucune |
+
+**Seule la chaîne continue atteint 128 bits.** C'est le prix, et il est écrit.
+
+### Deux bugs que le témoin a attrapés
+
+Le témoin rejoue des chaînes synthétiques ayant **exactement les mêmes trous**
+que le dossier. Il a trouvé deux choses :
+
+1. **L'énumération du noyau était fausse** — et le §52 avait le même défaut.
+   Flipper une variable libre sans corriger les composantes pivots ne donne pas
+   un autre point de l'espace des solutions. Cela ne marchait que par accident,
+   sur les familles dont les directions libres sont inertes (taus88). Corrigé
+   par une vraie base du noyau : LFSR113 (22 dimensions) et xorshift128+ (17)
+   passent alors de 0/2 à 4/4.
+2. **La vérification était trop lente** : rejouer 237 tirages par candidat.
+   Remplacée par un préfiltre à un seul tirage — 20 pas au lieu de 4 740.
+
+| famille | n | rang | noyau | retrouvés |
+|---|---|---|---|---|
+| xorshift32 / 64 / 96 / 128 | 32–128 | plein | 0 | **4/4** |
+| taus88 | 96 | 88 | 8 | **4/4** |
+| LFSR113 | 128 | 106 | 22 | **4/4** |
+| xoroshiro128, xoshiro128 | 128 | 128 | 0 | **4/4** |
+| **xorshift128+ (V8)** | 128 | 116 | 12 | **4/4** |
+| xoroshiro128+ | 128 | 109 | 19 | **4/4** |
+| xoshiro256 | 256 | 198 | 58 | 0/4 — *sous-déterminé, il faut 11,6 tirages* |
+
+### Sur les neuf tirages du dossier
+
+**Chaîne continue, 198 bits :**
+
+| famille | rang atteint | verdict |
+|---|---|---|
+| xorshift32 | 32 | **INCOHÉRENT — exclu** |
+| xorshift64 | 63 | **INCOHÉRENT — exclu** |
+| xorshift96 | 94 | **INCOHÉRENT — exclu** |
+| xorshift128 | 128 | **INCOHÉRENT — exclu** |
+| taus88 | 88 | **INCOHÉRENT — exclu** |
+| LFSR113 | 106 | **INCOHÉRENT — exclu** |
+| xoroshiro128 (brut) | 125 | **INCOHÉRENT — exclu** |
+| xoshiro128 (brut) | 127 | **INCOHÉRENT — exclu** |
+| **xorshift128+ (V8)** | 118 | 1 024 candidats du noyau, **aucun état** |
+| xoroshiro128+ | 118 | 1 024 candidats, **aucun état** |
+| xoshiro256 | — | budget insuffisant |
+
+Session 349 seule exclut xorshift32/64/96 et taus88 ; session 350 seule exclut
+xorshift32/64. **Total : 16 attaques, 0 état compatible.**
+
+> Un système **incohérent** exclut la famille sans appel : il n'y a pas de marge
+> d'erreur à discuter, pas de seuil, pas de p-valeur. Et c'est la **première
+> fois** que `Math.random` de V8 est écarté sous un échantillonneur quelconque.
+
+### Ce que cela ne dit pas
+
+1. **Tout ceci suppose Fisher-Yates.** La branche « rejet modulo » est traitée
+   séparément (§81, §82) et n'a pas le même budget.
+2. **Tout ceci suppose l'ordre de lecture** — l'hypothèse silencieuse du §73.
+   La grille affichée est lue ligne par ligne ; si l'affichage ne suivait pas
+   l'ordre d'émission, tous les systèmes seraient incohérents *trivialement*, et
+   le résultat ne vaudrait rien. C'est la faiblesse principale de ce paragraphe,
+   et elle ne se lève qu'en confrontant l'ordre affiché à une autre source.
+3. **xoshiro256 reste ouvert** : 11,6 tirages ordonnés sous Fisher-Yates, il en
+   manque trois.
+
+**Registre : `h65.chaine_fy_complete`, 0 état compatible, conforme. m = 3 431,
+zéro significatif.**
+
+> **Correction au §85.** La carte de décision annonçait « additif sous modulo :
+> 4 tirages consécutifs, 20 minutes ». Les tirages sont là, mais la ligne était
+> optimiste : sous *rejet* le motif des mots rejetés coûte 2⁴², et c'est la
+> branche *Fisher-Yates* — que la carte ne mentionnait pas — qui a livré le
+> résultat. La collecte demandée était la bonne ; la raison ne l'était pas.
