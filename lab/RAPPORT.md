@@ -9837,6 +9837,71 @@ de pas — mais le dossier n'en a que neuf tirages.
 
 **Registre : consigné.**
 
+## 101. La carte vérifiée : lire les sources plutôt que la prose (`h82_carte_verifiee.py`)
+
+La carte de couverture a menti **deux fois aujourd'hui** — §97 et §98 — et pour
+la même raison : *une conclusion recopiée plus largement que sa source*. Une
+carte tenue à la main dérive de sa base de code. Celle-ci **se recalcule**.
+
+`h82` ne recopie rien : il lit les sources C et en extrait les tableaux de noms
+que chaque programme utilise pour **s'annoncer lui-même** (`GEN_NAME`,
+`FAM_NAME`, `SAMP_NAME`, ou à défaut ses fonctions d'échantillonnage).
+
+### Ce que les neuf outils couvrent réellement
+
+| outil | lignes | générateurs | échantillonneurs |
+|---|---|---|---|
+| `sweep_java48.c` | 276 | — | **1** (`java_fy` seul) |
+| `sweep_keys.c` | 302 | 12 | — |
+| `sweep_linked.c` | 348 | 12 | 4 |
+| `sweep_modern.c` | 1124 | **40** | 4 |
+| `sweep_mt.c` | 336 | — | 5 |
+| `sweep_order.c` | 430 | 12 | 4 |
+| `sweep_rand.c` | 554 | **20** | **6** |
+| `sweep_time.c` | 339 | 8 | 4 |
+
+**La couverture réelle est plus riche que la prose ne le disait.** `sweep_rand.c`
+inclut les quatre types de `glibc random()` — **T1 (7,3), T2 (15,1), T3 (31,3),
+T4 (63,1)**, c'est-à-dire les Fibonacci retardés — plus MINSTD, RANDU,
+Borland/Delphi, et deux échantillonneurs `nextDouble` que la carte ne mentionne
+nulle part. `sweep_modern.c` couvre quarante familles dont Philox, ThreeFry,
+ChaCha8/12/20, sfc64, jsf64, wyrand, romuTrio, romuDuoJr.
+
+> **Correction à mon propre §99 :** j'y écrivais que les Fibonacci retardés
+> n'étaient pas couverts. C'est faux pour glibc — ses quatre types sont dans
+> `sweep_rand.c`. Ce qui reste vrai, et vérifié mécaniquement ici, c'est
+> l'absence de **`System.Random`** et de **`mt_rand`**.
+
+### Le mensonge de `sweep_java48.c`, relu dans la source
+
+```
+sweep_java48.c annonce 1 échantillonneur(s) : java_fy
+```
+
+Un Fisher-Yates partiel, et rien d'autre. La carte annonçait « rejet / FY
+modulaire ». C'est **exactement** ainsi que le défaut se voit : le fichier n'a
+aucun tableau `SAMP_NAME`, donc on lit ses fonctions — et il n'y en a qu'une.
+
+### Ce qui n'est dans aucune source
+
+| famille | pourquoi elle compte |
+|---|---|
+| **`System.Random` (.NET)** | Fibonacci de Knuth, lags effectifs **55/34** mod 2³¹−1, sortie par troncature. La bibliothèque standard de tout back-end .NET. |
+| **`mt_rand` (PHP < 7.1)** | le §72 le présente comme MT19937 — **faux** : son `twist` prend `loBit(u)` au lieu de `loBit(v)`. |
+| **MWC / SWB** | générateurs à retenue, nommés au §91. Et une piste : ils sont **équivalents à un LCG multiplicatif modulo `a·2³²−1`**, ce qui est par où il faudrait les attaquer. |
+
+Les deux premières sont désormais couvertes **autrement** — les §79 et §80
+cherchent la récurrence plutôt que la graine, et une récurrence linéaire
+d'ordre ≤ 2 mod 2^k y est exclue quelles que soient ses constantes. La
+troisième reste ouverte.
+
+### La règle qui en découle
+
+> **Une ligne de carte ne doit jamais être plus large que la source qu'elle
+> cite. Quand les deux divergent, c'est la source qui a raison.**
+
+**Registre : inchangé.** h82 ne teste rien — il vérifie une prose contre du code.
+
 ## 100. Le théorème du bit zéro : le §89 est bien plus large qu'il ne le dit (`h81_bit_zero.py`)
 
 Cette session a corrigé le §89 **deux fois, en sens contraire**, sur deux axes
