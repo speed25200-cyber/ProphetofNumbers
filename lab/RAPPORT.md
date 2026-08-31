@@ -11525,3 +11525,86 @@ générateur le plus déployé de la planète. Il n'y était pas.
 - les sorties **multipliées** : PCG, splitmix64, xoshiro\*\*.
 
 **Registre : consigné.** `m = 58 073`, zéro significatif.
+
+---
+
+## 113. Deux mots par numéro : l'hypothèse que toutes mes attaques faisaient sans le dire (`h94_mots_par_numero.py`)
+
+### L'hypothèse cachée
+
+Les §103 à §112 supposent tous, **sans jamais l'écrire**, qu'un numéro coûte
+**un** mot de générateur. Le stride vaut 20, 21, 79 ou 80, et le mot du pas `k`
+du tirage `d` occupe la position `(d − d₀)·stride + k`.
+
+Ce n'est pas vrai en général, et la vérification tient en trois lignes de Java,
+exécutées sur cette machine :
+
+```
+new Random(424242L).nextDouble()        →  0.35987869081344237
+deux next() consécutifs                 →  1545667241, 508083266
+(((w1>>>6) << 27) + (w2>>>5)) · 2⁻⁵³    →  IDENTIQUE
+```
+
+`nextDouble()` consomme **deux** mots de 32 bits — et il en va de même de toute
+implémentation qui fabrique un double 53 bits depuis un générateur 32 bits.
+
+> **Un tirage de vingt numéros coûte alors quarante mots, pas vingt.**
+
+Et une attaque à stride faux n'échoue pas bruyamment : elle rend
+« incompatible », et je consigne « exclu ». C'est le piège du renversement de
+cache du §112 sous une autre forme.
+
+### Le théorème du premier mot
+
+> Si `u = (a·2²⁷ + b)·2⁻⁵³` avec `a = next(26)` et `b = next(27)`, alors
+> `|u − a/2²⁶| < 2⁻²⁶`, tandis que l'intervalle de troncature a pour largeur
+> `1/K ≥ 1/80`. Donc `floor(u·K)` ne dépend que de `a`, sauf à moins de
+> `K·2⁻²⁶ < 1,2·10⁻⁶` près.
+>
+> Les équations de préfixe portent donc sur le **premier** mot de la paire ; le
+> second n'est **jamais** observé. ∎
+
+**Le budget d'information est inchangé** — 89,7 équations par tirage, portée 807
+bits. Seule l'**indexation** change : `position = (d − d₀)·stride + k·m`.
+
+### Le témoin
+
+| famille | m = 1 | m = 2 |
+|---|---|---|
+| xorshift32, xorshift64, xorshift96, xorshift128 | oui | **oui** |
+| taus88, xoroshiro128, xoshiro128, xoshiro256 | oui | **oui** |
+| LFSR113, WELL512a, **V8 Math.random** | oui | **oui** |
+
+**21/21 états retrouvés.** L'indexation à deux mots par numéro tient.
+
+### L'archive
+
+| | |
+|---|---|
+| systèmes (11 familles × 12 strides × 2 conventions) | **264** |
+| **exclus par incompatibilité** | **264** |
+| non testés | 0 |
+| **états compatibles** | **0** |
+
+### Ce que cela change
+
+**Trois pièges silencieux, trois sections.** Le §112 a montré qu'un cache
+renversé fait échouer une attaque sans bruit ; celle-ci montre qu'un nombre de
+mots par numéro mal deviné fait exactement pareil. Dans les deux cas l'attaque
+rend « incompatible » et le registre enregistre « exclu ».
+
+> **Une exclusion ne vaut que pour le modèle de consommation testé, et ce modèle
+> doit être énuméré explicitement — pas supposé.**
+
+Le dossier compte désormais quatre axes de modèle :
+
+| axe | valeurs | où |
+|---|---|---|
+| échantillonneur | modulo / troncature | §94, §105 |
+| pas | fixe / variable | §95, §111 |
+| **consommation** | **un / deux mots par numéro** | **§113** |
+| ordre de service | direct / cache renversé | §112 |
+
+Rien ne garantit qu'il n'y en ait pas un cinquième.
+
+**Registre : consigné.** `m = 58 074`, zéro significatif.
