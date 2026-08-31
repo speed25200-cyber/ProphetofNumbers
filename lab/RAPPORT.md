@@ -11699,3 +11699,93 @@ formes propagées, élimination en C — **sans ordre d'émission et sans tirage
 consécutifs**. WELL19937 en fait partie.
 
 **Registre : consigné.** `m = 58 075`, zéro significatif.
+
+---
+
+## 115. Le cinquième axe : où commencent les vingt mots dans le bloc (`h96_decalage.py`)
+
+### Le §113 avait prédit un cinquième axe. Il existe.
+
+Le §113 concluait : *« rien ne garantit qu'il n'y ait pas un cinquième [axe de
+modèle] »*. Il y en a un, et c'est le plus bête de tous : le **décalage**.
+
+Les §105 à §114 placent tous le mot du pas `k` à la position
+`(i − i₀)·stride + k·m` — donc ils supposent que les vingt mots du tirage
+commencent **au début** du bloc de stride. Rien ne le justifie :
+
+| consommation | décalage |
+|---|---|
+| `[boost][n₁..n₂₀][bonus]` | **1** |
+| `[n₁..n₂₀][bonus][boost]` | 0 — *le seul testé* |
+| `[bonus][boost][n₁..n₂₀]` | **2** |
+
+Les trois consomment vingt-deux mots et sont **indistinguables du point de vue
+du stride**. Et l'échec est silencieux, comme les deux précédents : un décalage
+faux rend le système incompatible et le registre note « exclu ».
+
+### Le témoin, qui est la démonstration du problème
+
+On plante un état avec un décalage de **3**, et on demande à l'attaque de le
+retrouver — d'abord en balayant les décalages, puis au décalage 0 seul.
+
+| | trouvé par balayage | trouvé à 0 seul |
+|---|---|---|
+| **9 / 10** familles | **oui** | **0 / 10** |
+
+> **Sans balayer les décalages, l'attaque aurait déclaré « exclu » un générateur
+> qu'elle vient de reconstituer** — dix fois sur dix.
+
+*(LFSR113 est la dixième : son rang sature à 109 sur 128, donc son noyau fait 19
+dimensions à chaque décalage et le parcours coûterait 2¹⁹ par système. Plafonné
+à 12, il est déclaré **non testé** sur cet axe pour le témoin — et non exclu. La
+distinction est celle du §105.)*
+
+### L'archive
+
+| | |
+|---|---|
+| strides balayés | 8 (20 à 24, 40 à 42) |
+| décalages | **tous**, de 0 à `stride−1` |
+| conventions de Fisher-Yates | 2 |
+| **systèmes** | **5 126** |
+| **exclus par incompatibilité** | **5 126** |
+| non testés | 0 |
+| **états compatibles** | **0** |
+
+Sur l'archive, tous les systèmes sont incompatibles **avant même** d'atteindre
+l'étape du noyau — y compris LFSR113. L'exclusion y est donc complète, malgré
+le plafond posé pour le témoin.
+
+### Ce que cela coûte, et pourquoi cela ne coûte rien
+
+Le budget d'information est **inchangé** : on observe toujours vingt mots par
+tirage, donc 89,7 équations. Le coût est en **nombre d'hypothèses** — il faut
+balayer `stride` décalages par stride.
+
+> **Et c'est là la vertu des exclusions par incohérence : elles ne se paient
+> d'aucune correction de multiplicité.** Balayer cinq mille hypothèses de
+> consommation ne coûte que du temps machine, là où cinq mille tests
+> *statistiques* auraient exigé un seuil cinq mille fois plus dur. Le registre
+> compte `m = 58 076` hypothèses corrigées par Holm ; les 5 126 systèmes de ce
+> fichier n'y ajoutent **qu'une ligne**, parce qu'un système linéaire
+> incohérent n'est pas un test.
+
+### Le modèle de consommation, énuméré au complet
+
+| axe | valeurs | où |
+|---|---|---|
+| échantillonneur | modulo / troncature | §94, §105 |
+| pas | fixe / variable | §95, §111 |
+| consommation | un / deux mots par numéro | §113 |
+| ordre de service | direct / cache renversé | §112 |
+| **décalage** | **0 à stride−1** | **§115** |
+
+**Trois de ces cinq axes ont été trouvés après coup**, et chacun faisait échouer
+les attaques **sans bruit**. C'est le vrai enseignement de ces trois sections,
+et il vaut au-delà de ce dossier :
+
+> Une attaque algébrique qui rend « incompatible » ne dit pas *« ce n'est pas ce
+> générateur »*. Elle dit *« ce n'est pas ce générateur **sous ce modèle de
+> consommation** »*. Le modèle doit être **énuméré, pas supposé**.
+
+**Registre : consigné.** `m = 58 076`, zéro significatif.
