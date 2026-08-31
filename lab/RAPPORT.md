@@ -7241,7 +7241,8 @@ qui validerait l'ordre rétrospectivement.
 
 | famille | échantillonneur | § | condition |
 |---|---|---|---|
-| LCG mod 2⁴⁸ (`java.util.Random`) | rejet / FY modulaire | §34 | 2-adique, **2⁴⁸ complets**, toute graine |
+| LCG mod 2⁴⁸ (`java.util.Random`) | **Fisher-Yates seulement** | §34 | 2-adique, **2⁴⁸ complets**, toute graine |
+| LCG mod 2⁴⁸ (`java.util.Random`, `drand48`) | **rejet** | §97 | 2-adique, **2⁴⁸ complets**, couverture 1 − 9,4·10⁻¹² |
 | LCG à constantes connues | multiply-shift | §24 | réseau LLL + Babai, 9/9 témoins |
 | LCG à constantes **inconnues** | ordonné | §25 | théorème des deux états, (a,c) calculés |
 | 12 familles | 4 échantillonneurs | §34 | graines [0, 2³²) **énumérées** |
@@ -9756,6 +9757,15 @@ Le §34 a mené deux campagnes qui **se croisent sans se recouvrir** :
 |---|---|---|
 | `sweep_java48` | **les 2⁴⁸ complets** | Fisher-Yates **seulement** |
 | `sweep_order` | graines **[0, 2³²) seulement** | 4 échantillonneurs |
+
+**Et la carte de décision du §73 disait le contraire.** Elle portait la ligne
+*« LCG mod 2⁴⁸ (`java.util.Random`) | **rejet / FY modulaire** | §34 | 2⁴⁸
+complets »* — donc « rejet couvert ». Vérification faite dans la source :
+`tools/sweep_java48.c` ne contient qu'**une seule** fonction
+d'échantillonnage, `java_fy`, un Fisher-Yates partiel à `nextInt(80−i)`. Il
+n'y a **aucun** échantillonneur par rejet dans ce fichier. La carte
+surestimait la couverture du §34 ; elle est corrigée, et c'est exactement le
+genre d'écart qui fait croire une case fermée alors qu'elle est ouverte.
 
 Or `new Random()` en Java tire sa graine de `nanoTime` mêlée à un compteur :
 l'état est un **48 bits arbitraire**, hors de portée d'un balayage 2³². Et
