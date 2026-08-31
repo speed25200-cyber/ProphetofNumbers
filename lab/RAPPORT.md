@@ -11425,3 +11425,103 @@ Trois régimes, trois coûts, et la frontière entre le deuxième et le troisiè
 est ce qui sépare une attaque possible d'une attaque impossible.
 
 **Registre : consigné.** `m = 58 072`, zéro significatif.
+
+---
+
+## 112. Le `Math.random` de V8 : la case que j'avais déclarée sans espoir (`h93_v8.py`)
+
+### Ce que j'ai affirmé, et qui était faux
+
+J'ai écrit dans ce dossier — plusieurs fois, et jusque dans une réponse où je
+chiffrais mes chances de succès — que `Math.random` de V8 depuis 2016 était
+**`xorshift128+`**, donc à sortie **additive**, donc hors d'atteinte des §103 à
+§111. Je l'ai classé dans la case « aucune quantité de données n'y change
+rien ».
+
+**C'est faux.** V8 a laissé tomber le « + » :
+
+```cpp
+void XorShift128(uint64_t* state0, uint64_t* state1) {
+  uint64_t s1 = *state0;  uint64_t s0 = *state1;
+  *state0 = s0;
+  s1 ^= s1 << 23;  s1 ^= s1 >> 17;  s1 ^= s0;  s1 ^= s0 >> 26;
+  *state1 = s1;
+}
+double ToDouble(uint64_t state0) {
+  return bit_cast<double>((state0 >> 12) | 0x3FF0000000000000) - 1;
+}
+```
+
+La sortie est `ToDouble(state0)` — **l'état lui-même**, pas une somme. C'est un
+xorshift128 à deux mots de 64 bits, décalages 23/17/26, **purement
+F2-linéaire**. Et ce n'est **pas** le xorshift128 de Marsaglia du catalogue du
+§68 (quatre mots de 32 bits, décalages 11/8/19). Personne ne l'avait testé.
+
+> Et c'est le générateur le plus probable pour une plateforme web.
+
+### La validation : contre V8, pas contre ma mémoire
+
+Le fichier ne me croit pas sur parole — il lance `node` :
+
+| | |
+|---|---|
+| valeurs de `Math.random()` lues depuis node v22.22.2 | 192 |
+| état reconstitué à partir de | **4** d'entre elles |
+| `state0` | `0xa9ab4a81b6394e10` |
+| `state1` | `0x3b709ca7e1457b7c` |
+| **sorties reproduites** | **192/192 — modèle confirmé** |
+
+Un détail qui a failli me tromper : les 12 bits bas de `x₂` **n'influencent pas
+du tout** les 52 bits hauts de `x₃`. Un test à trois termes laisse donc 4 096
+candidats équivalents et j'en avais retenu un mauvais. Il faut un **quatrième**
+terme pour les fixer.
+
+### Le théorème du cache
+
+V8 ne génère pas un nombre à la fois : il remplit un cache de 64 **en avant**
+et le consomme **en arrière** (`return cache[--index]`).
+
+> **Théorème du cache.** L'application qui envoie l'indice applicatif `j` sur
+> l'indice générateur
+>
+>     g(j) = 64·(j // 64) + 63 − (j mod 64)
+>
+> est une **involution**, connue, et **indépendante de l'état**. Les équations
+> de préfixe (§105) se transportent donc telles quelles : seule l'indexation
+> change. ∎
+
+**Un renversement de cache ne protège rien — mais il fait échouer
+silencieusement toute attaque qui suppose un flux en avant.** C'est peut-être
+pour cela que tout revenait vide.
+
+### Le résultat
+
+**Témoin : 3/3** — états de V8 reconstitués sur le motif d'identifiants réel de
+l'archive, trous **et** renversement de cache compris, ~810 équations pour 128
+bits d'état. Deux tirages ordonnés auraient suffi ; j'en ai neuf.
+
+| stride | essais | **exclus** | poussés au rejeu | compatibles |
+|---|---|---|---|---|
+| 20, 21, 22, 79, 80, 81 × 2 conventions × 64 phases | **768** | **768** | 0 | **0** |
+
+**0 état compatible sur 768 systèmes**, tous exclus par incompatibilité du
+système linéaire — la forme d'exclusion la plus forte du dossier.
+
+### Ce que cela change
+
+**C'est une correction de ma part, et la leçon est celle du §101.** J'ai passé
+la session à classer les « sorties additives » hors d'atteinte, en y mettant le
+générateur le plus déployé de la planète. Il n'y était pas.
+
+> Une famille qu'on croit connaître mérite d'être **lue dans le code**. Le §101
+> l'avait établi pour la carte de couverture ; je viens de commettre exactement
+> la même faute sur une bibliothèque — et il a fallu `node` pour me le prouver.
+
+**Reste vraiment additif**, cette fois vérifié :
+
+- **SpiderMonkey** (Firefox) et **JavaScriptCore** (Safari), qui utilisent bien
+  `xorshift128+` avec la somme ;
+- les **CSPRNG** : `crypto.getRandomValues`, `random_int` de PHP, `/dev/urandom` ;
+- les sorties **multipliées** : PCG, splitmix64, xoshiro\*\*.
+
+**Registre : consigné.** `m = 58 073`, zéro significatif.
