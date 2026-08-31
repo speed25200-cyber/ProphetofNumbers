@@ -9837,6 +9837,113 @@ de pas — mais le dossier n'en a que neuf tirages.
 
 **Registre : consigné.**
 
+## 99. Chercher la récurrence au lieu de la graine (`h78`, `h79`, `h80`)
+
+Trois fichiers, une seule idée : **arrêter de demander « quelle famille ? »**.
+
+### Le constat qui les déclenche
+
+Les douze familles balayées au §34 sont, mot pour mot :
+
+```
+java.util.Random, LCG32 MSVC, LCG32 glibc, xorshift32, xorshift64*,
+splitmix64, pcg32, LCG64 MMIX, xoshiro256**, xoshiro128**, xoroshiro128+, pcg64
+```
+
+Il y manque **`System.Random` de .NET** et **`mt_rand` de PHP** — les deux
+bibliothèques standard les plus répandues du web, et exactement ce qu'un
+opérateur régional utiliserait. Le §72 affirme même que `mt_rand` *est*
+MT19937 : **c'est faux**, jusqu'à PHP 7.1 son `twist` prend `loBit(u)` au lieu
+de `loBit(v)` — vingt ans de bug, et un générateur différent.
+
+### §78 — les douze hoquets : chercher le ré-amorçage là où le serveur trébuche
+
+L'horodatage est une grille de 300 s. Le §63 s'en sert pour la graine horaire
+et note « 70 548 sur 70 560 » sans lire les exceptions. Elles se séparent en
+trois :
+
+| | | |
+|---|---|---|
+| 343 | 25 500 s (21:00 → 04:05 UTC) | la **fermeture nocturne** |
+| 2 | 29 100 s et 21 900 s, le 26 oct. et le 29 mars | les **changements d'heure** |
+| **12** | un tirage **en retard de 1 à 5 s**, aussitôt rattrapé | **le serveur a hoqueté** |
+
+Le retard n'est jamais cumulatif : la cadence est **absolue**, et quelque chose
+a bloqué le processus juste avant. Sur un service métronomique, c'est une pause
+longue ou un **redémarrage** — donc, pour un générateur non cryptographique, un
+**ré-amorçage**.
+
+La conjonction testée n'avait jamais été faite : le §63 balaie la **seconde**
+contre l'archive, le §34 la **milliseconde** mais contre les cinq tirages
+ordonnés. Ici : la **milliseconde contre l'archive, aux instants de
+redémarrage**. Et la cible est fixée **par le calendrier seul**, avant tout
+regard sur les numéros — pas de pêche aux données.
+
+> **1 148 046 390 graines testées, 0 compatible.** Six familles × trois formes
+> de graine × (12 hoquets à fenêtre d'une heure + 343 ouvertures de session à
+> une minute). Témoin **4/4 par famille** à l'échelle réelle. Espérance de faux
+> positifs : 3,2·10⁻¹⁰.
+
+### §79 et §80 — la signature d'une récurrence
+
+Le levier est le **§94** : comme `16` divise à la fois `80` et `2^k`, une
+relation linéaire sur l'état **descend exactement** sur les quartets des
+numéros.
+
+> `(n_i − 1) = a·(n_{i−p} − 1) + b·(n_{i−q} − 1) + c (mod 16)`
+>
+> avec `a, b, c` **inconnus** — trois entiers de quatre bits qu'on balaie, sauf
+> `c` qu'on **ajuste par le mode** de la différence. Ni graine, ni état, ni
+> constantes : seulement des numéros consécutifs.
+
+Cela couvre d'un seul coup : `b = 0` → **tout LCG mod 2^k à constantes
+inconnues** ; `a = b = 1` → les **Fibonacci retardés** (dont .NET) ; `a, b`
+quelconques → **toute récurrence linéaire d'ordre deux**.
+
+**Deux bugs attrapés par le témoin**, et ils valent d'être dits : les lags
+effectifs de `System.Random` ne sont pas les 24/55 de la littérature mais
+**55/34** — l'indexation circulaire les déplace — et la relation a **p > q**,
+qu'un balayage `p < q` manquerait.
+
+| témoin | p | q | a | b | c | succès | z |
+|---|---|---|---|---|---|---|---|
+| .NET `System.Random`, troncature | **55** | **34** | −1 | | | **25/25** | — |
+| Fibonacci additif, modulo | **24** | **55** | +1 | | | **25/25** | — |
+| LCG mod 2³², constantes inconnues | 1 | — | **13** | — | **9** | **79/79** | **+34,4** |
+| récurrence `(3, 7, 13)` aux lags `(2,5)` | **2** | **5** | **3** | **7** | **13** | **75/75** | **+33,5** |
+| bruit uniforme | | | | | | 16/73 | +5,5 |
+
+`1103515245 mod 16 = 13`, `12345 mod 16 = 9` : **le test retrouve les
+constantes elles-mêmes.**
+
+### Et la leçon du null
+
+| | z observé | null : moyenne | **p** |
+|---|---|---|---|
+| §79, signature additive | **+5,19** | **+5,33** | 0,4713 |
+| §80, signature générale | **+5,78** | **+6,17** | 0,7512 |
+
+> **Un z de +5,19 aurait l'air décisif isolément — et il tombe *sous* la
+> moyenne du null.** Balayer 23 760 combinaisons produit un maximum de ~5,3 tout
+> seul. C'est la raison d'être de l'étape par permutation, et c'est pourquoi
+> aucun « signal » de ce dossier n'est annoncé sans elle.
+
+**Registre : m = 3 504 puis 3 505, zéro significatif.**
+
+### Ce que cela ferme, et ce que cela ne ferme pas
+
+**Fermé** : toute récurrence linéaire d'ordre ≤ 2 modulo une puissance de deux,
+à sortie brute, décalages jusqu'à 30, **constantes quelconques** — sans avoir
+essayé une seule graine. Plus le ré-amorçage horaire aux douze redémarrages et
+aux 343 ouvertures de session.
+
+**Non fermé** : les sorties **non brutes** (un décalage, une troncature ou un
+brouillage cassent la descente mod 16 — le §97 traite le premier cas) ; les
+**ordres supérieurs à deux** (MT19937 est d'ordre 624) ; les générateurs **à
+retenue**, dont le terme additif n'est pas une constante — l'échappatoire
+nommée au §91 ; et **l'alignement**, puisque sous rejet les doublons sautent
+des mots.
+
 ## 98. L'audit de la carte : trois défauts, et une famille débloquée (`h77_chaines_longues.py`)
 
 Le §97 a trouvé une ligne **fausse** dans la carte de couverture. Si une ligne
