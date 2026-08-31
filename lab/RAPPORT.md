@@ -10707,3 +10707,106 @@ en « voici ce qu'il faut collecter ».
 - le pas **variable** (rejet), qui casse l'alignement des mots — §95.
 
 **Registre : consigné.**
+
+---
+
+## 106. Le préfixe porté aux 70 560 tirages : la troncature sur l'archive entière (`h87_bonus_prefixe.py`)
+
+### Ce que le §105 laissait sur la table
+
+Le théorème du préfixe donne 4,48 équations F2 par mot — mais il exige
+l'**ordre d'émission**, pour reconstruire l'indice de Fisher-Yates. Et l'ordre
+n'existe que sur **neuf** tirages : quatre-vingts mots consécutifs au mieux,
+d'où les 126 systèmes déclarés « non testés » du §105.
+
+L'archive, elle, compte **70 560** tirages. Triée, donc muette sur l'ordre.
+Sauf qu'il reste un champ.
+
+### Le fait structurel, relu par l'autre bout
+
+Le `bonus` est **toujours** l'un des vingt numéros tirés — 70 560 sur 70 560,
+là où l'indépendance en prédirait 17 640. Ce n'est pas un tirage
+supplémentaire : c'est une **désignation**.
+
+Le dossier connaissait ce fait, mais ne l'avait lu qu'à travers
+l'échantillonneur **modulo** : le §89 prend `(bonus − 1) mod 16`, les quatre
+bits **bas**, et le §100 étend la portée de ce calcul.
+
+Sous **troncature**, la même donnée dit autre chose. Une désignation par indice
+s'écrit `bonus = tirés[floor(u·20)]`, et le **rang** du bonus parmi les vingt
+numéros **triés** — le nombre de numéros tirés qui lui sont inférieurs, donc
+calculable depuis l'archive — vaut alors `floor(u·20)`. C'est une observation
+de troncature, **exacte**, disponible sur les 70 560 tirages.
+
+| | §105 | §106 |
+|---|---|---|
+| `K` | 61 à 80 | **20** |
+| bits F2 par observation | 4,48 | **3,20** |
+| observations | 80 mots | **70 560** |
+| ordre d'émission requis | oui | **non** |
+| stride | 20 (supposé) | **21, fixe** |
+
+Moins par observation, sept mille fois plus d'observations. Et le stride est
+**fixe** — vingt mots pour le Fisher-Yates, un pour l'indice : c'est
+exactement ce que le §95 reprochait au bonus lu comme sortie brute sous rejet,
+où le nombre de mots consommés varie.
+
+La loi du rang est uniforme (χ² = 27,5 sur 19 ddl), ce qui est attendu sous
+**toute** désignation raisonnable et ne discrimine rien.
+
+### Le témoin, et une colonne qui compte
+
+| famille | état | tirages | rang | noyau | retrouvé | ×4 tirages |
+|---|---|---|---|---|---|---|
+| xorshift32 | 32 | 34 | 32 | 0 | **oui** | |
+| xorshift64 | 64 | 64 | 64 | 0 | **oui** | |
+| xorshift96 | 96 | 94 | 96 | 0 | **oui** | |
+| xorshift128 | 128 | 124 | 128 | 0 | **oui** | |
+| taus88 | 96 | 94 | 88 | 8 | **oui** | *structurel* |
+| xoroshiro128 (brut) | 128 | 124 | 128 | 0 | **oui** | |
+| xoshiro128 (brut) | 128 | 124 | 128 | 0 | **oui** | |
+| xoshiro256 (brut) | 256 | 244 | 256 | 0 | **oui** | |
+| LFSR113 | 128 | 124 | **98** | 30 | *hors de portée* | *structurel* |
+| **WELL512a** | **512** | 484 | 512 | 0 | **oui** | |
+
+**WELL512a mérite d'être signalé** : 512 bits d'état reconstruits depuis les
+seuls rangs du bonus. Le §105, avec ses quatre tirages ordonnés, ne pouvait pas
+l'atteindre — il lui fallait six.
+
+**La colonne « ×4 tirages » est là pour une raison.** Quand le rang plafonne
+sous la taille de l'état, il faut savoir si c'est faute de données ou par
+**structure**. On remesure donc à quatre fois plus de tirages. Mesure : le rang
+de LFSR113 reste à **98** de 124 à 2 000 tirages — les bits hauts d'un mot sur
+vingt-et-un n'atteignent qu'un sous-espace, et **aucune collecte n'y changera
+rien**. Promettre le contraire serait exactement la faute que le §101 a trouvée
+dans la carte. (LFSR113 reste exclu par le §105, qui l'atteint par l'ordre.)
+
+### Le verdict
+
+| | |
+|---|---|
+| systèmes | **4 580** (10 familles × 10 strides × tous les décalages internes) |
+| **exclus par incompatibilité** | **4 580** |
+| cherchés | 0 |
+| non testés | 0 |
+| **états compatibles** | **0** |
+
+Tous les systèmes sont **incompatibles** : les rangs observés ne peuvent venir
+d'aucun état d'aucune de ces familles, sous aucun des strides essayés. Pas un
+seul ne s'est même hissé jusqu'à l'étape du rejeu.
+
+### La limite, énoncée franchement
+
+Ce fichier teste le **couple** « générateur + désignation par indice dans le
+tableau **trié** ». Si la plateforme indexe le tableau dans l'**ordre
+d'émission**, le rang calculé est une permutation aléatoire du vrai indice et
+l'exclusion porte sur le couple, pas sur le générateur seul. C'est une limite
+de portée, consignée comme telle.
+
+**Reste** également MT19937 et WELL19937 : le budget de 3,20 bits par tirage
+les met à portée en **6 230 tirages**, largement disponibles dans l'archive.
+Ce qui bloque n'est pas la donnée mais le **coût de calcul** des formes
+linéaires. La différence avec le §105 est entière : là, il manquait des
+tirages ; ici, il manque des heures.
+
+**Registre : consigné.**
