@@ -129,6 +129,15 @@ des arguments d'un initialiseur par membre, il est contrôlé à part en
 extrayant l'ordre des champs de chaque `struct` et en le comparant à celui
 de son site de construction.
 
+## Dépendances
+
+Tout le labo tourne sur **numpy seul**, à une exception près : `h64_seuil_smt.py`
+demande **`z3-solver`** (`pip install z3-solver`). En son absence le fichier
+l'annonce et s'arrête — il ne fabrique aucun résultat de remplacement.
+
+Cette exception est assumée : le §84 mesure ce qu'un solveur SMT sait faire du
+mur nommé au §83, et cette mesure n'a pas d'équivalent en algèbre linéaire.
+
 ## Ce qui ne peut pas être tranché ici
 
 L'archive est **triée** : `n1..n20` est croissant sur les 70 560 lignes, donc

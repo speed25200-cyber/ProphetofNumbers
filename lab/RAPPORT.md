@@ -8320,3 +8320,145 @@ supposition : 2⁶⁸ branches sans élagage possible avant le rang plein.
 
 C'est la première fois que le dossier peut écrire son mur en une ligne au lieu
 d'une liste.
+
+---
+
+## 84. Le seuil de solvabilité SMT : le mur du §83, mesuré (`h64_seuil_smt.py`)
+
+Le §83 a réduit ce que le dossier n'atteint pas à une ligne : **sortie additive
++ échantillonneur par troncature** — `Math.random` de V8 avec
+`Math.floor(Math.random() * 80)`. Il concluait : « il faudrait un solveur
+algébrique là où le dossier n'a que de l'élimination de Gauss. » Ce fichier
+prend le solveur au mot.
+
+Il ne demande pas *« est-ce que ça marche »* — question binaire et peu
+informative — mais **où est la falaise**. C'est la seule façon de transformer un
+mur en distance.
+
+> **Dépendance assumée.** `h64` est le seul fichier du labo à demander
+> `z3-solver`. En son absence il l'annonce et s'arrête : il ne fabrique aucun
+> résultat de remplacement.
+
+### L'encodage compte, et beaucoup
+
+| mots | encodage | bits donnés | résultat | sec |
+|---|---|---|---|---|
+| 22 | intervalle `L ≤ out ≤ R` | 132 | unknown | 180,0 |
+| 22 | bits exacts (§82) | 119 | unknown | 180,0 |
+| 40 | intervalle | 240 | unknown | 180,1 |
+| 40 | bits exacts | 215 | unknown | 180,1 |
+| 100 | intervalle | 600 | unknown | 180,3 |
+| 100 | bits exacts | 528 | unknown | 190,9 |
+
+**Aucun des deux ne passe, et ajouter des mots n'y change rien.** À 100 mots on
+donne 600 bits d'information pour 128 inconnues — cinq fois de quoi déterminer
+l'état — et le solveur cale quand même. **Le problème n'est pas
+informationnel.**
+
+### La falaise
+
+À redondance **fixée** (384 bits = 3 × l'état), on fait varier le nombre de bits
+publiés par mot :
+
+| K bits/mot | mots | bits | résultat | sec |
+|---|---|---|---|---|
+| 64 | 6 | 384 | **sat EXACT** | 0,6 |
+| 32 | 12 | 384 | **sat EXACT** | 0,3 |
+| **16** | 24 | 384 | **sat EXACT** | **15,9** |
+| **12** | 32 | 384 | unknown | 180,0 |
+| 10 | 39 | 390 | unknown | 180,1 |
+| 8 | 48 | 384 | unknown | 180,1 |
+| 6 | 64 | 384 | unknown | 185,2 |
+
+> **La falaise est entre 16 et 12 bits par mot**, et elle est étroite — moins
+> d'un facteur deux. Elle ne dépend pas du nombre de mots : ce qui bloque est la
+> **largeur** de chaque contrainte, pas leur nombre. Chaque mot publie un
+> fragment trop court pour propager.
+
+### Où tombe le cas réel
+
+| cas | bits/mot | position |
+|---|---|---|
+| `Math.random` brut (52 bits) | 52,00 | **au-dessus** |
+| troncature vers 4 096 | 12,00 | sous |
+| troncature vers 256 | 8,00 | sous |
+| **troncature vers 80 — le cas réel** | **5,20** | **sous** |
+| modulo 80 (§68, mais là c'est linéaire) | 4,00 | sous |
+
+> **Le mur tient, et il est chiffré : facteur 3,08.** Le §83 nommait le mur ;
+> le §84 en donne la distance. Ce n'est pas « on n'a pas trouvé », c'est une
+> mesure.
+
+### Ce qui le franchirait, précisément
+
+1. **Un vivier plus grand.** La fuite par troncature vaut ~`log₂(vivier)` bits :
+   il faudrait **65 536 numéros** pour atteindre le seuil. Loto Express en a 80,
+   et aucune loterie n'en a autant.
+2. **Un solveur dédié** plutôt que généraliste — les attaques publiées sur
+   `Math.random` utilisent les 52 bits complets d'un double, pas 5,2.
+3. **Un générateur non additif** : le §82 traite ce cas, et il cède.
+
+### Ce que cela ne fait pas
+
+Un `unknown` n'est **pas** un `unsat` : le solveur n'a pas prouvé qu'il n'y a
+pas de solution, il a manqué de temps. Ce fichier ne conclut donc **rien** sur
+l'archive et ne consigne rien.
+
+**Registre : inchangé.** h64 mesure une capacité, il ne teste pas le tirage.
+
+---
+
+## 85. La carte de décision, après §78–§84
+
+Sept sections, un seul but : savoir **ce qui améliorerait réellement la
+prédiction**. Voici la carte, en ordre de coût croissant.
+
+### Ce qu'il faut, exactement
+
+Le §78 l'a chiffré une fois pour toutes : **trois bits de poids faible d'un seul
+mot** — celui qui produira le premier numéro du prochain tirage — portent le
+taux de retour de **0,583 à 1,309**. Quatre bits le portent à **1,765**. Il ne
+faut donc *pas* reproduire le générateur : il faut trois formes linéaires.
+
+Et le cas `r = 1` **survit aux deux échantillonneurs** (§78, correction) : au pas
+0, Fisher-Yates lit le tableau intact et tire modulo 80 comme le rejet.
+
+### Les deux voies, et leur état
+
+| voie | état | référence |
+|---|---|---|
+| **Statistique — biais stationnaire** | **close** : rentable à δ = 0,119, détectable à 0,049 | §79 |
+| **Statistique — biais par session** | **close** : nouveau test de sur-dispersion, témoin 40/40 | §79 |
+| **Générateur — F₂-linéaire, état ≤ 128 bits** | **testé, nul** sous les trois échantillonneurs | §81, §82 |
+| **Générateur — LFSR113 sous modulo** | **non identifiable** : noyau de 17 dimensions | §81 |
+| **Générateur — xoshiro256** | atteignable sous (C) : 1,9 tirage | §82 |
+| **Générateur — MT19937** | **343 tirages ordonnés**, pas 250 ; aucun raccourci | §80 |
+| **Générateur — additif sous modulo** | 4 tirages **consécutifs** ; le dossier en a 2 | §83 |
+| **Générateur — additif sous troncature** | **le mur**, distance mesurée ×3,08 | §83, §84 |
+
+### La seule action qui déplace quelque chose
+
+Toutes les lignes « générateur » du tableau butent sur la même chose, et ce
+n'est ni une idée ni une machine : ce sont des **tirages ordonnés consécutifs**.
+
+| cible | consécutifs requis | temps de collecte |
+|---|---|---|
+| xorshift 32/64/96/128, taus88, xoshiro/xoroshiro128 | 1 à 2 | **déjà fait — nul** |
+| xoshiro256 sous (C) | 2 | 10 min |
+| **additif (Math.random de V8) sous modulo** | **4** | **20 min** |
+| WELL512a | 7 | 35 min |
+| **MT19937** | **343** | **29 heures** |
+
+Le dossier en a **cinq, dont deux consécutifs**. `LeakBudget.swift` porte le
+compteur depuis le §70 ; il affiche désormais les bons paliers (§80, §82).
+
+> **Ce qu'il faut faire pour améliorer la prédiction n'est plus une question
+> mathématique. C'est une collecte de vingt minutes pour la cible la plus
+> plausible, et de vingt-neuf heures pour la plus coûteuse.**
+
+### Et si tout cela est nul aussi
+
+Alors il reste exactement une chose, et le §84 en donne la mesure : la
+combinaison **additive + troncature**, à un facteur 3,08 de ce qu'un solveur SMT
+généraliste sait digérer. Ce n'est pas une porte fermée, c'est une porte dont on
+connaît l'épaisseur.

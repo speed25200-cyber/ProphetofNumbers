@@ -114,6 +114,31 @@ enum LeakBudget {
          Double(drawn * highBitsPerWord))
     }
 
+    // MARK: Le mur, en une ligne (§83, §84)
+
+    // Le §83 a réduit ce que le dossier ne sait pas atteindre à une seule
+    // combinaison : **sortie ADDITIVE + échantillonneur par TRONCATURE**,
+    // c'est-à-dire `Math.random` de V8 (xorshift128+) avec le JavaScript
+    // idiomatique `Math.floor(Math.random() * 80)`.
+    //
+    // Le théorème de la retenue du §83 rend 1,875 équation linéaire par mot au
+    // lieu d'une chez les additifs — mais il part de la retenue nulle, donc des
+    // bits de POIDS FAIBLE, quand la troncature publie les bits de POIDS FORT.
+    //
+    // Le §84 mesure la distance au lieu de la déclarer : un solveur SMT
+    // retrouve l'état de xorshift128+ à 16 bits publiés par mot et cale à 12, à
+    // redondance fixée — et ajouter des tirages n'y change rien, ce qui bloque
+    // étant la LARGEUR de chaque contrainte, pas leur nombre. Le vivier de 80
+    // n'en publie que 5,2.
+    /// Bits par mot qu'un solveur SMT exige pour retrouver un état additif de
+    /// 128 bits (§84, mesuré). Le vivier réel en publie `truncationBitsPerWord()`.
+    static let smtSolvableFromBitsPerWord = 16
+
+    /// Ce qui manque pour que le mur tombe, en facteur sur la fuite par mot.
+    static var wallFactor: Double {
+        Double(smtSolvableFromBitsPerWord) / truncationBitsPerWord()
+    }
+
     struct Milestone {
         let draws: Int
         let family: String

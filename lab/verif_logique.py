@@ -688,6 +688,13 @@ def main():
     print(f"    par tirage : (A) {rej}  (B) {20*t80:.0f}  (C) {20*hb}   "
           f"le modulo est le plus avare")
 
+    # §84 : le mur mesure. Le seuil SMT est 16 bits/mot, le vivier en donne 5,2.
+    SMT = 16
+    m_ = abs(SMT / t80 - 3.077) < 0.01 and SMT > t80
+    ok &= m_
+    print(f"    §84 : seuil SMT {SMT} bits/mot contre {t80:.2f} publiés, "
+          f"facteur {SMT/t80:.2f}   {'ok' if m_ else 'ÉCHEC'}")
+
     # Les deux lectures du budget (§72, §75) : le decoupage en sessions,
     # mesure au §65 (ancre 1 309 794, periode 204).
     ANCRE, PER = 1_309_794, 204
