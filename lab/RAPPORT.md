@@ -8975,3 +8975,84 @@ cumul était comparé au seuil du boost suivant. Corrigé.)*
 
 **Registre : `h69.boost_seconde_donnee`, conforme. m = 3 527, zéro
 significatif.**
+
+---
+
+## 91. La portée réelle du §89 : deux classes, pas une (`h70_portee.py`)
+
+Le §89 concluait : *« toute famille F₂-linéaire dont l'état tient sous 35 280
+bits est exclue »*. C'est vrai, et **c'est trop modeste**. Berlekamp-Massey ne
+mesure pas la F₂-linéarité : il mesure la **complexité linéaire**. Or il existe
+une seconde façon, entièrement différente, d'avoir une complexité basse.
+
+### Le lemme
+
+> Une suite **éventuellement périodique** de période `P` et de pré-période `t₀` a
+> une complexité linéaire au plus `P + t₀`.
+>
+> *Preuve.* La suite vérifie `s(t+P) = s(t)` pour `t ≥ t₀`, donc le polynôme
+> `(x^P − 1)·x^{t₀}` l'annule. Le polynôme minimal annulateur le divise. ∎
+
+| période imposée | 7 | 64 | 500 | 3 000 |
+|---|---|---|---|---|
+| complexité mesurée | 7 | 63 | 500 | 2 998 |
+
+### La classe que le §89 couvrait sans le dire
+
+Un générateur **arithmétique** n'est pas F₂-linéaire. Mais si sa transition est
+un **polynôme à coefficients entiers modulo 2^k**, elle descend modulo `2^j` :
+les bits bas sont **fermés**, la suite observée est périodique, et le lemme la
+rend visible.
+
+Un tirage tous les 20 mots, sortie brute, 40 000 tirages :
+
+| générateur | bit | période | complexité | N/2 | |
+|---|---|---|---|---|---|
+| LCG mod 2⁶⁴ | 0 / 3 | 1 / 4 | **1 / 3** | 20 000 | **vu** |
+| LCG mod 2⁴⁸ (java brut) | 0 / 3 | 1 / 4 | **0 / 3** | 20 000 | **vu** |
+| congruentiel quadratique | 0 / 3 | 1 / 1 | **1 / 0** | 20 000 | **vu** |
+| **MWC 32 bits (Marsaglia)** | 0 / 3 | > 4 000 | **20 000** | 20 000 | *non vu* |
+
+Berlekamp-Massey ne rate pas les congruentiels d'un cheveu : il les rate de
+**quatre ordres de grandeur**.
+
+> **MWC échappe, et c'est instructif.** Sa transition n'est pas un polynôme
+> modulo 2^k : la retenue `c' = (a·x + c) div 2³²` est une quantité de la partie
+> **haute**. La réduction modulo `2^j` n'est pas bien définie, les bits bas ne
+> sont pas fermés. J'avais écrit « toute la famille arithmétique » — c'était trop
+> large, et c'est le calcul qui l'a corrigé.
+
+**Le §89 couvre donc deux classes :**
+
+1. les générateurs **F₂-linéaires** d'état ≤ 35 280 bits ;
+2. les générateurs à **transition polynomiale modulo 2^k et sortie brute** —
+   congruentiels linéaires et quadratiques, c'est-à-dire *l'implémentation naïve
+   par excellence*.
+
+### Où la portée s'arrête, exactement
+
+| générateur | complexité | N/2 | |
+|---|---|---|---|
+| `java.util.Random` (out = s ≫ 17) | 20 000 | 20 000 | **aveugle** |
+| PCG32 (sortie brouillée) | 20 001 | 20 000 | **aveugle** |
+| LCG brut + échantillonneur (B) | 20 000 | 20 000 | **aveugle** |
+
+> **La frontière n'est pas celle de la famille, c'est celle de l'observation.**
+> Un LCG est vu s'il sort brut, invisible s'il sort décalé — même générateur,
+> même état. Ce qui compte est de savoir si `out mod 16` ne dépend que des bits
+> fermés.
+
+### Ce qui reste hors de portée, et pour deux raisons distinctes
+
+**a) L'observation prend les bits hauts** — sorties décalées
+(`java.util.Random`), sorties brouillées (PCG, xoshiro\*\*/++, splitmix64),
+échantillonneur par troncature (§82). L'état peut être parfaitement fermé : on
+n'en voit pas la partie fermée. *C'est exactement le mur nommé au §83 et mesuré
+au §84.*
+
+**b) La transition ne descend pas modulo 2^j** — les générateurs **à retenue**
+(MWC, AWC, SWB de Marsaglia). Même à sortie brute, rien n'est fermé. *C'est une
+case que le dossier n'avait jamais ouverte, et le §91 la nomme pour la première
+fois.*
+
+**Registre : inchangé.** h70 établit la portée d'un test déjà consigné.
