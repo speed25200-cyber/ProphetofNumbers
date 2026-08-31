@@ -82,23 +82,43 @@ enum LeakBudget {
     //    troncature ne demande pas que le module soit pair.
 
     /// Bits exactement publiés par mot sous **troncature** : `n − 1 =
-    /// floor(out × pool / 2^w)` contraint `out` à un intervalle de largeur
-    /// `2^w / pool`, donc tous les bits de poids fort communs aux deux bornes
-    /// sont déterminés. Calculé, jamais tabulé — la valeur est stable dès
-    /// `w = 32` (5,2 pour un vivier de 80).
-    static func truncationBitsPerWord(pool: Int = pool, wordBits: Int = 32) -> Double {
-        let scale = UInt64(1) << UInt64(wordBits)
+    /// floor(out × pool / 2^w)` contraint `out` à un intervalle, et toute
+    /// forme linéaire constante sur cet intervalle est déterminée.
+    ///
+    /// ATTENTION — le §82 comptait ici les bits de poids fort **communs aux
+    /// bornes**, et c'était une SOUS-ESTIMATION. Une forme linéaire n'est pas
+    /// un bit : l'intervalle `[3,4] = {011, 100}` n'a aucun bit commun, et
+    /// pourtant `x₀ ⊕ x₁` y vaut 0 des deux côtés. Le §87 a mesuré le
+    /// supplément exhaustivement : **5,60 bits et non 5,20**.
+    ///
+    /// Le supplément suit une loi : il ne dépend que de `n mod q`, où `q` est
+    /// la partie **impaire** du vivier. Pour 80 = 2⁴ × 5, les numéros
+    /// `n ≡ 2 (mod 5)` publient deux formes de plus — 16 sur 80, soit 0,40
+    /// bit. Corollaire : la partie 2-adique gouverne la fuite du modulo (§68),
+    /// la partie impaire gouverne le supplément de la troncature.
+    ///
+    /// Le profil est **indépendant de la largeur du mot** (vérifié de 11 à 24
+    /// bits), donc le calcul se fait ici à 16 bits et vaut pour 32 et 64.
+    static func truncationBitsPerWord(pool: Int = pool) -> Double {
+        let w = 16
+        let scale = 1 << w
         var total = 0.0
         for n in 0..<pool {
-            let lo = (UInt64(n) * scale + UInt64(pool) - 1) / UInt64(pool)
-            let hi = (UInt64(n + 1) * scale + UInt64(pool) - 1) / UInt64(pool) - 1
-            var shared = 0
-            while shared < wordBits {
-                let sh = UInt64(wordBits - shared - 1)
-                if (lo >> sh) != (hi >> sh) { break }
-                shared += 1
+            let lo = (n * scale + pool - 1) / pool
+            let hi = ((n + 1) * scale + pool - 1) / pool - 1
+            // Dimension de l'espace ENGENDRÉ par les XOR de différences.
+            var basis: [Int: Int] = [:]
+            var x = lo
+            while x <= hi && basis.count < w {
+                var d = x ^ lo
+                while d != 0 {
+                    let h = 63 - d.leadingZeroBitCount
+                    if let pr = basis[h] { d ^= pr } else { basis[h] = d; break }
+                }
+                x += 1
             }
-            total += Double(hi - lo + 1) / Double(scale) * Double(shared)
+            let determined = w - basis.count
+            total += Double(hi - lo + 1) / Double(scale) * Double(determined)
         }
         return total
     }

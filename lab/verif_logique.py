@@ -660,23 +660,36 @@ def main():
 
     # §82 — les trois echantillonneurs. Meme arithmetique que
     # LeakBudget.truncationBitsPerWord, en Python.
-    def _trunc(pool, W=32):
+    def _trunc(pool, W=16):
+        """Bits DETERMINES par la troncature — les formes constantes sur
+        l'intervalle, pas seulement les bits de poids fort communs. Le §82
+        comptait ces derniers et sous-estimait de 0,40 bit (§87). Profil
+        independant de la largeur : calcule a 16 bits, vaut a 32 et 64."""
         tot = 0.0
         for n in range(pool):
             lo = -(-(n << W) // pool)
             hi = -(-((n + 1) << W) // pool) - 1
-            k = 0
-            while k < W and (lo >> (W - k - 1)) == (hi >> (W - k - 1)):
-                k += 1
-            tot += (hi - lo + 1) / (1 << W) * k
+            basis = {}
+            for x in range(lo, hi + 1):
+                if len(basis) >= W:
+                    break
+                d = x ^ lo
+                while d:
+                    h = d.bit_length() - 1
+                    if h in basis:
+                        d ^= basis[h]
+                    else:
+                        basis[h] = d
+                        break
+            tot += (hi - lo + 1) / (1 << W) * (W - len(basis))
         return tot
 
     t80, t79 = _trunc(80), _trunc(79)
     hb = (80 - 1).bit_length()
     fy_t = sum(_trunc(80 - x) for x in range(20))
-    j = abs(t80 - 5.2) < 1e-6 and abs(t79 - 4.481013) < 1e-6
+    j = abs(t80 - 5.6) < 2e-3 and t79 > 5.3
     k_ = hb == 7 and _v2(79) == 0 and t79 > 4          # vivier impair : (A) muet
-    l_ = fy_t > fy and fy_t > 89 and fy_t < 90         # §71 renverse
+    l_ = fy_t > fy and 104 < fy_t < 107                # §71 renverse (§87)
     ok &= j and k_ and l_
     print(f"\n11. Les trois échantillonneurs (§82) — LeakBudget.swift")
     print(f"    troncature : vivier 80 -> {t80:.3f} bits/mot, "
@@ -690,7 +703,7 @@ def main():
 
     # §84 : le mur mesure. Le seuil SMT est 16 bits/mot, le vivier en donne 5,2.
     SMT = 16
-    m_ = abs(SMT / t80 - 3.077) < 0.01 and SMT > t80
+    m_ = abs(SMT / t80 - 2.857) < 0.01 and SMT > t80
     ok &= m_
     print(f"    §84 : seuil SMT {SMT} bits/mot contre {t80:.2f} publiés, "
           f"facteur {SMT/t80:.2f}   {'ok' if m_ else 'ÉCHEC'}")

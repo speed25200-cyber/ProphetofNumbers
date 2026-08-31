@@ -8585,3 +8585,114 @@ zéro significatif.**
 > optimiste : sous *rejet* le motif des mots rejetés coûte 2⁴², et c'est la
 > branche *Fisher-Yates* — que la carte ne mentionnait pas — qui a livré le
 > résultat. La collecte demandée était la bonne ; la raison ne l'était pas.
+
+---
+
+## 87. Le plafond exact de chaque échantillonneur — et une sous-estimation trouvée (`h66_plafond.py`)
+
+Trois sections du dossier donnent un nombre de bits publiés par mot : le §71
+(Fisher-Yates, 22 par tirage), le §82 (troncature, 5,20) et le §68 (modulo, 4).
+**Les trois comptent des bits.** Or une équation sur F₂ n'est pas un bit : c'est
+une **forme**, un XOR quelconque de bits. Rien n'interdisait qu'une combinaison
+de bits hauts soit déterminée alors qu'aucun ne l'est individuellement — et dans
+ce cas tous les paliers du dossier seraient faux, dans le sens indulgent.
+
+Personne n'avait fait la vérification. La voici.
+
+### Le théorème du plafond
+
+Une observation restreint le mot de sortie à un ensemble `S`. Une forme `φ` est
+**déterminée** ssi elle est constante sur `S`, c'est-à-dire orthogonale à
+`D(S) = ⟨x ⊕ y : x, y ∈ S⟩`. Le contenu F₂-linéaire vaut donc exactement
+`w − dim D(S)`. Calculé **exhaustivement** sur les 65 536 valeurs d'un mot
+réduit à 16 bits — une énumération, pas un raisonnement.
+
+| échantillonneur | annoncé | **réel** | verdict |
+|---|---|---|---|
+| (A) modulo 80 | 4 (= v₂(80)) | **4** | exact |
+| (C) 7 bits + rejet | 7 | **7** | exact |
+| Fisher-Yates | 22 / tirage | **22** | exact |
+| **(B) troncature** | **5,20** | **5,60** | **le §82 sous-comptait** |
+
+### Le supplément, et sa loi
+
+Les 16 numéros qui publient plus que leur préfixe commun sont **exactement** ceux
+vérifiant
+
+> **`n ≡ 2 (mod 5)`**, où 5 est la **partie impaire** du vivier (80 = 2⁴ × 5)
+
+et ils en publient **deux de plus** chacun — 16 sur 80, soit **0,40 bit** en
+moyenne. La loi est vérifiée exhaustivement, et le profil est **indépendant de la
+largeur du mot** : identique de 11 à 24 bits, donc valable à 32 et 64.
+
+Le mécanisme se voit sur trois bits : l'intervalle `[3,4] = {011, 100}` n'a
+**aucun** bit de poids fort commun, et pourtant `x₀ ⊕ x₁` y vaut 0 des deux
+côtés. Une forme déterminée sans qu'aucun bit ne le soit. C'est exactement ce
+qu'un compte par bits manque.
+
+> **Corollaire, et il est joli.** `80 = 2⁴ × 5`. La partie **2-adique** gouverne
+> la fuite du modulo (§68, `v₂ = 4`) ; la partie **impaire** gouverne le
+> supplément de la troncature. **Les deux facteurs du vivier fuient, chacun par
+> son propre mécanisme** — et le §74, qui concluait qu'un vivier impair fermerait
+> la voie, se trompait deux fois.
+
+### Ce que la correction change
+
+| | §82 | **§87** |
+|---|---|---|
+| troncature, vivier 80 | 5,20 | **5,60** |
+| troncature, vivier 79 | 4,48 | **5,39** |
+| par tirage, (B) rejet | 104 | **112** |
+| **Fisher-Yates sous (B)** | 89,7 | **105,2** |
+| palier 128 bits sous (B) | 25 mots | **26 mots** |
+
+L'erreur allait dans le sens **indulgent** : le dossier créditait la troncature
+de moins de fuite qu'elle n'en a, donc ses paliers étaient trop longs et ses
+attaques laissaient de l'information sur la table. **Aucun résultat nul n'en est
+invalidé** — un état compatible se vérifie par rejeu, jamais par un seuil — mais
+les couvertures déclarées au §82 sont **pessimistes**, et ses attaques peuvent
+être renforcées de 7,7 %.
+
+`LeakBudget.swift` et `verif_logique.py` sont corrigés ; le verdict reste vert.
+
+### Le corollaire de bilan : aucun branchement n'aide
+
+Supposer `v` bits de `out` multiplie l'arbre par `2^v` et rend **au plus** `v`
+équations — le théorème du plafond l'interdit d'en rendre davantage. Le nombre de
+feuilles à explorer est donc inchangé : `2^v` fois plus de branches, chacune
+`2^v` fois plus contrainte.
+
+> C'est pourquoi le théorème de la retenue (§83) est un **vrai** gain — il ne
+> suppose rien, il *constate* que la retenue est connue quand `aᵢ ≠ bᵢ` — et
+> pourquoi aucune variante « avec suppositions » ne l'a jamais battu.
+
+### La carte de couverture
+
+Chaque case dit ce qu'une expérience a **réellement** fait, jamais ce qu'une
+formule laisse espérer :
+
+| famille | (A) rejet | (B) troncature | (C) bits hauts | Fisher-Yates |
+|---|---|---|---|---|
+| xorshift32 | nul 100 % | nul 100 % | nul 100 % | **exclu** |
+| xorshift64 | nul 100 % | nul 100 % | nul 96 % | **exclu** |
+| xorshift96 | nul 94 % | nul 98 % | non concl. | **exclu** |
+| xorshift128 | nul 64 % | nul 91 % | non concl. | **exclu** |
+| taus88 | nul 91 % | nul 91 % | non concl. | **exclu** |
+| LFSR113 | non identifiable | jamais | jamais | **exclu** |
+| xoroshiro128, xoshiro128 | nul 64 % | jamais | jamais | **exclu** |
+| xoshiro256 | 4 tirages | 3 tirages | non concl. | 12 tirages |
+| WELL512a | 7 tirages | 5 tirages | 4 tirages | 24 tirages |
+| **xorshift128+ (V8)**, xoroshiro128+ | 2⁴² motifs | jamais | jamais | **exclu** |
+| MT19937 | 343 tirages | hors budget | hors budget | 907 tirages |
+
+**24 cases sur 52 portent un résultat nul vérifié ; 10 n'ont jamais été
+ouvertes.**
+
+La colonne **Fisher-Yates est la seule pleine**, et ce n'est pas un hasard :
+c'est la seule sans recherche. Les trois autres portent le même handicap — le
+motif des mots rejetés — et leurs couvertures s'en ressentent.
+
+Les quatre cases « jamais » qui comptent sont les deux familles **additives** sous
+troncature et sous bits hauts. Ce n'est pas un oubli : le théorème de la retenue
+démarre à la retenue nulle, donc aux bits **bas**, et ces deux échantillonneurs
+publient les bits **hauts**. Le §84 a mesuré ce que coûte d'y aller quand même.
