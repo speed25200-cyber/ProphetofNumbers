@@ -10478,3 +10478,232 @@ avait une case vide que personne n'avait vue : **modulo** couvert par le §99 et
 le §100, **troncature** couverte par rien. Elle ne l'est plus.
 
 **Registre : consigné.**
+
+---
+
+## 104. La réduction de réseau : les LCG que la fenêtre ne pouvait pas atteindre (`h85_reseau.py`)
+
+### Pourquoi la fenêtre s'arrête
+
+Le §103 contraint `θ` à un arc de largeur `‖λ‖₁ / K`. Il a de la force tant que
+`‖λ‖₁` est **petit devant 80**.
+
+| récurrence | `‖λ‖₁` | vue par la fenêtre |
+|---|---|---|
+| Fibonacci retardé, AWC, SWB | 3 | **oui** |
+| LCG `s_t = a·s_{t−1} + b` | `1 + a` (= 25 214 903 918 pour Java) | **non** |
+
+**Et les relations plus longues n'y changent rien.** Le réseau
+`{λ : Σ λ_j a^j ≡ 0 (mod M)}` a pour déterminant `M` ; son plus court vecteur
+vaut `M^{1/(k+1)}`, d'où `‖λ‖₁ ≈ (k+1)·M^{1/(k+1)}`, minimisé en `k+1 = ln M` :
+
+| module | ordre optimal | `‖λ‖₁` minimal |
+|---|---|---|
+| 2³¹−1 | 21 | 58 |
+| 2³² | 22 | 60 |
+| 2⁴⁸ | 33 | **90** |
+| 2⁶⁴ | 44 | 120 |
+
+Il faudrait `‖λ‖₁` **petit** devant 80, pas seulement inférieur. Aucune
+relation n'y parvient : **la fenêtre ne peut pas atteindre les LCG, et ce n'est
+pas une question d'effort — c'est une borne.**
+
+### On renverse le problème
+
+Paramètres **fixés**, état **cherché** :
+
+    s_t = a^t·s_0 + c_t (mod M),   s_t ∈ [A_t, B_t) de largeur M/K_t
+
+Une seule inconnue, `T` contraintes à `log₂ K ≈ 6,3` bits chacune : il en faut
+`log₂(M)/6,3`, soit **8 mots pour 2⁴⁸ et 11 pour 2⁶⁴**. Un tirage en donne
+vingt. **Un seul tirage suffit.**
+
+Reste à résoudre — c'est un vecteur le plus proche dans
+`Λ = {y : y_t ≡ a^t·y_0 (mod M)}`, traité par LLL puis plan le plus proche de
+Babai.
+
+### Trois bogues, et ce que le témoin a coûté à chacun
+
+Le témoin est passé de **0/15** à **15/15** en trois corrections, et aucune
+n'était visible dans le résultat.
+
+1. **La famille liée.** Écrit naïvement avec `s_0` pour inconnue, on obtient
+   `T+1` vecteurs — `(a, a², …, a^T)` et les `M·e_t` — dans un espace de
+   dimension `T`. Ce n'est **pas une base** : Gram-Schmidt rend un vecteur nul
+   et LLL travaille sur du sable. Reparamétrer par `y_0 = a·s_0`, libre dans
+   `Z`, donne la base triangulaire `w_0 = (1, a, …, a^{T−1})`, `w_t = M·e_t` —
+   `T` vecteurs, déterminant `M^{T−1}`.
+2. **`np.eye(dtype=object)` stocke des flottants.** Les coefficients de la
+   transformation unimodulaire passent 2⁵³ ; sans entiers exacts, le témoin
+   reste à 0/15.
+3. **La base en flottants.** Les opérations de ligne y sont **inexactes** : le
+   réseau **dérive**, d'autant plus que le module est grand. Java (2⁴⁸)
+   passait ; MMIX, musl et PCG (2⁶⁴) échouaient encore à `T = 20`,
+   c'est-à-dire avec 123 bits de contrainte pour 64 bits d'inconnue. Ce n'était
+   pas un manque d'information, c'était de l'arrondi.
+
+**Et pas de mise à l'échelle.** Les rayons `r_t = M/(2K_t)` ne varient que de
+`K = 61` à `K = 80`, soit un facteur 1,31 : la métrique euclidienne ordinaire
+est déjà la bonne à ce facteur près. Diviser par `r_t` forcerait des entrées
+fractionnaires — précisément ce qui faisait dériver le réseau.
+
+### Le résultat
+
+**Témoin : 45/45** — quinze jeux de paramètres × trois essais, états retrouvés
+**exactement** à partir d'un seul tirage de vingt numéros, modules de 2¹⁷ à
+2⁶⁴, sans aucun balayage.
+
+**Archive : 0 état compatible sur 4 050 résolutions** — quinze jeux de
+paramètres × trois strides × deux conventions de Fisher-Yates × neuf tirages ×
+cinq alignements, chacune suivie d'un **rejeu exact** des vingt numéros dans
+l'ordre.
+
+Fermé : `java.util.Random` et `drand48` (2⁴⁸), la glibc, MSVC, Borland, Turbo
+Pascal, VAX, Numerical Recipes, cc65 (2³¹–2³²), minstd et RANDU, MMIX, PCG et
+musl (2⁶⁴) — **à état complet, sous troncature**.
+
+**Reste** : un LCG à paramètres **inventés**. L'attaque de Stern retrouve `a`
+et `M` eux-mêmes, mais elle demande des dizaines de mots **consécutifs** et
+l'archive n'en offre que vingt par tirage.
+
+**Registre : consigné.**
+
+---
+
+## 105. Le théorème du préfixe : les bits hauts, et le seul chiffre qui dit quoi filmer (`h86_prefixe.py`)
+
+### La symétrie manquante
+
+Le dossier a deux attaques F2-linéaires, et elles regardent le même mot par les
+deux bouts opposés.
+
+| | bits lus | échantillonneur supposé | bits par mot |
+|---|---|---|---|
+| **§68** (`h61`) | les quatre **bas** — `NB = 4`, soit `v₂(80)` | **modulo** (théorème du contenu, §94) | 4 |
+| **§105**, ici | les **hauts** | **troncature** | **4,48** |
+
+Sous troncature, aucune congruence ne survit : **le §68 était aveugle par
+construction** à l'échantillonneur dominant dans la nature. C'est exactement la
+dissymétrie que le §103 a corrigée pour les récurrences, transposée aux
+générateurs F2-linéaires.
+
+### Le théorème
+
+> Soit un mot de `W` bits, `u = mot/2^W`, et l'observation `m = floor(u·K)`.
+> Les `j` premiers bits de `u` sont déterminés **si et seulement si**
+>
+>     floor(m·2^j / K)  =  floor( ((m+1)·2^j − 1) / K )
+>
+> et la valeur commune **est** le préfixe. Les `j` bits de poids fort du mot
+> sont alors connus exactement, soit `j` équations F2-linéaires. ∎
+>
+> L'intervalle `[m/K, (m+1)/K)` a pour largeur `1/K` ; il tient dans une
+> cellule dyadique de niveau `j` avec probabilité `1 − 2^j/K`. L'espérance vaut
+> `Σ_j max(0, 1 − 2^j/K)`.
+
+| `K` | bits déterminés en moyenne |
+|---|---|
+| 80 | 5,200 |
+| 70 | 4,371 |
+| 61 | 4,066 |
+| **moyenne sur les vingt pas de Fisher-Yates** | **4,483** |
+
+Soit **89,7 équations par tirage** — davantage que les quatre bits du §68, et
+de l'autre côté du mot.
+
+### Le témoin, et le piège du rang
+
+| famille | état | rang | noyau | retrouvé |
+|---|---|---|---|---|
+| xorshift32 | 32 | 32 | 0 | **oui** |
+| xorshift64 | 64 | 64 | 0 | **oui** |
+| xorshift96 | 96 | 96 | 0 | **oui** |
+| xorshift128 | 128 | 128 | 0 | **oui** |
+| taus88 | 96 | **88** | 8 | **oui** |
+| xoroshiro128 (brut) | 128 | 128 | 0 | **oui** |
+| xoshiro128 (brut) | 128 | 128 | 0 | **oui** |
+| xoshiro256 (brut) | 256 | 256 | 0 | **oui** |
+| LFSR113 | 128 | **109** | 19 | **oui** (106 s) |
+| WELL512a | 512 | 352 | 160 | *hors de portée* |
+
+**9/9 sur les familles à portée**, avec quatre tirages consécutifs.
+
+**Le piège.** Le rang n'atteint pas toujours la taille **nominale** de l'état,
+et pas toujours faute d'équations : taus88 loge 88 bits utiles dans 96,
+LFSR113 en loge 113 dans 128. Les bits morts ne peuvent **pas** être
+déterminés — le rang sature en dessous du nominal quel que soit le nombre de
+mots. Confondre « rang < nominal » avec « hors de portée » déclarerait
+inatteignable une famille parfaitement atteignable ; c'est l'erreur exacte que
+le §68 documente pour LFSR113. On distingue donc par la **dimension du noyau** :
+petite, on l'énumère en code de Gray avec abandon au premier numéro — un pas de
+générateur élimine 79 candidats sur 80, ce qui rend 2²² tenable.
+
+### L'archive, et trois issues qu'il faut séparer
+
+| famille | essais | exclus | cherchés | non testés | compatibles |
+|---|---|---|---|---|---|
+| xorshift32 | 30 | **30** | 0 | 0 | 0 |
+| xorshift64 | 30 | **30** | 0 | 0 | 0 |
+| xorshift96 | 30 | 15 | 15 | 0 | 0 |
+| xorshift128 | 30 | 12 | 0 | 18 | 0 |
+| taus88 | 30 | 18 | 12 | 0 | 0 |
+| xoroshiro128 (brut) | 30 | 12 | 0 | 18 | 0 |
+| xoshiro128 (brut) | 30 | 12 | 0 | 18 | 0 |
+| xoshiro256 (brut) | 30 | 6 | 0 | 24 | 0 |
+| LFSR113 | 30 | 12 | 0 | 18 | 0 |
+| WELL512a | 30 | 0 | 0 | 30 | 0 |
+
+**0 état compatible sur 300 systèmes.**
+
+- **exclus (147)** : le système est **incompatible** — les préfixes observés ne
+  peuvent venir d'**aucun** état de cette famille. C'est l'exclusion la plus
+  forte du dossier : ni rejeu, ni seuil, ni null.
+- **cherchés (27)** : l'état est déterminé à un petit noyau près, noyau
+  parcouru et rejoué.
+- **non testés (126)** : le noyau dépasse 22 dimensions — l'archive ne porte
+  pas assez de mots consécutifs. **Non testé, pas exclu.**
+
+Confondre les deux dernières lignes serait exactement la faute que le §101 a
+trouvée dans la carte : une conclusion recopiée plus largement que sa source.
+
+### Le corollaire utile — ce qu'il faudrait filmer
+
+`4,48` bits par mot × 20 mots = **90 équations par tirage**. Un état de `n`
+bits demande `n` équations indépendantes, donc
+
+    tirages ordonnés CONSÉCUTIFS nécessaires  =  n / 90
+
+| générateur | état | tirages consécutifs | dans l'archive ? |
+|---|---|---|---|
+| xorshift32 | 32 | 1 | oui |
+| xorshift64 | 64 | 1 | oui |
+| taus88 | 88 | 1 | oui |
+| xorshift128 / LFSR113 | 128 | 2 | oui |
+| xoshiro256 (brut) | 256 | 3 | oui |
+| WELL512a | 512 | 6 | **non** |
+| WELL1024a | 1024 | 12 | **non** |
+| **MT19937** | **19 937** | **225** | **non** |
+
+L'archive offre au mieux **4** tirages consécutifs.
+
+**MT19937 mérite sa ligne.** Son tempérage est **F2-linéaire** : ses bits de
+poids fort sont bien des formes linéaires de l'état, et rien dans le générateur
+ne s'oppose à l'attaque. Ce qui manque n'est pas une idée, c'est **225 tirages
+ordonnés consécutifs** — à quatre minutes par tirage, environ **quinze heures**
+d'écran filmé, sans interruption du flux.
+
+C'est le seul chiffre de tout le dossier qui transforme « on n'a rien trouvé »
+en « voici ce qu'il faut collecter ».
+
+### Ce qui reste
+
+- les états trop grands pour 4 tirages consécutifs — WELL, MT19937 — et c'est
+  une question de **données**, chiffrée ci-dessus, pas de méthode ;
+- les sorties **additives** : xorshift128+, xoroshiro128+, xoshiro256+ — le
+  `Math.random` de V8 depuis 2016. La somme finale n'est pas F2-linéaire, et
+  une campagne SMT antérieure du dossier rendait `unknown` dès que la sortie
+  descendait sous **douze** bits par mot ; la troncature n'en donne que 6,3 ;
+- les sorties **multipliées ou brouillées** : xoshiro\*\*, PCG, splitmix64 ;
+- le pas **variable** (rejet), qui casse l'alignement des mots — §95.
+
+**Registre : consigné.**
