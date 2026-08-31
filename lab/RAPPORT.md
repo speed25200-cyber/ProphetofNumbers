@@ -10810,3 +10810,150 @@ linéaires. La différence avec le §105 est entière : là, il manquait des
 tirages ; ici, il manque des heures.
 
 **Registre : consigné.**
+
+---
+
+## 107. Le pari séquentiel : mesurer la prédiction au lieu de l'exclure (`h88_pari.py`)
+
+### Le reproche, et il est juste
+
+Les §102 à §106 ferment des classes entières de générateurs. Ce sont des
+théorèmes d'**exclusion** : ils disent ce qui ne produit *pas* les tirages,
+jamais ce qui les produit. Un dossier de 58 068 hypothèses enregistrées, toutes
+conformes, ne répond toujours pas à la seule question posée : **peut-on
+gagner ?**
+
+Ce fichier change d'instrument. Il ne teste pas une hypothèse : **il parie.**
+
+### Ce que le §93 imposait, et que personne n'avait exploité
+
+Le théorème de linéarisation donne, exactement et sans hypothèse,
+`E[g] = Σ_j Δ^j g(0) · Σ_{|S|=j} π(S)`, et le barème réel annule `c₀`, `c₁` et
+`c₂` aux grilles de 5, 6 et 7 numéros.
+
+> **Le gain espéré ne dépend que des inclusions d'ordre ≥ 3.**
+
+Les marginales — chauds, froids, retards, réseaux de neurones — n'apparaissent
+pas dans la formule. Le §93 l'avait démontré ; **aucune expérience du dossier
+n'avait ensuite cherché la structure du bon type.** C'est le trou que ce fichier
+comble.
+
+### Le théorème du pari
+
+Tester 82 160 triplets dans un registre corrigé par Holm à `m = 58 068` serait
+sans espoir : il faudrait `p < 10⁻⁶` par triplet. Alors on ne teste pas.
+
+> **Théorème.** Soit `π₀ = P(S ⊆ D)` sous le tirage uniforme et
+> `X_t(S) = 1[S ⊆ D_t]`. Pour `λ ∈ [0,1[`, la richesse
+>
+>     W_S(λ) = Π_t ( 1 + λ ( X_t(S)/π₀ − 1 ) )
+>
+> est une martingale positive d'espérance 1 sous le nul, et **tout mélange
+> convexe à poids fixés d'avance en est une**. Par l'inégalité de Ville,
+> `P( sup_t W_t ≥ 1/α ) ≤ α`. ∎
+
+Une richesse de 20 vaut `p ≤ 0,05` — **quel que soit le nombre de
+sous-ensembles pariés**, sans aucune correction de multiplicité : le mélange
+est *une seule* martingale. C'est exactement l'instrument qu'il fallait après
+58 068 tests corrigés.
+
+**Forme close.** À `λ` fixé, `W_S = (1+λ(1/π₀−1))^k (1−λ)^{N−k}` ne dépend du
+sous-ensemble que par son nombre de touches `k`. On tabule sur `k`, on intègre
+sur `λ`, et le million et demi de quadruplets passe en vingt secondes.
+
+**Et le prior sur `λ` n'est pas un détail.** Pour un excès relatif `ε` sur un
+événement de probabilité `π₀`, la mise de Kelly optimale vaut `λ* ≈ ε·π₀`, soit
+un millième ici. Un prior **uniforme** sur `[0,1]` n'y met qu'un millième de sa
+masse : mesure faite, le seuil de détection passait de 20 % à 80 % d'excès.
+Le prior **log-uniforme** donne un poids égal à chaque ordre de grandeur.
+
+### Le résultat
+
+| ordre | sous-ensembles | log₂ richesse | p (Ville) | meilleur seul |
+|---|---|---|---|---|
+| 2 | 3 160 | −1,025 | 1,000 | 3,33 |
+| **3** | **82 160** | **−1,175** | **1,000** | 8,03 |
+| 4 | 1 581 580 | −0,847 | 1,000 | 17,95 |
+
+> Un parieur qui aurait misé sur les 82 160 triplets pendant 70 560 tirages
+> aurait multiplié sa mise par **2⁻¹·¹⁸**.
+
+La colonne « meilleur seul » montre l'écart avec le mélange : c'est exactement
+ce que la correction de multiplicité aurait dû payer, et que le pari paie tout
+seul.
+
+### La puissance, et ce que « rien » veut dire
+
+Une borne sans puissance ne vaut rien. On plante donc une anomalie sur un
+triplet et on regarde à partir de quelle taille le **mélange** la voit.
+
+| excès ε | touches | log₂ richesse | vu à 5 % |
+|---|---|---|---|
+| 0,10 | 1 077 | −1,07 | non |
+| 0,15 | 1 126 | −1,02 | non |
+| **0,20** | **1 175** | **+5,96** | **oui** |
+| 0,25 | 1 224 | +20,22 | oui |
+| 0,50 | 1 469 | +133,36 | oui |
+| 1,20 | 2 154 | +746,41 | oui |
+
+**Seuil mesuré : 20 % d'excès sur un seul triplet.** L'archive n'en montre
+aucun.
+
+### Les deux bornes se rejoignent
+
+Grille de 5 numéros, barème du §93 (`c₃ = +6`, `c₄ = +12`, `c₅ = +240`) :
+
+    E[g] = 6·C(5,3)·π₃ + 12·C(5,4)·π₄ + 240·π₅
+         = 0,832522 + 0,183804 + 0,154782  =  1,171107
+
+La part des **triplets** y pèse **71,1 %**. Un excès relatif `ε` sur les dix
+triplets d'une grille monte donc le gain espéré de `0,711·ε`.
+
+| | |
+|---|---|
+| excès **détectable** | **20 %** → +14,2 % de gain espéré |
+| excès **nécessaire** pour revenir à l'équilibre (TRJ 50–65 %) | **76 % à 141 %** |
+
+> **L'anomalie qu'il faudrait pour gagner est quatre à sept fois plus grosse
+> que celle que nous saurions détecter — et nous n'en voyons aucune.**
+
+*Le taux de retour au joueur n'a pas été mesuré dans ce dossier* ; la fourchette
+50–65 % est l'ordre de grandeur usuel, et le chiffre en dépend. Il est donné
+comme tel.
+
+### Hors échantillon : le vrai test de prédiction
+
+Le mélange est honnête mais aveugle — il ne **choisit** pas. Un parieur, lui,
+choisirait. On coupe donc l'archive en deux, on retient les triplets les plus
+favorisés sur la première moitié, et on parie dessus sur la seconde. La
+sélection ne dépend que du passé : la richesse reste une martingale.
+
+| top | touches 1ʳᵉ moitié | attendu | touches 2ᵈᵉ moitié | attendu | log₂ rich. |
+|---|---|---|---|---|---|
+| 10 | 577,10 | 489,52 | **479,70** | 489,52 | −1,328 |
+| 100 | 563,76 | 489,52 | **491,40** | 489,52 | −1,200 |
+| 1 000 | 547,57 | 489,52 | **490,17** | 489,52 | −1,174 |
+| 10 000 | 526,27 | 489,52 | **489,51** | 489,52 | −1,115 |
+
+Les triplets les plus chauds de la première moitié reviennent **exactement** à
+l'attendu sur la seconde — les dix meilleurs passent même en dessous. C'est la
+définition opérationnelle de « pas de structure » : la sélection ne survit pas
+au passage à l'échantillon suivant.
+
+### Ce que ce fichier apporte, et ce qu'il n'apporte pas
+
+**Il apporte** une borne sur la **prédictibilité**, dans les unités que le
+barème paie, et sans multiplicité à payer. Les §102 à §106 disent « telle
+famille ne produit pas ces tirages ». Celui-ci répond à la question posée, pas
+à une question voisine.
+
+**Il n'apporte pas** de prédiction. La richesse ne monte pas, la sélection hors
+échantillon ne survit pas, et les deux bornes — détectable, nécessaire — se
+rejoignent dans le mauvais sens. C'est la forme la plus forte de réponse
+négative qu'on puisse donner **sans** reconstituer l'état.
+
+**Et le levier reste où il était** : dans l'**ordre d'émission** (§105 — 225
+tirages consécutifs filmés mettent MT19937 à portée) et dans l'**angle
+résiduel** de la roue (§92).
+
+**Registre : consigné.**
