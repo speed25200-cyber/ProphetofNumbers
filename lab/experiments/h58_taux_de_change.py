@@ -705,10 +705,19 @@ say(f"""   ETABLIT.
 
    NE FAIT PAS.
 
-   a. Rien ne s'applique si l'echantillonneur n'est pas un modulo du vivier.
-      Sous Fisher-Yates la fuite tombe a 22 bits (§71) et les residus portent
-      sur des INDICES dans un tableau deja permute : la classe (n-1) mod 16
-      n'y est meme plus definie. Ce taux de change est specifique au rejet.
+   a. Les colonnes r > 1 supposent le rejet modulo le vivier. Sous
+      Fisher-Yates la fuite tombe a 22 bits (§71) et les residus portent sur
+      des INDICES dans un tableau deja permute : la classe (n-1) mod 16 n'y
+      est plus definie a partir du deuxieme numero.
+
+      MAIS LE CAS r = 1 SURVIT AUX DEUX ECHANTILLONNEURS, et c'est
+      justement celui du resultat. Au pas 0, Fisher-Yates lit le tableau
+      INTACT 1..80 et tire modulo 80 : le premier numero vaut
+      (out_0 mod 80) + 1 exactement, comme sous rejet (§77). Le mot 0 publie
+      donc v2(80) = 4 bits du premier numero DANS LES DEUX CAS, et le mur de
+      la section 5 — {bmin} bits d'un seul mot — ne depend pas de
+      l'echantillonneur. C'est le seul endroit du volet §68-§78 dont ce soit
+      vrai.
 
    b. Rien ne dit que le tirage reel est vulnerable. Les tests d'archive —
       §76 sur les {70560:,} tirages, §68 et §77 sur les cinq tirages ordonnes —

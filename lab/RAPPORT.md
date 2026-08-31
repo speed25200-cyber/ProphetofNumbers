@@ -7714,9 +7714,15 @@ maillon algébrique ; le §78 le prolonge jusqu'au bulletin.
 
 ### Ce que cela ne fait pas
 
-1. **Rien ne s'applique hors du rejet modulo le vivier.** Sous Fisher-Yates la
-   fuite tombe à 22 bits (§71) et les résidus portent sur des *indices* dans un
-   tableau déjà permuté : la classe `(n−1) mod 16` n'y est même plus définie.
+1. **Les colonnes `r > 1` supposent le rejet modulo le vivier.** Sous
+   Fisher-Yates la fuite tombe à 22 bits (§71) et les résidus portent sur des
+   *indices* dans un tableau déjà permuté, à partir du deuxième numéro.
+   **Mais le cas `r = 1` survit aux deux échantillonneurs, et c'est celui du
+   résultat** : au pas 0, Fisher-Yates lit le tableau intact `1..80` et tire
+   modulo 80, donc `premier numéro = (out₀ mod 80) + 1` exactement, comme sous
+   rejet (§77). Le mur — trois bits d'un seul mot — **ne dépend pas de
+   l'échantillonneur**, et c'est le seul endroit du volet §68–§78 dont ce soit
+   vrai.
 2. **Rien ne dit que le tirage réel est vulnérable.** Les tests d'archive — §76
    sur les 70 560 tirages, §68 et §77 sur les cinq tirages ordonnés — n'ont rien
    trouvé. Ce fichier chiffre la **valeur** d'une porte ; il n'en ouvre aucune.
@@ -7725,3 +7731,135 @@ maillon algébrique ; le §78 le prolonge jusqu'au bulletin.
 
 **Registre : inchangé.** h58 dérive, vérifie sa dérivation par simulation
 indépendante, et chiffre.
+
+---
+
+## 79. La fenêtre entre le détectable et le rentable, et le test qui la ferme (`h59_fenetre.py`)
+
+Le §78 rend posable une question que le dossier n'avait jamais pu poser. Il a
+produit 162 tests consignés et **zéro significatif** — mais « rien de
+significatif » ne dit pas « rien d'exploitable » : un biais peut être trop petit
+pour être vu et assez grand pour payer. C'est la **fenêtre**. Faute de savoir
+convertir un biais en francs, personne ne pouvait la mesurer.
+
+### Le modèle, et pourquoi c'est le seul possible
+
+Un sous-ensemble `H` de `s` numéros « chauds », de cote `ω` contre 1. Le nombre
+de chauds tirés suit alors **exactement** l'hypergéométrique non centrée de
+Fisher, `P(n_H = j) ∝ C(s,j)·C(80−s, 20−j)·ω^j` — c'est la loi conditionnelle de
+80 Bernoulli indépendantes *sachant que leur somme vaut 20*, donc le seul modèle
+de biais compatible avec la contrainte « exactement vingt numéros par tirage ».
+Le biais relatif par numéro chaud est `δ = E[n_H]/(20s/80) − 1`, et la loi des
+touches se calcule exactement, par convolution de deux hypergéométriques.
+Contrôle : à `ω = 1`, `δ = 0` et le taux de retour redonne le barème du §56.
+
+### δ\* — le biais minimal rentable
+
+| s chauds | ω\* | **δ\*** | k optimal | TRR |
+|---|---|---|---|---|
+| 5 | 1,258 | 0,1550 | 5 | 1,000 |
+| **8** | **1,177** | **0,1189** | **8** | 1,000 |
+| 20 | 1,171 | 0,1236 | 8 | 1,000 |
+| 40 | 1,296 | 0,1443 | 10 | 1,000 |
+
+> Pour qu'un biais de fréquence rende le pari favorable, il faut que huit
+> numéros sortent **1,12 fois plus souvent** que les autres. Le barème prend
+> 41 % de marge : il faut la combler.
+
+### δ_min — le biais minimal détectable
+
+Sous H₀, le compte d'un numéro sur `m` tirages suit **exactement** une
+binomiale(`m`, 1/4) — l'indépendance d'un tirage à l'autre est acquise, seule la
+dépendance *entre* numéros d'un même tirage existe, et elle joue dans le sens
+conservateur. D'où `E[z] = δ·√(m/3)`, soit un facteur de conversion de **153,4**
+sur les 70 560 tirages.
+
+Au seuil de Holm du registre entier (m = 3 336, donc `p < 1,5·10⁻⁵`), le
+détecteur **aveugle** — le max|z| sur les 80 numéros, celui que le dossier a
+réellement appliqué — exige `t = 5,21`, plus 2,33 pour une puissance de 99 % :
+
+> **δ_min = 0,0492**
+
+### Le verdict, et il faut le dire avec sa marge
+
+| | |
+|---|---|
+| δ\* (rentable) | 0,1189 |
+| δ_min (détectable) | 0,0492 |
+| **rapport** | **2,4** |
+
+Un biais assez grand pour payer aurait produit un `z` de **18** sur chacun de ses
+numéros chauds. L'archive mesure un maximum de **2,72**. Témoin mesuré :
+contaminée à δ\*, l'archive déclenche **200/200** fois au seuil de Holm.
+
+> **La fenêtre stationnaire est fermée** — mais le facteur est 2,4, pas mille.
+> C'est une marge étroite, et elle tiendrait mal si le barème était plus
+> généreux ou le ticket moins cher. Il faut le dire tel quel.
+
+### Et une fenêtre bien plus grande était ouverte
+
+Le verdict ci-dessus ne porte que sur les biais **stationnaires**. Un biais qui
+rebat ses numéros chauds au fil du temps s'annule dans le compte global. Si le
+biais bascule tous les `W` tirages, un balayage paie la multiplicité de
+`80 × m/W` tests et le facteur de conversion tombe à `√(W/3)` :
+
+| W | fenêtres | z requis | δ détectable | rentable ? |
+|---|---|---|---|---|
+| 100 | 705 | 8,65 | 1,498 | **OUI** |
+| **204** (session, §65) | 345 | 8,54 | **1,035** | **OUI** |
+| 2 000 | 35 | 8,17 | 0,316 | **OUI** |
+| 70 560 | 1 | 7,54 | 0,049 | non |
+
+> Un biais rebattu à chaque **session** — la coupure réelle du §65 — paie dès
+> `δ = 0,12` et n'est détectable par balayage qu'à partir de `δ = 1,04`. La
+> fenêtre non stationnaire n'était pas étroite : elle était **grande ouverte,
+> d'un facteur 8**, et précisément là où le générateur coupe.
+
+### Le test qui la ferme : sur-dispersion par session
+
+**Le balayage est le mauvais test.** Chercher *où* est le biais coûte toute la
+multiplicité ; ne chercher que *son existence* n'en coûte aucune. Un biais
+rebattu à chaque session ne déplace aucune moyenne globale mais **gonfle la
+variance** des comptes par session, et ce gonflement **s'additionne** au lieu de
+s'annuler :
+
+> `T = Σ_{session, numéro} (compte − 51)² / 38,25`, sur 344 sessions × 80 numéros
+
+| | valeur |
+|---|---|
+| observé | 27 600 |
+| null (200 archives SRS complètes) | 27 525 ± 239 |
+| **z** | **+0,31** — p = 0,736, **conforme** |
+
+**Témoin positif**, et c'est lui qui fait le travail : archive contaminée au
+biais **minimal rentable** δ\* = 0,119, vivier chaud **rebattu à chaque
+session** —
+
+| détecteur | résultat |
+|---|---|
+| sur-dispersion (ce test) | z ≈ **12,3**, **40/40** détections |
+| max\|z\| marginal (§79 §4) | 3,04 — **sous son seuil de 5,21, aveugle** |
+
+Le témoin établit exactement ce qu'il fallait : le nouveau test voit ce que
+l'ancien ne voit pas, au biais précis qui rendrait le jeu favorable.
+
+**Registre : `h59.surdispersion_session`, p = 0,736, conforme. m = 3 337, zéro
+significatif.**
+
+### Ce que le §79 établit
+
+1. **Le théorème de la fenêtre.** Le taux de change du §78 permet de comparer
+   biais rentable et biais détectable. Stationnaire : fermée d'un facteur 2,4.
+2. **La fenêtre non stationnaire était ouverte d'un facteur 8**, et le dossier
+   l'ignorait — c'est le §78 qui l'a révélée en donnant enfin δ\*.
+3. **Elle est fermée maintenant**, par un test qui ne coûte aucune multiplicité
+   parce qu'il demande l'existence et non la position.
+4. **Conséquence.** Les deux fenêtres statistiques de fréquence étant closes,
+   il ne reste que la voie du générateur — où le §78 a montré que **trois bits
+   suffisent**. Le dossier a, pour la première fois, une cible unique et
+   chiffrée.
+
+Reste ouvert, et nommé : les biais qui ne sont pas de *fréquence* (paires,
+géométrie, ordre — couverts ailleurs, mais dont le taux de change n'est pas
+calculé) ; les biais de période autre que la session ou l'archive ; et la
+cagnotte BANGO, absente de tous ces taux, qui ne peut que les relever.
