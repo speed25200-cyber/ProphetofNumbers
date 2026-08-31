@@ -9747,6 +9747,96 @@ manque** — la contrainte est un multiensemble, pas une équation.
 
 **Registre : inchangé, à dessein.**
 
+## 96. L'attaque sur l'archive triée, et le coût du rejet (`h75_attaque_rejet.py`)
+
+Le §95 a sorti l'échantillonneur par rejet de la couverture du §89. Il n'avait
+jamais été attaqué que sur **neuf** tirages ordonnés (§86) et **cinq** (§61).
+Ce fichier l'attaque sur les **70 560 tirages triés** — et c'est la première
+fois que le dossier reconstitue un état sans jamais voir l'ordre de sortie.
+
+### L'attaque
+
+Sous l'hypothèse du §88 — le bonus est le premier numéro sorti — et pour un
+générateur F₂-linéaire à sortie brute, `bonus_t − 1 = out(S_t) mod 80` donne
+`out(S_t) mod 16`, soit **quatre formes linéaires exactes** de l'état à la
+position `S_t`, avec `S_{t+1} = S_t + 20 + r_t`.
+
+`r_t`, le nombre de mots rejetés, est **inconnu**. On cherche donc en
+profondeur sur le motif `(r_0,…,r_{k−2})`, avec élimination de Gauss
+incrémentale sur F₂ et journal d'annulation (technique du §61), puis
+**énumération du noyau** quand le rang est déficient, puis rejeu exact comparé
+aux ensembles triés — 61,62 bits par tirage.
+
+**Deux bugs trouvés en route**, et le second est le plus instructif :
+
+1. *Rang déficient au point vrai.* Supposer la solution unique faisait manquer
+   une fenêtre pourtant dans la couverture. C'est l'erreur du §52, commise une
+   seconde fois. Corrigée par l'énumération correcte du noyau.
+2. *Métrique du témoin fausse.* Je comptais comme désaccord les fenêtres
+   résolues **au-delà** de la couverture déclarée — alors que c'est de la
+   puissance en plus.
+
+### Le témoin, et pourquoi il a deux colonnes
+
+L'état est planté, donc les vrais rejets sont connus et on peut confronter.
+
+| famille | fenêtres | dans la couv. | retrouvés | **manqués** | prime |
+|---|---|---|---|---|---|
+| xorshift32 (13,17,5) | 12 | 2 | 3 | **0** | 1 |
+| xorshift32 (1,3,10) | 12 | 1 | 2 | **0** | 1 |
+| xorshift32 (5,17,13) | 12 | 4 | 4 | **0** | 0 |
+
+> **Manqués = 0 partout** : aucune fenêtre dans la couverture n'échappe à
+> l'attaque. **Prime > 0** : elle en résout même hors couverture, quand le rang
+> déficient fait tomber l'énumération sur l'état vrai malgré un motif de pas
+> faux. **La couverture déclarée est donc un minorant strict**, ce qui rend
+> l'exclusion plus forte qu'annoncée, jamais plus faible.
+
+### Ce que l'archive apporte : la couverture se compose
+
+Le §61 avait cinq tirages ordonnés — une fenêtre, couverture 64 %, et rien
+pour la relever. Ici **chaque bloc de `k` tirages consécutifs est une fenêtre**,
+et l'archive en offre 8 820 (elle est une plage strictement consécutive :
+70 559 écarts, tous égaux à 1). La couverture ne s'additionne pas, elle **se
+compose** : `1 − (1−c)^m`.
+
+| | par fenêtre | fenêtres attaquées | **cumulée** |
+|---|---|---|---|
+| xorshift32, T = 8 | 0,004172 | 5 200 | **1 − 3,6·10⁻¹⁰** |
+
+**15 600 fenêtres attaquées, 0 état compatible.** L'exclusion n'est pas
+conditionnelle : la fraction des motifs de rejet non explorés vaut 3,6·10⁻¹⁰.
+Registre **m = 3 493, zéro significatif**.
+
+### Le mur, chiffré
+
+Le coût est le nombre de motifs de pas explorés, `2^(H(r)·(n/4 − 1))` avec
+`H(r) = 2,85` bits **mesurés sur la loi exacte** (convolution de vingt
+géométriques), soit `2^(0,712 n)` contre `2^n` en force brute.
+
+| n | force brute | attaque | gain | faisable |
+|---|---|---|---|---|
+| 32 | 2³² | **2¹⁹·⁹** | 2¹²·¹ | **oui** |
+| 48 | 2⁴⁸ | 2³¹·³ | 2¹⁶·⁷ | non |
+| 64 | 2⁶⁴ | 2⁴²·⁷ | 2²¹·³ | non |
+| 128 | 2¹²⁸ | 2⁸⁸·² | 2³⁹·⁸ | non |
+
+> **Le gain est réel — 2^(0,29 n) — et il ne suffit pas.** À 64 bits la
+> couverture par fenêtre tombe à 2,1·10⁻⁷, que même 4 410 fenêtres ne relèvent
+> pas. xorshift64 est écrit **« hors portée »**, jamais « exclu ».
+
+**Ce n'est donc pas « on n'a pas trouvé » : c'est une défense chiffrée.**
+L'échantillonneur par rejet coûte 2,85 bits d'inconnue par tirage là où le
+modulo n'en rend que 4. Le solde bascule vers **48 bits d'état**.
+
+**Ce qui le franchirait**, précisément : le **boost** (§90 lui compte 1,151
+forme par tirage à décalage fixe — passer de 4 à 5,151 formes ferait tomber le
+coût de `2^0,712n` à `2^0,553n`, soit 2³⁵ au lieu de 2⁴³ à 64 bits) ; ou
+**l'ordre de sortie**, qui rend le rejet lisible et fait disparaître l'inconnue
+de pas — mais le dossier n'en a que neuf tirages.
+
+**Registre : consigné.**
+
 ## 97. `java.util.Random` sous rejet, et le théorème du jumeau (`h76_java_rejet.py`)
 
 ### La case vide, et elle était la plus probable de toutes
