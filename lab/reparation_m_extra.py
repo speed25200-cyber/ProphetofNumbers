@@ -45,7 +45,8 @@ import lab                                                    # noqa: E402
 DECLARED = {"h56.classes_residuelles": 7,
             "h57.bonus_ordonne": 0,
             "h59.surdispersion_session": 0,
-            "h61.familles_etendues": 14}
+            "h61.familles_etendues": 14,
+            "h62.troncature": 55}
 
 
 def main():

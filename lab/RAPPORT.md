@@ -8110,3 +8110,213 @@ lisible dans l'historique. Les fichiers d'expérience portent désormais
 `tok["m_extra"] = …` avant `lab.record`.
 
 > **m du registre : 3 339 → 3 359. Zéro significatif. Plus petit p : 2,0·10⁻⁴.**
+
+---
+
+## 82. Le second échantillonneur, et il fuit plus que le premier (`h62_troncature.py`)
+
+Tout le volet §68–§81 repose sur une seule ligne : `n = (out mod 80) + 1`. Le
+§74 en tirait une conclusion rassurante — la fuite vaut `20 × v₂(vivier)`, donc
+un vivier **impair** l'annulerait : « un opérateur qui aurait choisi 79 numéros
+aurait fermé cette voie sans le savoir ».
+
+Sauf que le modulo n'est **pas** la seule façon d'écrire un tirage, ni la plus
+répandue. Il y en a trois, et le dossier n'avait testé que la première.
+
+| | forme | qui l'écrit |
+|---|---|---|
+| **(A)** | `out % 80` | C, C++, PHP historique, tout code naïf |
+| **(B)** | `floor(u × 80)`, `u = out/2^W` | JavaScript, Java `nextInt`, Python `random()*80` |
+| **(C)** | 7 bits tirés, rejetés si ≥ 80 | Python `randrange`, Go, Rust |
+
+### Le théorème de la troncature
+
+Sous (B), `n − 1 = floor(out × 80 / 2^W)` équivaut à
+`out ∈ [L_n, R_n]` avec `R_n − L_n + 1 = 2^W/80`. L'intervalle contraint les
+bits de **poids fort** : tous ceux que `L_n` et `R_n` partagent sont
+exactement déterminés. Leur espérance est une **somme finie sur les 80
+intervalles** — pas une estimation.
+
+Sous (C), les `k = 7` bits tirés **sont** le numéro : sept bits par mot accepté,
+sans condition.
+
+| vivier | v₂ | **(A) modulo** | **(B) troncature** | **(C) poids fort** |
+|---|---|---|---|---|
+| **79** | 0 | **0,000** | **4,481** | **7,000** |
+| **80** | 4 | 4,000 | **5,200** | **7,000** |
+| **81** | 0 | **0,000** | **4,519** | **7,000** |
+| 127 | 0 | 0,000 | 5,055 | 7,000 |
+| 128 | 7 | 7,000 | 7,000 | 8,000 |
+
+### Trois conclusions du dossier tombent
+
+**1. Le §74.** « Un vivier impair rendrait le théorème du §68 entièrement vide. »
+Vrai de (A) **seulement**. Un vivier de 79 publie 0 bit sous (A), **4,48 sous
+(B) et 7 sous (C)**. La protection par parité ne protège que du plus faible des
+trois échantillonneurs. Et — contre-intuitivement — **(A) est le moins fuyant
+des trois** sur le vivier réel : 4 bits contre 5,20 et 7. *Le volet §68–§81
+attaquait l'échantillonneur le plus avare.*
+
+**2. Le §71.** « Fisher-Yates divise la fuite par 3,6. » Encore un raisonnement
+sur (A) :
+
+| | bits par tirage | rapport à (A)+rejet |
+|---|---|---|
+| (A) rejet modulo | 80,0 | 1,00 |
+| (A) Fisher-Yates | 22,0 | 0,28 |
+| (B) rejet troncature | 104,0 | 1,30 |
+| **(B) Fisher-Yates** | **89,7** | **1,12** |
+| (C) rejet poids fort | 140,0 | 1,75 |
+| (C) Fisher-Yates | 137,0 | 1,71 |
+
+Sous (B), Fisher-Yates fuit **4,1 fois plus** que sous (A) — et *plus* que le
+rejet modulo lui-même, parce que la troncature ne demande pas que le module soit
+pair : elle publie `log₂(module)` bits quel qu'il soit. **Fisher-Yates n'est une
+protection que contre (A).**
+
+**3. Le §69.** L'échelle des paliers, mesurée par la méthode du §80 pour les
+trois :
+
+| famille | n | (A) mots | (B) mots | (C) mots |
+|---|---|---|---|---|
+| xorshift32 | 32 | 9 | 7 | 6 |
+| xorshift64 | 64 | 19 | 14 | 10 |
+| xorshift96 | 96 | 28 | 19 | 16 |
+| xorshift128 | 128 | 33 | 25 | 23 |
+| taus88 | 96 | 22 | 18 | 14 |
+| **xoshiro256** | 256 | 64 | 49 | **37** |
+
+Sous (B) il faut ~77 % des mots qu'exige (A), sous (C) ~57 %. **xoshiro256, que
+le §81 déclarait hors de portée (3,2 tirages), en demande 1,9 sous (C)** : il
+entre dans la portée.
+
+### Sur les cinq tirages ordonnés
+
+**56 attaques, 0 état compatible.** Sur les **13 combinaisons concluantes** :
+couverture minimale 38 %, médiane **96 %**. Trois combinaisons sont marquées
+**non concluantes** (couverture < 20 %) et ne comptent pas comme testées —
+toutes relèvent de (C), qui rejette plus du tiers de ses mots et fait exploser
+l'arbre. C'est un coût de calcul, pas une limite de l'attaque.
+
+**Registre : `h62.troncature`, 0 état compatible, conforme. m = 3 415, zéro
+significatif.**
+
+### Ce que cela ne change pas
+
+- **Le théorème de conversion (§78) est intact** : il dit ce qu'un bit vaut, pas
+  d'où il vient. Mais son cas `r = 1` devient *plus accessible* — (B) et (C)
+  publient 5,2 et 7 bits du premier mot au lieu de 4.
+- **Le théorème d'appartenance (§80) est intact** : il porte sur la structure de
+  `L`, pas sur l'observation.
+- **Le résultat reste nul sur l'archive**, sous aucun des trois
+  échantillonneurs, pour aucune famille joignable.
+
+Reste ouvert : un quatrième idiome existe — le rejet sur un intervalle multiple
+du vivier (Lemire 2019) — et il publie une information de forme différente.
+
+---
+
+## 83. Le théorème de la retenue, et le mur qu'il nomme (`h63_retenue.py`)
+
+Le §69 range les familles **additives** — xorshift128+, xoroshiro128+ — à part,
+avec cette phrase : « seul le bit 0 d'une somme est exactement linéaire, d'où 20
+bits par tirage ». C'est vrai, et c'est une **borne inférieure** que personne
+n'avait cherché à relever.
+
+Ces familles ne sont pas un cas d'école : **xorshift128+ est le générateur de
+`Math.random` dans V8** — Chrome, Node, Edge — donc statistiquement le plus
+probable derrière un affichage de loterie en ligne. Le dossier ne savait pas
+l'attaquer.
+
+### Le théorème
+
+Soit `out = a + b (mod 2^W)`, `a` et `b` linéaires sur F₂ en l'état. Avec `c_i`
+la retenue **entrante** au rang `i` et `c_0 = 0` :
+
+`out_i = a_i ⊕ b_i ⊕ c_i` et `c_{i+1} = maj(a_i, b_i, c_i)`
+
+> **Lemme.** Si `a_i ≠ b_i` alors `maj(a_i, b_i, c_i) = c_i`.
+> *Preuve.* L'un vaut 0, l'autre 1 ; la majorité de `{0, 1, c_i}` est `c_i`. ∎
+
+> **Corollaire — le préfixe libre.** Posons `d_i = out_i ⊕ c_i = a_i ⊕ b_i`. Si
+> `d_i = 1` la retenue reste **connue**, donc l'équation du rang `i+1` reste
+> **linéaire**. Comme `c_0 = 0`, les bits `0..j` de `out` donnent `j+1`
+> équations linéaires libres, où `j` est le nombre de 1 en tête des bits
+> observés.
+
+Espérance sur quatre bits observés :
+`1·½ + 2·¼ + 3·⅛ + 4·⅛ = **1,875**` équation linéaire par mot au lieu de 1 —
+**sans aucune supposition et sans le moindre branchement**.
+
+| longueur du préfixe | observé | théorie |
+|---|---|---|
+| 1 | 0,5090 | 0,5000 |
+| 2 | 0,2360 | 0,2500 |
+| 3 | 0,1320 | 0,1250 |
+| 4 | 0,1230 | 0,1250 |
+
+Moyenne mesurée **1,869** contre 1,875. **3 738 équations vérifiées, zéro
+fausse** : c'est une identité, pas une approximation.
+
+### Ce que cela change à l'échelle du §69
+
+| famille | n | §69 | **mesuré (§80)** | tirages | gain |
+|---|---|---|---|---|---|
+| xorshift128+ (V8) | 128 | 128 mots | **77** | 3,85 | ×1,66 |
+| xoroshiro128+ | 128 | 128 mots | **78** | 3,90 | ×1,64 |
+
+Le palier tombe de **7 tirages à 4**. Le §69 n'avait pas tort — il comptait ce
+qui était *certain* — mais il laissait **47 % de la fuite sur la table**, faute
+d'avoir regardé la retenue.
+
+### Le témoin : l'algèbre, séparée de la combinatoire
+
+L'attaque complète doit énumérer les positions des rejets ; le théorème, lui,
+porte sur l'algèbre. On sépare donc : ce témoin **donne** les positions et ne
+fait qu'éliminer.
+
+| famille | tirages | mots utilisés | états retrouvés |
+|---|---|---|---|
+| xorshift128+ (V8) | 4 | 96 | **10/10** |
+| xoroshiro128+ | 4 | 100 | **10/10** |
+
+L'état sort par **élimination seule**, sans une seule supposition.
+
+### Ce que le dossier peut en faire aujourd'hui : rien, et pourquoi
+
+| | |
+|---|---|
+| tirages ordonnés | 5 (1381023, 1381026, 1381028, 1381030, 1381031) |
+| plus longue suite consécutive | **2** |
+| nécessaire | **4** |
+| manquants | 2 |
+
+Sous rejet, le théorème du trou (§72) ne chaîne pas : le nombre de mots
+consommés par les tirages intermédiaires est inconnu. Il faut donc 4 tirages
+**consécutifs**. Avec 2, on a ~75 équations pour 128 inconnues — le système est
+**sous-déterminé**, et tout état compatible admettrait ~9·10¹⁵ solutions.
+
+> **Registre : inchangé.** Consigner un test sous-déterminé comme « conforme »
+> serait exactement le faux négatif que le protocole interdit. Ce qu'il faut
+> collecter : **4 tirages ordonnés consécutifs, soit 20 minutes.**
+
+### Ce que la retenue n'ouvre pas — et c'est le mur, désormais en une ligne
+
+Le lemme part de `c_0 = 0` : il démarre au bit de **poids faible**, donc il sert
+l'échantillonneur (A) du §82 et lui seul. Sous (B), la troncature, on observe
+les bits de poids **fort** de la somme, où la retenue entrante vaut
+`c_i = 1 ⟺ (a mod 2^i) + (b mod 2^i) ≥ 2^i` — une inégalité sur des bits que
+rien n'a publiés. Le lemme ne démarre pas, et chaque équation coûte une
+supposition : 2⁶⁸ branches sans élagage possible avant le rang plein.
+
+> **Or c'est la combinaison la plus plausible du monde réel.** xorshift128+ est
+> `Math.random` de V8, et le JavaScript idiomatique écrit
+> `Math.floor(Math.random() * 80)` — soit exactement (B).
+>
+> **Le mur, en une ligne : sortie ADDITIVE + échantillonneur par TRONCATURE.**
+> Ni le §68 (linéaire, modulo), ni le §82 (linéaire, troncature), ni le §83
+> (additif, modulo) ne l'atteignent. Il faudrait un solveur algébrique — SAT ou
+> base de Gröbner — là où le dossier n'a que de l'élimination de Gauss.
+
+C'est la première fois que le dossier peut écrire son mur en une ligne au lieu
+d'une liste.
