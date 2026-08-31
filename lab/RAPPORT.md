@@ -9745,3 +9745,108 @@ d'inconnue de pas. **Le budget est largement positif ; c'est l'algorithme qui
 manque** — la contrainte est un multiensemble, pas une équation.
 
 **Registre : inchangé, à dessein.**
+
+## 97. `java.util.Random` sous rejet, et le théorème du jumeau (`h76_java_rejet.py`)
+
+### La case vide, et elle était la plus probable de toutes
+
+Le §34 a mené deux campagnes qui **se croisent sans se recouvrir** :
+
+| campagne | espace d'états | échantillonneur |
+|---|---|---|
+| `sweep_java48` | **les 2⁴⁸ complets** | Fisher-Yates **seulement** |
+| `sweep_order` | graines **[0, 2³²) seulement** | 4 échantillonneurs |
+
+Or `new Random()` en Java tire sa graine de `nanoTime` mêlée à un compteur :
+l'état est un **48 bits arbitraire**, hors de portée d'un balayage 2³². Et
+l'idiome par défaut pour vingt numéros distincts est
+
+```java
+Set<Integer> s = new HashSet<>();
+while (s.size() < 20) s.add(rnd.nextInt(80) + 1);
+```
+
+c'est-à-dire un **échantillonneur par rejet** — celui que le §95 vient de
+sortir de la couverture du §89. **Personne n'avait testé cette combinaison.**
+
+### Le levier est au milieu de l'état
+
+`next(31)` rend `(int)(s >>> 17)`, et `nextInt(80)` rend `next(31) % 80`.
+Comme 16 divise 80 :
+
+> `p mod 16 = (s >>> 17) mod 16 =` **les bits 17 à 20 de l'état**
+
+Ni les bits de poids faible où vit le levier 2-adique habituel, ni ceux de
+poids fort où vivent les attaques par réseau : **ceux du milieu**. Et le LCG
+modulo 2⁴⁸ reste **clos modulo 2²¹** — ces bits ne dépendent donc que de
+21 bits d'état, pas 48. D'où deux étages : `2²¹` puis `2²⁷`.
+
+**Le lemme du préfixe propre** neutralise le rejet au départ : un rejet exige
+un doublon, et au début il n'y a rien à doubler.
+
+| rejets tolérés | probabilité | source |
+|---|---|---|
+| 0 | 0,6966 | `Π_{i<8}(1 − i/80)` |
+| 1 | 0,2438 | `P(0) × Σ_{i<8} i/80` |
+| **total** | **0,9405** par tirage | **1 − 9,4·10⁻¹²** sur les 9 tirages ordonnés |
+
+Et **le piège de la borne 64** que le §34 devait traiter — `nextInt` prend les
+bits de poids fort pour les puissances de deux, et Fisher-Yates croise 64 en
+décroissant de 80 à 61 — **ne se présente pas ici** : sous rejet la borne vaut
+toujours 80.
+
+### Le résultat
+
+L'attaque casse un état 48 bits **tiré au hasard** en 7 secondes, là où le
+balayage brut demandait 2,8·10¹⁴ pas.
+
+> **Zéro état compatible sur les neuf tirages ordonnés.** Registre m = 3 490,
+> zéro significatif.
+
+### Le théorème du jumeau
+
+Trouvé en débuggant le témoin, et vérifié à la main :
+
+```
+état a : mots  46, 46, 75, 66, …   →  46 accepté, 46 REJETÉ, puis 75, 66, 0…
+état b : mots  46, 75, 66,  0, …   →  46, 75, 66, 0…      la MÊME suite acceptée
+```
+
+> **Théorème.** Sous échantillonneur par rejet, l'application
+> `état → tirage ordonné` **n'est pas injective**. Si le premier mot est
+> immédiatement redoublé — probabilité 1/80 — l'état d'avant et celui d'après
+> produisent le même tirage. Et les deux jumeaux **convergent dès le premier
+> numéro accepté** : ils sont opérationnellement identiques.
+
+**Ce que cela corrige.** Le dossier répète depuis le §34 que *« la vérification
+est un rejeu exact, donc aucun faux positif possible »*.
+
+| | |
+|---|---|
+| pour **exclure** | **vrai** — un zéro reste un zéro. Toutes les campagnes nulles du dossier tiennent, celle-ci comprise. |
+| pour **identifier** | **trop fort** — l'état n'est déterminé qu'à un jumeau près. |
+| pour **prédire** | sans conséquence — les jumeaux ont le même futur. |
+
+Le témoin testait donc la mauvaise chose. Le critère correct n'est pas « on
+retrouve l'état planté » mais « l'état trouvé **prédit les mêmes tirages
+suivants** ». Avec lui : **2/2**, dont un par un jumeau.
+
+### Ce que cela ferme, et ce qui reste
+
+**Fermé** : `java.util.Random` à état 48 bits arbitraire sous échantillonneur
+par rejet — et par la même occasion `drand48`/`lrand48`, qui partagent
+exactement ces constantes et cette extraction. C'était la famille qui
+échappait **à la fois** au §89 (rejet ⇒ pas constant, §95) et au §91
+(`java.util.Random` déclaré aveugle à BM car sa sortie est décalée), et qui
+n'était couverte qu'à 2³².
+
+**Reste**, et la liste rétrécit :
+1. les LCG modulo 2⁴⁸ à **autres constantes** — mais celles de `drand48` sont
+   les seules standard ;
+2. les sorties **brouillées** à état plein (PCG, xoshiro\*\*/++, splitmix64) —
+   leurs scramblers font descendre les bits hauts, ce qui détruit précisément
+   la clôture 2-adique exploitée ici ;
+3. les générateurs **à retenue** (MWC), nommés au §91 ;
+4. tout **CSPRNG**, et le matériel.
+
+**Registre : consigné.**
