@@ -61,6 +61,59 @@ enum LeakBudget {
     /// bit 0 d'une somme est exactement linéaire, d'où 20 bits par tirage.
     static let additiveBitsPerDraw = 20
 
+    // MARK: Les trois échantillonneurs (§82)
+
+    // Tout ce qui précède suppose `n = (out mod 80) + 1`. Ce n'est qu'un des
+    // trois idiomes, et le §82 a mesuré que c'est **le moins fuyant**.
+    //
+    //   (A) modulo            `out % 80`            — C, PHP historique
+    //   (B) troncature        `floor(u × 80)`       — JavaScript, Java, Python
+    //   (C) bits de poids fort avec rejet           — Python randrange, Go, Rust
+    //
+    // Deux conséquences que le dossier avait écrites à l'envers :
+    //
+    // 1. Le §74 concluait qu'un vivier IMPAIR (79, 81) annulerait la fuite.
+    //    Vrai contre (A) seulement : un vivier de 79 publie 0 bit sous (A),
+    //    4,48 sous (B) et 7 sous (C). La valuation 2-adique ne gouverne que
+    //    le modulo.
+    // 2. Le §71 concluait que Fisher-Yates divise la fuite par 3,6. Vrai
+    //    contre (A) seulement : sous (B) il fuit 89,7 bits par tirage contre
+    //    22, soit **plus** que le rejet modulo lui-même, parce que la
+    //    troncature ne demande pas que le module soit pair.
+
+    /// Bits exactement publiés par mot sous **troncature** : `n − 1 =
+    /// floor(out × pool / 2^w)` contraint `out` à un intervalle de largeur
+    /// `2^w / pool`, donc tous les bits de poids fort communs aux deux bornes
+    /// sont déterminés. Calculé, jamais tabulé — la valeur est stable dès
+    /// `w = 32` (5,2 pour un vivier de 80).
+    static func truncationBitsPerWord(pool: Int = pool, wordBits: Int = 32) -> Double {
+        let scale = UInt64(1) << UInt64(wordBits)
+        var total = 0.0
+        for n in 0..<pool {
+            let lo = (UInt64(n) * scale + UInt64(pool) - 1) / UInt64(pool)
+            let hi = (UInt64(n + 1) * scale + UInt64(pool) - 1) / UInt64(pool) - 1
+            var shared = 0
+            while shared < wordBits {
+                let sh = UInt64(wordBits - shared - 1)
+                if (lo >> sh) != (hi >> sh) { break }
+                shared += 1
+            }
+            total += Double(hi - lo + 1) / Double(scale) * Double(shared)
+        }
+        return total
+    }
+
+    /// Bits publiés par mot accepté sous **bits de poids fort avec rejet** :
+    /// les `k = ceil(log2(pool))` bits tirés *sont* le numéro.
+    static var highBitsPerWord: Int { Int.bitWidth - (pool - 1).leadingZeroBitCount }
+
+    /// Les trois, par tirage de 20 numéros. Le modulo est le plus avare.
+    static var bitsPerDrawBySampler: (modulo: Double, truncation: Double, highBits: Double) {
+        (Double(rejectionBitsPerDraw),
+         Double(drawn) * truncationBitsPerWord(),
+         Double(drawn * highBitsPerWord))
+    }
+
     struct Milestone {
         let draws: Int
         let family: String

@@ -658,6 +658,36 @@ def main():
     print(f"    §80 corrige le §69 : {MT_DRAWS} > {need(19937, rej)}   "
           f"{'ok' if i else 'ÉCHEC'}")
 
+    # §82 — les trois echantillonneurs. Meme arithmetique que
+    # LeakBudget.truncationBitsPerWord, en Python.
+    def _trunc(pool, W=32):
+        tot = 0.0
+        for n in range(pool):
+            lo = -(-(n << W) // pool)
+            hi = -(-((n + 1) << W) // pool) - 1
+            k = 0
+            while k < W and (lo >> (W - k - 1)) == (hi >> (W - k - 1)):
+                k += 1
+            tot += (hi - lo + 1) / (1 << W) * k
+        return tot
+
+    t80, t79 = _trunc(80), _trunc(79)
+    hb = (80 - 1).bit_length()
+    fy_t = sum(_trunc(80 - x) for x in range(20))
+    j = abs(t80 - 5.2) < 1e-6 and abs(t79 - 4.481013) < 1e-6
+    k_ = hb == 7 and _v2(79) == 0 and t79 > 4          # vivier impair : (A) muet
+    l_ = fy_t > fy and fy_t > 89 and fy_t < 90         # §71 renverse
+    ok &= j and k_ and l_
+    print(f"\n11. Les trois échantillonneurs (§82) — LeakBudget.swift")
+    print(f"    troncature : vivier 80 -> {t80:.3f} bits/mot, "
+          f"vivier 79 -> {t79:.3f}   {'ok' if j else 'ÉCHEC'}")
+    print(f"    vivier IMPAIR : modulo {_v2(79)} bit, troncature {t79:.2f}, "
+          f"poids fort {hb}   {'ok' if k_ else 'ÉCHEC'}")
+    print(f"    Fisher-Yates : modulo {fy} bits, troncature {fy_t:.1f}   "
+          f"{'ok' if l_ else 'ÉCHEC'}")
+    print(f"    par tirage : (A) {rej}  (B) {20*t80:.0f}  (C) {20*hb}   "
+          f"le modulo est le plus avare")
+
     # Les deux lectures du budget (§72, §75) : le decoupage en sessions,
     # mesure au §65 (ancre 1 309 794, periode 204).
     ANCRE, PER = 1_309_794, 204

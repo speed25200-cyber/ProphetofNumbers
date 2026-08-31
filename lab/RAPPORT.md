@@ -8000,3 +8000,113 @@ promesses.
   minutes. C'est faisable, et c'est la seule mesure qui tranche.
 
 **Registre : inchangé.** h60 démontre et calcule.
+
+---
+
+## 81. Les familles que la carte n'avait jamais nommées (`h61_familles_etendues.py`)
+
+Les §68 à §80 ont bâti une attaque complète sur les générateurs F₂-linéaires et
+l'ont appliquée à **cinq** familles. Ce sont les cinq que le §68 avait écrites le
+premier jour, et personne n'a demandé si la liste était la bonne. Elle ne l'est
+pas : les générateurs F₂-linéaires réellement déployés aujourd'hui sont les
+**xoshiro/xoroshiro** de Blackman et Vigna (2018), le **LFSR113** de L'Ecuyer
+(1999) et les **WELL** de Panneton, L'Ecuyer et Matsumoto (2006). Aucun n'avait
+été testé.
+
+### Le seuil de rang, mesuré famille par famille
+
+Le §69 comptait `nbits / 80` ; le §80 a montré que ce compte est faux dès que
+l'état est grand. On mesure donc, comme au §80, le mot où le rang atteint son
+maximum — et ce maximum, qui n'est pas toujours `nbits` :
+
+| famille | nominal | W(rang) | **rang réel** | origine |
+|---|---|---|---|---|
+| xorshift32 | 32 | 9 | 32 | Marsaglia 2003 |
+| xorshift64 | 64 | 19 | 64 | Marsaglia 2003 |
+| xorshift96 | 96 | 28 | 96 | Marsaglia 2003 |
+| xorshift128 | 128 | 33 | 128 | Marsaglia 2003 |
+| taus88 | 96 | 22 | **88** | L'Ecuyer 1996 |
+| xoroshiro128 (brut) | 128 | 33 | 128 | **Blackman-Vigna 2018** |
+| xoshiro128 (brut) | 128 | 33 | 128 | **Blackman-Vigna 2018** |
+| xoshiro256 (brut) | 256 | 64 | 256 | **Blackman-Vigna 2018** |
+| LFSR113 | 128 | 29 | **111** | **L'Ecuyer 1999** |
+| WELL512a | 512 | 128 | 512 | **Panneton et al. 2006** |
+
+### LFSR113 n'est pas identifiable par les bits bas — et c'est un résultat
+
+Les quatre bits publiés par mot n'engendrent qu'un espace de **rang 111 sur
+128** : il reste un noyau de **17 dimensions invisible modulo 16 mais visible
+modulo 80**. Deux états du noyau donnent les mêmes quartets et des **numéros
+différents** — le système linéaire ne les sépare pas, et il faudrait départager
+131 072 états à chaque feuille.
+
+> Ce n'est pas une limite de calcul mais une propriété de la famille : sous
+> l'échantillonneur par modulo, l'observation ne suffit pas à l'identifier. Le
+> §82 montre que les deux autres échantillonneurs ferment ce défaut.
+
+C'est le témoin positif qui a trouvé cette structure : la première version de
+l'attaque visait le rang **nominal**, jamais atteint, et échouait à 0/6 sur
+LFSR113 et taus88. Un résultat nul sans témoin l'aurait fait passer pour une
+conformité.
+
+### Deux erreurs d'algorithme, trouvées par le témoin
+
+1. **Pas de plafond global de rejets.** La première version plafonnait les
+   rejets *par tirage* : l'arbre valait C(19,7)² ≈ 2·10⁹ feuilles et le témoin
+   échouait à 0/3. Remplacé par un **approfondissement itératif** sur le nombre
+   de rejets rencontrés *avant que le rang ne soit plein* — la seule quantité
+   qui compte, puisque la recherche s'arrête là. Compter le total surestimait le
+   coût et sous-estimait la couverture d'un facteur deux.
+2. **Copie du dictionnaire de pivots à chaque nœud**, O(rang) par nœud. Or
+   `add_eq` n'écrase jamais un pivot : un journal d'annulation suffit, et le
+   nœud redevient O(1) amorti.
+
+### Sur les cinq tirages ordonnés
+
+| famille | essais | profondeur | **couverture** | état trouvé |
+|---|---|---|---|---|
+| xorshift32 | 5 | 8 | 100 % | 0 |
+| xorshift64 | 5 | 8 | 100 % | 0 |
+| xorshift96 | 1 | 6 | 94 % | 0 |
+| xorshift128 | 1 | 4 | 64 % | 0 |
+| taus88 | 1 | 5 | 91 % | 0 |
+| xoroshiro128 | 1 | 4 | 64 % | 0 |
+| xoshiro128 | 1 | 4 | 64 % | 0 |
+
+**15 attaques, 0 état compatible, couverture minimale 64 %.** La vérification
+est un rejeu exact : pas de faux positif possible. Mais la couverture n'est pas
+100 %, et l'écrire est la seule façon honnête de présenter un résultat nul.
+
+### Ce qui reste hors de portée, nommément
+
+| | tirages ordonnés requis |
+|---|---|
+| xoshiro256 | 3,2 — il en manque un consécutif |
+| WELL512a | 6,4 |
+| MT19937 | 343 (§80) |
+| xoshiro\*\* et ++, PCG, splitmix64, CSPRNG | hors du champ du §68 |
+
+**Registre : `h61.familles_etendues`, 0 état compatible, conforme.**
+
+---
+
+## 81 bis. Réparation du registre : le champ `m_extra` (`lab/reparation_m_extra.py`)
+
+Le registre compte sa multiplicité comme `m = nombre de lignes + Σ m_extra`.
+Les entrées h56, h57, h59 et h61 déclaraient leur `m_extra` **dans le texte des
+notes** mais pas dans le **champ**, que `lab.record` n'expose pas. Le registre
+sous-comptait donc sa propre multiplicité — c'est-à-dire que son seuil de Holm
+était **trop permissif**, exactement le défaut que le protocole existe pour
+empêcher. Aucune conclusion n'en dépend (toutes ces entrées sont conformes très
+au-dessus du seuil), mais il fallait le corriger et le dire.
+
+De plus, `h61` avait été consigné **deux fois** : la série complète a été lancée
+deux fois et le registre est en ajout seul. Même incident qu'au §60, même
+réparation.
+
+Le fichier rejoue la dernière ligne de chaque entrée en y ajoutant le champ,
+puis appelle `lab.dedupe()`. Rien n'est effacé à la main ; l'incident reste
+lisible dans l'historique. Les fichiers d'expérience portent désormais
+`tok["m_extra"] = …` avant `lab.record`.
+
+> **m du registre : 3 339 → 3 359. Zéro significatif. Plus petit p : 2,0·10⁻⁴.**

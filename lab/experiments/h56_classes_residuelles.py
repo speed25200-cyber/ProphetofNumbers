@@ -230,6 +230,8 @@ else:
         f"absorbe la multiplicite du balayage",
         f"null SIMULE : {REPS} archives SRS completes par diviseur",
         "conforme si p > seuil Holm du registre entier", track="A")
+    # Le champ, pas seulement les notes : `lab.holm` ne lit que le champ.
+    tok["m_extra"] = len(DIVISORS) - 1
     lab.record(tok, float(worst[1]), p=float(worst[5]), verdict="conforme",
                power_at=(f"temoin positif : une archive engendree par un LCG modulo "
                          f"2^32 a sortie brute est ecartee sur {detected} des "

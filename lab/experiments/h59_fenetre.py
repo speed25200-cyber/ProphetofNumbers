@@ -495,6 +495,7 @@ if not DRY:
         f"donc sans multiplicite interne",
         f"null SIMULE : {REPS} archives SRS completes de {len(keep)} sessions",
         "conforme si p > seuil Holm du registre entier", track="A")
+    tok["m_extra"] = 0            # statistique unique, aucun balayage
     lab.record(tok, T_obs, p=p_obs, verdict="conforme",
                power_at=(f"temoin positif : archive contaminee au biais MINIMAL "
                          f"RENTABLE delta* = {d_star:.3f} (s = {s_best}, vivier chaud "
