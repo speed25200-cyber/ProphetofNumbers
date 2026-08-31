@@ -8787,3 +8787,102 @@ trancher la règle que le §37 déclarait indécidable.
 
 **Registre : `h67.reconstitution_bonus`, conforme. m = 3 475, zéro
 significatif.**
+
+---
+
+## 89. La complexité linéaire du bonus : le premier test qui ne nomme aucune famille (`h68_complexite_lineaire.py`)
+
+Les §68 à §88 attaquent **famille par famille**. C'est une énumération, et une
+énumération est toujours incomplète — le §81 a montré que la liste d'origine
+oubliait les générateurs qu'on déploie aujourd'hui. Il existe un test qui les
+couvre **tous d'un coup**, et le dossier ne l'avait jamais fait.
+
+### L'idée
+
+Si le bonus est le premier numéro sorti et si le générateur avance d'un nombre
+**fixe** de mots par tirage, alors le bit `j` de `bonus_t − 1` vaut
+
+> `b_j(t) = φ_j(Mᵗ · x)` avec `M = L²⁰`
+
+Pour un générateur F₂-linéaire **quelconque**, cette suite satisfait donc une
+récurrence linéaire d'ordre au plus `n`, la taille de l'état — quel que soit le
+détail de la famille. Et **Berlekamp-Massey** rend exactement cet ordre minimal :
+la *complexité linéaire*.
+
+| | complexité attendue |
+|---|---|
+| générateur F₂-linéaire d'état `n` | **≤ n** |
+| suite réellement aléatoire | **≈ N/2** |
+
+Avec N = 70 560 bonus, le seuil est à **35 280 bits**.
+
+> Et si la complexité était basse, on aurait un **prédicteur** : Berlekamp-Massey
+> ne détecte pas seulement, il **restitue** le registre à décalage qui engendre
+> la suite — donc le bit suivant. C'est la reconstitution la plus directe qui
+> soit.
+
+### Contrôle, puis témoin
+
+| source | longueur | attendu | trouvé |
+|---|---|---|---|
+| LFSR de degré 17 | 68 | 17 | **17** |
+| LFSR de degré 61 | 244 | 61 | **61** |
+| suite aléatoire | 20 000 | 10 000 | **10 000** |
+
+**Témoin** — une archive engendrée par MT19937, bonus posé égal au premier
+numéro, 48 000 tirages :
+
+| bit | complexité | N/2 | verdict |
+|---|---|---|---|
+| 0 | **19 937** | 24 000 | linéaire détecté |
+| 1 | **19 937** | 24 000 | linéaire détecté |
+| 2 | **19 937** | 24 000 | linéaire détecté |
+| 3 | **19 937** | 24 000 | linéaire détecté |
+
+La complexité tombe sur **la taille exacte de l'état de MT19937**, sans qu'on
+ait eu besoin de le nommer. *(Le mode essai avec 12 000 échantillons ne le
+voyait pas, et c'était juste : Berlekamp-Massey exige 2L échantillons pour voir
+une complexité L. Le critère du témoin a été corrigé pour ne pas déclarer
+« détecté » sur un échantillon trop court.)*
+
+### Sur l'archive
+
+| bit | longueur | complexité | N/2 | écart |
+|---|---|---|---|---|
+| 0 | 70 560 | 35 279 | 35 280 | −1 |
+| 1 | 70 560 | 35 281 | 35 280 | +1 |
+| 2 | 70 560 | 35 281 | 35 280 | +1 |
+| 3 | 70 560 | 35 281 | 35 280 | +1 |
+
+**Aucune structure linéaire.** Les quatre suites sont indiscernables d'une suite
+aléatoire, à un bit près.
+
+### Ce que cela exclut — et c'est bien plus que le §88
+
+Le §88 excluait six familles **nommées**. Celui-ci exclut d'un seul coup
+
+> **toute famille F₂-linéaire dont l'état tient sous 35 280 bits**
+
+nommée ou non, connue ou non, présente ou absente de la littérature. C'est la
+différence entre une énumération et un théorème : Berlekamp-Massey ne demande
+pas *quelle* est la famille, il demande si la suite est **linéaire**.
+
+Et 35 280 bits, c'est **1,8 fois** l'état de MT19937, 69 fois celui de WELL512a,
+276 fois celui de `Math.random`. Aucun générateur déployé n'en a autant.
+
+*(Pour mémoire : le §77 déclarait MT19937 « computationnellement hors de
+portée ». Berlekamp-Massey le traite en **0,2 seconde**.)*
+
+### Ce que cela n'exclut pas
+
+1. **Les trois hypothèses du §88 restent** — bonus = premier numéro sorti,
+   nombre fixe de mots par tirage, absence de ré-amorçage. Si l'une tombe, la
+   suite observée n'est pas `φ(Mᵗx)` et le test ne porte sur rien.
+2. **Les générateurs non F₂-linéaires** : LCG, PCG, xoshiro\*\* et ++,
+   splitmix64, les familles additives, tout CSPRNG. La complexité linéaire ne
+   les vise pas.
+3. Un état de plus de 35 280 bits — mais MT19937 est déjà le plus gros de la
+   littérature courante.
+
+**Registre : `h68.complexite_lineaire`, complexité minimale 35 279, conforme.
+m = 3 479, zéro significatif.**
