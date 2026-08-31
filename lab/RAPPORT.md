@@ -8886,3 +8886,92 @@ portée ». Berlekamp-Massey le traite en **0,2 seconde**.)*
 
 **Registre : `h68.complexite_lineaire`, complexité minimale 35 279, conforme.
 m = 3 479, zéro significatif.**
+
+---
+
+## 90. Le boost : la seconde donnée publiée, et ce qu'elle corrige au §88 (`h69_boost.py`)
+
+Question posée simplement : *l'archive contient-elle le bonus et l'extra ?*
+La réponse est plus intéressante que oui ou non.
+
+| | présent | ce que c'est |
+|---|---|---|
+| **bonus** | 70 560 / 70 560 | un numéro, 1..80 |
+| **boost** | 70 560 / 70 560 | un multiplicateur, ∈ {1, 2, 3, 4, 5, 10} |
+| **extra** | **absent** | et il ne peut pas y être : l'EXTRA est une **option de mise à CHF 2** (§63), pas un tirage. Il n'y a rien à consigner. |
+
+> **Le dossier a toujours eu deux données publiées par tirage, et n'en a
+> exploité qu'une.**
+
+### La loi du boost
+
+| boost | fréquence | cumul | pourcentage rond ? | z |
+|---|---|---|---|---|
+| 1 | 0,51193 | 0,51193 | *incertain* | — |
+| 2 | 0,23797 | **0,74990** | 0,7500 | **−0,06** |
+| 3 | 0,15060 | **0,90050** | 0,9000 | **+0,44** |
+| 4 | 0,04996 | **0,95045** | 0,9500 | **+0,55** |
+| 5 | 0,02465 | **0,97510** | 0,9750 | **+0,17** |
+| 10 | 0,02490 | 1,00000 | 1 | — |
+
+Les quatre seuils **75 %, 90 %, 95 %, 97,5 %** tombent à moins de **0,6 σ** sur
+70 560 tirages : ce sont des pourcentages ronds, pas le fruit du hasard. Le
+premier vaut 0,51193 — et **un tirage à pile ou face est écarté à 6,3 σ**.
+Restent compatibles 0,51 ; 0,512 ; 0,5125 ; 0,515.
+
+Entropie : **1,879 bit par tirage**.
+
+### Ce que le boost publie, en formes linéaires
+
+Le boost contraint `out` à un **intervalle** — exactement la situation du §87,
+dont la machinerie rend les formes déterminées. Et les bornes des intervalles de
+`boost ≥ 2` sont **rondes, donc certaines** ; celle du boost 1 dépend du premier
+seuil, incertain, et on s'en passe.
+
+| boost | intervalle | largeur | bits déterminés |
+|---|---|---|---|
+| 2 | [0,512 ; 0,750) | 0,238 | 2 |
+| 3 | [0,750 ; 0,900) | 0,150 | 2 |
+| 4 | [0,900 ; 0,950) | 0,050 | 3 |
+| 5 | [0,950 ; 0,975) | 0,025 | 4 |
+| 10 | [0,975 ; 1,000) | 0,025 | 5 |
+
+**1,151 bit par tirage, soit 81 215 équations exactes** sur l'archive — à
+comparer aux 282 240 du bonus. Le boost ajoute **29 %**.
+
+### Ce que cela corrige au §88
+
+Le §88 suppose que le générateur avance de **vingt** mots par tirage. Or si le
+boost sort du même flux, il en consomme au moins un de plus. **Le §88 figeait
+donc un paramètre inconnu sans le dire.** L'attaque est reprise pour six
+longueurs :
+
+| famille | W=20 | W=21 | W=22 | W=23 | W=24 | W=25 |
+|---|---|---|---|---|---|---|
+| xorshift32 | incohérent | incohérent | incohérent | incohérent | incohérent | incohérent |
+| xorshift64 | incohérent | incohérent | incohérent | incohérent | incohérent | incohérent |
+| xorshift128 | incohérent | incohérent | incohérent | incohérent | incohérent | incohérent |
+| xoshiro256 | incohérent | incohérent | incohérent | incohérent | incohérent | incohérent |
+
+Le paramètre figé n'était pas le point faible — **mais il fallait le montrer
+plutôt que l'espérer.**
+
+### Et ce que cela ne corrige pas au §89 : une hypothèse plus faible qu'annoncé
+
+La suite du bonus vaut `φ(Mᵗx)` avec `M = Lᵂ`. **`M` est linéaire pour tout `W`
+fixe** : Berlekamp-Massey voit donc la linéarité quelle que soit la longueur du
+tirage. Vérifié sur un MT19937 synthétique :
+
+| W | 20 | 21 | 23 | 25 |
+|---|---|---|---|---|
+| complexité | **19 937** | **19 937** | **19 937** | **19 937** |
+
+> Le §89 ne suppose donc que **« un nombre fixe de mots par tirage »**, et non
+> « vingt ». C'est une hypothèse nettement plus faible que celle que j'avais
+> écrite — le résultat du §89 est plus fort qu'annoncé.
+
+*(Un bug d'alignement de colonne affichait initialement des z de −146 : chaque
+cumul était comparé au seuil du boost suivant. Corrigé.)*
+
+**Registre : `h69.boost_seconde_donnee`, conforme. m = 3 527, zéro
+significatif.**
