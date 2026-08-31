@@ -9837,6 +9837,75 @@ de pas — mais le dossier n'en a que neuf tirages.
 
 **Registre : consigné.**
 
+## 100. Le théorème du bit zéro : le §89 est bien plus large qu'il ne le dit (`h81_bit_zero.py`)
+
+Cette session a corrigé le §89 **deux fois, en sens contraire**, sur deux axes
+indépendants. Le §95 l'a rétréci ; celui-ci l'élargit.
+
+### Le théorème
+
+> **Théorème.** Soit `s_i = Σ_j a_j·s_{i−j} + c (mod 2^k)`, coefficients
+> **quelconques**. Alors la suite du **bit 0** vérifie la récurrence F₂-affine
+> de coefficients `a_j mod 2`, **de même ordre**.
+>
+> *Preuve.* Modulo 2, l'addition et la multiplication de `Z/2^k` se réduisent à
+> celles de F₂, et **aucune retenue ne remonte vers le bit 0** — il n'y a rien
+> en dessous de lui. ∎
+
+Le bit 0 est le **seul** dans ce cas. Dès le bit 1, la retenue issue du bit 0
+entre dans le calcul et la forme F₂ est cassée. Vérifié sur des récurrences
+tirées au hasard, ordres 1 à 8 :
+
+| ordre | coefficients mod 2 | bit 0 suit ? | bit 2 suit ? |
+|---|---|---|---|
+| 3 | `[1, 1, 0]` | **OUI** | non |
+| 1 | `[1]` | **OUI** | non |
+| 5 | `[0, 1, 0, 0, 0]` | **OUI** | non |
+| 8 | `[1,1,1,1,1,1,1,1]` | **OUI** | non |
+
+### Ce que le §89 mesure vraiment
+
+```
+complexité linéaire du bit zéro : 35 279     pour N/2 = 35 280     écart : −1
+```
+
+Par le théorème, une récurrence linéaire sur `Z/2^k` d'ordre `r` produirait une
+complexité d'au plus `r + 1`. Le bit zéro de l'archive est à **une unité** de
+`N/2` : indiscernable du hasard.
+
+> **Aucune récurrence linéaire modulo une puissance de deux, d'ordre au plus
+> 35 280, à coefficients quelconques — connus ou non — n'engendre la suite des
+> bonus.** Le §89 annonçait « F₂-linéaire ». Il excluait, sans le savoir, une
+> classe bien plus vaste.
+
+### Les deux corrections, ensemble
+
+| axe | correction | sens |
+|---|---|---|
+| **le pas** | §95 : il faut un pas **constant**. Sous rejet, BM ne voit rien — faux négatif démontré sur MT19937. | **rétrécit** |
+| **l'algèbre** | §100 : toute récurrence linéaire sur `Z/2^k`, pas seulement F₂. | **élargit** |
+
+L'énoncé juste est donc : *« aucune récurrence linéaire modulo une puissance de
+deux, d'ordre au plus 35 280, n'engendre la suite des bonus **d'un générateur
+consommant un nombre fixe de mots par tirage** »*.
+
+### Et ce que cela m'a évité
+
+J'allais appliquer le balayage du §80 à la suite des bonus de l'archive. **Le
+théorème le rend inutile** : le bit zéro couvre déjà toute la classe, et
+jusqu'à l'ordre 35 280 au lieu de 2. C'est la seule raison pour laquelle ce
+fichier existe.
+
+Le §80 garde en revanche toute sa valeur **sur les tirages ordonnés** : donnée
+différente (des mots consécutifs dans un tirage, pas un bonus par tirage),
+hypothèse différente (l'alignement mot-numéro plutôt que le pas constant), et
+il **nomme** ce qu'il trouve — `a, b, c, p, q` — là où Berlekamp-Massey ne rend
+qu'un nombre.
+
+**Registre : inchangé, à dessein.** h81 ne teste rien de neuf : il démontre et
+ré-interprète. Re-consigner h68 avec un énoncé élargi serait la faute que le
+§95 refusait de commettre dans l'autre sens.
+
 ## 99. Chercher la récurrence au lieu de la graine (`h78`, `h79`, `h80`)
 
 Trois fichiers, une seule idée : **arrêter de demander « quelle famille ? »**.
