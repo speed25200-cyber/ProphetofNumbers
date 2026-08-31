@@ -624,18 +624,25 @@ def main():
     rej = 20 * _v2(80)
     fy = sum(_v2(80 - i) for i in range(20))
     need = lambda bits, per: -(-bits // per)
+    # MT19937 est MESURE (§80) et non calcule : ses 80 equations par tirage
+    # cessent d'etre independantes au mot 2 493, donc le rang plein demande
+    # 6 853 mots = 343 tirages, pas 19 937/80 = 250.
+    MT_WORDS, MT_DRAWS = 6853, 343
     ladder = [need(64, rej), need(128, rej), need(256, rej),
-              need(128, 20), need(256, 20), need(19937, rej)]
+              need(128, 20), need(256, 20), MT_DRAWS]
     sess = 204 * rej
 
     a = _v2(80) == 4 and _v2(64) == 6 and _v2(79) == 0
     b = rej == 80
     c = fy == 22 and rej / fy > 3.5
-    d = ladder == [1, 2, 4, 7, 13, 250]
+    d = ladder == [1, 2, 4, 7, 13, MT_DRAWS]
     e = ladder == sorted(ladder)
     f = sess == 16320 and sess < 19937
     g = abs(19937 / sess - 1.22) < 0.01
-    ok &= a and b and c and d and e and f and g
+    # §80 : le rang plein mesure, et le fait que 204 < 343 ferme la session.
+    h = -(-MT_WORDS // 20) == MT_DRAWS and 204 < MT_DRAWS
+    i = MT_DRAWS > need(19937, rej)          # l'ancienne echelle sous-estimait
+    ok &= a and b and c and d and e and f and g and h and i
 
     print(f"\n10. Budget de fuite (§68, §69) — LeakBudget.swift")
     print(f"    v2(80)={_v2(80)} v2(64)={_v2(64)} v2(79)={_v2(79)}   "
@@ -646,6 +653,10 @@ def main():
     print(f"    échelle {ladder} croissante   {'ok' if d and e else 'ÉCHEC'}")
     print(f"    MT19937 hors d'une session : {sess:,} bits < 19 937, "
           f"facteur {19937/sess:.2f}   {'ok' if f and g else 'ÉCHEC'}")
+    print(f"    §80 : rang plein à {MT_WORDS:,} mots = {MT_DRAWS} tirages > 204   "
+          f"{'ok' if h else 'ÉCHEC'}")
+    print(f"    §80 corrige le §69 : {MT_DRAWS} > {need(19937, rej)}   "
+          f"{'ok' if i else 'ÉCHEC'}")
 
     # Les deux lectures du budget (§72, §75) : le decoupage en sessions,
     # mesure au §65 (ancre 1 309 794, periode 204).

@@ -6873,6 +6873,13 @@ significatif.
 
 ## 69. Le budget de fuite, et le calendrier qu'il impose (`h51_budget_de_fuite.py`)
 
+> **CORRECTION (§80).** Le palier MT19937 de cette section — 250 tirages — est
+> **faux de 37 %**. Il suppose les 80 équations d'un tirage indépendantes ;
+> elles cessent de l'être au mot 2 493, exactement quatre blocs de 624. Le rang
+> plein demande **6 853 mots, soit 343 tirages**, mesuré par élimination exacte
+> au §80. Les autres paliers ne sont pas touchés : leurs états sont assez petits
+> pour être résolus avant le quatrième bloc.
+
 Les limites du §68 sont toutes de la même forme : *il faudrait plus de tirages
 ordonnés consécutifs.* Ce n'est pas une limite théorique, c'est une
 **commande**. Cette section la chiffre — et découvre en chemin que
@@ -7863,3 +7870,133 @@ Reste ouvert, et nommé : les biais qui ne sont pas de *fréquence* (paires,
 géométrie, ordre — couverts ailleurs, mais dont le taux de change n'est pas
 calculé) ; les biais de période autre que la session ou l'archive ; et la
 cagnotte BANGO, absente de tous ces taux, qui ne peut que les relever.
+
+---
+
+## 80. Le théorème d'appartenance, et le raccourci qu'il autorise (`h60_appartenance.py`)
+
+Le §78 avait déplacé le mur : il ne faut pas **résoudre** l'état (19 937
+inconnues) mais **prédire** trois formes linéaires. Et prédire une forme n'exige
+pas le rang plein — `A·x = y` détermine `ψ·x` **si et seulement si** `ψ`
+appartient à l'espace engendré par les lignes de `A` (l'ensemble des solutions
+est `x₀ + ker A`, et `ψ·x` y est constant ssi `ψ ⊥ ker A`, c'est-à-dire
+`ψ ∈ (ker A)^⊥ = ` espace des lignes). Le §78 concluait, prudemment, que « le
+mur du §77 est un mur de **rang**, celui-ci un mur d'**appartenance** ».
+Restait à savoir de combien.
+
+### Le théorème
+
+> **Théorème d'appartenance.** Soit `L` linéaire sur F₂, d'espace d'état de
+> dimension `n`, de polynôme minimal `π`. On observe pour chaque mot `k` un jeu
+> `J` de formes `φⱼ∘L^k` ; soit `V_W` l'espace engendré par les `W` premiers
+> mots. **Si `π` est irréductible et si toutes les formes du mot suivant
+> appartiennent à `V_W`, alors `V_W` est l'espace dual tout entier** — donc le
+> rang est plein et l'état entièrement déterminé.
+
+*Preuve.* La composition avec `L` agit sur le dual ; notons-la `T`. Par
+définition `T(φⱼ∘L^k) = φⱼ∘L^{k+1}`, donc
+`T(V_W) ⊆ V_W + ⟨φⱼ∘L^W⟩`. Si toutes les formes du mot `W` sont dans `V_W`, ce
+second terme l'est aussi : `T(V_W) ⊆ V_W`. `V_W` est alors stable par `T`, donc
+par tout polynôme en `T` — c'est un sous-module de F₂[T]. Or le dual a pour
+polynôme minimal `π` irréductible de degré `n` : il est isomorphe au **corps**
+F₂[T]/(π), dont les seuls sous-modules sont 0 et lui-même. Comme `V_W` contient
+`φⱼ ≠ 0`, `V_W` est le dual entier. ∎
+
+**Portée.** Tout générateur de période `2ⁿ − 1` a un polynôme caractéristique
+primitif, donc irréductible : xorshift, xoshiro, et **MT19937** (dont la période
+`2^19937 − 1` est un nombre de Mersenne premier). Pour eux, prédire le **quartet
+complet** du prochain mot coûte exactement autant que résoudre l'état.
+
+**Ce que le théorème ne couvre pas**, et la restriction est essentielle : il
+exige *toutes* les formes. Un **sous-ensemble strict** — et le §78 n'en demande
+que trois sur quatre — échappe à l'argument de stabilité.
+
+### Le témoin : le théorème n'est pas vide
+
+Un générateur construit exprès, 64 bits d'état dont 32 **muets** (ils avancent
+mais n'entrent dans aucune sortie). Son polynôme se factorise, l'hypothèse
+tombe, et le résultat suit : rang saturé à 32, mais **appartenance du quartet
+complet dès le mot 9**. La machinerie sait donc voir le phénomène quand il est
+là.
+
+### Les familles du dossier
+
+| famille | n | W(1 bit) | W(quartet) | W(rang) | rang final |
+|---|---|---|---|---|---|
+| xorshift32 | 32 | 8 | 9 | 9 | 32 |
+| xorshift64 | 64 | **13** | 19 | 19 | 64 |
+| xorshift96 | 96 | **17** | 28 | 28 | 96 |
+| xorshift128 | 128 | **30** | 33 | 33 | 128 |
+| taus88 | 96 | 22 | 22 | 22 | **88** |
+
+`W(quartet) = W(rang)` partout : le théorème le prédisait, le calcul le
+confirme. **Mais `W(1 bit)` ne coïncide pas** — 17 mots contre 28 sur
+xorshift96, soit **39 % de collecte en moins**. Le raccourci du §78 est réel.
+
+**taus88 est le cas à part**, et sa période le disait : `(2³¹−1)(2²⁹−1)(2²⁸−1)`
+et non `2⁸⁸−1`. Son rang **sature à 88** au lieu de 96 — trois bits par LFSR
+sont inertes. Ces 8 dimensions ne seront *jamais* déterminées, et toutes les
+sorties futures le sont quand même. C'est la brèche du théorème en vraie
+grandeur : **il faut qu'une partie de l'état soit muette**, la factorisation
+seule ne suffit pas.
+
+### MT19937 : le raccourci existe, et il ne suffit pas
+
+Contrôle du modèle : le MT19937 reconstruit par formes contre celui de CPython,
+**800/800 mots identiques**. Puis élimination exacte sur les 19 937 inconnues,
+en construisant les formes par la récurrence plutôt que par propagation de base.
+
+| bits prédits | mot | tirages (borne inf.) | rang alors |
+|---|---|---|---|
+| 1 | **4 363** | 218,2 | 15 578 / 19 937 |
+| 2 | **6 232** | 311,6 | < 19 937 |
+| 3 | *jamais* | — | — |
+| 4 (= rang plein) | 6 853 | 342,6 | 19 937 |
+
+**Vérification de bout en bout**, parce qu'une appartenance est une affirmation
+forte : on refait l'élimination en gardant trace des combinaisons, on extrait le
+vecteur `c` tel que `c·A = ψ`, et on l'applique aux bits **observés** d'un vrai
+MT19937. Résultat : **8/8 états aléatoires**, la forme cible prédite depuis
+17 448 bits observés — alors que **4 359 dimensions de l'état restent
+indéterminées**.
+
+> **En deux temps, et le second annule le premier.** Le raccourci existe : un
+> bit devient prédictible **2 490 mots (36 %) avant le rang plein**. Mais le §78
+> en demande **trois** — deux ne portent le taux de retour qu'à 0,895, sous le
+> seuil — et trois n'arrivent **jamais** avant le rang plein. Le raccourci est
+> réel et sans effet. C'est exactement le genre de résultat qu'on ne peut pas
+> deviner.
+
+### La correction au §69, et une mise en garde sur l'unité
+
+Les 80 équations d'un tirage **cessent d'être indépendantes au mot 2 493** —
+exactement `4,00` blocs de 624, quand les brassages commencent à se recouvrir.
+Jusque-là le rang croît de 4 par mot, sans une seule équation redondante.
+
+| | §69 | §80 (mesuré) |
+|---|---|---|
+| MT19937, rang plein | 19 937/80 = **250** tirages | 6 853 mots = **343** tirages |
+
+Soit **+37 %**. `LeakBudget.swift` et `verif_logique.py` sont corrigés.
+
+**Et « au mieux ».** Le calcul suppose les quatre bits de *chaque mot
+consécutif* connus. Sous rejet modulo 80 un tirage consomme ~22,85 mots dont 20
+seulement sont identifiés (§74) ; sous Fisher-Yates la fuite tombe à 22 bits
+(§71). Tous les chiffres en tirages sont des **bornes inférieures**, jamais des
+promesses.
+
+### Conséquence opérationnelle
+
+| | |
+|---|---|
+| session (204 tirages, §65) | 16 320 équations |
+| MT19937 exige | 19 937 inconnues, rang plein à 343 tirages |
+
+- **Si le générateur se ré-amorce à chaque session**, MT19937 est hors
+  d'atteinte — et le raccourci à un bit ne rattrape rien, puisqu'il en faudrait
+  trois.
+- **S'il traverse les coupures** — la question ouverte du §65 — il faut **343
+  tirages ordonnés, soit 29 heures** de collecte à un tirage toutes les cinq
+  minutes. C'est faisable, et c'est la seule mesure qui tranche.
+
+**Registre : inchangé.** h60 démontre et calcule.

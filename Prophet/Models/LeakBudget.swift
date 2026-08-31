@@ -66,6 +66,24 @@ enum LeakBudget {
         let family: String
     }
 
+    /// MT19937 ne se compte PAS comme les autres, et le §69 s'était trompé en
+    /// le faisant. Ses 80 équations par tirage cessent d'être indépendantes au
+    /// mot 2 493 — exactement quatre blocs de 624, quand les brassages
+    /// commencent à se recouvrir. Le rang plein demande donc 6 853 mots et non
+    /// 19 937/4, soit **343 tirages ordonnés au mieux** au lieu des 250 que
+    /// l'ancienne échelle annonçait : +37 %.
+    ///
+    /// Mesuré au §80 (`h60_appartenance.py`), par élimination exacte sur les
+    /// 19 937 inconnues. Les autres paliers ne sont pas touchés : leurs états
+    /// sont assez petits pour être résolus avant le quatrième bloc.
+    ///
+    /// « Au mieux » parce que le calcul suppose les quatre bits de CHAQUE mot
+    /// consécutif connus. Sous rejet un tirage consomme ~22,85 mots dont 20
+    /// seulement sont identifiés (§74) ; sous Fisher-Yates la fuite tombe à 22
+    /// bits (§71). C'est une borne inférieure, jamais une promesse.
+    static let mtWordsForFullRank = 6_853
+    static let mtDrawsForFullRank = 343
+
     /// L'échelle, dans l'ordre. Chaque palier est `ceil(bits d'état / bits par
     /// tirage)` — calculé, jamais tabulé à la main.
     static let ladder: [Milestone] = {
@@ -78,7 +96,7 @@ enum LeakBudget {
             Milestone(draws: need(256, r), family: "xoshiro256, si sa sortie n'est pas brouillée"),
             Milestone(draws: need(128, a), family: "les familles additives (xorshift128+, xoroshiro128+)"),
             Milestone(draws: need(256, a), family: "toute famille additive jusqu'à 256 bits"),
-            Milestone(draws: need(19_937, r), family: "MT19937 — random de Python, mt_rand de PHP"),
+            Milestone(draws: mtDrawsForFullRank, family: "MT19937 — random de Python, mt_rand de PHP"),
         ]
     }()
 
@@ -133,9 +151,17 @@ enum LeakBudget {
 
     /// Le mur que la collecte ne franchira pas si le générateur se ré-amorce à
     /// chaque ouverture de session : une session dure 204 tirages (§65), or
-    /// MT19937 en demande 250. `204 × 80 = 16 320` bits contre 19 937.
+    /// MT19937 en demande 343 (§80) — et non 250, comme le §69 le comptait.
+    ///
+    /// Le §78 avait laissé espérer un raccourci : prédire trois formes
+    /// linéaires n'exige pas le rang plein, seulement leur appartenance à
+    /// l'espace engendré. Le §80 a mesuré ce raccourci sur MT19937 — il est
+    /// RÉEL (un bit devient prédictible 2 490 mots avant le rang plein, deux
+    /// bits 621 mots avant) mais INSUFFISANT : il en faudrait trois, et trois
+    /// n'arrivent jamais avant le rang plein. Le raccourci ne rattrape donc
+    /// pas la session.
     static let sessionLength = 204
     static var mtReachableWithinOneSession: Bool {
-        sessionLength * rejectionBitsPerDraw >= 19_937
+        sessionLength >= mtDrawsForFullRank
     }
 }
