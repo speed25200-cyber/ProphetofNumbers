@@ -88,11 +88,21 @@ int main(int argc, char **argv) {
     double sec = (double)(clock() - t0) / CLOCKS_PER_SEC;
     printf("rang=%ld incoherent=%ld lignes=%ld sec=%.2f\n", rang, incoherent, lues, sec);
 
-    if (!incoherent && rang == nbits) {
-        // substitution arrière : les pivots sont déjà en forme échelonnée
+    if (!incoherent) {
+        // Substitution arrière. Les pivots sont en forme échelonnée : la ligne
+        // de tête p n'a pas de bit au-dessus de p, donc on résout p croissant.
+        //
+        // ON ÉMET UNE SOLUTION MÊME À RANG INCOMPLET, en fixant les variables
+        // libres à zéro. Ce n'est pas une commodité : plusieurs générateurs
+        // logent moins de bits utiles que leur état nominal — taus88 en met 88
+        // dans 96, LFSR113 en met 113 dans 128 — et les bits morts ne peuvent
+        // être déterminés par AUCUNE observation, puisqu'ils n'influencent
+        // aucune sortie. Exiger le rang plein reviendrait à déclarer l'attaque
+        // en échec sur des familles qu'elle résout parfaitement.
         uint64_t *sol = calloc(W, 8);
         for (long p = 0; p < nbits; p++) {
             uint64_t *pr = piv[p];
+            if (!pr) continue;                // variable libre : on la met à 0
             uint64_t acc = 0;
             for (size_t w = 0; w < W; w++) acc ^= pr[w] & sol[w];
             int par = __builtin_parityll(acc) ^ rhs[p];

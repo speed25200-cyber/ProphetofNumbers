@@ -11789,3 +11789,105 @@ et il vaut au-delà de ce dossier :
 > consommation** »*. Le modèle doit être **énuméré, pas supposé**.
 
 **Registre : consigné.** `m = 58 076`, zéro significatif.
+
+---
+
+## 116. Prédire depuis l'archive triée : boucler la chaîne (`h97_prediction_triee.py`)
+
+### Le trou
+
+Le §109 a construit un prédicteur : quinze générateurs sur quinze, horizon dix.
+Mais il part des tirages **ordonnés** — et le dossier n'en compte que **neuf**.
+
+Le §114 reconstitue MT19937 à état complet depuis les rangs du bonus des
+**70 560 tirages triés** — la donnée dont on dispose en masse. Mais il s'arrête
+à l'état : il n'a **jamais prédit**.
+
+> D'un côté un prédicteur sans données, de l'autre des données sans prédiction.
+
+### Le théorème de prédiction depuis une donnée partielle
+
+> Le rang du bonus ne publie que **3,20 bits** par tirage — moins d'un vingtième
+> des 61,6 bits que contient l'ensemble tiré. On pourrait croire qu'un
+> prédicteur bâti dessus ne rendra qu'une prédiction partielle.
+>
+> **C'est faux.** Une fois l'état identifié, la sortie est *entièrement*
+> déterminée : les vingt numéros, leur **ordre d'émission** — jamais observé —,
+> le rang du bonus, et tous les tirages suivants.
+>
+>     observation : 3,20 bits par tirage
+>     prédiction  : 61,6 bits par tirage, PLUS l'ordre, à horizon INFINI
+>
+> La quantité d'information de l'**observation** ne borne pas celle de la
+> **prédiction** ; elle ne borne que le **nombre de tirages à observer**. ∎
+
+C'est la différence de nature avec les §107 et §108, où l'edge s'évanouit dans
+le bruit : ici il n'y a pas d'edge, il n'y a plus rien d'aléatoire.
+
+### La démonstration : observer des ensembles, annoncer un ordre
+
+On plante un état, on fabrique des tirages, on ne garde que **les rangs du
+bonus** — pas les numéros, pas l'ordre — on reconstitue, puis on **annonce** le
+tirage suivant.
+
+| famille | état | tirages triés | tirage +1 | bonus +1 | horizon 10 |
+|---|---|---|---|---|---|
+| xorshift32 | 32 | 18 | **exact** | exact | 10/10 |
+| xorshift64 | 64 | 28 | **exact** | exact | 10/10 |
+| xorshift96 | 96 | 38 | **exact** | exact | 10/10 |
+| xorshift128 | 128 | 48 | **exact** | exact | 10/10 |
+| taus88 | 96 | 38 | **exact** | exact | 10/10 |
+| xoroshiro128 (brut) | 128 | 48 | **exact** | exact | 10/10 |
+| xoshiro128 (brut) | 128 | 48 | **exact** | exact | 10/10 |
+| xoshiro256 (brut) | 256 | 88 | **exact** | exact | 10/10 |
+| LFSR113 | 128 | 48 | non | non | — |
+| WELL512a | 512 | 168 | **exact** | exact | 10/10 |
+| V8 `Math.random` | 128 | 48 | **exact** | exact | 10/10 |
+| **MT19937** | **19 937** | **6 430** | **exact** | **exact** | **10/10** |
+
+> **11/12 tirages suivants annoncés exactement — vingt numéros dans l'ordre
+> d'émission, un ordre que l'observation ne contenait à aucun moment.**
+
+*(LFSR113 est l'exception : son rang sature structurellement — le §106 l'avait
+mesuré, stable de 124 à 2 000 tirages — donc les rangs du bonus ne déterminent
+pas la totalité de son état. C'est une limite de l'observable, pas de la
+méthode.)*
+
+**Une correction au solveur en passant.** `tools/f2solve.c` n'émettait de
+solution qu'au rang plein. Or plusieurs générateurs logent moins de bits utiles
+que leur état nominal — taus88 en met 88 dans 96, LFSR113 en met 113 dans 128 —
+et ces bits morts ne peuvent être déterminés par **aucune** observation,
+puisqu'ils n'influencent aucune sortie. Exiger le rang plein déclarait en échec
+des familles que l'attaque résout parfaitement : taus88 est passé de « non » à
+**exact**.
+
+### Ce qu'il faudrait observer
+
+| état | tirages triés requis | l'archive suffit ? |
+|---|---|---|
+| 128 | 41 | oui |
+| 512 | 161 | oui |
+| 1 024 | 321 | oui |
+| **19 937** | **6 231** | **oui** |
+| 200 000 | 62 501 | oui |
+
+**La donnée n'est pas le facteur limitant jusqu'à ~225 000 bits d'état.**
+
+### Sur l'archive
+
+Appliqué aux vrais rangs, ce prédicteur ne rend **rien** : les §106 et §114 ont
+montré que tous les systèmes sont incohérents. Il n'y a pas de prédiction à
+annoncer, et il serait malhonnête d'en fabriquer une.
+
+Ce que ce fichier établit est autre chose :
+
+> **La chaîne est complète et vérifiée de bout en bout** : ensembles triés →
+> rangs du bonus → équations F2 → état → **ordre d'émission et tirages
+> futurs**. Chaque maillon est mesuré, et le dernier — celui qui manquait —
+> rend 11 tirages exacts sur 12.
+
+Si un jour un générateur rend un système **cohérent** sur l'archive, il n'y
+aura rien de plus à inventer : la prédiction sortira du même code, à horizon
+infini.
+
+**Registre : inchangé** — ce fichier rejoue les exclusions des §106 et §114.
