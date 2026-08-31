@@ -11085,3 +11085,101 @@ payer, **le boost n'est pas prédictible à partir du passé**, et la puissance 
 que toute structure administrative valant plus de +22 % aurait été vue.
 
 **Registre : consigné.** `m = 58 070`, zéro significatif.
+
+---
+
+## 109. Le prédicteur : de l'état reconstitué au tirage annoncé (`h90_prediction.py`)
+
+### Ce qui manquait, et c'est gênant
+
+Le dossier comptait huit attaques qui reconstituent un **état**. Aucune n'avait
+jamais **prédit un tirage**. Tous les témoins s'arrêtaient à « l'état planté est
+retrouvé » — jamais à « voici les vingt numéros du tirage suivant, dans
+l'ordre », puis vérification.
+
+La différence n'est pas rhétorique. *Retrouver l'état* est une propriété de
+l'attaque ; *annoncer le tirage d'après et avoir raison* est la chose qu'on
+demandait depuis le début.
+
+### Le théorème de prédiction
+
+> **Théorème.** Soit un générateur **déterministe** de transition connue, dont
+> l'état est identifié à l'instant `t`. Alors tous les tirages futurs sont
+> calculables exactement : la prédiction n'est pas probabiliste, c'est une
+> **évaluation**.
+>
+> **Corollaire.** « Peut-on prédire ? » se réduit **entièrement** à « peut-on
+> identifier ? », et le nombre de tirages ordonnés nécessaires se lit dans le
+> budget d'information : `n/89,7` pour un état F2-linéaire de `n` bits (§105),
+> `log₂(M)/126` pour un LCG de module `M` (§104). Il n'y a pas de troisième
+> quantité. ∎
+
+**Et voici ce qui sépare radicalement cette voie des §107–108 :** une fois
+l'état connu, **l'horizon est infini**. Le pari sur les triplets et la
+prédiction du boost mesuraient des edges qui s'évanouissent dans le bruit ; ici
+il n'y a pas d'edge — il y a une **certitude**, ou rien du tout.
+
+### La démonstration
+
+On plante un état, on montre au prédicteur `d` tirages consécutifs, on lui
+demande **le suivant**, et on compare les vingt numéros dans l'ordre.
+
+| générateur | d minimal | tirage +1 | horizon 10 |
+|---|---|---|---|
+| LCG java.util.Random / drand48 | **1** | **exact** | 10/10 |
+| LCG glibc TYPE_0 | **1** | **exact** | 10/10 |
+| LCG ANSI C / MSVC | **1** | **exact** | 10/10 |
+| LCG Borland / Delphi | **1** | **exact** | 10/10 |
+| LCG Turbo Pascal | **1** | **exact** | 10/10 |
+| LCG VAX MTH$RANDOM | **1** | **exact** | 10/10 |
+| xorshift32 | **1** | **exact** | 10/10 |
+| xorshift64 | **1** | **exact** | 10/10 |
+| xorshift96 | **1** | **exact** | 10/10 |
+| xorshift128 | 2 | **exact** | 10/10 |
+| taus88 | **1** | **exact** | 10/10 |
+| xoroshiro128 (brut) | 2 | **exact** | 10/10 |
+| xoshiro128 (brut) | 2 | **exact** | 10/10 |
+| xoshiro256 (brut) | 3 | **exact** | 10/10 |
+| LFSR113 | 2 | **exact** | 10/10 |
+
+> **15/15 générateurs dont le tirage suivant est annoncé exactement — vingt
+> numéros, dans l'ordre — et 15/15 dont les dix tirages suivants le sont
+> aussi.**
+
+C'est la première fois du dossier qu'un tirage est **prédit** et vérifié. Et le
+prix en données est dérisoire : **un seul tirage ordonné** suffit pour tout LCG
+publié et pour les F2-linéaires jusqu'à 96 bits ; deux à trois au-delà.
+
+### Sur l'archive réelle
+
+| bloc | tirages | générateur identifié |
+|---|---|---|
+| 1381023 | 1 | aucun |
+| 1381026 | 1 | aucun |
+| 1381028 | 1 | aucun |
+| 1381030–1381031 | 2 | aucun |
+| 1381256–1381259 | 4 | aucun |
+
+**0 générateur identifié.** Le prédicteur qui annonce 15 loteries plantées sur
+15 n'annonce rien ici. Ce n'est pas un échec de méthode : c'est que le
+générateur de cette loterie n'est pas dans la classe couverte, et le §105
+chiffre exactement ce qu'il faudrait pour l'élargir.
+
+### L'outil
+
+    python3 lab/experiments/h90_prediction.py mes_tirages.csv
+
+Colonnes `id, o1..o20` dans l'**ordre d'émission**. Il rend soit « aucun », soit
+le générateur, l'état, et **les vingt numéros du tirage suivant**.
+
+| état à identifier | tirages ordonnés consécutifs |
+|---|---|
+| 32 bits | 1 |
+| 128 bits | 2 |
+| 256 bits | 3 |
+| 512 bits | 6 |
+| MT19937 (19 937 bits) | 225 |
+
+**Registre : inchangé.** Ce fichier ne teste rien de neuf sur l'archive — il
+rejoue les exclusions déjà consignées aux §103–§106. Les consigner une seconde
+fois gonflerait `m` sans rien mesurer de plus.
