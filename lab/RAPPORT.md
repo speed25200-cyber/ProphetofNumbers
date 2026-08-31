@@ -9837,6 +9837,89 @@ de pas — mais le dossier n'en a que neuf tirages.
 
 **Registre : consigné.**
 
+## 98. L'audit de la carte : trois défauts, et une famille débloquée (`h77_chaines_longues.py`)
+
+Le §97 a trouvé une ligne **fausse** dans la carte de couverture. Si une ligne
+est fausse, il faut lire les autres. Cet audit en trouve deux de plus, et la
+cause des trois est dans le code, pas dans le raisonnement.
+
+### Défaut 1 — une ligne contradictoire
+
+```
+| F₂-linéaires ≤ 128 bits | rejet modulo 80 | §68 | résolu, TOUTE GRAINE, couverture 46–99 % |
+```
+
+« Toute graine » et « 46 % » ne peuvent pas tenir ensemble.
+
+### Défaut 2 — une garde périmée
+
+`h61_familles_etendues.py`, ligne 559 :
+
+```python
+if need > 2:            # le dossier n'a qu'UNE paire consecutive
+    continue
+```
+
+C'était vrai à cinq tirages ordonnés. Le dossier en a **neuf**, dont la plage
+**1381256–1381259**, quatre à la suite. Les familles demandant trois ou quatre
+tirages chaînés étaient écartées **faute de données qui existent**.
+
+### Défaut 3 — un bug dans la loi de rejets
+
+Le plus instructif, et il va dans le sens **inconfortable**. `h61` calcule sa
+couverture avec la loi d'un tirage de `w` numéros **distincts d'affilée**. Or
+une chaîne de deux tirages n'est pas un tirage de 33 numéros distincts : **au
+vingt-et-unième, l'ensemble des déjà-vus est remis à zéro** et la probabilité
+de rejet retombe à zéro.
+
+| `w = 33` | rejets attendus |
+|---|---|
+| loi du §81 (33 d'affilée) | **6,60** |
+| loi correcte (20 + reset + 13) | **3,82** |
+
+Presque un facteur deux — et l'erreur **sous-estime** la couverture. Le dossier
+s'annonçait moins avancé qu'il ne l'était. C'est le genre de faute qu'on ne
+cherche jamais, parce qu'elle rend les conclusions plus prudentes.
+
+### Et la composition
+
+Chaque chaîne est un essai **indépendant** : il suffit qu'**une** ait son motif
+de rejet dans la portée. Le §68 et le §81 rapportaient la couverture d'**une
+seule**.
+
+| famille | chaînes | §81 | corrigée | **composée** | états |
+|---|---|---|---|---|---|
+| xorshift32 | 9 | 100,0 % | 100,0 % | 100,0 % | **0** |
+| xorshift64 | 9 | 99,6 % | 99,6 % | 100,0 % | **0** |
+| xorshift96 | 4 | 58,1 % | 93,9 % | **100,0 %** | **0** |
+| xorshift128 | 4 | **8,1 %** | 64,1 % | **98,3 %** | **0** |
+| taus88 | 4 | 83,4 % | 91,2 % | 100,0 % | **0** |
+| xoroshiro128 | 4 | 8,1 % | 64,1 % | 98,3 % | **0** |
+| xoshiro128 | 4 | 8,1 % | 64,1 % | 98,3 % | **0** |
+| **xoshiro256** | 1 | *écartée* | 3,9 % | **3,9 %** | **0** |
+
+**39 attaques, 0 état compatible.** Registre **m = 3 501, zéro significatif**.
+
+> **Et il faut lire ce tableau en deux temps, sous peine de se tromper.** Le
+> fichier imprime « couverture minimale 3,9 % » — mais ce 3,9 %, c'est
+> **xoshiro256**, la famille que le §81 n'atteignait **pas du tout**. Pour les
+> sept familles que le §68 prétendait fermer, le chiffre corrigé est **98,3 à
+> 100 %** : sa conclusion « fermé pour toute graine » devient enfin défendable,
+> alors qu'elle ne l'était pas quand il l'a écrite.
+>
+> xoshiro256, elle, est **entamée, pas fermée** — une seule chaîne de quatre
+> tirages, 3,9 % de couverture. L'écrire autrement serait refaire l'erreur
+> qu'on vient de corriger.
+
+### Méthode
+
+`h77` ne réimplémente rien : il **exécute l'en-tête de `h61`** — toutes ses
+fonctions sont définies avant sa première section — et ne change que trois
+choses : le nombre de chaînes, la loi de rejets, la composition. Aucune
+divergence possible entre l'attaque auditée et l'attaque d'origine.
+
+**Registre : consigné.**
+
 ## 97. `java.util.Random` sous rejet, et le théorème du jumeau (`h76_java_rejet.py`)
 
 ### La case vide, et elle était la plus probable de toutes
