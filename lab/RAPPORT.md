@@ -11608,3 +11608,94 @@ Le dossier compte désormais quatre axes de modèle :
 Rien ne garantit qu'il n'y en ait pas un cinquième.
 
 **Registre : consigné.** `m = 58 074`, zéro significatif.
+
+---
+
+## 114. MT19937 à état complet : la cible que seul le calcul bloquait (`h95_mt19937.py`, `tools/f2solve.c`)
+
+### Ce que le §106 avait laissé
+
+Le §106 avait montré que le **rang du bonus** parmi les vingt numéros triés est
+une observation de troncature **exacte**, disponible sur toute l'archive, à
+stride **fixe**, et **sans jamais avoir besoin de l'ordre d'émission**. Il rend
+3,20 équations F2 par tirage. Sa conclusion, mot pour mot :
+
+> « MT19937 et WELL19937. Le budget de 3,20 bits par tirage les met à portée en
+> 6 230 tirages, largement disponibles — c'est le **coût de calcul** des formes
+> linéaires qui bloque, pas la donnée. »
+
+Ce fichier fournit les heures. Et l'enjeu est le plus gros du dossier :
+
+> **MT19937 est le générateur de PHP (`mt_rand`), de Python (`random`), de Ruby
+> (`Random`) et de C++ (`std::mt19937`).**
+
+### Où était vraiment le mur
+
+**Pas dans les formes linéaires.** Les 19 937 formes se propagent par la
+récurrence du twist en **dix secondes** de Python : chaque mot ne coûte qu'une
+centaine de XOR d'entiers longs, sur une fenêtre glissante de 624 mots.
+
+C'est **l'élimination** qui ne passait pas. Réduire 25 908 équations de 19 937
+bits demande ~2·10⁸ XOR de lignes — des jours avec les entiers longs de Python,
+**57 secondes** avec `tools/f2solve.c`, écrit pour l'occasion et autotesté sur
+le rang, l'incohérence et la reconstruction exacte de la solution.
+
+### La paramétrisation, et pourquoi elle n'est pas cosmétique
+
+> L'état de MT19937 fait 624 mots de 32 bits, mais seulement **19 937 bits
+> utiles** : le twist ne lit de `mt[0]` que son bit de poids fort, et les 31
+> bits bas n'influencent jamais aucune sortie.
+>
+>     bit 0       = mt[0] bit 31
+>     bits 1..32  = mt[1]        …        1 + 623×32 = 19 937
+
+C'est exactement le logarithme de la période. Une paramétrisation à 19 968 bits
+laisserait **31 dimensions de noyau parasites** et ferait croire à un système
+sous-déterminé là où il est plein.
+
+### Le témoin
+
+| | |
+|---|---|
+| tirages utilisés | 8 099 |
+| équations | 25 908 |
+| **rang obtenu** | **19 937 — plein** |
+| **état retrouvé** | **exactement** |
+| temps d'élimination | 57 s |
+
+**Les 19 937 bits d'état de MT19937 reconstitués depuis les seuls rangs du
+bonus** — sans aucun ordre d'émission, sans aucun tirage consécutif.
+
+*Un premier passage avait rendu un rang de 13 554 et un témoin en échec. Non
+reproductible : réexécuté isolément puis en entier, le rang est 19 937 dans les
+deux cas et le fichier système intact. Contention de ressources avec un autre
+calcul en arrière-plan. Consigné ici parce qu'une exclusion dont le témoin
+échoue ne vaut rien, et que la ligne fautive a été retirée par `lab.dedupe()`.*
+
+### L'archive
+
+| stride | décalage | équations | rang | incohérent | compatible |
+|---|---|---|---|---|---|
+| 21 | 20 | 25 897 | **19 937** | **oui** | 0 |
+| 21 | 0 | 25 897 | **19 937** | **oui** | 0 |
+| 22 | 20 | 25 897 | **19 937** | **oui** | 0 |
+| 22 | 21 | 25 897 | **19 937** | **oui** | 0 |
+| 41 | 40 | 25 897 | **19 937** | **oui** | 0 |
+| 42 | 40 | 25 897 | **19 937** | **oui** | 0 |
+
+**0 état compatible sur 6 hypothèses de consommation, 6 systèmes
+incohérents.** Le rang atteint 19 937 dans tous les cas — le système est donc
+pleinement déterminé, puis **contredit**. C'est la forme d'exclusion la plus
+forte possible.
+
+### Ce que cela ferme
+
+**MT19937 à état complet.** C'était la plus grosse cible restante et la plus
+probable après celles déjà exclues.
+
+Et la méthode vaut au-delà : **toute famille F2-linéaire dont l'état tient sous
+~225 000 bits** est désormais atteignable par la même voie — rangs du bonus,
+formes propagées, élimination en C — **sans ordre d'émission et sans tirages
+consécutifs**. WELL19937 en fait partie.
+
+**Registre : consigné.** `m = 58 075`, zéro significatif.
