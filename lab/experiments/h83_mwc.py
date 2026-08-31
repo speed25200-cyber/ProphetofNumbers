@@ -206,39 +206,57 @@ def tirage_mwc(s0, mode):
     return out
 
 
-def emis_fy(s, nsteps):
-    """Les `nsteps` premiers numeros EMIS sous Fisher-Yates, vectorises.
+def valeur_en(m, P, V, W, i):
+    """La valeur du tableau en position `m` apres `i` echanges.
 
-    POURQUOI CETTE FONCTION EXISTE. Sous troncature, le numero emis vaut
-    floor(u*80)+1 : `numero_de` suffit. Sous FISHER-YATES, cette quantite est
-    un INDICE, pas une valeur — le numero emis est a[j] apres i echanges.
-    Utiliser `numero_de` comme filtre y eliminerait l'etat VRAI et rendrait
-    « 0 compatible » : une FAUSSE EXCLUSION SILENCIEUSE. Le temoin l'a
-    attrapee, et c'est le pire genre de bogue.
-
-    On simule donc le tableau, mais sans le materialiser : apres i echanges il
-    ne differe de l'identite qu'aux positions deja touchees, dont on garde la
-    liste. La valeur courante en m s'obtient en rejouant les ecritures.
+    On ne materialise jamais le tableau : apres i echanges il ne differe de
+    l'identite qu'aux positions deja touchees, dont on garde la liste. La
+    valeur courante en m s'obtient en rejouant les ecritures.
     """
+    cur = m + np.uint64(1)
+    for k in range(i):
+        cur = np.where(m == P[k], W[k], cur)
+        cur = np.where(m == np.uint64(k), V[k], cur)
+    return cur.astype(np.uint64)
+
+
+def prefiltre_fy(dep, cible_np, nsteps):
+    """Les etats dont les `nsteps` premiers numeros EMIS sont tous dans la cible.
+
+    POURQUOI PAS `numero_de`. Sous troncature, le numero emis vaut
+    floor(u*80)+1 : `numero_de` suffit. Sous FISHER-YATES cette quantite est un
+    INDICE, pas une valeur — le numero emis est a[j] apres i echanges. Utiliser
+    `numero_de` comme filtre eliminerait l'etat VRAI et rendrait « 0
+    compatible » : une FAUSSE EXCLUSION SILENCIEUSE. Le temoin l'a attrapee, et
+    c'est le pire genre de bogue.
+
+    POURQUOI INCREMENTAL, ET CE QUE LA PREMIERE VERSION A COUTE. Elle rejouait
+    les i+1 premiers pas DEPUIS LE DEBUT a chaque i, sur le chunk entier : du
+    travail quadratique, et surtout une douzaine de tableaux de 2^24 mots
+    vivants en meme temps. Le balayage s'est fait tuer au deuxieme des six.
+    Ici on filtre A CHAQUE PAS et on retaille les colonnes deja calculees : un
+    quart des candidats survit au premier pas, un seizieme au second — la
+    memoire DECROIT au lieu de croitre, et le travail avec elle.
+    """
+    s = dep
     P, V, W = [], [], []
     for i in range(nsteps):
         s = pas0(s)
         j = np.uint64(i) + (((s & np.uint64(0xFFFF)) * np.uint64(POOL - i))
                             >> np.uint64(16))
-
-        def valeur_en(m):
-            cur = m + np.uint64(1)
-            for k in range(i):
-                cur = np.where(m == P[k], W[k], cur)
-                cur = np.where(m == np.uint64(k), V[k], cur)
-            return cur.astype(np.uint64)
-
-        a_i = valeur_en(np.full(len(s), i, np.uint64))
-        a_j = valeur_en(j)
-        P.append(j)
-        V.append(a_j)          # le numero emis
-        W.append(a_i)          # ce qui atterrit en j apres l'echange
-    return s, V
+        a_i = valeur_en(np.full(len(s), i, np.uint64), P, V, W, i)
+        a_j = valeur_en(j, P, V, W, i)          # le numero emis au pas i
+        garde = np.isin(a_j, cible_np)
+        if not garde.any():
+            return dep[:0]
+        s, dep = s[garde], dep[garde]
+        P = [c[garde] for c in P]
+        V = [c[garde] for c in V]
+        W = [c[garde] for c in W]
+        P.append(j[garde])
+        V.append(a_j[garde])
+        W.append(a_i[garde])   # ce qui atterrit en j apres l'echange
+    return dep
 
 
 def balaie(cible, mode, lo=0, hi=1 << 32):
@@ -256,13 +274,7 @@ def balaie(cible, mode, lo=0, hi=1 << 32):
                 if len(dep) == 0:
                     break
         else:
-            # Fisher-Yates : filtre en deux temps pour rester en memoire.
-            for k in range(MPREF_FY):
-                _s2, V = emis_fy(dep, k + 1)
-                garde = np.isin(V[k], cible_np)
-                dep = dep[garde]
-                if len(dep) == 0:
-                    break
+            dep = prefiltre_fy(dep, cible_np, MPREF_FY)
         for d in dep.tolist():
             if tirage_mwc(d, mode) == cible:
                 trouves.append(int(d))
@@ -314,14 +326,31 @@ say(f"""   Un seul tirage suffit a l'exclusion : balayer les 2^32 valeurs de
 
    espace : {HI:,} etats par tirage et par echantillonneur
 """)
+
+def une_passe(tache):
+    """Un (tirage, echantillonneur). Rendue ISOLABLE pour tourner en parallele :
+    les six balayages sont independants, la machine a quatre coeurs, et numpy
+    ne parallelise pas ces boucles lui-meme."""
+    tid, ordre, mode = tache
+    tt = time.time()
+    got = balaie(ordre, mode, 0, HI)
+    return tid, mode, got, time.time() - tt
+
+
+TACHES = [(tid, ordre, mode) for tid, ordre in CIBLES for mode in ("rejet", "fy")]
+NPROC = 1 if DRY else 3        # trois : on laisse un coeur, la memoire suit
+if NPROC == 1:
+    RES = [une_passe(t) for t in TACHES]
+else:
+    import multiprocessing as mp
+    with mp.get_context("fork").Pool(NPROC) as pool:
+        RES = pool.map(une_passe, TACHES)
+
 say(f"   {'tirage':>9} {'échantillonneur':>16} {'états testés':>14} {'compatibles':>12} {'sec':>8}")
 total = 0
-for tid, ordre in CIBLES:
-    for mode in ("rejet", "fy"):
-        tt = time.time()
-        got = balaie(ordre, mode, 0, HI)
-        total += len(got)
-        say(f"   {tid:>9} {mode:>16} {HI:>14,} {len(got):>12} {time.time()-tt:>8.1f}")
+for tid, mode, got, sec in RES:
+    total += len(got)
+    say(f"   {tid:>9} {mode:>16} {HI:>14,} {len(got):>12} {sec:>8.1f}")
 
 say(f"""
    {total} etat compatible.

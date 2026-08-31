@@ -10274,3 +10274,207 @@ n'était couverte qu'à 2³².
 4. tout **CSPRNG**, et le matériel.
 
 **Registre : consigné.**
+
+## 102. MWC : la dernière case nommée, et pourquoi 64 bits n'en coûtent que 32 (`h83_mwc.py`)
+
+Le §91 avait nommé les générateurs **à retenue** comme échappant à
+Berlekamp-Massey. Le §101 a confirmé mécaniquement qu'aucune des neuf sources
+de balayage n'en contenait. C'était la dernière case nommée de la carte.
+
+### L'équivalence MWC ≡ LCG
+
+Un MWC de base `b` et de multiplicateur `a` est **exactement** un LCG
+multiplicatif modulo `p = ab − 1` :
+
+> état `(x, c)` → `z = x + b·c`, et alors `z_{i+1} = a·z_i (mod p)`.
+>
+> **Preuve.** `ab ≡ 1 (mod p)`, donc `b = a⁻¹`. Alors
+> `a·z = a·x + a·b·c = a·x + c`, qui est exactement `z_{i+1}`. ∎
+
+Vérifié sur 2 000 pas : `a = 18030`, `b = 2¹⁶`, `p = 1 181 614 079`, les deux
+formulations coïncident.
+
+**Ce que cela confirme — et n'ouvre pas.** Il vient `x_{i+1} = a·x_i + c_{i+1}
+(mod b)`, la retenue vivant dans `[0, a)`. Pour un `a` grand, `c mod 16` n'est
+**pas** constant : ni la signature du §80 ni le théorème du bit zéro du §100
+n'y mordent — tous deux exigent un terme additif constant. Le §91 avait raison.
+La prise n'est pas algébrique.
+
+### La dissymétrie de MWC1616
+
+V8 — le moteur JavaScript de Chrome et de Node — a utilisé MWC1616 pour
+`Math.random` **jusqu'en 2016** :
+
+```
+state0 = 18030 * (state0 & 0xFFFF) + (state0 >> 16)
+state1 = 36969 * (state1 & 0xFFFF) + (state1 >> 16)
+r = (state0 << 16) + (state1 & 0xFFFF)        puis  u = r / 2³²
+```
+
+Soixante-quatre bits d'état. Mais les seize bits de **poids fort** de `r`
+viennent de `state0` **seul**, et un numéro tiré par troncature ne lit que
+ceux-là. `state1` ne pèse que sur la fraction.
+
+| mesure | valeur |
+|---|---|
+| divergence sur 50 000 états | 35, soit **0,070 %** |
+| tirage de vingt numéros exact | **98,6 %** du temps |
+
+> **Soixante-quatre bits d'état, trente-deux bits de recherche.**
+
+C'est la même dissymétrie que le §97 sur `java.util.Random`, pour une raison
+différente : là le LCG était clos modulo 2²¹ ; ici c'est **l'échantillonneur**
+qui ne lit qu'une moitié de l'état.
+
+### Le balayage, et une fausse exclusion évitée de justesse
+
+| tirage | échantillonneur | états testés | compatibles | sec |
+|---|---|---|---|---|
+| 1381023 | rejet | 4 294 967 296 | 0 | 352 |
+| 1381023 | fy | 4 294 967 296 | 0 | 637 |
+| 1381026 | rejet | 4 294 967 296 | 0 | 349 |
+| 1381026 | fy | 4 294 967 296 | 0 | 553 |
+| 1381028 | rejet | 4 294 967 296 | 0 | 293 |
+| 1381028 | fy | 4 294 967 296 | 0 | 873 |
+
+**0 état compatible**, témoin **2/2** sous les deux échantillonneurs.
+
+Deux défauts ont été attrapés, et le second est le pire genre de bogue.
+
+1. **La boucle qui ne finit pas.** `state0 = 0` est un point fixe de MWC1616 :
+   le générateur y rend toujours le même numéro, et « tant que moins de vingt
+   distincts » ne se termine **jamais**. Un balayage exhaustif rencontre ces
+   états par construction. D'où `PLAFOND_MOTS = 400`.
+
+2. **La fausse exclusion silencieuse.** Le préfiltre vectorisé calculait le
+   numéro émis par `floor(u·80)+1`. Sous troncature c'est la **valeur** émise ;
+   sous Fisher-Yates c'est un **indice**. Le filtre éliminait donc l'état
+   **vrai** et aurait rendu « 0 compatible » — le bon verdict pour la mauvaise
+   raison, indétectable dans le résultat. Seul le témoin l'a vu (`fy 0/1`).
+   Corrigé par un émetteur Fisher-Yates vectorisé qui rejoue les écritures
+   sans matérialiser le tableau.
+
+### Ce que cela ferme
+
+MWC1616, l'unique générateur à retenue jamais déployé à grande échelle, à état
+**complet**, sous deux échantillonneurs, couverture **98,6 %**.
+
+**Reste** : les MWC à base 2³² (Marsaglia), dont l'état fait 64 bits **sans**
+la dissymétrie — leur sortie est brute, les deux moitiés comptent, 2⁶⁴ hors de
+portée ; les SWB et AWC, mêmes raisons ; et tout ce que le §91 nomme déjà.
+
+**Et une remarque de méthode.** Ce fichier ne doit rien à une famille de plus
+essayée au hasard : il vient du §101, qui a **lu** les sources et constaté
+qu'aucune ne contenait de MWC. La carte vérifiée a produit sa première
+expérience.
+
+**Registre : consigné.**
+
+---
+
+## 103. Le théorème de la fenêtre : la moitié du monde que le §99 ne pouvait pas voir (`h84_fenetre.py`)
+
+### L'angle mort
+
+Le §99 cherchait une **signature** : `(n_t − 1) = a(n_{t−p} − 1) + g(n_{t−q} − 1) + c (mod 16)`.
+Elle repose sur le théorème du contenu (§94) : `16 | 80`, donc sous un
+échantillonneur **modulo**, `(n−1) mod 16 = état mod 16`. La réduction est un
+morphisme et la récurrence descend.
+
+Sous un échantillonneur par **troncature** — `n = floor(u·K) + 1` — elle ne
+descend pas. Le numéro lit les bits de **poids fort** de l'état. Aucune
+congruence ne survit, et le balayage du §99 ne pouvait **rien** voir, quel que
+soit le générateur.
+
+Or la troncature est l'échantillonneur **dominant** dans la nature :
+`Random.Next(80)` en .NET, `Math.floor(Math.random()*80)` en JavaScript,
+`mt_rand($a,$b)` en PHP. Le §99 et le §100 couvrent le monde **modulo** ; le
+monde **troncature** était entièrement ouvert. C'est la moitié de la carte.
+
+### Le théorème
+
+> Soit `s_t ∈ [0, M)` vérifiant `s_t = a·s_{t−p} + g·s_{t−q} + b (mod M)`,
+> coefficients entiers et constante **quelconques**. Soit un échantillonneur
+> par troncature publiant `m_t = floor((s_t/M)·K_t)`, `K_t` connu.
+>
+> Posons `x_t = s_t/M ∈ [0,1)` et `θ = b/M`. Alors
+> `x_t ∈ [m_t/K_t, (m_t+1)/K_t)`, et la récurrence divisée par `M` donne
+>
+>     x_t − a·x_{t−p} − g·x_{t−q} ≡ θ   (mod 1)
+>
+> donc **θ appartient à un arc calculable, le même pour tout t**, de largeur
+> `w_t = (R_t − L_t) + |a|(R_{t−p} − L_{t−p}) + |g|(R_{t−q} − L_{t−q})`. ∎
+
+**Trois propriétés font tout l'intérêt.**
+
+1. **Le module disparaît.** `M` ne figure nulle part dans l'arc. Le test vaut
+   pour 2³¹−1, 2³², 2⁴⁸ ou un premier inconnu — **sans le connaître**.
+2. **La constante disparaît aussi.** `b` n'entre que par `θ`, la même inconnue
+   pour tout `t`. On ne la cherche pas : on demande si les arcs ont un **point
+   commun**. Une retenue d'AWC ou un emprunt de SWB ne décalent l'arc que d'une
+   unité — absorbés.
+3. **Ni graine ni état.** Rien n'est reconstruit. C'est la **structure** qui
+   répond.
+
+### L'indice de Fisher-Yates est exactement récupérable
+
+Sous Fisher-Yates, ce que le générateur produit est un **indice**,
+`j = i + floor(u·(80−i))`, et le numéro publié est `a[j]` après `i` échanges.
+Mais le tableau est **déterminé** par les émissions précédentes : on le rejoue,
+et la position de chaque numéro publié y est unique. L'indice est donc
+récupérable **exactement**, et avec lui l'encadrement de `u`. C'est la même
+distinction indice/valeur qui, au §102, avait failli produire une fausse
+exclusion.
+
+### Le témoin, et le piège de la statistique
+
+| générateur planté | retrouvé | score | couverture |
+|---|---|---|---|
+| Fibonacci retardé .NET (55,34) mod 2³¹−1 | **oui** | 140,3 | 105/105 |
+| glibc `random()` TYPE_3 (31,3) mod 2³² | **oui** | 173,0 | 129/129 |
+| SWB de Marsaglia (43,22) mod 2³² | **oui** | 156,7 | 117/117 |
+
+Lags **et** signes exacts, sans module, sans graine, sans constante.
+
+**Le piège, et il a été mesuré.** La couverture brute ne se compare pas d'une
+hypothèse à l'autre : un lag de 2 aligne 170 contraintes, un lag de 55 en
+aligne 25. Une couverture de 19 est dérisoire sur 170 arcs et **impossible**
+sur 25. Avec la couverture brute, le nul plafonnait à **21** — au-dessus de la
+couverture *pleine* d'un témoin à 25 contraintes : un vrai signal à lag 55
+aurait été invisible. D'où le score `−log₁₀` d'une borne d'union,
+
+    P(couverture ≥ c) ≤ n · C(n−1, c−1) · w^(c−1)
+
+qui ne sert qu'à **ordonner** les hypothèses ; la calibration vient du nul.
+
+### Le verdict
+
+| | |
+|---|---|
+| hypothèses balayées | **54 560** (lags ≤ 100, 4 signes, 3 strides, 2 conventions) |
+| meilleur score observé | 4,37 (stride 79, p=96, q=2, 7 arcs sur 12) |
+| nul — 200 archives d'un générateur **parfait**, même motif d'observation | médiane 3,90, **max 6,25** |
+| **p** | **0,2935 — conforme** |
+
+Le nul n'est pas une permutation : c'est le générateur parfait, et le balayage
+**entier** est refait sur chacune des 200 archives. La loi est celle du
+**maximum**, ce qui absorbe les 54 560 hypothèses sans correction
+supplémentaire.
+
+### Ce que cela ferme
+
+Toute récurrence à trois termes à coefficients ±1, **à n'importe quel
+module**, sous troncature : Fibonacci retardé (.NET, glibc, Mitchell-Moore),
+add-with-carry et subtract-with-borrow de Marsaglia. Cela comprend
+`System.Random` et `random()` — les deux bibliothèques standard les plus
+probables pour une plateforme achetée sur étagère.
+
+**Reste** : les coefficients **grands** (un LCG a `‖λ‖₁ = 1 + a`) — c'est le
+§104 ; les sorties **brouillées** ; le pas **variable**, où l'alignement des
+lags se perd (§95).
+
+**Ce que cela change dans la carte.** La colonne « échantillonneur » du §101
+avait une case vide que personne n'avait vue : **modulo** couvert par le §99 et
+le §100, **troncature** couverte par rien. Elle ne l'est plus.
+
+**Registre : consigné.**
