@@ -10957,3 +10957,131 @@ tirages consécutifs filmés mettent MT19937 à portée) et dans l'**angle
 résiduel** de la roue (§92).
 
 **Registre : consigné.**
+
+---
+
+## 108. Prédire le boost : la seule cible où une marginale vaut de l'argent (`h89_boost_predictif.py`)
+
+### Pourquoi cette cible, et pourquoi elle avait été manquée
+
+Le §93 a tué la prédiction numéro par numéro : le barème annule `c₀`, `c₁` et
+`c₂`, donc une probabilité par numéro **n'entre pas** dans `E[g]`. Le §107 en a
+tiré la conséquence et est allé chercher les triplets.
+
+**Mais le boost n'est pas un numéro.** C'est un **multiplicateur** :
+
+    gain = boost × g(h)      donc     E[gain] = E[boost] × E[g]
+
+Il entre **linéairement**. Une marginale sur le boost est donc exactement du bon
+type, et un edge de δ % vaut δ % de taux de retour en plus — sans passer par le
+barème, sans hypothèse sur les inclusions.
+
+> **C'est le seul endroit de tout le dossier où un prédicteur scalaire vaut de
+> l'argent.**
+
+Le §90 a mesuré la loi du boost. Le §92 a démontré que la roue est cosmétique.
+Ni l'un ni l'autre n'a essayé de le **prédire**.
+
+| boost | effectif | probabilité |
+|---|---|---|
+| 1 | 36 122 | 0,5119 |
+| 2 | 16 791 | 0,2380 |
+| 3 | 10 626 | 0,1506 |
+| 4 | 3 525 | 0,0500 |
+| 5 | 1 739 | 0,0246 |
+| 10 | 1 757 | 0,0249 |
+
+`E[boost] = 2,0117` sur 70 560 tirages.
+
+**Et la question est actionnable** : le joueur décide **avant** le tirage. On ne
+prédit donc le boost du tirage `t` qu'à partir des tirages `1..t−1`,
+strictement — aucun regard sur le présent, aucun ajustement rétrospectif.
+
+### L'instrument
+
+> **Théorème.** Soient `P₀` et `P₁` deux assignations de probabilité
+> **séquentielles** — deux prédicteurs qui, à chaque `t`, rendent une loi sur
+> `x_t` au vu du seul passé. Alors
+>
+>     W_N = Π_t  P₁(x_t | passé) / P₀(x_t | passé)
+>
+> vérifie `E_{P₀}[W_N] = Σ_x P₁(x_{1:N}) = 1` : c'est une martingale positive
+> sous `P₀`, et Ville s'applique. ∎
+
+Un **mélange** de prédicteurs à poids fixés d'avance est encore une assignation
+séquentielle, donc encore une martingale : **douze modèles d'un coup, et la
+barre ne bouge pas.** `P₀` est la marginale estimée en ligne (Dirichlet 0,5),
+optimale sous le nul « le boost est i.i.d. de loi inconnue ».
+
+### Les douze modèles
+
+| modèle | contextes | bits/tirage | log₂ richesse |
+|---|---|---|---|
+| marginale (référence) | 1 | 0 | 0 |
+| boost précédent | 6 | −0,001732 | −122 |
+| deux boosts précédents | 36 | −0,008179 | −577 |
+| heure du jour | 24 | −0,005596 | −395 |
+| jour de la semaine | 7 | −0,002182 | −154 |
+| jour × heure | 168 | −0,029453 | −2 078 |
+| rang dans la journée | 288 | −0,043517 | −3 071 |
+| écart depuis boost ≥ 5 | 16 | −0,004701 | −332 |
+| boosts élevés sur 20 | 6 | −0,001533 | −108 |
+| somme du tirage précédent | 12 | −0,001783 | −126 |
+| rang du bonus précédent | 20 | −0,006262 | −442 |
+| boost préc. × heure | 144 | −0,022592 | −1 594 |
+
+**Mélange : log₂ richesse = −3,585.** Pas un seul modèle ne bat la marginale ;
+tous perdent exactement ce que coûte l'estimation de leurs contextes.
+
+### La puissance
+
+On fabrique une archive où le boost dépend **vraiment** de l'heure — une masse
+`ε` déplacée de la valeur 1 vers la valeur 10, six heures par jour.
+
+| ε | E[boost] creux | E[boost] pointe | log₂ richesse | vu à 5 % |
+|---|---|---|---|---|
+| 0,02 | 2,0117 | 2,1917 | −299 | non |
+| **0,05** | 2,0117 | **2,4617** | **+121** | **oui** |
+| 0,10 | 2,0117 | 2,9117 | +1 163 | oui |
+
+> **Toute promotion administrative valant plus de ~+22 % sur `E[boost]` pendant
+> six heures par jour aurait été vue. Il n'y en a aucune.**
+
+### La stratégie, testée hors échantillon
+
+Un rapport de vraisemblance ne se dépense pas. La question du joueur est
+autre : *existe-t-il un sous-ensemble de tirages, reconnaissable à l'avance, où
+`E[boost]` soit plus élevé ?* On apprend sur la première moitié, on sélectionne
+les contextes favorables, on mesure le boost **réalisé** sur la seconde.
+
+| modèle | joués | E[b] appris | **E[b] réalisé** | edge | z |
+|---|---|---|---|---|---|
+| boost précédent | 28 237 | 2,0347 | 2,0044 | −0,37 % | −0,76 |
+| deux boosts précédents | 21 514 | 2,0864 | 2,0148 | +0,15 % | +0,27 |
+| heure du jour | 20 334 | 2,0357 | 1,9960 | −0,78 % | −1,37 |
+| jour × heure | 17 714 | 2,0845 | 2,0091 | −0,13 % | −0,21 |
+| rang dans la journée | 16 949 | **2,1125** | 2,0145 | +0,14 % | +0,22 |
+| boosts élevés sur 20 | 15 171 | **2,1185** | 1,9978 | −0,69 % | −1,05 |
+| somme du tirage précédent | 15 485 | 2,0232 | **2,0304** | **+0,93 %** | **+1,42** |
+| boost préc. × heure | 18 970 | **2,1108** | 2,0024 | −0,46 % | −0,79 |
+
+Regarder la colonne « appris » suffit à voir le piège : plusieurs modèles
+montent à 2,11 — soit +5 % — en apprentissage, et **retombent tous à 2,00 en
+test**. Meilleur edge réalisé : **+0,93 %, z = +1,42**.
+
+L'écart-type du boost vaut 1,636 ; sur quelques milliers de tirages joués,
+l'erreur type sur `E[boost]` est de 0,030, soit **1,49 %** de la moyenne. Un
+edge inférieur à cela n'est pas un edge : c'est du bruit — et tous les modèles
+y restent.
+
+### Ce que cela vaut
+
+C'est, avec le §107, la seconde expérience du dossier qui **prédit** au lieu
+d'exclure — et la seule qui vise une quantité dont l'edge se convertit
+**directement** en taux de retour, sans passer par le barème.
+
+Le verdict est net : sur 70 560 tirages, douze modèles, aucune multiplicité à
+payer, **le boost n'est pas prédictible à partir du passé**, et la puissance dit
+que toute structure administrative valant plus de +22 % aurait été vue.
+
+**Registre : consigné.** `m = 58 070`, zéro significatif.
