@@ -7583,3 +7583,145 @@ fait pas en temps raisonnable. **La limite est ici computationnelle, pas
 informationnelle**, et c'est la première fois dans ce volet.
 
 **Registre :** `h57.bonus_ordonne`, 0 état compatible.
+
+---
+
+## 78. Le taux de change : ce qu'un bit du générateur vaut en numéros (`h58_taux_de_change.py`)
+
+Le dossier tenait deux théorèmes qui ne se parlaient pas.
+
+| | énoncé | côté |
+|---|---|---|
+| **invariance** | `E[touches] = k/4` sous échangeabilité | table |
+| **fuite (§68)** | `out ≡ n−1 (mod 16)` — quatre bits publiés par numéro | générateur |
+
+Entre les deux, **rien**. Aucune section ne disait combien de touches achète un
+bit de fuite — donc aucune ne disait *quelle partie* du générateur il faut
+reproduire pour que le pari bascule. « Franchir le mur » n'avait pas de sens
+quantitatif.
+
+### Le théorème de conversion
+
+Un générateur publie `b` bits par mot ; l'échantillonnage est un rejet modulo
+80. Les numéros se partagent en `M = 2^b` classes de `s = 80/M` membres, la
+classe de `n` étant `(n−1) mod M`. Si l'on connaît les résidus des `r` premiers
+numéros tirés, de comptes `m_c`, alors pour `x` membre de la classe `c` :
+
+> **P(x tiré | m) = [ m_c + (s − m_c)(20 − r)/(80 − r) ] / s**   (\*)
+
+*Preuve.* Conditionnellement aux comptes, l'identité des `r` premiers est
+uniforme dans chaque classe, donc `P(x parmi les r premiers) = m_c/s`. Sinon `x`
+reste dans le vivier de `80 − r` numéros dont `20 − r` seront tirés. Somme. ∎
+
+Trois lectures, et la troisième est le résultat.
+
+1. **`r = 0` rend `P = 1/4` pour tout `x`.** Le théorème d'invariance devient un
+   *cas particulier* du théorème de conversion — celui où l'on ne sait rien.
+   Vérifié à 2·10⁻¹⁶ près.
+2. **La somme de (\*) sur les 80 numéros vaut exactement 20**, pour tout `m` et
+   tout `r`. L'invariance n'est donc jamais **violée** : elle est **contournée**.
+   La masse totale reste 20 ; c'est sa *répartition* qui cesse d'être uniforme.
+3. **`P` croît en `m_c`**, donc la grille optimale se lit sans recherche : trier
+   les classes par compte décroissant et les remplir. Le problème de décision
+   est résolu en fermeture, pas par optimisation.
+
+### La loi exacte, parce que le Monte-Carlo ment ici
+
+(\*) donne l'espérance ; le barème, lui, paie des **rangs**. Une première
+version de ce fichier a estimé les taux de retour par simulation et **a produit
+des chiffres faux** : à `k = 8`, `b = 4`, `r = 20`, le rang plein pèse **4,31 à
+lui seul** dans le taux de retour pour une probabilité de 8,6·10⁻⁴. Sur 400 000
+tirages le Monte-Carlo en voit 347 — 5 % d'erreur sur le poste dominant, et
+bien pire aux petits échantillons.
+
+La loi est donc calculée **exactement**, en trois étages : partitions des
+comptes observés (les classes étant échangeables, seule la suite triée compte),
+hypergéométrique multivariée pour les numéros restants, hypergéométrique simple
+pour la classe entamée. Un Monte-Carlo *indépendant* de 400 000 tirages vérifie
+les espérances — écart maximal **1,98 σ** sur neuf configurations.
+
+### Le taux de change, en touches (les vingt résidus connus)
+
+| k joués | b=0 | b=1 | b=2 | b=3 | b=4 | gain × |
+|---|---|---|---|---|---|---|
+| 5 | 1,250 | 1,441 | 1,760 | 2,270 | **3,090** | 2,47 |
+| 8 | 2,000 | 2,305 | 2,815 | 3,632 | **4,599** | 2,30 |
+| 10 | 2,500 | 2,881 | 3,519 | 4,540 | **5,604** | 2,24 |
+
+Le premier bit rapporte 0,38 touche à `k = 10`, le quatrième **1,06** — 2,8 fois
+plus. La raison est arithmétique : jouer « une classe » coûte `s = 80/2^b`
+numéros, et `s = 5` est atteint exactement à `b = v₂(80) = 4`. **Le coude du
+taux de change et la fuite du §68 sont gouvernés par le même entier** — celui
+dont le §74 montrait qu'un vivier impair l'annulerait.
+
+### Le résultat : trois bits d'un seul mot
+
+Le mot qui produit le **premier** numéro est toujours accepté — aucun doublon
+n'est encore possible — donc son résidu est connu *sans aucune hypothèse
+d'alignement*. Supposons qu'on ne sache rien d'autre du générateur. Taux de
+retour, barème du §56, ticket à CHF 2, **hors cagnotte** :
+
+| b bits du mot 0 | k=5 | k=6 | k=7 | k=8 | k=10 |
+|---|---|---|---|---|---|
+| 0 | 0,586 | 0,588 | 0,599 | 0,583 | 0,588 |
+| 1 | 0,664 | 0,666 | 0,676 | 0,687 | 0,670 |
+| 2 | 0,822 | 0,821 | 0,831 | 0,895 | 0,833 |
+| **3** | 1,136 | 1,130 | 1,140 | **1,309** | 1,160 |
+| **4** | **1,765** | 1,543 | 1,405 | 1,517 | 1,160 |
+
+> **TROIS BITS SUFFISENT.** Connaître les trois bits de poids faible du **seul**
+> mot qui produira le premier numéro du prochain tirage, et jouer les dix
+> numéros de sa classe résiduelle, porte le taux de retour de **0,583 à 1,309**.
+> Quatre bits le portent à **1,765** en n'en jouant que cinq.
+
+Et le corollaire négatif oriente autant que le résultat : connaître **un** bit
+des **vingt** numéros — vingt fois plus d'observations — ne franchit pas le
+seuil (0,964). **Ce n'est pas le volume d'information qui décide, c'est la
+valuation 2-adique du vivier.**
+
+### Ce que cela change au programme de recherche
+
+| | avant (§77) | maintenant |
+|---|---|---|
+| objectif | résoudre l'état | prédire 3 formes linéaires |
+| taille | 19 937 inconnues | 3 bits, soit 0,015 % de l'état |
+| nature du mur | **rang** plein du système | **appartenance** à l'espace engendré |
+
+Le §77 butait sur un mur de rang : 204 tirages par session donnent 16 320
+équations pour 19 937 inconnues, et le système reste sous-déterminé. Mais
+**prédire trois bits ne demande pas le rang plein** — seulement que ces trois
+formes linéaires appartiennent à l'espace engendré par celles déjà observées.
+Un système sous-déterminé prédit *quand même* tout ce qui tombe dans son image.
+
+Les deux murs n'ont donc ni la même hauteur ni la même nature, et le dossier
+attaquait le mauvais.
+
+### Le régime A, de bout en bout
+
+La chaîne complète — ordre → équations → état → prédiction → grille — sur
+xorshift64, 80 graines de 64 bits tirées au hasard, **un seul** tirage ordonné
+observé :
+
+| | |
+|---|---|
+| états retrouvés | **80 / 80** |
+| tirages suivants prédits | **80 / 80** (les vingt numéros, dans l'ordre) |
+| touches en jouant 10 | **10,0 / 10** (contre 2,50 sous invariance) |
+
+Ce n'est pas un résultat sur le jeu réel : c'est la preuve que la chaîne est
+complète et sans trou dès que le générateur est F₂-linéaire. Le §68 donnait le
+maillon algébrique ; le §78 le prolonge jusqu'au bulletin.
+
+### Ce que cela ne fait pas
+
+1. **Rien ne s'applique hors du rejet modulo le vivier.** Sous Fisher-Yates la
+   fuite tombe à 22 bits (§71) et les résidus portent sur des *indices* dans un
+   tableau déjà permuté : la classe `(n−1) mod 16` n'y est même plus définie.
+2. **Rien ne dit que le tirage réel est vulnérable.** Les tests d'archive — §76
+   sur les 70 560 tirages, §68 et §77 sur les cinq tirages ordonnés — n'ont rien
+   trouvé. Ce fichier chiffre la **valeur** d'une porte ; il n'en ouvre aucune.
+3. **La cagnotte BANGO n'entre pas dans ces taux.** Tous les chiffres ci-dessus
+   sont des bornes inférieures.
+
+**Registre : inchangé.** h58 dérive, vérifie sa dérivation par simulation
+indépendante, et chiffre.
