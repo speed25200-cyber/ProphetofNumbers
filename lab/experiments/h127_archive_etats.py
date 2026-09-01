@@ -321,7 +321,7 @@ for l in TROUV:
     say(f"     !! {l}")
 if not TROUV:
     say(f"""     AUCUN. Et c'est une exclusion, pas une absence de resultat : le filtre
-     vaut 1e-{NW*0.602:.0f} par etat, et le temoin retrouve un etat plante.
+     vaut {FILTRE:.1e} par etat, et le temoin retrouve un etat plante.
 
    CE QUE CELA FERME SUR L'ARCHIVE. Tout generateur xorshift de 32 bits a
    PERIODE PLEINE, quel que soit son triplet de decalages, son orientation, ET
@@ -339,17 +339,19 @@ else:
     tok = lab.preregister(
         "h127.archive_espace_etat",
         f"Aucun des {FAIT} designs xorshift de 32 bits a PERIODE PLEINE balayes, "
-        f"pour AUCUN de ses 4 294 967 296 etats initiaux, n'engendre la fenetre "
-        f"de {NW} tirages consecutifs de l'archive. Le filtre est le confinement "
-        f"du §141 — a l'etape 0 de Fisher-Yates la valeur emise vaut exactement "
-        f"j_0 + 1 et appartient a l'ensemble publie — donc il ne suppose ni "
-        f"l'ordre, ni le bonus, ni aucun modele du bonus. C'est strictement plus "
-        f"fort que le §120, qui balayait 2^32 GRAINES sous des amorcages nommes",
-        "nombre d'etats compatibles, un etat etant compatible s'il satisfait le "
-        f"confinement sur les {NW} tirages de la fenetre. Probabilite de faux "
-        f"positif : 4^-{NW} = 1e-{NW*0.602:.0f} par etat",
+        f"pour AUCUN de ses 4 294 967 296 etats initiaux, n'engendre EXACTEMENT "
+        f"l'ensemble des vingt numeros du tirage {IDS[deb[k]]} de l'archive "
+        f"(echantillonneur par troncature (x*(80-k))>>32, Fisher-Yates partiel). "
+        f"Le filtre est l'ensemble complet — chaque numero emis doit appartenir "
+        f"a l'ensemble publie — donc il ne suppose ni l'ordre, ni le bonus, ni "
+        f"aucun modele du bonus, ni aucun pas entre tirages, ni aucun alignement. "
+        f"C'est strictement plus fort que le §120, qui balayait 2^32 GRAINES "
+        f"sous des amorcages nommes",
+        "nombre d'etats compatibles, un etat etant compatible s'il produit "
+        "l'ensemble des vingt numeros du tirage vise. Probabilite de faux "
+        f"positif : 1/C(80,20) = {FILTRE:.2e} par etat",
         f"aucun null n'est requis : l'esperance de faux positifs vaut "
-        f"{2**32 * 4.0**-NW:.1e} par design",
+        f"{2**32 * FILTRE:.1e} par design",
         "conforme si aucun etat n'est compatible", track="B")
     tok["m_extra"] = 0
     lab.record(
@@ -365,9 +367,11 @@ else:
                f"polynome caracteristique par Berlekamp-Massey puis test de "
                f"primitivite (irreductibilite, puis ordre 2^32-1 via 3, 5, 17, "
                f"257, 65537), ce qui donne {len(BONS)} designs a periode pleine sur "
-               f"238 328, le canonique (13,17,5) inclus. Fenetre de {NW} tirages "
-               f"CONSECUTIFS d'une meme journee (ids {IDS[deb[k]]}-{IDS[deb[k]+NW-1]}), "
-               f"filtre 4^-{NW}. {FAIT} designs x 2^32 = {FAIT*4294967296:,} etats, "
+               f"238 328, le canonique (13,17,5) inclus. Cible : l'ensemble trie du "
+               f"tirage {IDS[deb[k]]}, filtre 1/C(80,20) ; un seul tirage suffit, "
+               f"donc ni pas ni alignement supposes. Echantillonneur par troncature "
+               f"seul (le modulo et le rejet des doublons sont l'objet du h130). "
+               f"{FAIT} designs x 2^32 = {FAIT*4294967296:,} etats, "
                f"{PAS:.3e} pas de generateur, {len(TROUV)} compatible."))
     h = lab.holm()
     say(f"   consigne : h127.archive_espace_etat   {len(TROUV)} etat sur "
