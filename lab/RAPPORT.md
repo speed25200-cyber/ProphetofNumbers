@@ -11986,3 +11986,98 @@ rien.
 > pas, une multiplication par un impair non plus.**
 
 **Registre : consigné.** Zéro significatif.
+
+---
+
+## 118. Le système total : tout ce que l'archive publie, dans une seule matrice (`h99_systeme_total.py`)
+
+### Ce qui n'avait jamais été joint
+
+L'archive publie **trois** choses par tirage, et le dossier ne s'est jamais
+servi que d'une à la fois :
+
+| observable | information | statut |
+|---|---|---|
+| l'ensemble trié des vingt numéros | 61,6 bits | **inutilisable** — corollaire de branchement (§110) |
+| le rang du bonus | 3,20 bits F2 exacts | utilisé (§106, §114) |
+| **le boost** | 1,879 bit d'entropie | **jamais mis dans un système linéaire** |
+
+Le §90 avait mesuré le boost et s'était arrêté là.
+
+### Le théorème de l'intervalle cumulé
+
+> Soit une loi discrète de bornes cumulées `F(0)=0 < F(1) < … < F(k)=1`,
+> échantillonnée par comparaison : on tire `u`, on rend `i` tel que
+> `u ∈ [F(i−1), F(i))`.
+>
+> Observer `i` **encadre `u` exactement comme le fait une troncature**, et le
+> théorème du préfixe (§105) s'applique tel quel. ∎
+
+**La différence avec la troncature, et elle est délicate** : les bornes ne sont
+pas connues d'avance, on les **estime** sur l'archive. Une borne mal estimée
+donnerait des bits **faux** et une exclusion imméritée. On élargit donc chaque
+intervalle de **quatre écarts-types** — ce qui coûte des bits et ne peut pas en
+inventer.
+
+| boost | part | intervalle élargi | bits exacts |
+|---|---|---|---|
+| 1 | 0,5119 | [0,00000 ; 0,51946) | 0 |
+| 2 | 0,2380 | [0,50441 ; 0,75642) | 1 |
+| 3 | 0,1506 | [0,74338 ; 0,90500) | 1 |
+| 4 | 0,0500 | [0,89599 ; 0,95372) | **3** |
+| 5 | 0,0246 | [0,94719 ; 0,97745) | **4** |
+| 10 | 0,0249 | [0,97275 ; 1,00000) | **5** |
+
+> **0,762 bit F2 exact par tirage — 53 733 équations que le dossier n'avait
+> jamais utilisées.**
+
+### Ce que le système joint ajoute vraiment
+
+`3,20 + 0,762 = 3,96` équations par tirage au lieu de 3,20 — un gain de 24 %,
+qui n'est **pas** l'essentiel. L'essentiel :
+
+> Le système joint contraint aussi la **position relative** des deux mots dans
+> le bloc. `[20 numéros][boost][bonus]` et `[boost][20 numéros][bonus]` sont
+> deux modèles distincts qu'un observable **seul** ne peut pas séparer.
+
+C'est le cinquième axe du §115, mais **mesuré** au lieu d'être balayé à
+l'aveugle.
+
+### Le témoin
+
+| famille | état | tirages | équations | tirage +1 | horizon 10 |
+|---|---|---|---|---|---|
+| xorshift32 … xoshiro256 (brut) | 32–256 | 20–76 | 71–303 | **exact** | 10/10 |
+| **WELL512a** | 512 | 141 | 562 | **exact** | 10/10 |
+| V8 `Math.random` | 128 | 44 | 175 | **exact** | 10/10 |
+| LFSR113 | 128 | 44 | 179 | non (rang 103) | — |
+
+**10/11 états reconstitués depuis le rang et le boost réunis**, puis tirage
+suivant annoncé exactement.
+
+### L'archive
+
+| | |
+|---|---|
+| modèles de consommation (11 familles × 7) | **77** |
+| **systèmes incohérents** | **77** |
+| **états compatibles** | **0** |
+
+### Ce que l'archive peut encore donner — et c'est fini
+
+    ensemble trié des 20 numéros   61,6 bits/tirage   INUTILISABLE (§110)
+    rang du bonus                   3,20 bits/tirage   utilisé
+    boost                           0,762 bit/tirage   utilisé ici
+    ------------------------------------------------------------------
+    total                           3,96 équations F2 exactes par tirage
+                                    279 000 sur l'archive entière
+
+> **Et c'est tout. Il n'y a pas de quatrième champ.**
+
+Ce qui reste inexploité — les 61,6 bits de l'ensemble trié — l'est pour une
+raison **démontrée**, pas par manque d'effort : le corollaire de branchement du
+§110 chiffre son arbre à **2¹²³ nœuds** pour 128 bits d'état. La seule façon
+d'en extraire davantage serait d'obtenir l'**ordre**, qui change 4,32 bits de
+branchement en 4,48 bits d'équations gratuites.
+
+**Registre : consigné.** `m = 58 078`, zéro significatif.
