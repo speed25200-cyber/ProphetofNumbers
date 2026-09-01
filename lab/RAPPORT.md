@@ -15238,81 +15238,149 @@ conforme`.** La ligne fautive reste au registre, avec son verdict.
 
 ---
 
-## 147. Les designs à rotation, et la porte de puissance que j'avais oubliée (`h126_designs_a_rotation.py`)
+## 148. La frontière (taux de gain, rendement) : le théorème de découplage, et le tournoi de l'archive (`h129_frontiere_strategies.py`)
 
-### Ce que le §146 avait laissé
+La question posée est celle du joueur, pas celle du cryptanalyste : *existe-t-il
+une stratégie à haut taux de gain **et** haut rendement ?* Le dossier avait des
+morceaux de réponse — le taux de retour de 58,9 % (§56), le seuil de cagnotte
+(§57), le barème (§62) — mais jamais la **carte** des deux quantités ensemble,
+ni la preuve qu'aucune sélection de numéros ne s'en écarte. Voici les deux, et
+tout est calculé sur l'archive.
 
-Le §146 a balayé l'espace entier de la forme de Marsaglia. Mais cette forme n'est
-pas la seule : **tout ce qui a été écrit après 2014 est bâti sur des rotations**,
-pas sur des décalages.
+### Le théorème, en une ligne
 
-    xoroshiro128   s1 ^= s0 ; s0 = rotl(s0,A) ^ s1 ^ (s1<<B) ; s1 = rotl(s1,C)
-    xoshiro256     t = s1<<A ; s2^=s0 ; s3^=s1 ; s1^=s2 ; s0^=s3 ;
-                   s2 ^= t ; s3 = rotl(s3,B)
+Sous l'hypothèse nulle que 60 356 tests n'ont jamais mise en défaut — tirage
+uniforme sur `C(80,20)`, indépendant du passé — **toute** grille `G_t` de `k`
+numéros calculée à partir du passé a un nombre de touches
 
-Aucun balayage du dossier n'avait couvert leur espace de paramètres : les §136 et
-§144 les testent avec les rotations **publiées**, `(24,16,37)` et `(17,45)`.
+    H_t | passé  ~  Hypergéométrique(80, 20, k)
 
-| forme | `W` | designs |
-|---|---|---|
-| xoroshiro128 brut | 128 | `63³ × 2 = ` **500 094** |
-| xoshiro256 brut | 256 | `63² × 8 = ` **31 752** |
+*quelle que soit la règle qui l'a choisie*. Le taux de gain `P(g_k(H) > 0)` et le
+rendement `E[g_k(H)]/c` sont donc deux **constantes du barème**, fonctions de `k`
+seul. C'est le théorème P de `THEORIE.md`. Sa preuve tient en deux lignes
+(indépendance de `D_t` et de `G_t`, puis définition de la loi hypergéométrique) ;
+ses conséquences, elles, ferment la question.
 
-*Brut* veut dire sortie `F₂`-linéaire — un mot d'état, sans le brouilleur
-arithmétique. C'est délibéré, et le §145 dit pourquoi : le brouilleur est **affine
-sur `Z/2⁶⁴`**, donc inversible ; ce qui protège la plateforme est
-l'échantillonneur, pas lui.
+### A. La carte exacte
 
-### J'ai consigné un faux positif, et je le retire
+| mise | P(gagne qqch) | P(profit net) | rendement | σ par grille |
+|---|---|---|---|---|
+| 5 | 0,0967 | 0,0967 | 0,5856 | 10,05 |
+| 6 | 0,1616 | 0,1616 | 0,5882 | 12,04 |
+| 7 | 0,2366 | 0,2366 | 0,5986 | 11,56 |
+| 8 | 0,1023 | 0,1023 | 0,5834 | 24,86 |
+| 10 | 0,2578 | 0,2120 | 0,5881 | 36,44 |
 
-Le premier run a enregistré **23 288 designs « compatibles »**. Le diagnostic le
-disait pourtant en toutes lettres : `rang = 185/256`.
+Le rendement tient dans **1,5 point** sur les cinq mises — l'opérateur égalise,
+le §56 l'avait mesuré. Le taux de gain va du simple au triple. À cagnotte nulle,
+**tout** point admissible est dans une colonne à 58,8 %, jamais sur une ligne.
 
-> **185 équations pour 256 inconnues.** Le système est **sous-déterminé** : aucun
-> design n'était compatible, le balayage n'avait simplement **aucune puissance**
-> sur la journée 1, qui ne porte que **deux** tirages ordonnés.
+Avec la cagnotte BANGO relevée le 30 août 2026 à 22:16 :
 
-C'est la porte que le §144 avait pourtant mesurée — *le point de contradiction
-vaut la largeur de l'état* — et que je n'avais pas appliquée. Elle l'est
-désormais : le nombre d'équations exactes est calculé **par journée**, et tout
-couple (journée, forme) sous-déterminé est **écarté et dit comme tel**. Le run
-corrigé est consigné sous le **même identifiant**, pour que `lab.dedupe()` écrase
-la ligne fautive — la voie sanctionnée du protocole.
+| mise | J (CHF) | p(plein) | rendement(J) | J* | J / J* |
+|---|---|---|---|---|---|
+| 5 | 245 | 6,45e-4 | 0,6646 | 1 285 | 0,19 |
+| 6 | 3 035 | 1,29e-4 | **0,7840** | **6 385** | 0,48 |
+| 7 | 3 838 | 2,44e-5 | 0,6454 | 32 902 | 0,12 |
+| 8 | 13 051 | 4,35e-6 | 0,6118 | 191 727 | 0,07 |
+| 10 | 498 218 | 1,12e-7 | 0,6160 | 7 342 190 | 0,07 |
 
-### Le résultat, avec la porte
+`rendement(J) = rendement(0) + J·p_k(k)/c`. La cagnotte est le **seul** levier
+du rendement, et `J* = (c − E[g_k])/p_k(k)` = 6 385 CHF à la mise 6 est le seuil
+du §57, retrouvé par une autre route.
 
-| journée | forme | `W` | équations | concluant | designs | survivants |
+### B. Les systèmes : le taux de gain se monte, le rendement ne bouge pas
+
+Un système de `m` numéros joue `C(m,k)` grilles ; avec `H ~ Hyp(80,20,m)` touches
+parmi les `m`, il contient exactement `C(H,h)·C(m−H,k−h)` grilles à `h` touches.
+Sa loi de gain est donc une fonction **exacte** de `H` :
+
+| mise | m | grilles | coût | P(une grille paie) | P(total ≥ coût) | rendement |
 |---|---|---|---|---|---|---|
-| −1 | xoroshiro128 | 128 | 452 | **oui** | 500 094 | **0** |
-| −1 | xoshiro256 | 256 | 452 | **oui** | 31 752 | **0** |
-| 0 | xoroshiro128 | 128 | 455 | **oui** | 500 094 | **0** |
-| 0 | xoshiro256 | 256 | 455 | **oui** | 31 752 | **0** |
-| 1 | xoroshiro128 | 128 | 185 | **oui** | 500 094 | **0** |
-| 1 | xoshiro256 | 256 | 185 | **non** | — | *écarté* |
+| 6 | 6 | 1 | 2 | 0,162 | 0,162 | 0,5882 |
+| 6 | 10 | 210 | 420 | 0,479 | 0,212 | 0,5882 |
+| 10 | 10 | 1 | 2 | 0,258 | 0,258 | 0,5881 |
+| 10 | 12 | 66 | 132 | **0,720** | 0,163 | 0,5881 |
 
-    0 design compatible sur 1 563 786 testés DANS LES COUPLES CONCLUANTS.
+Le taux « une grille paie » monte à **72 %** ; le rendement reste 0,588 sur toutes
+les lignes (linéarité de l'espérance). Et la colonne « ne rien perdre » *baisse* :
+multiplier les grilles multiplie les façons de perdre. Le taux de gain est un
+**choix de variance**, jamais d'espérance.
 
-**Témoin de l'outil : 10/10** — pour chacune des cinq formes, un design planté est
-retrouvé **compatible** et un design ne différant que d'**un** paramètre est
-**rejeté**. Et le contrôle tient : xoroshiro128 `(24,16,37)` et xoshiro256
-`(17,45)` sont **dans** l'espace balayé, et le balayage les rejette comme l'ont
-fait les §136 et §144.
+### C. Le tournoi — 22 règles causales × 5 mises, en marche avant sur 69 560 tirages
 
-### Ce qui est fermé, avec le §146
+Vingt-deux règles : chaud/froid sur tout le passé et sur 10, 50, 200, 1 000
+tirages ; retard max/min ; tendance (`w200 − 0,2·w1000`) ; paires compagnes du
+dernier tirage ; successeurs et anti-successeurs ; créneau horaire (288 par
+jour) ; jour de semaine ; bas ; haut ; hasard fixe ; hasard renouvelé. Chaque
+règle donne un score sur 80 numéros, les grilles emboîtées `k = 5..10` en sont
+les têtes, et tout est calculé **avant** le tirage `t` par un état incrémental
+(matrice de paires, matrice de successeurs, 288 créneaux, 7 jours) dont
+l'égalité avec un recalcul pur est vérifiée en 5 points de contrôle.
 
-| forme | `W` | couverture |
-|---|---|---|
-| Marsaglia | 32, 64, 128 | tous décalages, toutes orientations |
-| xoroshiro128 | 128 | toutes rotations, tout mot lu |
-| xoshiro256 | 256 | toutes rotations, tout mot lu |
+Contrôle de fuite `lab.leak_check` : **les 22 règles propres** sur 8 instants × 6
+futurs réécrits — la prédiction ne change pas quand on réécrit l'avenir.
 
-> Ce n'est plus *« aucune famille **publiée** ne convient »* : c'est **« aucun
-> générateur de ces cinq formes ne convient, quels que soient ses paramètres »**.
+**110 cellules.** Rendement de 0,5051 à 0,7372 (« froid_50 », mise 8) ; `z` de
+−2,03 à +3,26 ; taux de gain à moins de 0,40 point de la valeur exacte sur toutes
+les cellules. La calibration — 200 tournois simulés de même forme avec des
+touches hypergéométriques emboîtées exactes, sans aucun signal — donne un
+maximum du `z` de médiane **+3,04**, 95 % à **+10,55**. Le +3,26 observé est
+battu par **42 %** des tournois nuls. Le « froid_50 à 73,7 % » est le bruit
+d'une cellule sur 110.
 
-### Ce que l'incident laisse comme règle
+### D. Le piège de l'optimiseur, mesuré sur l'archive réelle
 
-Un balayage qui « trouve » quelque chose doit d'abord prouver qu'il **pouvait**
-ne rien trouver. Le nombre d'équations contre le nombre d'inconnues est la seule
-chose à regarder, et il doit être **affiché**, pas supposé — c'est pour cela que
-la colonne *équations* et la colonne *concluant* figurent maintenant dans le
-tableau.
+10 000 grilles fixes tirées au hasard, sélectionnées sur la première moitié de
+l'archive, jugées sur la seconde :
+
+| mise | meilleur rendement, 1re moitié | la même grille, 2de moitié | rang sur la 2de moitié |
+|---|---|---|---|
+| 5 | 0,698 | 0,570 | 7 146 / 10 000 |
+| 6 | 0,742 | 0,593 | 4 213 / 10 000 |
+| 7 | 0,775 | 0,601 | 4 202 / 10 000 |
+| 8 | 1,010 | 0,601 | 2 659 / 10 000 |
+| 10 | **2,122** | 0,561 | 6 915 / 10 000 |
+
+L'erreur type d'une grille sur une moitié vaut 0,03 aux mises 5–7 et 0,10 à la
+mise 10 ; le maximum de 10 000 tirages indépendants dépasse la carte de
+`√(2 ln 10 000) ≈ 4,3` erreurs types **par construction**. La grille retenue,
+sur la moitié qu'elle n'a pas vue, retombe dans le bruit de 0,588 et son rang y
+est celui du hasard. Un « optimiseur qui trouve 212 % » a trouvé exactement
+cela : le maximum d'un bruit.
+
+### E. La martingale de mélange et sa puissance
+
+Le mélange à poids uniformes des 110 e-processus est un e-processus ; Ville
+donne `P(sup ≥ 20) ≤ 0,05` **sans** correction de multiplicité.
+
+    log10 e du mélange = −22,16     (barre : +1,30)
+    meilleure cellule  = −20,12     (jour, mise 5)
+
+Témoin de puissance — archive plantée où chaque numéro du tirage `t−1` est
+gardé avec probabilité `ε`, attaquée par la seule règle `retard_min` :
+
+| ε | numéros repris / tirage | log10 e | détecté |
+|---|---|---|---|
+| 0 | 0 | −34,4 | non |
+| **0,01** | **0,2** | **+29,9** | **oui** |
+| 0,02 | 0,4 | +110,3 | oui |
+| 0,05 | 1,0 | +712,4 | oui |
+
+Une persistance de **0,2 numéro sur 20** est détectée. Sur l'archive réelle le
+même instrument lit −30,6 sur sa meilleure mise : rien.
+
+### Ce que cela répond
+
+> **Il n'existe pas de stratégie à haut taux de gain et haut rendement, et ce
+> n'est pas une observation : c'est un théorème, vérifié sur 69 560 tirages.**
+> Le taux de gain se monte à 72 % par les systèmes, à rendement constant. Le
+> rendement ne bouge que par la cagnotte, publique, et franchit 100 % au-dessus
+> de `J* = 6 385 CHF` à la mise 6 (§57). La seule stratégie « haut/haut » qui
+> existe est donc : *attendre `J > J*`, puis acheter le taux de gain par des
+> grilles emboîtées* — et elle ne doit rien à la sélection des numéros.
+
+**Registre : `h129.frontiere_strategies`, piste B, `m = 60 357`, log10 e =
+−22,16, `verdict : conforme`, 0 significatif sur 60 357.** Durée : 173 s.
+
+---

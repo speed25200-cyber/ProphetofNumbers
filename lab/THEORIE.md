@@ -978,3 +978,90 @@ précède suppose une archive contaminée par construction. Il ne dit rien de
 l'archive réelle, où les 3 311 tests du registre restent négatifs. Et il ne
 rapproche pas la piste A de la marge de l'opérateur : il déplace un plafond de
 quelques pour cent face à un taux de retour de base de 58,9 % (§56).
+
+---
+
+## Théorème P — le découplage (taux de gain, rendement) (`h129_frontiere_strategies.py`)
+
+**Cadre.** Un tirage `D_t` uniforme sur `C(80,20)`, indépendant du passé
+`F_{t−1}` — c'est l'hypothèse nulle, celle que les 3 311 tests du registre
+n'ont jamais rejetée. Une **stratégie causale** est une suite de grilles
+`G_t ⊂ {1..80}`, `|G_t| = k`, chacune fonction mesurable de `F_{t−1}` seul :
+règles de chaud/froid, de retard, de paires compagnes, de successeurs, de
+créneau horaire, hasard fixe ou renouvelé — tout ce qu'on peut calculer avant
+le tirage. Barème `g_k(h)` pour `h` touches à la mise `k`, prix `c`.
+
+**Énoncé.** Pour toute stratégie causale et tout `t`,
+
+    H_t = |G_t ∩ D_t|   |  F_{t−1}   ~   Hypergéométrique(80, 20, k)
+
+*quelle que soit `G_t`*. La loi conditionnelle des touches ne dépend d'aucun
+choix : ni de la règle, ni du passé qu'elle lit, ni de `t`. En particulier
+
+    taux de gain   P(g_k(H_t) > 0)      =   1 − Σ_{h : g_k(h)=0} p_k(h)
+    rendement      E[g_k(H_t)] / c      =   Σ_h g_k(h)·p_k(h) / c
+
+sont deux **constantes du barème**, fonctions de `k` seulement.
+
+*Preuve.* `D_t` est indépendant de `F_{t−1}` et `G_t` en est une fonction :
+donc `D_t` est indépendant de `G_t`. Conditionnellement à `G_t = G`, on
+compte les éléments de `G` dans un 20-sous-ensemble uniforme d'un ensemble à
+80 éléments, dont `|G| = k` sont marqués : c'est la définition de la loi
+hypergéométrique, et elle ne dépend de `G` que par `k`. ∎
+
+**Corollaire 1 (les deux leviers, et ils ne se touchent pas).** Sur la carte
+exacte (mise 2 CHF, barème du §62) les points accessibles sont, par mise :
+
+| k | P(gagne quelque chose) | rendement | σ par grille (CHF) |
+|---|---|---|---|
+| 5 | 0,0967 | 0,5856 | — |
+| 6 | 0,1616 | 0,5882 | — |
+| 7 | 0,2366 | 0,5986 | — |
+| 8 | 0,1023 | 0,5834 | — |
+| 10 | 0,2578 | 0,5881 | 36,4 |
+
+Le rendement tient dans 1,5 point sur toute la ligne ; le taux de gain va du
+simple au triple. Un **système** de `m` numéros joué en `C(m,k)` grilles a un
+nombre de touches global `H ~ Hyp(80,20,m)` et, pour `H` touches, exactement
+`C(H,h)·C(m−H,k−h)` grilles à `h` touches : sa loi de gain est une fonction
+exacte de `H`, son rendement est celui de la mise `k` (linéarité de
+l'espérance), son taux « au moins une grille paie » monte avec `m`. Le
+taux de gain est donc un **choix de variance** — plus de grilles, plus
+souvent quelque chose, jamais plus en moyenne.
+
+**Corollaire 2 (le seul levier du rendement).** Une cagnotte `J` ajoutée au
+rang `k/k` déplace le rendement de
+
+    rendement(J) = rendement(0) + J·p_k(k)/c
+
+et le franchit à `J* = (c − E[g_k]) / p_k(k)` — 6 385 CHF à la mise 6 (§57,
+retrouvé). C'est le théorème K vu depuis la frontière : rien d'autre que `J`
+ne bouge le rendement, et `J` est public.
+
+**Corollaire 3 (le mirage de l'optimiseur).** Soit `N` grilles fixes et
+`R_i` le rendement de la grille `i` sur `n` tirages. Sous le théorème,
+`R_i − rendement` est un bruit de moyenne nulle et d'écart-type
+`σ/(c·√n)` ; le maximum des `N` vaut `rendement + σ/(c√n)·√(2 ln N)` en
+ordre de grandeur, **sans aucun signal**. La grille retenue, rejouée sur des
+tirages nouveaux, redescend à `rendement` : son rang sur la seconde moitié
+est uniforme. C'est la quantité exacte que « mon optimiseur trouve 74 % »
+mesure — le maximum d'un bruit.
+
+**Ce que le théorème permet de tester, et comment.** Une stratégie causale
+n'a qu'une façon de contredire le théorème : que ses touches ne soient pas
+hypergéométriques. `h129` fait donc courir vingt-deux règles sur les 69 560
+tirages de l'archive, en gardant pour chacune, à chaque instant, une valeur
+d'e `e_t = Σ_h 1{H_t=h}·q(h)/p_k(h)` (`lab.evalue`) : sous le théorème, le
+produit est une martingale et Ville borne `P(sup ≥ 20) ≤ 0,05` **sans**
+correction de multiplicité. Le mélange sur les 110 cellules est lui-même une
+martingale. Le témoin de puissance est une archive plantée où chaque numéro
+du tirage `t−1` est gardé avec probabilité `ε` : `ε = 0,02` — moins d'un
+demi-numéro par tirage — est détecté.
+
+**Ce que le théorème ne dit pas.** Il ne dit pas que l'archive est uniforme :
+il dit ce qui serait vrai si elle l'était, et fournit le test qui l'aurait
+prise en défaut. Il ne parle pas de l'option EXTRA, dont la loi n'est pas
+publiée (§62). Et il ne dit rien du générateur : une archive engendrée par un
+xorshift de 32 bits vérifie le théorème pour toute règle qui ignore l'état —
+c'est précisément pourquoi le dossier attaque l'état (§148–§150) et non les
+fréquences.
