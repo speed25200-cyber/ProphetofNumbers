@@ -14127,6 +14127,14 @@ significative.**
 
 ## 137. Le bonus est un vingt et unième appel — et vingt et un mots suffisent à immuniser la plateforme (`h118_bonus_vingt_et_unieme.py`)
 
+> **⚠ Cette section contient une omission de cas, trouvée et réparée au §140.**
+> Ce qu'elle établit reste vrai — les deux lectures à indice *constant* sont
+> réfutées, le tirage consomme vingt et un mots, et le test spectral est sans
+> puissance au pas 21. Ce qu'elle conclut **en trop** est *« le modèle B est le
+> seul survivant »* : un second modèle à indice **tiré** lui échappe, et sous ce
+> modèle la borne `W ≥ 47 040` s'effondre. Voir le §140.
+
+
 ### La question que le §129 a laissée ouverte
 
 Le §129 a réfuté le modèle A du §89 sur la première vidéo, puis a écrit ce qu'il
@@ -14156,7 +14164,13 @@ contre-exemple ; chacune des deux lectures en reçoit **deux**.
 | A (§89) — bonus = 1ᵉʳ numéro sorti | réfuté au §129 |
 | A′ (§129) — `bonus = ordre[j]`, `j` constant | **réfuté ici** |
 | B′ (§129) — `bonus = trié[j]`, `j` constant | **réfuté ici** |
-| **B (§106) — rang du bonus = `⌊20u⌋`** | **seul survivant** |
+| ~~**B (§106) — rang du bonus = `⌊20u⌋`** — *seul survivant*~~ | **[[ CORRIGÉ AU §140 ]]** |
+
+> **⚠ Correction (§140).** « Seul survivant » est une **omission de cas**.
+> Réfuter les deux lectures à indice *constant* laisse **deux** modèles à indice
+> *tiré*, selon que `j = ⌊20u⌋` indexe le tableau **trié** (B) ou l'**ordre
+> d'émission** (B″). Le §140 montre qu'ils sont **indiscernables** sur ce que la
+> plateforme publie, et que sous B″ la borne `W ≥ 47 040` **est vide**.
 
 ### Ce qui en découle : vingt et un mots par tirage
 
@@ -14165,8 +14179,11 @@ Si l'indice du bonus est **tiré**, c'est qu'un appel de générateur le tire.
 > **Le tirage consomme vingt et un mots, pas vingt.**
 
 Le troisième axe du §121 — *« mots par numéro »* — passe de **supposé** à
-**mesuré**. Et le modèle B, qui porte les §103, §122, §124, §126 et la borne
-`W ≥ 47 040`, cesse d'être une hypothèse de travail.
+**mesuré**. **Cette conclusion-là tient**, et le §140 la confirme : B″ partage
+avec B le fait que `j` est tiré, donc les vingt et un mots. ~~Et le modèle B,
+qui porte les §103, §122, §124, §126 et la borne `W ≥ 47 040`, cesse d'être une
+hypothèse de travail.~~ — **faux, voir §140** : B reste une hypothèse, et la
+borne reste conditionnelle à elle.
 
 **Aucun résultat du dossier ne bouge** : les balayages ont toujours énuméré les
 pas 20, 21 et 22, et le bon pas était dans le lot. Ce qui change n'est pas un
@@ -14410,3 +14427,113 @@ politique réseau de l'environnement — `403` sur le tunnel `CONNECT`. Ni la
 découverte du concentrateur ni la capture n'ont donc pu être exécutées ici, et
 elles ne le seront pas : le contournement n'est pas une option. L'outil est écrit,
 prouvé contre un protocole réel, et prêt à tourner là où le réseau est ouvert.
+
+---
+
+## 140. Le survivant que le §137 a oublié, et ce qu'il coûte à la borne la plus citée (`h119_survivant_oublie.py`)
+
+### L'omission de cas
+
+Le §137 a réfuté deux lectures que le §129 laissait ouvertes, toutes deux à indice
+**constant** — puis a conclu *« B (§106), rang du bonus = `⌊20u⌋`, seul
+survivant »*. C'est une **omission de cas**. Réfuter « `j` constant » laisse
+**deux** modèles à indice **tiré**, pas un :
+
+|  | `j = ⌊20·u₂₀⌋` indexe… |
+|---|---|
+| **B** | le **tableau trié** — le rang publié vaut `j` |
+| **B″** | l'**ordre d'émission** — le rang publié est celui de `ordre[j]` |
+
+Le §137 n'a testé que la **constance** de `j`. Il n'a rien dit sur le **tableau**
+auquel `j` s'applique — et c'est précisément la question que le §129 posait.
+
+### Pourquoi ce n'est pas une argutie
+
+Sous **B**, le rang publié vaut `r = ⌊20·u₂₀⌋`, donc
+
+    r // 5  =  ⌊4·u₂₀⌋  =  LES DEUX BITS DE POIDS FORT DU MOT.
+
+C'est cette égalité — et rien d'autre — qui autorise le §122 à donner ces deux
+bits à Berlekamp-Massey, et donc les §124 et §126 à conclure `W ≥ 47 040`. C'est
+la borne la plus citée du dossier.
+
+Sous **B″**, `r` est le rang de `ordre[j]` dans le tableau trié : une fonction des
+**vingt et un** mots du tirage, pas d'un seul. Les deux bits exacts n'existent
+plus.
+
+### Les deux modèles sont indiscernables sur ce que la plateforme publie
+
+Ce que l'archive publie du bonus, c'est son **rang trié** `r` ; ce qu'une vidéo
+ajoute, c'est son **indice d'émission** `j`. Le couple `(j, r)` est donc tout
+l'observable — et il est **uniforme sur 20×20 sous les deux modèles**.
+
+La raison est une symétrie : l'ordre d'émission est une permutation **uniforme**
+du tableau trié. Sous B on tire `r` et `j` s'en déduit par une permutation
+uniforme ; sous B″ on tire `j` et `r` s'en déduit par la permutation inverse. Même
+loi jointe.
+
+| modèle | `χ²` (399 ddl, 200 000 tirages) | `p` |
+|---|---|---|
+| B | 364,1 | 0,894 |
+| B″ | 394,0 | 0,561 |
+
+> **Ni l'archive ni les vidéos ne peuvent trancher.** Le §129 avait raison sur ce
+> point-là : il faut reconstituer l'état, et rien ne le reconstitue.
+
+### La différence, mesurée avec l'outil du §122 lui-même
+
+xorshift128 est F₂-linéaire de largeur **128** : c'est exactement le cadre du
+§122. On fabrique 1 200 tirages, on en extrait le bit du §122 sous **chaque**
+modèle, et on donne les deux suites à Berlekamp-Massey sans rien lui dire.
+
+| modèle | observable | `L` mesuré | borne du §122 |
+|---|---|---|---|
+| **B** | bit 31 du mot `u₂₀`, position fixe | **128** | **tient** — exclut toute largeur < 128 |
+| **B″** | rang de `ordre[j]` dans le tableau | **601** | **vide** — seuil du hasard (`N/2 = 600`) |
+
+> **Ce n'est pas une borne faible : c'est une borne qui ne dit rien.** Et elle ne
+> dit rien alors même que les données viennent d'un générateur de 128 bits.
+
+C'est un témoin **positif et négatif dans la même mesure** : le même générateur,
+les mêmes tirages, et l'outil voit la structure quand elle est là et son absence
+quand elle n'y est pas.
+
+### La carte des dégâts
+
+**Conditionnel à B désormais :**
+
+| | |
+|---|---|
+| §103, §122 | complexité linéaire du rang du bonus |
+| §124 | complexité conjointe, **`W ≥ 47 040`** |
+| §126 | plafond de l'archive |
+| §127 | portée de quatre bits |
+| §135 | la colonne `T = 70 560` de la table d'exclusion par degré |
+
+**Intact, et il faut le dire aussi fort :**
+
+| | pourquoi |
+|---|---|
+| **§136** | **120 systèmes sur 120 incompatibles.** Il lit l'**ordre d'émission**, donc les `j_k` directement, et n'a jamais touché au rang du bonus. C'est l'exclusion la plus forte du dossier, et elle tient. |
+| §132, §138 | balayages de graines contre l'**ordre** |
+| §133 | balayage de graines contre l'**ensemble trié**, 346 journées |
+| §110 | théorème du confinement — ne parle que des vingt numéros |
+| §134 | théorème sur les **suites** ; vaut quel que soit l'observable |
+| §137 | **les vingt et un mots restent acquis** : ils découlent de « `j` est tiré », que B″ partage avec B |
+
+### L'énoncé corrigé
+
+> **Sous le modèle B — le rang publié du bonus est `⌊20u⌋` d'un mot à position
+> fixe — l'archive impose `W ≥ 47 040`. La condition n'est pas vérifiable sur les
+> données publiées.**
+
+C'est ainsi qu'il faut le citer désormais. La borne ne disparaît pas ; elle cesse
+d'être inconditionnelle, ce qu'elle n'aurait jamais dû paraître.
+
+### Comment on trancherait
+
+Il faut reconstituer l'état, puis **prédire** `u₂₀` et regarder lequel des deux
+modèles produit le bonus observé. C'est exactement le programme du §139 : deux
+jours et demi de capture du flux ordonné, et la question tombe avec le reste.
+
+**Registre : `m = 60 348`, 4/4 prédictions exactes, `verdict : conforme`.**

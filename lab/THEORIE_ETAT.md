@@ -70,9 +70,14 @@ d'émission (2, 18, 9) **ni** dans le tableau trié (10, 3, 4). L'indice est don
 
 > le tirage consomme **vingt et un mots**, pas vingt.
 
-Aucun résultat ne change — les balayages énuméraient déjà 20 à 22 — mais le
-modèle B du §106, sur lequel repose la borne `W ≥ 47 040`, cesse d'être une
-hypothèse : c'est le seul survivant.
+Aucun résultat ne change — les balayages énuméraient déjà 20 à 22. **Et ce
+point-là tient inconditionnellement** (§140).
+
+> ⚠ **Ce que le §137 concluait en trop, et que le §140 corrige.** Il ajoutait
+> *« le modèle B est donc le seul survivant »* : c'est une **omission de cas**.
+> Réfuter les deux lectures à indice *constant* laisse **deux** modèles à indice
+> *tiré*, selon que `j = ⌊20u⌋` indexe le tableau **trié** (B) ou l'**ordre
+> d'émission** (B″). Voir 7.5.
 
 **Et cet axe est une défense (§137).** Observer un mot sur `σ`, c'est observer un
 LCG de multiplicateur `a^σ` — de réseau **fin** même quand celui de `a` est
@@ -491,7 +496,7 @@ paraît.
 | lecture | portée mesurée sur l'archive |
 |---|---|
 | ~~conjointe, 4 bits — modèle §89~~ ⚠ **modèle réfuté au §129** | ~~56 448~~ |
-| **conjointe, 2 bits — modèle §106, `K = 20` (§124)** | **`W ≥ 47 040`** *(la borne du dossier)* |
+| **conjointe, 2 bits — modèle §106, `K = 20` (§124)** ⚠ **conditionnel à B (§140)** | **`W ≥ 47 040`** *(la borne du dossier)* |
 | scalaire, bit par bit (§89, §122) | `W ≥ 35 280` |
 | cache renversé de V8 (§112), par classe mod 64 | `W ≥ 1 096` |
 | **plafond absolu, `M → ∞`** (§126) | **`< 70 560`** |
@@ -551,6 +556,38 @@ prix chiffré, `2·N_d(W)` tirages :
 
 Le coût est **linéaire en la donnée** (4.6) : il n'y a pas de raccourci, mais il
 n'y a pas de mur non plus — seulement une échelle.
+
+### 7.4 bis La condition sous laquelle la borne du dossier tient (§140)
+
+Toute la colonne « portée model-free » ci-dessus lit le **rang du bonus**, et
+suppose que ce rang vaut `⌊20·u₂₀⌋` — c'est le **modèle B**. Le §140 montre que
+ce n'est pas acquis :
+
+> `j = ⌊20·u₂₀⌋` est **tiré** (§137), mais rien ne dit s'il indexe le tableau
+> **trié** (B) ou l'**ordre d'émission** (B″). Les deux sont **indiscernables** :
+> le couple `(indice d'émission, rang trié)` est uniforme sur `20×20` sous les
+> deux, parce que l'ordre d'émission est une permutation uniforme du tableau
+> trié.
+
+Et l'écart n'est pas marginal. Sur **le même** générateur F₂-linéaire de 128 bits,
+**les mêmes** 1 200 tirages :
+
+| modèle | observable | `L` |
+|---|---|---|
+| B | bit 31 de `u₂₀`, position fixe | **128** — la borne 4.5 tient |
+| B″ | rang de `ordre[j]` dans le tableau | **601** = `N/2` — la borne est **vide** |
+
+> **Énoncé corrigé.** *Sous le modèle B, l'archive impose `W ≥ 47 040`. La
+> condition n'est pas vérifiable sur les données publiées.*
+
+**Ce qui n'en dépend pas.** Le §136 (120 systèmes sur 120 **incompatibles**), les
+§132, §133 et §138 (balayages de graines), le 2.4 (confinement) et le 4.6
+(plafond `T/(M+1)`, théorème sur les suites) lisent l'**ordre** ou l'ensemble
+trié : ils sont **intacts**. Le dégât est circonscrit à la borne model-free — ce
+qui est déjà beaucoup, car c'est le seul résultat qui ne nomme aucune famille.
+
+**Comment trancher.** Reconstituer l'état, prédire `u₂₀`, regarder lequel des deux
+modèles produit le bonus observé. C'est le programme du §139.
 
 ### 7.4 La graine
 
