@@ -15590,6 +15590,126 @@ session.
 
 ---
 
+## 152. Les LCG de module `2^W` à sortie décalée — musl, newlib, MMIX, glibc TYPE_0, MSVC, la norme C — criblés par leurs bits bas, à pas constant et sous le rejet (`h131_lcg64_crible.py`, `tools/lcg64_sieve.c`)
+
+**Ce que le §149 faisait, et ce qu'il laissait.** Le §149 exclut les `2^48`
+états de `java.util.Random` en n'en criblant que `2^21`, parce que `80 =
+16 · 5` fait de `(v − 1) mod 16` les bits `r..r + 3` de l'état et qu'un LCG
+de module `2^W` est **autonome** modulo `2^m` (théorème des quotients, §7.6).
+Mais java n'est qu'un LCG, et le §149 lisait **un** mot par tirage, à pas
+constant seulement, en déclarant le rejet des doublons hors de portée. Ici
+l'argument est porté à la **famille** — tout LCG de module une puissance de
+deux dont la sortie est un décalage `s >> r` — et à ses trois schémas de
+tirage, rejet compris.
+
+| générateur | `a` | `c` | `W` | `r` | crible | relevé | sortie |
+|---|---|---|---|---|---|---|---|
+| musl `rand()` | 6364136223846793005 | 1 | 64 | 33 | `2^37` | `2^27` | `s >> 33` |
+| newlib `rand()` | 6364136223846793005 | 1 | 64 | 32 | `2^36` | `2^28` | `(s >> 32) & 0x7fffffff` |
+| MMIX (Knuth) | 6364136223846793005 | 1442695040888963407 | 64 | 32 | `2^36` | `2^28` | `s >> 32` |
+| MMIX mot entier | 6364136223846793005 | 1442695040888963407 | 64 | 0 | `2^4` | `2^60` | `s`, les 64 bits |
+| glibc TYPE_0 | 1103515245 | 12345 | 31 | 0 | `2^4` | `2^27` | `s`, module `2^31` |
+| MSVC `rand()` | 214013 | 2531011 | 32 | 16 | `2^20` | `2^12` | `(s >> 16) & 0x7fff` |
+| ANSI C `rand()` | 1103515245 | 12345 | 32 | 16 | `2^20` | `2^12` | `(s >> 16) & 0x7fff` |
+
+Pour chacun le crible coûte `2^{r+4}` et le relèvement `2^{W−r−4}`. Deux cas
+limites disent la force de l'argument : glibc TYPE_0 et le mot entier de
+MMIX ont `r = 0`, le crible n'a que **seize** candidats bas ; si aucun des
+seize ne survit, `2^31` et `2^64` états sont exclus sans un seul relèvement.
+Pour MMIX mot entier le relèvement d'un survivant coûterait `2^60` : il
+resterait hors de portée, et le script le dirait comme tel.
+
+**Trois lemmes de plus que le §149 (§7.6 de THEORIE_ETAT.md).**
+
+1. **Le saut affine.** D'un tirage au suivant l'état avance de `pas` mots ;
+   la récurrence étant affine, le saut est *une* multiplication-addition
+   `(a^{pas}, c Σ a^i)` : quatre opérations par candidat au lieu de `4 · pas`.
+2. **Les deux mots sûrs.** Dans un Fisher-Yates partiel comme dans un
+   shuffle complet, le numéro visé par le mot `k` est *sûrement* tiré si
+   `16 | k` et `16 | 80 − k` : `j_k ≡ x_k (mod 16)` quelle que soit la case,
+   et la valeur visée finit dans une case tirée — au mot `k` si la case est
+   intacte, au premier mot `k′ < k` qui l'a visée sinon. Pour `k ≤ 19` ce sont
+   les mots `0` et `16`, et eux seuls : `0,744` bit par tirage au lieu de
+   `0,372`, et **un** seul survivant structurel par état vrai, celui du mot
+   0. À un mot le registre du mot 16 est un **fantôme** — c'est lui qui
+   faisait « 2 candidats bas » dans les témoins du §149.
+3. **Le rejet, et le lemme des décalés.** Sous le rejet des doublons chaque
+   mot consommé — accepté ou doublon — vaut un numéro de l'ensemble publié :
+   tous les `σ ≥ 20` mots sont contraints. Le crible branche sur `σ ∈ [20,
+   48]` et sur `0..P = 4` mots perdus entre deux tirages ; un faux candidat
+   survit à un tirage avec probabilité `Σ_σ ρ^σ (P + 1) = 0,127` — `2,98`
+   bits par tirage, huit fois le pas constant. Ses survivants structurels
+   sont les registres **décalés** du vrai flux, `f^k(vrai)` pour `k ≤ σ_0 −
+   20` et quelques décalages de probabilité géométrique — jamais un
+   étranger.
+
+**Les témoins.** L'autotest de `lcg64_sieve.c` à `W = 40`, `r = 13` (même
+code que `W = 64`) rend **6/6** ; rejoué à **`W = 64`, `r = 33`, crible
+`2^37`** — les paramètres de musl — il rend encore **6/6** en 118 minutes
+(`/tmp/lcg64_self64.log`) : à un mot l'état planté `0x0123456789ABCDEF` est
+retrouvé *avec son fantôme du mot 16* et eux seuls, le relèvement `2^27` rend
+l'état exact et rejette le fantôme (`0` état) ; à deux mots, modulo pas 21
+et shuffle pas 79, il est seul survivant et se relève exactement ; sous le
+rejet avec deux mots perdus plantés, `5` bas survivent, **tous des décalés
+`f^k(vrai)`, `k = 0..4`, zéro étranger**, les quatre structurels (mots
+`0..3`, `σ_0 = 23`) présents, le relèvement du vrai exact ; une fenêtre
+aléatoire ne rend rien, ni à pas constant ni sous le rejet.
+
+**L'archive.** 204 tirages **consécutifs** (espacés de 300 s), identifiants
+1309794 à 1309997 ; résidus mod 16 permis : `12,22` sur 16 en moyenne
+(attendu `12,37`), filtre mesuré `0,763`. Faux survivants attendus pour le
+plus large des cribles (musl, `2^37`) : `2^37 · 0,773^{408} = 3,0·10^{−35}`
+à pas constant, `2^37 · 0,127^{204} = 2,1·10^{−172}` sous le rejet. Un
+survivant bas est relevé — `2^{W−r−4}` hauts — et doit reproduire
+l'**ensemble** du tirage 1309794 (filtre `1/C(80, 20) = 2,8·10^{−19}`).
+
+**Les 56 cribles.** Sept générateurs, huit modes : modulo aux pas 20 à 24
+(jusqu'à quatre appels perdus), shuffle aux pas 79 et 80 (jusqu'à un appel
+perdu), rejet à quatre perdus au plus entre deux tirages.
+
+| générateur | crible | modulo 20..24 | shuffle 79, 80 | rejet `P = 4` | relevés | s (8 cribles) |
+|---|---|---|---|---|---|---|
+| musl `rand()` | `2^37` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 4 109 |
+| newlib `rand()` | `2^36` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 1 733 |
+| MMIX (Knuth) | `2^36` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 2 420 |
+| MMIX mot entier | `2^4` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 (`2^60` jamais nécessaire) | < 1 |
+| glibc TYPE_0 | `2^4` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | < 1 |
+| MSVC `rand()` | `2^20` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | < 1 |
+| ANSI C `rand()` | `2^20` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | < 1 |
+
+**0 candidat bas survivant sur 56 cribles, 0 état relevé — les seize candidats de glibc TYPE_0 et du mot entier de MMIX meurent tous, et les `2^37` de musl aussi, sous les huit modes.**
+
+**Ce que cela ferme, et sur quoi.** Sur l'archive — 204 tirages consécutifs,
+au niveau du générateur — les sept LCG, `2^64`, `2^64`, `2^64`, `2^64`,
+`2^31`, `2^32`, `2^32` états, **sans que l'amorçage soit supposé**, sous le
+Fisher-Yates partiel par modulo aux pas 20 à 24, sous `Collections.shuffle`
+aux pas 79 et 80, sous le rejet des doublons jusqu'à quatre appels perdus.
+Hors du crible, et il faut le dire : la sortie par **troncature** `(x · 80)
+>> 32`, dont le résidu mod 16 dépend des bits *hauts* ; les vingt
+**premières** cases d'un shuffle complet ; plus de quatre appels perdus
+entre deux tirages ; PCG et tout LCG à sortie **permutée** ; les générateurs
+`F_2`-linéaires primitifs (xorshift, MT19937), qui n'ont *aucun* quotient
+invariant (théorème Q, §7.6) — le §150 et le §151 les traitent par
+énumération ; le Fibonacci retardé de la glibc, que le §155 crible à son
+tour pour TYPE_1 (`2^35`) et laisse à la frontière pour TYPE_2, TYPE_3 et
+TYPE_4.
+
+**Disclosures.** Le design a été **renforcé** avant la consignation — deux
+mots sûrs au lieu d'un, mode à rejet au lieu de l'exclusion du §149 — sur
+témoins plantés, jamais sur l'archive ; le registre le dit. Les `notes`
+consignées classent encore le Fibonacci retardé de la glibc « hors
+énumération, quotient `2^155` » : c'est vrai de TYPE_3 et faux de TYPE_1
+(`2^35`), que le §155 traite — la note est plus prudente que le dossier, non
+l'inverse. La machine était partagée pendant toute l'exécution avec le crible du §155 (`h134`, quatre cœurs pour deux calculs) : les temps — jusqu'à 679 s pour un crible `2^37` — sont ceux d'une machine chargée, non un étalon. Aucune reprise : les 56 cribles viennent d'une seule exécution, le journal n'a servi qu'à l'écrire.
+
+**Registre : `h131.lcg64_crible`, piste B, `m = 60 361`, 0 état sur 56
+cribles, `verdict : conforme`, 0 significatif.** Durée totale :
+8 263 s (2 h 18 min). Fichiers : `lab/experiments/h131_lcg64_crible.py`,
+`tools/lcg64_sieve.c` ; journal `/tmp/h131.log`, reprise
+`/tmp/h131_journal.txt`, autotest `W = 64` `/tmp/lcg64_self64.log`.
+
+---
+
 ## 153. Le Fibonacci retardé devant un solveur générique : l'information y est, l'algorithme non (`h132_lfg_z3_temoin.py`)
 
 **Ce que le §7.6 de la théorie laissait ouvert.** Le théorème des quotients
