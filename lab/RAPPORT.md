@@ -11891,3 +11891,98 @@ aura rien de plus à inventer : la prédiction sortira du même code, à horizon
 infini.
 
 **Registre : inchangé** — ce fichier rejoue les exclusions des §106 et §114.
+
+---
+
+## 117. Le bit zéro des sorties additives : rouvrir la case que j'avais fermée (`h98_bit_zero_additif.py`)
+
+### Ce que le dossier affirmait, et moi avec
+
+Le §68 écarte explicitement les sorties additives du champ des attaques
+F2-linéaires : *« les sorties additives (xorshift128+, xoroshiro128+) ne sont
+pas linéaires »*. Je l'ai repris à mon compte toute cette session — jusqu'à
+bâtir dessus mon estimation de nos chances, en classant `xorshift128+`, le
+`Math.random` de **Firefox et de Safari**, dans la case « aucune quantité de
+données n'y change rien ».
+
+**C'est faux pour un bit, et un bit suffit.**
+
+### Le théorème du bit zéro additif
+
+> Soient `A` et `B` deux fonctions **F2-linéaires** de l'état. Alors
+>
+>     bit₀(A + B) = bit₀(A) ⊕ bit₀(B)
+>
+> **Preuve.** L'addition propage des retenues du bit `k` vers le bit `k+1`.
+> Aucune retenue n'entre dans le bit 0 : il n'y a rien en dessous de lui. ∎
+
+C'est le pendant exact du §100 — qui traitait d'une **constante** additive —
+pour un **terme** additif variable.
+
+| sur `xorshift128+` | prédit par une forme linéaire |
+|---|---|
+| **bit 0** | **8 000 / 8 000** |
+| bit 1 | 4 065 / 8 000 — le hasard |
+
+> Toute famille « + » a un bit zéro **exactement F2-linéaire** en son état, et
+> se laisse donc attaquer par élimination de Gauss comme n'importe quelle
+> famille à sortie brute.
+
+**La superposition sur vecteurs unitaires est légitime pour le bit 0 — et pour
+lui seul.** La transition d'état est linéaire ; la sortie ne l'est pas, mais son
+bit 0 l'est par le théorème.
+
+### Ce qui le publie
+
+Sous échantillonneur **modulo**, la désignation du bonus par indice donne
+`rang = sortie mod 20`, donc `rang mod 2 = sortie mod 2` puisque **2 divise
+20**. Chacun des 70 560 tirages publie **une équation F2 exacte** — et il n'en
+faut que 128 pour `xorshift128+`, 256 pour `xoshiro256+`.
+
+C'est un modèle d'observation **différent** du §106 et du §114, qui supposaient
+un indice **tronqué**. Les deux sont plausibles ; aucun n'était testé sur les
+familles additives.
+
+### Le témoin
+
+| famille | état | tirages | rang | tirage +1 | horizon 10 |
+|---|---|---|---|---|---|
+| **xorshift128+** (Firefox, Safari) | 128 | 384 | 128 | **exact** | 10/10 |
+| xoroshiro128+ | 128 | 384 | 128 | **exact** | 10/10 |
+| xoshiro256+ | 256 | 768 | 256 | **exact** | 10/10 |
+| xoshiro128+ (32 bits) | 128 | 384 | 128 | **exact** | 10/10 |
+
+> **4/4 états de familles additives reconstitués et prédits — depuis un seul bit
+> par tirage.**
+
+### L'archive
+
+| | |
+|---|---|
+| hypothèses (4 familles × 7 modèles de consommation) | **28** |
+| **systèmes incohérents** | **28** |
+| **états compatibles** | **0** |
+
+### Ce que cela change à la carte
+
+**J'ai eu tort deux fois sur les sorties additives.** Au §112, en croyant que le
+`Math.random` de V8 en était une — il n'en est pas, il est brut. Ici, en croyant
+que celles qui en sont vraiment résistent à tout — leur bit zéro ne résiste à
+rien.
+
+**Ce qui reste vraiment hors d'atteinte**, et la liste a encore maigri :
+
+- les sorties **multipliées avec rotation** : `xoshiro256**`, `xoroshiro128**`,
+  dont la sortie est `rotl(s·5, 7)·9`. La multiplication par un impair
+  **préserve** le bit 0 — `bit₀(5x) = bit₀(x)` — mais la **rotation le
+  déplace** : le bit 0 de la sortie devient un bit intermédiaire du produit, où
+  les retenues sont entrées ;
+- **PCG**, dont la rotation est de surcroît dépendante des données ;
+- **splitmix64** et les chaînes de mélange à décalages multipliés ;
+- tout **CSPRNG**, et le matériel.
+
+> **La règle qui en sort : pour casser le bit zéro, il faut une rotation ou un
+> décalage à droite appliqué APRÈS une addition. Une addition seule ne suffit
+> pas, une multiplication par un impair non plus.**
+
+**Registre : consigné.** Zéro significatif.
