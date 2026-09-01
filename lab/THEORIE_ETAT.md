@@ -364,8 +364,8 @@ paraît.
 
 | lecture | portée mesurée sur l'archive |
 |---|---|
-| conjointe, 4 bits — modèle §89, `K = 80` (§127) | **`W ≥ 56 448`** |
-| conjointe, 2 bits — modèle §106, `K = 20` (§124) | `W ≥ 47 040` *(garantie)* |
+| ~~conjointe, 4 bits — modèle §89~~ ⚠ **modèle réfuté au §129** | ~~56 448~~ |
+| **conjointe, 2 bits — modèle §106, `K = 20` (§124)** | **`W ≥ 47 040`** *(la borne du dossier)* |
 | scalaire, bit par bit (§89, §122) | `W ≥ 35 280` |
 | cache renversé de V8 (§112), par classe mod 64 | `W ≥ 1 096` |
 | **plafond absolu, `M → ∞`** (§126) | **`< 70 560`** |

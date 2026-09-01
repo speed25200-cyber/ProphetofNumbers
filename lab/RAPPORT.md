@@ -8871,6 +8871,13 @@ pas *quelle* est la famille, il demande si la suite est **linéaire**.
 Et 35 280 bits, c'est **1,8 fois** l'état de MT19937, 69 fois celui de WELL512a,
 276 fois celui de `Math.random`. Aucun générateur déployé n'en a autant.
 
+> **⚠⚠ Ce paragraphe est RÉFUTÉ par le §129.** Son modèle — « le bonus est le
+> **premier numéro sorti** » — est faux : la vidéo du tirage 1381278 montre le
+> premier numéro sorti (17) et la boule EXTRA (45), et ce ne sont pas les mêmes.
+> L'exclusion ci-dessous porte donc sur le **couple** générateur + modèle A, et
+> non sur le générateur. Ce qui reste valable est la lecture par le **rang du
+> bonus dans le tableau trié** (§106), utilisée par les §122, §124 et §126.
+>
 > **⚠ Correction apportée par le §124.** Si : **WELL44497b** en a **44 497**,
 > publié en 2006 dans la même famille que WELL512a et WELL19937, tous deux déjà
 > au catalogue du dossier. Ce paragraphe laissait donc une case ouverte sans le
@@ -13193,7 +13200,7 @@ lui, monte à 56 448. **L'écart de 21 166 bits est ce qui exclut.**
 
 | modèle | K | `v₂` | M | seuil `M·N/(M+1)` | **mesuré** |
 |---|---|---|---|---|---|
-| **A** — bonus = 1ᵉʳ numéro (§89) | 80 | 4 | 4 | 56 448 | **56 448** |
+| ~~**A** — bonus = 1ᵉʳ numéro (§89)~~ ⚠ **réfuté au §129** | 80 | 4 | 4 | 56 448 | ~~56 448~~ |
 | **B** — rang du bonus (§106) | 20 | 2 | 2 | 47 040 | **47 040** |
 
 Les deux modèles atteignent **exactement** leur seuil, sous les deux
@@ -13221,7 +13228,7 @@ ordonnés du dossier, **0** porte un bonus ; et le seul tirage filmé avec un bo
 |---|---|
 | §89 — scalaire, 4 bits lus un par un | 35 280 |
 | §124 — conjointe, 2 bits (modèle B) | 47 040 |
-| **§127 — conjointe, 4 bits (modèle A)** | **56 448** |
+| ~~§127 — conjointe, 4 bits (modèle A)~~ ⚠ réfuté au §129 | ~~56 448~~ |
 | plafond absolu du §126, `M → ∞` | `< 70 560` |
 
 **Ce que cela ne déplace pas.** La borne **garantie** reste 47 040, parce que le
@@ -13339,3 +13346,110 @@ une soirée :
 2. **vingt arrêts de roue** avec la fraction dans le secteur — tranche entre
    « la roue ne publie que le boost », « elle publie le secteur » (6,32 bits
    exacts par tirage filmé) et « elle publie les bits de poids fort » (§125).
+
+## 129. La vidéo : l'ordre d'émission avec son bonus, et un modèle qui tombe
+
+### La donnée
+
+Un enregistrement d'écran de **2 min 33 s**, 1206×702, 60 fps, publié en release
+GitHub (`VideoLoto`, 83 775 107 octets). **SHA-256 vérifié contre le digest de la
+release** : `a00c416a381ceab35ad0bb49994252a40d9e26306c9e73ad1d9e27d398904d44`.
+Tirage **1381278**, celui-là même que le §92 avait filmé.
+
+> **Et il contient ce que le §92 n'y avait pas vu : la grille se remplit BOULE
+> PAR BOULE.** `observations_ecran.csv` porte ce tirage avec la mention `trie` —
+> l'ordre était là, et il n'avait pas été extrait.
+
+À `t = 132 s`, la grille complète s'affiche encore dans l'ordre d'arrivée, avant
+d'être re-triée pour l'affichage final :
+
+| | | | | |
+|---|---|---|---|---|
+| 17 | 74 | **45** | 36 | 69 |
+| 60 | 4 | 47 | 7 | 75 |
+| 28 | 12 | 8 | 22 | 54 |
+| 25 | 56 | 62 | 52 | 15 |
+
+**Contrôle de lecture.** Trié, cet ordre donne
+`4 7 8 12 15 17 22 25 28 36 45 47 52 54 56 60 62 69 74 75` — **identique aux
+20 numéros que le §92 avait relevés** sur le même tirage, par une autre source et
+une autre lecture. 20 sur 20.
+
+Puis la **boule EXTRA : 45**. Et le boost : **×1,5**.
+
+> C'est la **conjonction** que le §92 réclamait depuis le début : *« un
+> enregistrement d'un seul tirage montrant la grille se remplir boule après
+> boule, puis la boule EXTRA du même tirage. »* La voici.
+
+### Ce que la conjonction réfute, immédiatement
+
+Le §89 pose son modèle en toutes lettres : *« si le bonus est le **premier numéro
+sorti** et si le générateur avance d'un nombre fixe de mots par tirage… »*. Or :
+
+| | |
+|---|---|
+| premier numéro sorti | **17** |
+| boule EXTRA | **45** |
+| rang de 45 dans l'ordre d'émission | **3ᵉ** (indice 2) |
+| rang de 45 dans le tableau trié | indice 10 |
+
+> **Le modèle A du §89 est réfuté.** Un modèle déterministe tombe sur un seul
+> contre-exemple, et celui-ci en est un.
+
+### Ce qui tombe avec lui, et ce qui tient
+
+**Ce qui tombe.**
+
+- La conclusion du §89 telle qu'elle est écrite — *« toute famille F₂-linéaire
+  dont l'état tient sous 35 280 bits est exclue »* — portait sur le **couple**
+  générateur + modèle A. Le modèle étant faux, l'exclusion ne porte plus sur le
+  générateur.
+- La colonne « modèle A » du §127, et sa portée de **56 448 bits**. Elle testait
+  une hypothèse aujourd'hui connue fausse.
+
+**Ce qui tient, et c'est l'essentiel du dossier.** Les §122, §124 et §126 lisent
+le **rang du bonus dans le tableau trié** — le modèle B du §106 — et ne
+supposent rien de ce que le §89 supposait. Ils sont intacts :
+
+| | portée model-free |
+|---|---|
+| ~~§127, modèle A (bonus = 1ᵉʳ numéro)~~ | ~~56 448~~ **réfuté** |
+| **§124, modèle B (rang du bonus)** | **47 040** — inchangé |
+| §126, plafond absolu | `< 70 560` |
+
+> **La borne garantie du dossier ne bouge pas : `W ≥ 47 040`.** Elle était déjà
+> le minimum des deux modèles, précisément parce qu'aucun n'était tranché. Le
+> §127 avait raison de prendre le minimum ; il ne pouvait pas savoir lequel des
+> deux tomberait.
+
+### Ce que la vidéo ne tranche pas
+
+L'indice du bonus vaut **2 dans l'ordre d'émission** et **10 dans le tableau
+trié**. Les deux lectures restent possibles :
+
+    bonus = ordre[j]  avec j = 2      ou      bonus = trié[j]  avec j = 10
+
+Un seul tirage ne les sépare pas — il faudrait reconstituer l'état, puis
+**prédire** le mot d'indice et voir lequel il produit. C'est exactement ce que la
+chaîne du §110 fait, et elle attend cette entrée.
+
+### Le dixième tirage ordonné
+
+| | avant | après |
+|---|---|---|
+| tirages ordonnés | 9 | **10** |
+| dont avec bonus | **0** | **1** |
+| équations du flux unique (§110) | 807 | **897** |
+
+**Témoin du §110, rejoué sur 10 tirages : 10/10 familles reconstituées** à
+travers les trous d'identifiants — xorshift 32/64/96/128, taus88 (rang 88,
+noyau 8), xoroshiro128, xoshiro128/256, LFSR113 (rang 109, noyau 19), WELL512a
+(512 bits, rang plein). L'alignement à travers les trous tient avec le tirage
+supplémentaire.
+
+### La roue
+
+Le même enregistrement filme la roue, arrêtée sur **×1,5**, pointeur en haut.
+C'est la source du §92 : rien de neuf. **La prédiction du §125 — au plus deux
+angles résiduels distincts pour ×1,5, ×5 et ×10 — exige trois arrêts sur une même
+valeur rare, et une vidéo n'en donne qu'un.**
