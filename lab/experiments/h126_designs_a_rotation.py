@@ -215,7 +215,7 @@ if DRY:
     say("   MODE ESSAI : rien n'est consigne.")
 else:
     tok = lab.preregister(
-        "h126b.designs_a_rotation_determine",
+        "h126.designs_a_rotation",
         "Aucun generateur des deux formes A ROTATION — xoroshiro128 (W = 128, "
         "rotations A et C, decalage B, mot lu haut ou bas) et xoshiro256 "
         "(W = 256, decalage A, rotation B, mot lu parmi quatre, haut ou bas) — "
@@ -252,7 +252,7 @@ else:
                f"ne convient » mais « aucun generateur de ces cinq FORMES ne "
                f"convient, quels que soient ses parametres »."))
     h = lab.holm()
-    say(f"   consigne : h126b.designs_a_rotation_determine   {len(SURV)} design "
+    say(f"   consigne : h126.designs_a_rotation   {len(SURV)} design "
         f"sur {TESTES:,} concluants")
     say(f"   m du registre : {h[0]['m_total']:,}   significatifs : "
         f"{sum(1 for r in h if r['significant'])}")
