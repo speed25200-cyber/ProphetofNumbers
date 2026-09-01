@@ -1,5 +1,6 @@
 """h131 — le crible des bits bas (§149) étendu à la FAMILLE des LCG de module
-2^W : musl, newlib, MMIX, glibc TYPE_0, MSVC, l'exemple de la norme C.
+2^W : musl, newlib, MMIX (deux sorties), glibc TYPE_0, MSVC, l'exemple de la
+norme C.
 
 CE QUE LE §149 FAISAIT, ET CE QU'IL LAISSAIT
 ============================================
@@ -12,13 +13,17 @@ sortie est un décalage `s >> r` — et c'est ainsi que sont écrits :
     musl     rand()   a = 6364136223846793005, c = 1,  W = 64, sortie s >> 33
     newlib   rand()   même a, c = 1,                   W = 64, (s >> 32) & 0x7fffffff
     MMIX     Knuth    même a, c = 1442695040888963407, W = 64, sortie s >> 32
+    MMIX     mot entier  même a et c,                   W = 64, sortie s (r = 0)
     glibc    TYPE_0   a = 1103515245, c = 12345,       W = 31, sortie s
     MSVC     rand()   a = 214013, c = 2531011,         W = 32, (s >> 16) & 0x7fff
     ANSI C   exemple  a = 1103515245, c = 12345,       W = 32, (s >> 16) & 0x7fff
 
 Pour chacun le crible coûte 2^(r+4) et le relèvement 2^(W−r−4) : 2^37 + 2^27
 pour musl, 2^36 + 2^28 pour newlib et MMIX, 2^4 + 2^27 pour glibc TYPE_0
-(seize candidats bas excluent 2^31 états), 2^20 + 2^12 pour MSVC.
+(seize candidats bas excluent 2^31 états), 2^20 + 2^12 pour MSVC. Pour le mot
+entier de MMIX (r = 0) le crible n'a que SEIZE candidats et le relèvement en
+aurait 2^60 : si aucun des seize ne survit, les 2^64 états sont exclus SANS
+relèvement ; s'il en survit un, il reste hors de portée et on le dit.
 
 LE SAUT AFFINE
 ==============
@@ -67,6 +72,7 @@ DESIGNS = [
     ("musl rand()", 6364136223846793005, 1, 64, 33, 0, "s >> 33"),
     ("newlib rand()", 6364136223846793005, 1, 64, 32, 0x7FFFFFFF, "(s >> 32) & 0x7fffffff"),
     ("MMIX (Knuth)", 6364136223846793005, 1442695040888963407, 64, 32, 0, "s >> 32"),
+    ("MMIX mot entier", 6364136223846793005, 1442695040888963407, 64, 0, 0, "s, les 64 bits"),
     ("glibc TYPE_0", 1103515245, 12345, 31, 0, 0, "s, module 2^31"),
     ("MSVC rand()", 214013, 2531011, 32, 16, 0x7FFF, "(s >> 16) & 0x7fff"),
     ("ANSI C rand()", 1103515245, 12345, 32, 16, 0x7FFF, "(s >> 16) & 0x7fff"),
@@ -99,7 +105,7 @@ ENV = dict(os.environ, SWEEP_THREADS=os.environ.get("SWEEP_THREADS", "4"))
 
 
 # ==========================================================================
-rule("1. LE THÉORÈME, ET LES SIX GÉNÉRATEURS QU'IL ATTEINT")
+rule(f"1. LE THÉORÈME, ET LES {len(DESIGNS)} GÉNÉRATEURS QU'IL ATTEINT")
 # ==========================================================================
 
 P_VIDE = comb(75, 20) / comb(80, 20)
@@ -198,6 +204,10 @@ for nom, a, c, w, r, mk, note in DESIGNS:
             bas = [int(l.split()[1]) for l in p.stdout.split("\n") if l.startswith("BAS")]
             nb = len(bas)
             etats = []
+            NON_RELEVES = []
+            if w - r - 4 > 40 and bas:
+                NON_RELEVES = bas                     # 2^(W-r-4) hors de portee
+                bas = []
             for b in bas[:64]:
                 q = subprocess.run([BIN, "--lift", str(a), str(c), str(w), str(r), str(mk),
                                     str(mode), str(b)] + [str(v) for v in ENS[0]],
@@ -205,11 +215,13 @@ for nom, a, c, w, r, mk, note in DESIGNS:
                 etats += [l.split("=")[1] for l in q.stdout.split("\n")
                           if l.startswith("TROUVE")]
             nrel = len(etats)
+            for b in NON_RELEVES:
+                etats.append(f"bas_{b}_non_releve_2^{w-r-4}")
             jr.write(f"{cle} {nb} {nrel} {' '.join(etats) if etats else '-'}\n")
             jr.flush()
         LIG.append((nom, mode, pas, r + 4, nb, nrel))
         for e in etats:
-            TROUV.append((nom, mode, pas, e))
+            TROUV.append((nom, mode, pas, e))          # etat releve OU bas non releve
         say(f"       {nom:>16} {mode:>5} {pas:>4} {'2^%d' % (r+4):>7} {nb:>5} {nrel:>8} "
             f"{time.time()-t0:>7.1f}")
 
@@ -241,10 +253,10 @@ if DRY:
 else:
     tok = lab.preregister(
         "h131.lcg64_crible",
-        "Aucun etat d'aucun des six LCG de module 2^W a sortie decalee — musl "
+        "Aucun etat d'aucun des sept LCG de module 2^W a sortie decalee — musl "
         "rand() (a = 6364136223846793005, c = 1, s >> 33), newlib rand() (meme "
         "a, c = 1, (s >> 32) & 0x7fffffff), MMIX de Knuth (meme a, c = "
-        "1442695040888963407, s >> 32), glibc TYPE_0 (a = 1103515245, c = 12345, "
+        "1442695040888963407, s >> 32 et le mot entier s), glibc TYPE_0 (a = 1103515245, c = 12345, "
         "module 2^31), MSVC rand() (a = 214013, c = 2531011, (s >> 16) & 0x7fff), "
         "l'exemple de la norme C (a = 1103515245, c = 12345, (s >> 16) & 0x7fff) — "
         "n'engendre les tirages de l'archive, pour aucun des pas 20 a 24 "
@@ -259,7 +271,8 @@ else:
         f"aucun null n'est requis : le crible garde un candidat bas avec "
         f"probabilite {FILTRE:.3f} par tirage, donc {FILTRE:.3f}^{NJ} x 2^37 = "
         f"{2**37 * FILTRE**NJ:.1e} pour le plus large des cribles",
-        "conforme si aucun etat complet n'est compatible", track="B")
+        "conforme si aucun etat complet n'est compatible et qu'aucun candidat "
+        "bas ne reste non releve", track="B")
     tok["m_extra"] = 0
     lab.record(
         tok, float(len(TROUV)), p=1.0,
