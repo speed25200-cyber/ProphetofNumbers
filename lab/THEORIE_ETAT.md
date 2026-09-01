@@ -1404,5 +1404,26 @@ sur deux schémas.
 cela ne donne que `22n/23 ≈ 0,96·n` au lieu de `n/2`, donc **228 jours** pour
 WELL44497b contre 2,4 par la voie algébrique.
 
+**Et le compte en tirages dépend de l'échantillonneur, pas seulement du
+générateur.** Les `222` tirages ci-dessus sont ceux de la **troncature**
+(`4,48` bits linéaires par mot, théorème du préfixe §105, `≈ 90` équations
+par tirage, §110). Sous les deux autres échantillonneurs le même MT19937
+coûte autrement, et il faut le dire pour ne pas promettre `222` à un
+Fisher-Yates par modulo :
+
+| échantillonneur | bits linéaires par tirage ordonné | MT19937, tirages ordonnés | où est le mur |
+|---|---|---|---|
+| troncature `(x·K) >> 32` | `≈ 90` (§105, §110) | **222** | aucun — pas constant, alignement connu |
+| Fisher-Yates par **modulo** `x mod K` | **22** (`Σ v₂(K)`, `K = 80…61`, §69, §71) | **`≥ 907`** | borne inférieure : les dépendances de rang (§80) ne peuvent que l'élever |
+| **rejet** modulo 80 | `80` (4 par mot accepté, §68) | `343` **si l'alignement est connu** (§80) | il ne l'est pas : arbre de rejet `C(19 937/4 + r, r)` (§111), `r ≈ 700` à `1 000` rejets sur 250 à 343 tirages, soit plus de `2^3000` nœuds avant le premier élagage — hors de portée |
+
+Sous le rejet, la seule alternative à l'arbre serait le crible d'un quotient
+autonome, comme au §7.6 et au §7.9 — et le théorème Q dit qu'un générateur
+`F₂`-linéaire primitif n'en a **aucun**. L'archive **triée**, elle, ne rend à
+un `F₂`-linéaire que le rang du bonus sous la troncature (`3,20` bits par
+tirage, §106) — c'est la voie du §114, qui a exclu MT19937 à `6 231` tirages
+triés ; sous le modulo et sous le rejet, le résidu mod 16 d'un **ensemble**
+n'est pas une forme linéaire, et le tri ne publie rien de linéaire du tout.
+
 > Tant qu'on n'a que l'ensemble trié, la voie model-free est la seule. Dès qu'on
 > a l'ordre, elle est **cent fois** la plus lente.
