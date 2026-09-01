@@ -12081,3 +12081,92 @@ d'en extraire davantage serait d'obtenir l'**ordre**, qui change 4,32 bits de
 branchement en 4,48 bits d'équations gratuites.
 
 **Registre : consigné.** `m = 58 078`, zéro significatif.
+
+---
+
+## 119. Le sous-espace de linéarité : mesurer la frontière au lieu de l'affirmer (`h100_sous_espace.py`)
+
+### Ce que tout le dossier faisait sans le mesurer
+
+Depuis le §68, chaque section range les générateurs en deux tas —
+« attaquable par algèbre linéaire » et « non linéaire, hors d'atteinte » — sur
+la foi d'un raisonnement au cas par cas. **Ce raisonnement s'est trompé deux
+fois dans cette seule session :**
+
+- **§112** — j'ai cru que le `Math.random` de V8 était `xorshift128+`, donc
+  additif, donc hors d'atteinte. Il est **brut**, donc entièrement linéaire.
+- **§117** — j'ai cru que les vraies familles additives résistaient à tout.
+  Leur **bit zéro** est exactement linéaire, et un bit a suffi.
+
+Deux erreurs, même cause : une frontière **affirmée** au lieu d'être
+**mesurée**.
+
+### Le théorème du défaut de linéarité
+
+> Soit `Ψ : F₂ⁿ → F₂^W` l'application « état → sortie ». Posons le **défaut**
+>
+>     D(x, y) = Ψ(x ⊕ y) ⊕ Ψ(x) ⊕ Ψ(y) ⊕ Ψ(0)
+>
+> Alors `c` est une forme **F2-linéaire** de l'état **si et seulement si**
+> `c·D(x,y) = 0` pour tous `x, y`. Donc
+>
+>     L = vect{ D(x,y) }^⊥        et       dim L = W − rang(D)   ∎
+
+**On ne cherche plus une forme linéaire au jugé : on calcule la dimension de
+l'espace de toutes celles qui existent.** Zéro veut dire qu'il n'y en a
+**aucune** — pas qu'on n'en a pas trouvé.
+
+### La mesure
+
+Sortie concaténée sur **4 pas** — ce qui attrape aussi les relations linéaires
+*entre* mots successifs, qu'un test mot par mot manquerait. 2 500 couples
+`(x, y)` par famille.
+
+| famille | sortie | bits | rang du défaut | **dim L** |
+|---|---|---|---|---|
+| xorshift128 (Marsaglia) | brute | 128 | 0 | **128** |
+| xoshiro256 (brut) | brute | 256 | 0 | **256** |
+| V8 `Math.random` (§112) | brute | 208 | 0 | **208** |
+| **xorshift128+** (Firefox/Safari) | additive | 256 | 252 | **4** |
+| xoroshiro128+ | additive | 256 | 252 | **4** |
+| xoshiro256+ | additive | 256 | 252 | **4** |
+| xoshiro256++ | addition + **rotation** | 256 | 256 | **0** |
+| xoshiro256\*\* | multiplication + **rotation** | 256 | 256 | **0** |
+| xoroshiro128\*\* | multiplication + **rotation** | 256 | 256 | **0** |
+| PCG32 | rotation **variable** | 128 | 128 | **0** |
+| splitmix64 | chaîne de mélange | 256 | 256 | **0** |
+
+### La vérification indépendante du §117
+
+`xorshift128+` rend **dim L = 4** sur quatre mots concaténés — soit **un par
+mot** — et la base calculée vit exactement sur les bits `0, 64, 128, 192` :
+
+> **le bit 0 de chaque mot, et lui seul.**
+
+C'est le théorème du §117, retrouvé par une voie entièrement différente : non
+pas en raisonnant sur les retenues, mais en calculant l'orthogonal d'un défaut
+mesuré.
+
+### La frontière, enfin mesurée
+
+| forme de la sortie | dim L | ce qui protège |
+|---|---|---|
+| brute | tous les bits | rien |
+| **additive** | **1 par mot** | rien — le bit 0 passe |
+| addition + **rotation** | **0** | la rotation |
+| multiplication + rotation | **0** | la rotation |
+| rotation **variable** (PCG) | **0** | la rotation |
+| chaîne de mélange | **0** | les décalages à droite |
+
+> Le §117 avait **deviné** cette règle à partir d'un cas ; elle est ici
+> **mesurée** sur onze familles. **Ce qui protège n'est jamais l'addition, ni
+> la multiplication par un impair — c'est toujours un décalage à droite ou une
+> rotation appliqués APRÈS elles.**
+
+Et c'est aussi le verdict sur ce qui reste : les cinq familles à `dim L = 0`
+sont hors d'atteinte de toute attaque par algèbre linéaire, **et ce n'est plus
+une conjecture — c'est une dimension calculée**.
+
+**Registre : inchangé** — ce fichier ne teste rien sur l'archive ; il mesure
+une propriété des générateurs eux-mêmes, et fixe la frontière que tout le reste
+du dossier supposait.
