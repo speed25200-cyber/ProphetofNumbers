@@ -61,7 +61,7 @@
 #include <stdint.h>
 #include <time.h>
 
-#define MAXM 4
+#define MAXM 32
 
 static long CAP;                       // mots par polynôme
 

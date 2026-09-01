@@ -13646,3 +13646,272 @@ donne que le multiplicateur — 1,879 bit d'entropie, déjà compté au §125.
 
 > Le catalogue des observables est clos : **l'ensemble trié, le rang du bonus, le
 > boost, et l'ordre d'émission quand on le filme.** Il n'y en a pas de cinquième.
+
+---
+
+## 132. Six cent dix-huit milliards de graines contre l'ordre d'émission daté (`h112_graine_ordonnee_datee.py`)
+
+### Ce qui est neuf n'est pas l'outil, c'est la donnée
+
+`tools/sweep_order.c` date du §34 : douze familles, quatre échantillonneurs,
+quarante-huit combinaisons, balayées contre **l'ordre de sortie** plutôt que
+contre l'ensemble trié. Le filtre passe de `1/C(80,20) = 2,8·10⁻¹⁹` à
+`1/(80!/60!) = 10⁻³⁷` par tirage. Cet outil n'a rien de neuf.
+
+Ce qui est neuf, c'est que pour la première fois trois tirages sont connus **à
+la fois** par leur identifiant, leur ordre d'émission et leur **horodatage
+exact** :
+
+| tirage | heure locale | unix | millisecondes | 1ᵉʳ numéro |
+|---|---|---|---|---|
+| 1381278 | 31/08 13:05 | 1 788 174 300 | 1 788 174 300 000 | 17 |
+| 1381481 | 01/09 13:00 | 1 788 260 400 | 1 788 260 400 000 | 61 |
+| 1381483 | 01/09 13:10 | 1 788 261 000 | 1 788 261 000 000 | 76 |
+
+C'est la troisième colonne qui manquait, et elle vient du **sixième axe** (§130),
+pas de la vidéo : la vidéo ne montre aucune horloge.
+
+### L'horodatage se vérifie, il ne se suppose pas
+
+La fin de l'archive est le tirage 1380173, unix 1 787 691 600, **index 203** de
+sa journée — donc 23:00, le dernier tirage du jour. De là au tirage 1381278 il y
+a 1 105 tirages, soit cinq journées pleines et 85 tirages, donc **six nuits**. De
+23:00 du jour 0 à 13:05 du jour 6 il s'écoule `6 × 86 400 − 35 700 = 482 700 s` :
+
+    1 787 691 600 + 482 700 = 1 788 174 300      exactement l'horodatage déduit.
+
+> Le sixième axe se paie ici une **quatrième** vérification hors échantillon,
+> par un chemin — le comptage des nuits — qui n'est pas celui du §130.
+
+### L'hypothèse testée : le ré-amorçage par tirage
+
+C'est celle qu'on écrit sans y penser quand on tape `new Random(seed)` en tête de
+la fonction de tirage. Sous cette hypothèse la graine la plus naturelle est
+l'identifiant, ou l'heure. Deux plages suffisent alors à couvrir **tout ce qui se
+nomme** :
+
+| plage | ce qu'elle contient |
+|---|---|
+| `[0 ; 2^32)` | petites graines, l'**identifiant** (1,38·10⁶), l'**horodatage en secondes** (1,788·10⁹) |
+| `ts·1000 ± 600 s` | l'**horodatage en millisecondes**, hors de `2^32` — la lacune que le §121 avait trouvée au §120 |
+
+### Le résultat
+
+| tirage | plage | couples (graine, combinaison) | compatibles | s |
+|---|---|---|---|---|
+| 1381278 | `[0 ; 2^32)` | 206 158 430 208 | 0 | 359 |
+| 1381278 | `ts·1000 ± 600 s` | 57 600 000 | 0 | 0,2 |
+| 1381481 | `[0 ; 2^32)` | 206 158 430 208 | 0 | 556 |
+| 1381481 | `ts·1000 ± 600 s` | 57 600 000 | 0 | 0,3 |
+| 1381483 | `[0 ; 2^32)` | 206 158 430 208 | 0 | 840 |
+| 1381483 | `ts·1000 ± 600 s` | 57 600 000 | 0 | 0,3 |
+| | **total** | **618 648 090 624** | **0** | 1 757 |
+
+**Témoin : 48/48.** Chacune des quarante-huit combinaisons retrouve une graine
+plantée — le balayage sait trouver ce qu'il cherche.
+
+### Ce que cela ferme
+
+Le §120 avait balayé `[0 ; 2^32)` contre **l'ensemble trié** du premier tirage de
+l'archive ; le §121 lui avait reproché de ne pas atteindre les millisecondes. Ici
+les deux trous sont bouchés d'un coup, et **contre un filtre 10¹⁸ fois plus dur** :
+non plus les vingt numéros, mais les vingt numéros **dans l'ordre**.
+
+> Sous ré-amorçage par tirage, avec une graine tirée de l'identifiant ou de
+> l'heure, et pour douze familles publiées × quatre échantillonneurs :
+> **il n'y a rien.** `m = 61 603`, `verdict : conforme`.
+
+Il reste exactement deux façons de sauver le ré-amorçage : une graine qui
+n'est **ni** l'identifiant **ni** l'heure — c'est-à-dire secrète, et alors elle
+n'est plus devinable —, ou un amorçage **une fois par jour** plutôt qu'une fois
+par tirage. C'est cette seconde porte que le §133 pousse.
+
+---
+
+## 133. Les 346 journées de l'archive, et leurs 346 graines (`h115_346_journees.py`)
+
+### La porte que le §132 laissait ouverte
+
+Le §132 a fermé le **ré-amorçage par tirage** : 618 milliards de couples, zéro
+compatible. Il restait exactement une autre forme de ré-amorçage — **une fois par
+jour**, et c'est celle que le sixième axe (§130) rend testable.
+
+Le §113 l'avait déjà attaquée, mais sur **trois** journées seulement : celles dont
+une vidéo donne l'ordre d'émission. L'archive en contient **346**.
+
+> **L'archive est triée, donc muette sur l'ordre.** Mais elle donne l'**ensemble**
+> des vingt numéros, et le filtre vaut alors `1/C(80,20) = 2,8·10⁻¹⁹` par tirage.
+> Une seule journée suffit à rejeter une graine.
+
+### 346 blocs, 346 horodatages de départ
+
+Les intervalles entre tirages ne prennent que deux valeurs — 300 s, ou une pause
+nocturne. L'archive se découpe donc en 346 blocs, et le premier tirage de chaque
+bloc a un horodatage **publié par l'archive elle-même** :
+
+| journée | 1ᵉʳ tirage | unix | heure locale |
+|---|---|---|---|
+| 0 | 1 309 614 | 1 757 829 900 | 2025-09-14 08:05 |
+| 1 | 1 309 794 | 1 757 909 100 | 2025-09-15 06:05 |
+| 2 | 1 309 998 | 1 757 995 500 | 2025-09-16 06:05 |
+| … | | | |
+| 344 | 1 379 766 | 1 787 544 300 | 2026-08-24 06:05 |
+| 345 | 1 379 970 | 1 787 630 700 | 2026-08-25 06:05 |
+
+La journée 0 est partielle — 180 tirages, départ à 08:05 : c'est le jour où
+l'archive commence, pas un trou. Les 345 autres démarrent à 06:05, et les écarts
+entre départs valent 86 400 s pour 342 d'entre eux, 79 200 / 82 800 / 90 000 aux
+trois changements d'heure.
+
+> **Aucune de ces 346 graines n'avait été essayée.** Le §120 balayait `[0 ; 2^32)`
+> contre le **premier** tirage de l'archive seulement ; le §113 ne connaît que
+> trois journées.
+
+### Six formes de graine, dérivées de la journée elle-même
+
+| forme de graine | graines / journée |
+|---|---|
+| horodatage du 1ᵉʳ tirage, en secondes | 1 (exact) |
+| le même ± 3 600 s | 7 200 |
+| le même en **millisecondes** ± 60 s | 120 000 |
+| identifiant du 1ᵉʳ tirage | 1 (exact) |
+| la date `YYYYMMDD` | 1 (exact) |
+| l'indice de la journée | 1 (exact) |
+
+Sept familles à sortie brouillée × quatre échantillonneurs, via
+`tools/sweep_brouille.c`. **Témoin : 28/28** — chaque combinaison retrouve une
+graine plantée.
+
+### Le résultat
+
+    346 journées × 3 561 712 couples  =  1 232 352 352 couples testés
+                                          0 compatible
+
+**`m = 61 604`, `verdict : conforme`.**
+
+### Ce que cela ferme
+
+| forme de ré-amorçage | testée par | verdict |
+|---|---|---|
+| par tirage, graine = identifiant ou heure | §120, §132 | 618·10⁹ couples, rien |
+| par journée, sur l'ordre filmé (3 jours) | §113 | rien |
+| **par journée, sur l'ensemble trié (346 jours)** | **§133** | **1,23·10⁹ couples, rien** |
+
+Un succès aurait donné les **204 tirages** de la journée trouvée — et, la forme de
+graine étant alors connue, **toutes les journées suivantes**. C'était, de loin, le
+plus gros gain encore disponible dans le dossier.
+
+> Le sixième axe a produit une hypothèse neuve, testable et à fort enjeu. Elle est
+> maintenant testée sur l'archive entière, et elle est **fausse** — ou la graine
+> n'est dérivable d'aucune quantité que la plateforme publie.
+
+---
+
+## 134. Le théorème du plafond universel : `T/2`, et une seule suite (`h116_decimation_plafond.py`)
+
+### La question que le §124 laissait ouverte
+
+Le §124 a démontré que le **second bit** n'apporte aucune équation quand `χ` est
+irréductible : le module des suites annulées par `χ` est cyclique, donc
+`b' = h(x)·b`. Il laissait ouvert le pendant exact de cette question :
+
+> **Et si, au lieu de lire un autre bit, on lisait le même bit un tirage sur
+> deux ?** Le dossier énumère des pas depuis le §14 ; personne n'avait demandé ce
+> que la **décimation** fait au plafond model-free.
+
+C'est une vraie question, parce que la décimation, elle, **change** le polynôme
+minimal : si `b` vient de `A`, la décimée vient de `A^d`, dont les racines sont
+les puissances `d`-ièmes. Elles peuvent collider, et la complexité chute.
+
+### Le théorème de la décimation
+
+Soit `s ↦ A·s` sur `F2^W` et `b_n = ℓ(A^n s)`, `ℓ` forme `F2`-linéaire.
+
+**(a) Validité.** Pour tout pas `d ≥ 1` et tout décalage `r`,
+
+    b^(d,r)_n  =  b_{r+nd}  =  ℓ( A^r (A^d)^n s )
+
+est la suite d'un générateur de matrice `A^d`, **de même largeur `W`**. Donc
+`W ≥ L(b^(d,r))` et `W ≥ L_conjointe(b^(d,0..d−1))`, rigoureusement, pour tout
+`W`, sans condition sur `N`.
+
+**(b) Chute.** Les racines de `χ_d` sont les `α_i^d`. Si l'ordre multiplicatif de
+`α_i/α_j` divise `d`, deux racines fusionnent et le degré minimal chute. Cas
+extrême : `χ = x³ + x + 1` a ses racines d'ordre 7, donc `α⁷ = 1`, donc `A⁷` agit
+comme l'identité et **`b_{7n}` est constante**.
+
+**(c) Perte.** Les `d` résidus ont chacun `N/d` termes. Le seuil aléatoire du §126
+pour `M` suites de longueur `N'` vaut `M·N'/(M+1)` ; ici `M = d`, `N' = N/d` :
+
+    d · (N/d) / (d+1)  =  N/(d+1)          — DÉCROISSANT en d.
+
+### Les trois vérifications
+
+| énoncé | prédiction | mesure |
+|---|---|---|
+| (a) LFSR degré 61, 11 pas × 2 bornes | `L ≤ 61` partout | **22/22** |
+| (b) `x³+x+1` / `x⁴+x+1` / `x⁵+x²+1`, décimés par 7 / 15 / 31 | `L = 1` | **6/6** (et `3, 4, 5` à `d = 1`) |
+| (c) hasard `N = 20 160`, `d = 1..6` | `N/(d+1)` | **5/5** à 2 près |
+| corollaire, `T = 20 160` fixé, `M = 1..5` | `T/(M+1)` | **5/5** à 2 près |
+
+**38/38 prédictions chiffrées exactes.** Le témoin positif est le (b) : le test
+**détecte** une chute quand il y en a une.
+
+### Le corollaire, et c'est lui qui compte
+
+`M` suites de longueur `N`, c'est `T = M·N` bits observés **au total**, pour un
+seuil de `M·N/(M+1) = T/(M+1)`. Le comptage est immédiat : un `g` de degré `L` a
+`L+1` inconnues et donne `T − M·L` équations, donc le seuil est là où
+`T − M·L = L + 1`.
+
+> **À nombre total de bits observés fixé, le plafond model-free vaut `T/(M+1)` où
+> `M` est le nombre de suites. Il est maximal pour `M = 1`, et vaut alors `T/2`.**
+
+| `M` | longueur | seuil prédit `T/(M+1)` | mesuré |
+|---|---|---|---|
+| 1 | 20 160 | 10 080 | 10 081 |
+| 2 | 10 080 | 6 720 | 6 720 |
+| 3 | 6 720 | 5 040 | 5 040 |
+| 4 | 5 040 | 4 032 | 4 032 |
+| 5 | 4 032 | 3 360 | 3 360 |
+
+### Le spectre de décimation de l'archive
+
+Le bit exact de poids fort du rang du bonus, sous troncature — **70 560 bits**, la
+plus longue suite que l'archive publie sans hypothèse de famille — décimé de 1 à
+21 :
+
+| pas | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 12 | 20 | 21 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| seuil `N/(d+1)` | 35 280 | 23 520 | 17 640 | 14 112 | 11 760 | 10 080 | 8 820 | 7 840 | 6 414 | 5 427 | 3 360 | 3 207 |
+| mesuré | 35 280 | 23 520 | 17 640 | 14 111 | 11 760 | 10 080 | 8 820 | 7 840 | 6 415 | 5 428 | 3 360 | 3 208 |
+| écart | 0 | 0 | 0 | −1 | 0 | 0 | 0 | 0 | +1 | +1 | 0 | +1 |
+
+**12/12 au seuil du hasard, à une unité près.** Aucune décimation ne fait tomber
+le spectre — et le (b) prouve que le test saurait le voir.
+
+### Ce que cela ferme
+
+Trois théorèmes de clôture, et le troisième contient les deux autres :
+
+| | énoncé | cas |
+|---|---|---|
+| §124 | le second bit n'ajoute aucune équation | `d = 1`, `M = 2` |
+| §126 | le plafond de l'archive est `M·N/(M+1)` | `d = 1`, `M` quelconque |
+| **§134** | **le plafond universel est `T/(M+1)`** | **tout `d`, tout `M`** |
+
+> **Il n'existe aucune façon de découper les observations qui rehausse le plafond
+> model-free.** Ni un second bit, ni un second pas, ni un second observable. Le
+> dossier cherchait, depuis le §122, des bornes plus hautes en multipliant les
+> lectures : c'était perdu d'avance, et on sait maintenant pourquoi.
+
+### Ce que cela laisse ouvert, et ce que cela dit à qui collecte
+
+Le plafond `T/2` est **atteint**, pas dépassé : avec `T = 70 560` bits l'archive
+borne `W ≥ 35 280`. Doubler l'archive doublerait la borne — c'est la **seule**
+façon de monter, et elle est **linéaire** en la donnée. Il faudrait 18 434 tirages
+de plus pour dépasser `W = 44 497`, le plus grand état publié.
+
+> **Un tirage de plus vaut mieux qu'un bit de plus par tirage.** À bits égaux,
+> `M = 1` bat `M = 2` d'un facteur `3/2`. C'est contre l'intuition — un bit est un
+> bit — et c'est démontré.

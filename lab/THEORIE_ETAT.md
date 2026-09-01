@@ -335,6 +335,43 @@ modulo `w mod 4 = m mod 4` (les deux bits bas).
 `dim L = 0`. Sous l'ordre de service renversé du cache (§112) le théorème ne
 vaut que **par classe modulo 64**, et la portée tombe d'un facteur 64.
 
+### 4.6 Théorème du plafond universel (§134) — `T/2`, et une seule suite
+
+Le 4.5 borne `W` par le bas ; reste à savoir **jusqu'où** cette borne peut
+monter. La réponse est close, et elle est décevante de la meilleure façon : elle
+interdit toute une classe de tentatives.
+
+**(a) Décimation, validité.** Pour tout pas `d` et tout décalage `r`,
+`b_{r+nd} = ℓ(A^r (A^d)^n s)` est la suite d'un générateur de matrice `A^d`, **de
+même largeur `W`**. Donc `W ≥ L(b^{(d,r)})` et `W ≥ L_conjointe` des `d` résidus.
+
+**(b) Décimation, chute.** Les racines de `χ_d` sont les `α_i^d` ; si l'ordre de
+`α_i/α_j` divise `d`, deux racines fusionnent et le degré minimal chute. Pour
+`χ = x³+x+1` (racines d'ordre 7), `b_{7n}` est **constante** : `L` tombe de 3
+à 1. Un pas mal choisi n'affaiblit pas le signal, il l'**anéantit**.
+
+**(c) Le plafond.** `M` suites de longueur `N`, c'est `T = M·N` bits observés au
+total ; un `g` de degré `L` a `L+1` inconnues pour `T − M·L` équations, donc le
+seuil aléatoire est là où `T − M·L = L+1` :
+
+> **`plafond = T/(M+1)`.** Il est **maximal pour `M = 1`**, où il vaut `T/2`. La
+> décimation en `d` résidus est le cas `M = d`, `N' = N/d`, de plafond
+> `N/(d+1)` — strictement pire. ∎
+
+**Ce que cela ferme.** Aucune façon de **découper** l'observation ne rehausse le
+plafond model-free : ni un second bit (§124, cas `d=1, M=2`), ni un second pas,
+ni un second observable. Le §126 en est le cas `d = 1`.
+
+**Ce que cela dit à qui collecte.** Le plafond est **atteint**, pas dépassé, et
+il est **linéaire** en la donnée : doubler l'archive double la borne. Donc
+
+> **un tirage de plus vaut mieux qu'un bit de plus par tirage** — à bits égaux,
+> `M = 1` bat `M = 2` d'un facteur `3/2`.
+
+Vérifié 38/38, témoin positif inclus : le test **détecte** la chute du (b).
+Spectre de décimation de l'archive, 12 pas de 1 à 21 : **le seuil du hasard
+partout**, à une unité près.
+
 ---
 
 ## 5. Le théorème de prédiction
@@ -476,10 +513,30 @@ Une seule donnée changerait la conclusion, et l'archive ne la contient pas :
 
 | cible | tirages ordonnés requis | disponibles |
 |---|---|---|
-| tout le catalogue ≤ 807 bits | 9 | **9 — déjà fait** |
-| WELL1024a | 12 | il en manque **3** |
-| MT19937 par l'ordre | 223 | il en manque 214 |
+| tout le catalogue ≤ 807 bits | 9 | **12 — dépassé** |
+| WELL1024a | 12 | **12 — atteint** |
+| MT19937 par l'ordre | 223 | il en manque 211 |
 
 Et ils **n'ont pas besoin d'être consécutifs** (§110) : sous stride constant, un
-identifiant manquant est un décalage connu, pas une rupture. Trois captures
-d'écran de plus, prises n'importe quand, ouvrent la marche suivante.
+identifiant manquant est un décalage connu, pas une rupture. C'est ce qui rend
+les captures d'écran utilisables : douze tirages ordonnés, pris six jours et
+trois journées différentes, valent douze équations du même flux.
+
+**Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
+model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
+le nombre de suites en lesquelles on les découpe. Il est maximal à `M = 1`. Donc
+
+> collecter un **observable de plus** par tirage — un second bit, le boost,
+> l'angle — **abaisse** le plafond ; collecter un **tirage de plus** le relève.
+> À bits égaux, `M = 1` bat `M = 2` d'un facteur `3/2`.
+
+C'est l'inverse de ce que le dossier a fait entre le §89 et le §127, où chaque
+section cherchait un observable supplémentaire. La bonne consigne est la plus
+ennuyeuse : **le même bit, plus longtemps**.
+
+**Et la consigne qui reste la meilleure**, elle, n'est pas model-free : **huit
+tirages ordonnés consécutifs de la même journée** — quarante minutes de film.
+Ils donnent 718 équations sous le sixième axe (§130), ferment WELL512a et
+épuisent le catalogue. Un tirage ordonné vaut 61,8 bits contre 1 pour un bit du
+rang du bonus : quand on peut nommer le modèle de consommation, l'ordre écrase
+tout le reste.
