@@ -615,9 +615,32 @@ C'est l'inverse de ce que le dossier a fait entre le §89 et le §127, où chaqu
 section cherchait un observable supplémentaire. La bonne consigne est la plus
 ennuyeuse : **le même bit, plus longtemps**.
 
-**Et la consigne qui reste la meilleure**, elle, n'est pas model-free : **huit
-tirages ordonnés consécutifs de la même journée** — quarante minutes de film.
-Ils donnent 718 équations sous le sixième axe (§130), ferment WELL512a et
-épuisent le catalogue. Un tirage ordonné vaut 61,8 bits contre 1 pour un bit du
-rang du bonus : quand on peut nommer le modèle de consommation, l'ordre écrase
-tout le reste.
+**Et la consigne qui reste la meilleure**, elle, n'est pas model-free : **des
+tirages ordonnés**. Un tirage ordonné vaut **≈ 90 équations** (§110 : 807 → 897
+en passant de 9 à 10 tirages) ; un tirage trié en vaut **zéro**, parce qu'il
+faudrait brancher sur vingt valeurs par mot pour en extraire une.
+
+**Le flux en direct (§139).** Si la plateforme pousse les boules une par une,
+l'ordre d'arrivée des messages **est** l'ordre d'émission, et le rendement passe
+de « une vidéo filmée à la main » à **204 tirages ordonnés par jour**, soit
+18 360 équations par jour :
+
+| cible | bits | tirages ordonnés | capture |
+|---|---|---|---|
+| WELL512a | 512 | 6 | 20 min |
+| WELL1024a | 1 024 | 12 | 35 min |
+| **MT19937** | 19 937 | 222 | **1,1 jour** |
+| **WELL44497b** | 44 497 | 494 | **2,4 jours** |
+
+Deux jours et demi ferment le catalogue F₂-linéaire en entier. `tools/
+signalr_capture.py` fait la capture et le décodage, sans dépendance, témoin 14/14
+sur deux schémas.
+
+**Et l'ordre renverse la hiérarchie des voies.** Un tirage ordonné donne aussi
+**22 bits exacts à position fixe** (théorème I du §126, `v₂(K)` pour
+`K = 80…61`), contre 2 pour le seul rang du bonus — mais par le plafond du 4.6
+cela ne donne que `22n/23 ≈ 0,96·n` au lieu de `n/2`, donc **228 jours** pour
+WELL44497b contre 2,4 par la voie algébrique.
+
+> Tant qu'on n'a que l'ensemble trié, la voie model-free est la seule. Dès qu'on
+> a l'ordre, elle est **cent fois** la plus lente.

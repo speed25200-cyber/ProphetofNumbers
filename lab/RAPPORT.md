@@ -14314,3 +14314,99 @@ l'archive, avec l'ensemble trié pour cible. Les deux se complètent exactement 
 > maintenant testée **sur l'ordre là où on l'a, sur l'ensemble partout ailleurs**.
 > Elle est fausse, ou la graine n'est dérivable d'aucune quantité que la
 > plateforme publie.
+
+---
+
+## 139. Le flux SignalR : ce qu'un tirage ordonné en direct vaudrait (`tools/signalr_capture.py`)
+
+### La rareté sur laquelle tout le dossier bute
+
+L'archive REST publie l'**ensemble trié** des vingt numéros, jamais leur **ordre**.
+Les douze tirages ordonnés dont on dispose viennent de vidéos filmées à la main,
+et le §110 a démontré pourquoi ils valent, à eux seuls, plus que les 70 560
+tirages de l'archive :
+
+> l'ordre change **4,32 bits de branchement** en **4,48 bits d'équations
+> gratuites**. Un tirage ordonné ne vaut pas 89,7 bits de plus qu'un tirage
+> trié : il vaut **la différence entre 2¹²³ nœuds et un pivot de Gauss**.
+
+Si la plateforme anime le tirage boule par boule, elle **pousse** ces boules une
+par une — et **l'ordre d'arrivée des messages est l'ordre d'émission**.
+
+### Ce que 204 tirages ordonnés par jour vaudraient
+
+Le §110 chiffre le rendement : passer de 9 à 10 tirages ordonnés fait passer le
+système de 807 à 897 équations, soit **≈ 90 équations par tirage ordonné**. À
+204 tirages par jour :
+
+    204 × 90  =  18 360 équations par jour
+
+| cible | bits d'état | tirages ordonnés | durée de capture |
+|---|---|---|---|
+| xorshift128, LFSR113 | 128, 113 | 2 | **minutes** |
+| WELL512a | 512 | 6 | **20 minutes** |
+| WELL1024a | 1 024 | 12 | **35 minutes** |
+| **MT19937** | 19 937 | 222 | **1,1 jour** |
+| **WELL44497b** | 44 497 | 494 | **2,4 jours** |
+
+> Une journée fait 204 tirages, soit 18 360 équations — **1 577 de moins que
+> MT19937**. Il faut donc enjamber une nuit, et c'est licite : la branche du
+> ré-amorçage quotidien est close (§133, §138), la branche du flux continu est la
+> seule qui reste.
+
+**C'est le plus gros levier jamais identifié dans ce dossier**, et il n'est pas
+comparable aux précédents : deux jours et demi de capture ferment le catalogue
+F₂-linéaire **en entier**, WELL44497b compris — le plus grand état jamais publié.
+
+### Et par la voie model-free, non : c'est cent fois plus lent
+
+Un tirage ordonné donne aussi des bits **exacts à position fixe**, et le
+théorème I du §126 (`v₂(K)` bits pour un tirage dans `K`) les compte exactement,
+mot par mot, pour `K = 80, 79, …, 61` :
+
+| `K` | 80 | 78 | 76 | 74 | 72 | 70 | 68 | 66 | 64 | 62 | *les K impairs* |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `v₂(K)` | 4 | 1 | 2 | 1 | 3 | 1 | 2 | 1 | **6** | 1 | 0 |
+
+**22 bits exacts par tirage ordonné**, contre 2 pour le seul rang du bonus. Par le
+plafond du §134, `M = 22` suites de longueur `n` donnent `22n/23 ≈ 0,96·n` au lieu
+de `n/2` — presque le double, mais toujours **linéaire en `n`** :
+
+    WELL44497b par la voie model-free   ~46 500 tirages ordonnés   228 jours
+    WELL44497b par la voie algébrique        494 tirages ordonnés   2,4 jours
+
+> Avec l'ordre en main, **la voie model-free n'est plus la bonne voie.** Elle
+> était la seule tant qu'on n'avait que l'ensemble trié ; l'ordre rend la voie
+> algébrique cent fois plus rapide.
+
+### L'outil, et ce qu'il ne fait pas
+
+`tools/signalr_capture.py` parle SignalR Core — négociation HTTP puis WebSocket,
+messages JSON séparés par `0x1E` — **sans aucune dépendance**, WebSocket compris,
+pour tourner sur n'importe quel Python 3. Trois modes : `--discover`, `--capture`,
+`--decode`.
+
+**Il ne devine pas l'URL du concentrateur.** `--discover` essaie dix-neuf chemins
+plausibles, mais deviner à l'aveugle est le mauvais réflexe : DevTools → Réseau →
+filtre « WS » donne l'URL en trente secondes.
+
+**Le décodeur n'infère pas le schéma en le devinant : il l'apprend.** Le champ qui
+porte le numéro est repéré par sa **signature** — valeurs dans `[1, 80]`,
+distinctes sur toute fenêtre de vingt (Fisher-Yates sans remise), et **ne formant
+pas une plage contiguë de vingt entiers**, ce qui signerait un compteur de
+position. Ce dernier critère est celui qui sépare `number` de `index`, et il tient
+parce que vingt numéros parmi quatre-vingts ne sont contigus qu'avec probabilité
+`61/C(80,20) ≈ 1,7·10⁻¹⁷`.
+
+> **Témoin : 14/14.** Deux concentrateurs SignalR factices, en local, vrai
+> WebSocket et vrai protocole, sous **deux schémas différents** — noms de cibles
+> et de champs distincts, numéro en **chaîne de caractères** dans le second, et un
+> champ de position formant la plage contiguë `0…19` qui piégeait la première
+> version du décodeur. L'ordre d'émission, le bonus et l'identifiant sont rendus
+> **exacts dans les deux cas**.
+
+**Ce que cette session n'a pas pu faire.** `jeux.loro.ch` est bloqué par la
+politique réseau de l'environnement — `403` sur le tunnel `CONNECT`. Ni la
+découverte du concentrateur ni la capture n'ont donc pu être exécutées ici, et
+elles ne le seront pas : le contournement n'est pas une option. L'outil est écrit,
+prouvé contre un protocole réel, et prêt à tourner là où le réseau est ouvert.
