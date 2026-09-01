@@ -265,21 +265,44 @@ say(f"""   {NDES} designs x 4 294 967 296 etats. Le rejet precoce fait le travai
 
        {'#':>5} {'design':>20} {'survivants':>11} {'sec':>7} {'reste':>9}""")
 
+# POINT DE CONTROLE : un balayage de plusieurs heures doit survivre a une
+# interruption. Chaque design termine est ecrit ; au demarrage on saute ceux
+# qui le sont deja.
+JOURNAL = os.path.join(TMP, "h127_journal.txt")
+DEJA = {}
+if os.path.exists(JOURNAL):
+    for l in open(JOURNAL, encoding="utf-8"):
+        t = l.split()
+        if len(t) >= 3:
+            DEJA[t[0]] = (int(t[1]), float(t[2]))
+    say(f"   reprise : {len(DEJA)} designs deja faits, ecrits dans {JOURNAL}")
+
 TROUV, FAIT, PAS = [], 0, 0.0
 t0 = time.time()
+jr = open(JOURNAL, "a", encoding="utf-8")
 for i, (a, b, c, o) in enumerate(BONS[:NDES]):
+    cle = f"{a},{b},{c},{o}"
+    if cle in DEJA:
+        ns, pp = DEJA[cle]
+        FAIT += 1
+        PAS += pp
+        continue
     p = subprocess.run([BIN, FMASQ, str(NW), str(a), str(b), str(c), str(o)],
                        capture_output=True, text=True, timeout=3600, env=ENV)
     ns = 0
+    pp = 0.0
     for l in p.stdout.split("\n"):
         if l.startswith("TROUVE"):
             TROUV.append(l.strip())
         if l.startswith("designs="):
             d = dict(kv.split("=", 1) for kv in l.split() if "=" in kv)
             ns = int(d["survivants"])
-            PAS += float(d["pas"])
+            pp = float(d["pas"])
+            PAS += pp
+    jr.write(f"{cle} {ns} {pp:.6e}\n")
+    jr.flush()
     FAIT += 1
-    if i < 3 or ns or (i + 1) % 25 == 0 or i + 1 == NDES:
+    if i < 3 or ns or (i + 1) % 10 == 0 or i + 1 == NDES:
         ec = time.time() - t0
         say(f"   {i+1:>5} {f'({a},{b},{c},or={o})':>20} {ns:>11} {ec/FAIT:>7.1f} "
             f"{(ec/FAIT*(NDES-FAIT))/3600:>8.1f} h")
