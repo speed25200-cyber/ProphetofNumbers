@@ -860,7 +860,7 @@ famille — c'est sa vraie portée, et elle est étroite :
 | MT19937, tout `L` premier | `2^19937−1` | **aucun** (`L` premier de Mersenne) | — | aucun |
 | xorshift32 primitif | `2^32−1 = 3·5·17·257·65537` | phases `d \| L` | non pour `d < 2^16` : un bit de `x_k` est `Tr(β α^k)`, et sur un coset de taille `> √q` la somme de caractères est `< ` sa taille (Weil) ; `d ≥ 65537` : question sans objet, l'énumération §150–151 est complète | aucun |
 | SplitMix64, PCG, xorshift\* | `2^64` | `s mod 2^m` (compteur, LCG) | non : la sortie **mélange** tous les bits | aucun |
-| Fibonacci retardé additif mod `2^32` (glibc `random()` TYPE_3, `r_i = r_{i−3} + r_{i−31}`, sortie `r_i >> 1`) | — | `(Z/2^m)^{31}` | **oui**, `m = 5` (bits 1..4) | `2^{155}` : quotient trop large pour l'énumération |
+| Fibonacci retardé additif mod `2^32` (glibc `random()` TYPE_3, `r_i = r_{i−3} + r_{i−31}`, sortie `r_i >> 1`) | — | `(Z/2^m)^{31}` | **oui**, `m = 5` (bits 1..4) | `2^{155}` : quotient trop large pour l'énumération — voir 7.7 |
 
 La dernière ligne est la **frontière**. Le quotient existe et la statistique
 s'y factorise — le théorème dit que l'attaque est possible — mais `2^155`
@@ -878,6 +878,122 @@ mot, et `m = 3` n'en donne plus.
 > des quotients appliqué à l'anneau `Z/2^W`. Il atteint **toute** la famille
 > des LCG à sortie décalée, sous les trois échantillonneurs à modulo, et il
 > **nomme** ceux qu'il n'atteint pas — et pourquoi.
+
+### 7.7 La frontière (§153) — le Fibonacci retardé par ses plans de bits, et ce que l'archive triée en voit
+
+Le 7.6 laisse un générateur dont le quotient existe et ne s'énumère pas :
+`random()` de la glibc, `r_i = r_{i−3} + r_{i−31} mod 2^32`, sortie `r_i >> 1`.
+Voici pourquoi le coût explose, ce que la récurrence a de linéaire malgré tout,
+ce que l'archive triée en voit, et ce qu'il faudrait pour la franchir.
+
+> **Corollaire (la dimension).** *Si la récurrence est d'ordre `D` — l'état
+> est fait de `D` mots — le quotient mod `2^m` a `2^{mD}` éléments, et le
+> crible coûte `2^{mD}`.* Le LCG a `D = 1` : `2^{r+4}`. Le Fibonacci retardé
+> de la glibc a `D = 31` : `2^{155}`. Mersenne Twister a `D = 624`. **Le
+> théorème des quotients n'atteint que les générateurs d'ordre un.**
+
+**Les plans de bits, et les retenues.** Écrivons `r_i = 2 q_i + b_i` dans
+`Z/32` : `b_i` est le bit 0, jamais publié ; `q_i` les bits 1..4, ce que
+`(v − 1) mod 16` observe. Alors
+
+    b_i = b_{i−3} ⊕ b_{i−31}                                    (plan 0 : un LFSR)
+    q_i = q_{i−3} + q_{i−31} + c_i  (mod 16),   c_i = b_{i−3} ∧ b_{i−31}.
+
+Le plan 0 est le LFSR de polynôme `x^31 + x^3 + 1`, primitif, de période
+`2^31 − 1` — **un nombre premier de Mersenne** : par le théorème Q, ce
+LFSR n'a aucun quotient propre. Les nibbles suivent une récurrence
+**affine** mod 16 dont le terme constant est le ET de deux bits du LFSR, d'où
+la **contrainte de cohérence** : `(q_i − q_{i−3} − q_{i−31}) mod 16 ∈ {0, 1}`,
+et cette différence *est* la retenue `c_i`.
+
+> **Lemme (la part linéaire de la sortie — §3 complété).** *Soit un
+> Fibonacci retardé additif `r_i = r_{i−k} + r_{i−L} mod 2^32` de trinôme
+> primitif. Le bit 0 de la sortie (plan 1 de `r`) satisfait une récurrence
+> linéaire sur `GF(2)` d'ordre `2L + C(L,2)`, et le bit 1 (plan 2) une
+> récurrence d'ordre au plus `3L + 2C(L,2) + 2C(L,3) + C(L,4)`.*
+>
+> *Preuve du premier énoncé.* `P(E) r^{(1)} = c` avec `P = x^L + x^k + 1` et
+> `E` le décalage. La suite `c_i = b_{i−k} b_{i−L}` est un produit de deux
+> décalés d'une même m-suite : son polynôme minimal divise `P · P₂`, où `P₂`
+> a pour racines les `C(L,2)` produits `α^{2^i + 2^j}` de deux racines de
+> `P`. Donc `(P · P₂ · P)(E) r^{(1)} = 0`, d'ordre `2L + C(L,2)`. Le second
+> énoncé s'obtient de même avec la retenue `MAJ(r^{(1)}_{i−k}, r^{(1)}_{i−L},
+> c_i)`, produits de poids jusqu'à quatre. ∎
+
+Mesuré par Berlekamp-Massey sur états plantés : plan 1 — `35, 77, 135, 527`
+pour `L = 7, 11, 15, 31`, **la borne est atteinte** ; plan 2 — `168, 570, 803,
+2530, 7565` pour `L = 7, 10, 11, 15, 20`, atteinte, et `387 < 393` pour
+`L = 9` (racines confondues). Pour la glibc : **bit 0 de la sortie, ordre
+527 ; bit 1, ordre `41 478`** ; les bits 2 et 3 (plans 3 et 4) font
+intervenir des produits de poids huit et seize, `C(31,8) = 7,9·10⁶` racines
+et au-delà. La sortie n'est donc pas « non linéaire » en bloc : elle est
+linéaire de plus en plus cher, plan par plan, et la statistique du dossier lit
+les plans 1 à 4 **ensemble**, dans le nibble.
+
+**Ce que l'archive triée voit.** Sous le rejet, chaque mot de la fenêtre du
+tirage `t` a son nibble dans `A_t` (12 classes sur 16 en moyenne) — c'est le
+lemme des décalés. Mais la fenêtre dit plus : elle contient **exactement** les
+vingt numéros une fois chacun, plus des doublons.
+
+> **Lemme du multi-ensemble.** *Soit `n_c` le nombre de numéros publiés dans
+> la classe `c` mod 16, `Σ n_c = 20`, et `m_c` le nombre de mots de la fenêtre
+> dans la classe `c`. Alors `m_c ≥ n_c` pour tout `c`, donc `m_c = 0` si
+> `n_c = 0`. Une fenêtre de `σ` nibbles uniformes satisfait ces inégalités
+> avec probabilité*
+>
+>     P(σ) = σ!/16^σ · [x^σ] Π_{c : n_c>0} ( e^x − Σ_{j<n_c} x^j/j! ),
+>
+> *qui vaut `20!/(Π n_c!)/16^20` pour `σ = 20`.*
+
+Sur seize tirages plantés (`h132`), un mot vaut `0,41` bit par appartenance,
+une fenêtre de vingt mots `8,2` bits ; le multi-ensemble vaut **`28,1` bits** à
+`σ = 20` et **`23,5`** au `σ` réel (moyenne `22,8`). En information, `155/23,5
+= 6,6` tirages suffisent — au lieu de `18,9` par appartenance seule (`52` pour
+le crible du 7.6, qui paie en plus le branchement sur `σ` et sur les mots
+perdus), de `208` à pas constant. Le crible du 7.6 n'en a pas besoin (il est
+sur-déterminé d'un facteur seize) ; un solveur, oui.
+
+**Ce que le solveur générique en fait : rien.** `h132` encode le problème pour
+`z3` (vecteurs de bits de cinq bits, récurrence, appartenance, multi-ensemble en
+contraintes de cardinalité), alignement **connu**, seize tirages — `377` bits
+d'information — et fait croître le retard `L` : à **`L = 7`, trente-cinq
+inconnues**, `z3` rend `unknown` après 300 s. La raison est structurelle : une
+contrainte d'appartenance ne propage rien tant que les deux antécédents
+`r_{i−k}, r_{i−L}` ne sont pas fixés, et chaque mot ne retire qu'un quart des
+valeurs ; le solveur n'apprend rien avant d'avoir fixé les `5L` bits, et
+retombe sur l'énumération de `2^{5L}` — le crible, sans son saut affine. La
+frontière est donc **algorithmique** : l'information est là (six tirages), la
+structure est là (récurrence à deux termes, plan 0 linéaire, plans 1 et 2
+linéaires d'ordre `527` et `41 478`), mais aucun algorithme du dossier ne
+convertit des **comptes** par classe en équations sur ces plans — la parité
+d'un mot, seule quantité linéaire bon marché, n'est jamais contrainte par un
+ensemble trié, qui contient toujours les deux parités.
+
+**Ce qu'il faudrait collecter (§9 complété).** Des tirages **ordonnés** sous
+rejet changent tout : chaque mot accepté donne `n − 1 = o mod 80`, donc le
+nibble `q_i` **exact** et `o mod 5`. Alors
+
+- la cohérence `(q_i − q_{i−3} − q_{i−31}) mod 16 = c_i` livre `c_i =
+  b_{i−3} ∧ b_{i−31}` pour tout mot dont les deux antécédents sont acceptés ;
+  `c_i = 1` (un mot sur quatre) fixe **deux bits** du LFSR — deux équations
+  linéaires sur les 31 bits initiaux — et `c_i = 0` en interdit un couple ;
+  seize retenues à 1, soit une soixantaine de mots utiles, **trois tirages
+  ordonnés**, déterminent le plan 0, et les plans 1 à 4 sont lus ; les
+  **douze tirages des vidéos (≈ 276 mots) rendent les 155 bits bas** avec
+  une marge de quatre — l'alignement des doublons se branche comme au 7.6 ;
+- les bits bas connus, `r_i = 2 o_i + b_i` donne `r_i mod 5` (2 est inversible
+  mod 5), et `r_i = r_{i−3} + r_{i−31} − 2^32 w_i` avec `2^32 ≡ 1 (mod 5)`
+  livre le **bit de débordement** `w_i = [r_{i−3} + r_{i−31} ≥ 2^32]` de
+  chaque mot accepté : une comparaison sur les bits hauts, un bit par mot ;
+  `837` bits hauts demandent au moins `837` mots, soit **42 tirages ordonnés**
+  — la reconstitution complète est alors un problème de comparaisons, ouvert
+  ici mais posé.
+
+> Le 7.6 dit *qui* a un quotient ; le 7.7 dit que le quotient ne suffit pas
+> quand l'ordre de la récurrence dépasse un, et **nomme le prix exact** de la
+> frontière : douze tirages ordonnés pour les bits bas de la glibc, quarante-deux
+> pour l'état entier — contre une archive triée qui, elle, n'en donne que des
+> comptes.
 
 ---
 
