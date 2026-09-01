@@ -6,36 +6,35 @@
 // ORDONNÉS des vidéos. L'archive, elle, n'a que des ensembles TRIÉS — et c'est
 // elle qui compte, parce qu'elle fait 70 560 tirages et qu'elle est publique.
 //
-// Le §141 a montré ce que l'archive donne quand même, et c'est EXACT :
-//
-//     à l'étape 0 de Fisher-Yates le tableau est encore l'identité, donc la
-//     valeur émise vaut exactement j_0 + 1 avec j_0 = floor(80·u/2^32), et elle
-//     appartient à l'ensemble publié.
-//
-//         j_0 + 1  ∈  S       POUR CHAQUE TIRAGE DE L'ARCHIVE.
-//
-// C'est un filtre de 20/80 = 1/4 par tirage, sans aucune hypothèse sur le
-// bonus, sans l'ordre, sans rien. Seize tirages suffisent donc à isoler un état
-// de 32 bits, et l'archive en publie 70 560.
-//
 // CE QUE CE FICHIER FAIT
 // ----------------------
 // Il énumère L'ESPACE D'ÉTAT ENTIER — les 2^32 états, pas les graines — pour un
-// design donné, et rejette dès le premier tirage qui échoue. C'est strictement
-// plus fort que le §120, qui balayait 2^32 GRAINES sous des amorçages nommés :
-// ici l'état est libre, amorcé n'importe comment, y compris par une source
-// d'entropie.
+// design donné, et demande : cet état produit-il EXACTEMENT l'ensemble des vingt
+// numéros d'un tirage de l'archive ?
 //
-// Le rejet précoce fait tout le travail : un état survit à k tirages avec
-// probabilité 4^-k, donc le coût total vaut
+// C'est strictement plus fort que le §120, qui balayait 2^32 GRAINES sous des
+// amorçages NOMMÉS : ici l'état est libre, amorcé n'importe comment, y compris
+// par une source d'entropie.
 //
-//     2^32 · (1 + 21·(1/4)/(1−1/4))  ≈  2^32 · 8 pas de générateur.
+// POURQUOI UN SEUL TIRAGE SUFFIT, ET CE QUE ÇA SUPPRIME
+// -----------------------------------------------------
+// Le filtre d'un ensemble complet vaut 1/C(80,20) = 2,8e-19, donc l'espérance de
+// faux positifs sur les 2^32 états vaut 1,2e-9. UN tirage suffit. Il n'y a donc
+//
+//     AUCUNE HYPOTHÈSE DE PAS entre tirages — les vingt et un mots du §137 ne
+//     servent plus — ET AUCUNE HYPOTHÈSE D'ALIGNEMENT, puisque énumérer TOUS
+//     les états couvre tous les points de départ possibles.
+//
+// C'est aussi PLUS RAPIDE que le confinement du seul mot 0 : chaque numéro émis
+// doit appartenir à l'ensemble, donc on rejette avec probabilité 3/4 dès le
+// PREMIER mot, et l'espérance vaut 1/(1−1/4) = 1,33 mot par état — contre 8 pour
+// une fenêtre de quarante tirages sur le seul mot 0.
 //
 // CE QU'IL REND
 // -------------
-// Pour chaque état survivant, il affiche l'état et les vingt numéros qu'il
-// PRÉDIT pour le tirage suivant celui de la fenêtre. C'est le seul point du
-// dossier où une prédiction sort de l'archive seule.
+// Pour chaque état survivant, il affiche l'état, et `predit()` donne les vingt
+// numéros du tirage suivant. C'est le seul point du dossier où une prédiction
+// sortirait de l'archive seule.
 //
 // AUTOTEST
 // --------
@@ -79,13 +78,28 @@ static inline uint32_t pas32(uint32_t x, const design *d) {
 // ---------------------------------------------------------------------------
 // Le noyau : un etat survit s'il satisfait le confinement sur toute la fenetre.
 // ---------------------------------------------------------------------------
-static inline int survit(uint32_t s, const design *d, int prof) {
+// L'ENSEMBLE COMPLET D'UN SEUL TIRAGE, verifie numero par numero.
+//
+// C'est strictement plus fort que le confinement du seul mot 0, et c'est aussi
+// PLUS RAPIDE : chaque numero emis doit appartenir a l'ensemble publie, donc on
+// rejette avec probabilite 3/4 des le PREMIER mot, et l'esperance de mots
+// evalues vaut 1/(1-1/4) = 1,33 par etat contre 8 auparavant.
+//
+// Et surtout, UN SEUL TIRAGE SUFFIT : le filtre vaut 1/C(80,20) = 2,8e-19, donc
+// l'esperance de faux positifs sur les 2^32 etats vaut 1,2e-9. Il n'y a donc
+//
+//     AUCUNE HYPOTHESE DE PAS ENTRE TIRAGES — les vingt et un mots du §137 ne
+//     servent plus — ET AUCUNE HYPOTHESE D'ALIGNEMENT, puisque enumerer TOUS
+//     les etats couvre tous les points de depart possibles.
+static inline int survit(uint32_t s, const design *d, int t) {
     uint32_t x = s;
-    for (int t = 0; t < prof; t++) {
-        x = pas32(x, d);                        // le mot 0 du tirage t
-        int j = (int)(((uint64_t)x * POOL) >> 32);
-        if (!permis(t, j)) return t;            // rejete : rend la profondeur
-        for (int k = 1; k < MOTS; k++) x = pas32(x, d);
+    int arr[POOL];
+    for (int i = 0; i < POOL; i++) arr[i] = i + 1;
+    for (int k = 0; k < DRAWN; k++) {
+        x = pas32(x, d);
+        int j = k + (int)(((uint64_t)x * (POOL - k)) >> 32);
+        int tmp = arr[k]; arr[k] = arr[j]; arr[j] = tmp;
+        if (!permis(t, arr[k] - 1)) return k;   // rejete : rend la profondeur
     }
     return -1;                                   // survivant
 }
@@ -93,7 +107,7 @@ static inline int survit(uint32_t s, const design *d, int prof) {
 typedef struct {
     uint32_t lo, hi;
     const design *d;
-    int prof;
+    int cible;                                   // indice du tirage vise
     long trouves;
     uint32_t premier;
     long long pas;
@@ -104,8 +118,8 @@ static void *fil(void *v) {
     t->trouves = 0;
     long long p = 0;
     for (uint64_t s = t->lo; s < (uint64_t)t->hi; s++) {
-        int r = survit((uint32_t)s, t->d, t->prof);
-        p += (r < 0) ? t->prof : (r + 1);
+        int r = survit((uint32_t)s, t->d, t->cible);
+        p += (r < 0) ? DRAWN : (r + 1);
         if (r < 0) {
             if (!t->trouves) t->premier = (uint32_t)s;
             t->trouves++;
@@ -118,14 +132,14 @@ static void *fil(void *v) {
     return NULL;
 }
 
-static long balaye_design(const design *d, int prof, long long *pas) {
+static long balaye_design(const design *d, int cible, long long *pas) {
     pthread_t th[64];
     tache tk[64];
     uint64_t span = (1ULL << 32) / NBFILS;
     for (int i = 0; i < NBFILS; i++) {
         tk[i].lo = (uint32_t)(i * span);
         tk[i].hi = (uint32_t)((i + 1 == NBFILS) ? 0xFFFFFFFFu : (i + 1) * span);
-        tk[i].d = d; tk[i].prof = prof;
+        tk[i].d = d; tk[i].cible = cible;
         pthread_create(&th[i], NULL, fil, &tk[i]);
     }
     long tot = 0; long long p = 0;
@@ -180,7 +194,7 @@ static int selftest(void) {
     }
     long long pas;
     clock_t t0 = clock();
-    long n = balaye_design(&d, NF, &pas);
+    long n = balaye_design(&d, 0, &pas);
     double sec = (double)(clock() - t0) / CLOCKS_PER_SEC / NBFILS;
     tot++; ok += (n == 1);
     printf("  etat plante 0x%08X retrouve : %ld survivant(s)  %s  (%.0f s, %.2e pas)\n",
@@ -196,7 +210,7 @@ static int selftest(void) {
             pris[v] = 1; MASQ[t][v >> 6] |= 1ULL << (v & 63);
         }
     }
-    long n2 = balaye_design(&d, NF, NULL);
+    long n2 = balaye_design(&d, 0, NULL);
     tot++; ok += (n2 == 0);
     printf("  masques ALEATOIRES : %ld survivant(s)  %s\n",
            n2, n2 == 0 ? "OK" : "ECHEC");
@@ -233,7 +247,7 @@ int main(int argc, char **argv) {
             for (int c = 1; c <= amax; c++)
               for (int o = 0; o < 8; o++) {
                   design d = {a, b, c, o};
-                  total += balaye_design(&d, NF, &pas);
+                  total += balaye_design(&d, 0, &pas);
                   ptot += pas; ndes++;
                   if (ndes % 50 == 0)
                       fprintf(stderr, "  ... %ld designs, %ld survivants, %.0f s\n",
@@ -242,7 +256,7 @@ int main(int argc, char **argv) {
               }
     } else {
         design d = {atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6])};
-        total += balaye_design(&d, NF, &pas);
+        total += balaye_design(&d, 0, &pas);
         ptot += pas; ndes = 1;
     }
     printf("designs=%ld etats=%lld survivants=%ld pas=%.3e sec=%.1f\n",

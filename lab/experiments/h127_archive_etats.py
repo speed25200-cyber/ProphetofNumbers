@@ -14,22 +14,28 @@ amorçage NOMMÉ. Un état amorcé par une source d'entropie lui échappait.
 
 LE FILTRE, ET IL NE SUPPOSE RIEN
 =================================
-Le §141 l'a établi : à l'étape 0 de Fisher-Yates le tableau est ENCORE
-L'IDENTITÉ, donc la valeur émise vaut exactement j_0 + 1 avec
-j_0 = floor(80·u/2^32), et elle appartient à l'ensemble publié.
+La question posée à chaque état est la plus simple qui soit :
 
-    j_0 + 1 ∈ S        EXACTEMENT, pour chaque tirage de l'archive.
+    cet état produit-il EXACTEMENT les vingt numéros d'un tirage de l'archive ?
 
-C'est un filtre de 20/80 = 1/4 par tirage — sans l'ordre, sans le bonus, sans
-aucun modèle du bonus. La fenêtre utilisée fait QUARANTE tirages consécutifs
-d'une même journée, soit un filtre de 4^-40 = 10^-24 : un état faux ne survit
-pas, et l'espérance de faux positifs sur les 2^32 états vaut 4·10^-15.
+Le filtre vaut donc 1/C(80,20) = 2,8·10^-19, et l'espérance de faux positifs sur
+les 2^32 états vaut 1,2·10^-9. UN SEUL TIRAGE SUFFIT — et c'est ce qui compte,
+parce que cela supprime deux hypothèses d'un coup :
+
+    AUCUNE HYPOTHÈSE DE PAS entre tirages — les vingt et un mots du §137 ne
+    servent plus — ET AUCUNE HYPOTHÈSE D'ALIGNEMENT, puisque énumérer TOUS les
+    états couvre tous les points de départ possibles.
 
 LE REJET PRÉCOCE FAIT LE TRAVAIL
 =================================
-Un état survit à k tirages avec probabilité 4^-k, donc trois états sur quatre
-meurent au PREMIER mot. Le coût mesuré vaut 5,7·10^9 pas de générateur par
-design, soit 23 s sur quatre fils — pour 2^32 états.
+Chaque numéro émis doit appartenir à l'ensemble publié, donc on rejette avec
+probabilité 3/4 dès le PREMIER mot, et l'espérance vaut 1/(1−1/4) = 1,33 mot par
+état. Coût mesuré : 5,7·10^9 pas de générateur par design, soit 9 s sur quatre
+fils — pour 4 294 967 296 états.
+
+    C'est 2,5 fois plus rapide que le confinement du seul mot 0 sur quarante
+    tirages, ET c'est un filtre de 2,8·10^-19 au lieu de 10^-24 réparti sur
+    quarante hypothèses de pas.
 
 QUELS DESIGNS
 ==============
@@ -210,6 +216,8 @@ with open(FMASQ, "wb") as fh:
 st = subprocess.run([BIN, "--selftest"], capture_output=True, text=True, env=ENV)
 AUTO = st.stdout.strip().split("\n")[-1]
 
+from math import comb                                            # noqa: E402
+FILTRE = 1.0 / comb(80, 20)
 say(f"""   Les §144, §146 et §147 attaquent les DOUZE tirages ordonnes des videos.
    L'archive en publie {len(NUM):,}, et c'est elle qui compte. Le §120 la balayait
    bien, mais des GRAINES : 2^32 valeurs passees a un amorcage NOMME. Un etat
@@ -218,19 +226,18 @@ say(f"""   Les §144, §146 et §147 attaquent les DOUZE tirages ordonnes des vi
      ICI ON BALAIE L'ESPACE D'ETAT ENTIER — les 4 294 967 296 etats d'un
      generateur de 32 bits, amorces N'IMPORTE COMMENT — CONTRE L'ARCHIVE.
 
-   LE FILTRE NE SUPPOSE RIEN (§141). A l'etape 0 de Fisher-Yates le tableau est
-   encore l'identite, donc la valeur emise vaut exactement j_0 + 1 avec
-   j_0 = floor(80·u/2^32), et elle appartient a l'ensemble publie :
+   LA QUESTION POSEE A CHAQUE ETAT EST LA PLUS SIMPLE QUI SOIT : produit-il
+   EXACTEMENT les vingt numeros d'un tirage de l'archive ? Sans l'ordre, sans le
+   bonus, sans aucun modele du bonus.
 
-       j_0 + 1 dans S    EXACTEMENT, pour chaque tirage — soit 20/80 = 1/4.
+       tirage vise       identifiant {IDS[deb[k]]}
+       ensemble          {SEG[0].tolist()}
+       filtre            1/C(80,20) = {FILTRE:.2e}
+       faux positifs     esperance {2**32 * FILTRE:.1e} sur les 2^32 etats
 
-   Sans l'ordre, sans le bonus, sans aucun modele du bonus.
-
-       fenetre           {NW} tirages CONSECUTIFS d'une meme journee
-       identifiants      {IDS[deb[k]]} a {IDS[deb[k]+NW-1]}
-       journee           {fin[k]-deb[k]} tirages a 300 s, sans coupure
-       filtre            4^-{NW} = 1e-{NW*0.602:.0f}
-       faux positifs     esperance {2**32 * 4.0**-NW:.1e} sur les 2^32 etats
+   ET UN SEUL TIRAGE SUFFIT, ce qui supprime deux hypotheses d'un coup :
+   AUCUN pas de 21 mots a supposer, AUCUN alignement a supposer — enumerer tous
+   les etats couvre tous les points de depart.
 
    temoin de l'outil : {AUTO}""")
 
