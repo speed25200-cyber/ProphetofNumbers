@@ -13649,7 +13649,7 @@ donne que le multiplicateur — 1,879 bit d'entropie, déjà compté au §125.
 
 ---
 
-## 132. Six cent dix-huit milliards de graines contre l'ordre d'émission daté (`h112_graine_ordonnee_datee.py`)
+## 132. Six cent dix-huit milliards de graines contre l'ordre d'émission daté (`h112_graine_ordonnee.py`)
 
 ### Ce qui est neuf n'est pas l'outil, c'est la donnée
 
@@ -13736,7 +13736,7 @@ Le §132 a fermé le **ré-amorçage par tirage** : 618 milliards de couples, z�
 compatible. Il restait exactement une autre forme de ré-amorçage — **une fois par
 jour**, et c'est celle que le sixième axe (§130) rend testable.
 
-Le §113 l'avait déjà attaquée, mais sur **trois** journées seulement : celles dont
+Le §138 l'attaque aussi, mais sur **trois** journées seulement : celles dont
 une vidéo donne l'ordre d'émission. L'archive en contient **346**.
 
 > **L'archive est triée, donc muette sur l'ordre.** Mais elle donne l'**ensemble**
@@ -13764,7 +13764,7 @@ entre départs valent 86 400 s pour 342 d'entre eux, 79 200 / 82 800 / 90 000 au
 trois changements d'heure.
 
 > **Aucune de ces 346 graines n'avait été essayée.** Le §120 balayait `[0 ; 2^32)`
-> contre le **premier** tirage de l'archive seulement ; le §113 ne connaît que
+> contre le **premier** tirage de l'archive seulement ; le §138 ne connaît que
 > trois journées.
 
 ### Six formes de graine, dérivées de la journée elle-même
@@ -13794,7 +13794,7 @@ graine plantée.
 | forme de ré-amorçage | testée par | verdict |
 |---|---|---|
 | par tirage, graine = identifiant ou heure | §120, §132 | 618·10⁹ couples, rien |
-| par journée, sur l'ordre filmé (3 jours) | §113 | rien |
+| par journée, sur l'ordre filmé (3 jours) | §138 | 3,66·10⁹ couples, rien |
 | **par journée, sur l'ensemble trié (346 jours)** | **§133** | **1,23·10⁹ couples, rien** |
 
 Un succès aurait donné les **204 tirages** de la journée trouvée — et, la forme de
@@ -14099,7 +14099,7 @@ catalogue F₂-linéaire jusqu'à 512 bits.
 | ré-amorçage | testé par | volume | verdict |
 |---|---|---|---|
 | par tirage, graine = id / heure / ms | §120, §132 | 6,19·10¹¹ couples | rien |
-| par journée, sur l'**ordre** filmé (3 j.) | §113 | 1 890 essais, 1 638 exclus | rien |
+| par journée, sur l'**ordre** filmé (3 j.) | §138 | 3,66·10⁹ couples | rien |
 | par journée, sur l'**ensemble** trié (346 j.) | §133 | 1,23·10⁹ couples | rien |
 
 ### Ce que la conjonction établit
@@ -14230,3 +14230,87 @@ uniforme ni indépendant, et il l'est.
 **Registre : `m = 60 346`, 2/2 lectures réfutées, `verdict : conforme`.** Le volet
 spectral est consigné dans les notes **comme dépourvu de puissance**, et non comme
 un test — l'enregistrer autrement aurait été enregistrer un homme de paille.
+
+---
+
+## 138. La graine de la journée : l'attaque que le sixième axe rend possible (`h113_graine_de_journee.py`)
+
+### D'où vient cette hypothèse
+
+Le §130 a trouvé le sixième axe : la plateforme s'arrête **7 h 05 chaque nuit** et
+reprend à 06:05, par blocs de 204 tirages. La structure est mesurée sur 70 560
+tirages et vérifiée trois fois hors échantillon.
+
+> **Si la plateforme s'arrête sept heures par nuit, le processus qui tire s'arrête
+> aussi. Et quand il repart, il repart de quelque part.**
+
+Une loterie régulée doit pouvoir **rejouer** ses tirages pour l'audit ; amorcer
+une fois par jour sur une valeur dérivée de la date est la façon la plus naturelle
+d'y arriver. Rien dans le dossier ne l'avait testé, parce que le sixième axe
+n'existait pas la veille.
+
+### Ce qui la rend testable, et qui vient d'arriver
+
+Il fallait trois choses, et les trois sont arrivées ensemble :
+
+1. l'**ordre d'émission** de plusieurs tirages — les trois vidéos ;
+2. leur **index dans la journée** — le §130 ;
+3. l'**heure exacte** du premier tirage de chaque journée — le §130 encore.
+
+> **Contrôle.** Début du 31/08 = 1 788 149 100, et `1 788 149 100 + 84 × 300 =
+> 1 788 174 300` — exactement l'horodatage du tirage 1381278.
+
+| journée | 1ᵉʳ tirage | unix du 1ᵉʳ | index observés |
+|---|---|---|---|
+| 30/08 | 1 380 990 | 1 788 062 700 | 33, 36, 38, 40, 41 |
+| 31/08 | 1 381 194 | 1 788 149 100 | 62, 63, 64, 65, 84 |
+| 01/09 | 1 381 398 | 1 788 235 500 | 83, 85 |
+
+### L'attaque
+
+Sous ré-amorçage quotidien, le tirage d'index `m` occupe les mots `m·stride`. Pour
+chaque graine candidate on avance le générateur de `m·stride` mots, puis on exige
+les **vingt numéros dans l'ordre** — et cela pour **tous** les tirages observés de
+la journée à la fois. Le filtre vaut `(80!/60!)^{−k}`, soit `10⁻³⁷` par tirage.
+
+Le mode `--jour` a été ajouté à `tools/sweep_order.c` : douze familles × deux
+conventions de Fisher-Yates, pas 20 à 22. **Les échantillonneurs à rejet sont
+exclus, et c'est délibéré** — sous rejet le nombre de mots consommés *varie*, et
+« `m·stride` » n'existe pas.
+
+> **Témoin : 24/24** combinaisons retrouvent une graine plantée à partir de deux
+> tirages d'index 33 et 41 — donc à travers un saut de 660 mots.
+
+### Le résultat
+
+| plage | graines / journée × pas |
+|---|---|
+| `[0 ; 2^24)` | 402 653 184 |
+| unix du jour ± 3 600 s | 172 800 |
+| millisecondes du jour ± 60 s | 2 880 000 |
+| 1ᵉʳ identifiant ± 10 000 | 480 000 |
+
+    3 journées × 4 plages × 3 pas  =  3 655 673 856 couples testés
+                                       0 compatible
+
+**`m = 60 347`, `verdict : conforme`.** 2 616 s.
+
+### Ce que cela ferme, avec le §133
+
+Le §133 attaque la même hypothèse depuis l'autre bout : les **346** journées de
+l'archive, avec l'ensemble trié pour cible. Les deux se complètent exactement —
+
+| | §138 | §133 |
+|---|---|---|
+| journées | 3 (celles filmées) | **346** (toutes) |
+| cible | l'**ordre** des 20 numéros | l'**ensemble** trié |
+| filtre par tirage | `10⁻³⁷` | `2,8·10⁻¹⁹` |
+| formes de graine | 4 | 6 |
+| couples testés | 3,66·10⁹ | 1,23·10⁹ |
+| compatibles | **0** | **0** |
+
+> Le sixième axe a produit une hypothèse neuve, à fort enjeu — une graine trouvée
+> donnait les 204 tirages du jour, puis tous les jours suivants — et elle est
+> maintenant testée **sur l'ordre là où on l'a, sur l'ensemble partout ailleurs**.
+> Elle est fausse, ou la graine n'est dérivable d'aucune quantité que la
+> plateforme publie.
