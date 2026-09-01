@@ -86,73 +86,95 @@ def _delta_Z(info_a, info_b, i, K, L):
     return supp, all(x == 0 for x in d[max(0, i - L):i])
 
 
-def chaine_dp(low, Qs, K, L, perdus_max=PERDUS_MAX, etats_max=200000):
+def chaine_dp(low, Qs, K, L, perdus_max=PERDUS_MAX, etats_max=200000, perdus_inter=0):
     """Programmation dynamique sur les états de la chaîne mod 5.
     low : r_i mod 32 pour tous les mots ; Qs : classes de chaque tirage, dans l'ordre.
+    perdus_inter : 0..perdus_inter mots perdus SANS contrainte entre deux tirages (la clé
+    porte le compteur `gap`, remis à zéro au premier mot du tirage suivant).
     Rend (finals, stats) ; finals = liste de (mot de fin, clé, info) avec
-    info = [w en masque de bits, résidus initiaux, masque des mots à paquet, nb de chemins]."""
+    info = [w en masque de bits, résidus initiaux, masque des mots à paquet, nb de chemins].
+    Chaque clé porte une LISTE d'infos : un représentant par classe de paquet — les
+    « faux jumeaux » (même clé, paquet non fini) restent des états à part mais gardent
+    la clé, si bien qu'ils peuvent fusionner plus tard ; sans cela ils prolifèrent aux
+    petits L, où la coïncidence δ ≡ 0 (mod 10) sur L résidus a probabilité 5^-L."""
     ND = len(Qs)
     NW = len(low)
     q = [(x >> 1) & 15 for x in low]
     kappa = [0] * L + [int(low[i - K] + low[i - L] >= 32) for i in range(L, NW)]
-    states = {(0, 0, 0, frozenset(), ()): [0, (), 0, 1]}
+    states = {(0, 0, 0, frozenset(), (), 0): [[0, (), 0, 1]]}
     finals = []
     stats = {"fusions": 0, "faux_jumeaux": 0, "etats_max": 0, "surv": [0] * (ND + 1)}
+
+    def fusionne(new, nk, ninfo, i):
+        lst = new.get(nk)
+        if lst is None:
+            new[nk] = [ninfo]
+            return
+        for old in lst:
+            supp, fini = _delta_Z(old, ninfo, i + 1, K, L)
+            if fini:
+                old[2] |= ninfo[2] | supp
+                old[3] += ninfo[3]
+                stats["fusions"] += 1
+                return
+        stats["faux_jumeaux"] += 1
+        lst.append(ninfo)
+
     for i in range(NW):
         if not states:
             break
         new = {}
-        for key, info in states.items():
-            t, acc, perdus, used, tail = key[:5]
+        for key, lst in states.items():
+            t, acc, perdus, used, tail, gap = key
             if t == ND:
-                finals.append((i, key, info))
+                for info in lst:
+                    finals.append((i, key, info))
                 continue
             c = q[i]
             Qt = Qs[t]
-            if c not in Qt:
-                continue
             if i < L:
                 cands = [(None, x) for x in range(5)]
             else:
                 base = (tail[L - K] + tail[0] + kappa[i]) % 5
                 cands = [(wi, (base - 3 * wi) % 5) for wi in (0, 1)]   # 2^27 = 3 mod 5
-            for wi, x in cands:
-                if x not in Qt[c]:
+            # (b) mot perdu entre deux tirages : classe et résidu libres, gap < perdus_inter
+            libre = t >= 1 and acc == 0 and perdus == 0 and gap < perdus_inter
+            for info in lst:
+                if libre:
+                    for wi, x in cands:
+                        ntail = (tail + (x,))[-L:]
+                        w2 = info[0] | ((wi or 0) << i)
+                        rho2 = info[1] + (x,) if i < L else info[1]
+                        fusionne(new, (t, 0, 0, used, ntail, gap + 1),
+                                 [w2, rho2, info[2], info[3]], i)
+                # (a) mot du tirage t : classe permise, résidu dans la classe
+                if c not in Qt:
                     continue
-                ntail = (tail + (x,))[-L:]
-                w2 = info[0] | ((wi or 0) << i)
-                rho2 = info[1] + (x,) if i < L else info[1]
-                if (c, x) not in used:
-                    if acc + 1 == 20:
-                        nk = (t + 1, 0, 0, frozenset(), ntail)
+                for wi, x in cands:
+                    if x not in Qt[c]:
+                        continue
+                    ntail = (tail + (x,))[-L:]
+                    w2 = info[0] | ((wi or 0) << i)
+                    rho2 = info[1] + (x,) if i < L else info[1]
+                    if (c, x) not in used:
+                        if acc + 1 == 20:
+                            nk = (t + 1, 0, 0, frozenset(), ntail, 0)
+                        else:
+                            nk = (t, acc + 1, perdus, used | {(c, x)}, ntail, 0)
+                    elif perdus < perdus_max:
+                        nk = (t, acc, perdus + 1, used, ntail, 0)
                     else:
-                        nk = (t, acc + 1, perdus, used | {(c, x)}, ntail)
-                elif perdus < perdus_max:
-                    nk = (t, acc, perdus + 1, used, ntail)
-                else:
-                    continue
-                ninfo = [w2, rho2, info[2], info[3]]
-                while True:
-                    old = new.get(nk)
-                    if old is None:
-                        new[nk] = ninfo
-                        break
-                    supp, fini = _delta_Z(old, ninfo, i + 1, K, L)
-                    if fini:
-                        old[2] |= ninfo[2] | supp
-                        old[3] += ninfo[3]
-                        stats["fusions"] += 1
-                        break
-                    stats["faux_jumeaux"] += 1
-                    nk = nk + (stats["faux_jumeaux"],)
+                        continue
+                    fusionne(new, nk, [w2, rho2, info[2], info[3]], i)
         states = new
-        stats["etats_max"] = max(stats["etats_max"], len(states))
-        if len(states) > etats_max:
+        nb = sum(len(v) for v in states.values())
+        stats["etats_max"] = max(stats["etats_max"], nb)
+        if nb > etats_max:
             stats["abandon"] = i
             return [], stats
-        for key in states:
-            if key[1] == 0 and key[2] == 0 and 1 <= key[0] <= ND:
-                stats["surv"][key[0]] += 1
+        for key, lst in states.items():
+            if key[1] == 0 and key[2] == 0 and key[5] == 0 and 1 <= key[0] <= ND:
+                stats["surv"][key[0]] += len(lst)
     return finals, stats
 
 
@@ -203,23 +225,50 @@ def regenere(etat, K, L, n):
     return r
 
 
-def releve_etat(etat_bas, tirages, K, L, mots_max=None, perdus_max=PERDUS_MAX):
+def regenere_tirages(seq, tirages, perdus_inter=0):
+    """Vrai si la suite `seq` (mot 0 = premier mot du tirage 0) régénère les tirages triés,
+    avec 0..perdus_inter mots perdus entre deux tirages. Sous le rejet un tirage est
+    déterminé par son départ (on lit jusqu'à 20 numéros distincts, tous permis) ; les
+    départs vivants d'un tirage forment un petit ensemble, d'où la mémoïsation sur (t, s)."""
+    from functools import lru_cache
+    ND = len(tirages)
+    ens = [set(S) for S in tirages]
+    n = len(seq)
+
+    @lru_cache(maxsize=None)
+    def ok(t, s):
+        if t == ND:
+            return True
+        vus = set()
+        p = s
+        St = ens[t]
+        while len(vus) < 20:
+            if p >= n:
+                return False
+            v = (seq[p] >> 1) % 80 + 1
+            if v not in St:
+                return False
+            vus.add(v)
+            p += 1
+        return any(ok(t + 1, p + g) for g in range(perdus_inter + 1))
+
+    return ok(0, 0)
+
+
+def releve_etat(etat_bas, tirages, K, L, mots_max=None, perdus_max=PERDUS_MAX, perdus_inter=0):
     """Pipeline complet : état bas (L mots mod 32) + tirages triés consécutifs -> états 32 bits
-    qui régénèrent exactement ces tirages (liste, vide si aucun). `tirages` : listes de 20."""
+    qui régénèrent exactement ces tirages (liste, vide si aucun). `tirages` : listes de 20 ;
+    perdus_inter : mots perdus admis entre deux tirages (0 = tirages jointifs)."""
     ND = len(tirages)
     NW = mots_max or (60 * ND + L + 100)
     low = suite_basse(etat_bas, K, L, NW)
     Qs = [classes(S) for S in tirages]
-    finals, stats = chaine_dp(low, Qs, K, L, perdus_max)
+    finals, stats = chaine_dp(low, Qs, K, L, perdus_max, perdus_inter=perdus_inter)
     trouves = []
     for (iend, key, info) in finals:
         st, lam1, nu = releve(low, info, K, L, iend)
         seq = regenere(st, K, L, NW)
-        try:
-            ok = all(tirages_de(seq, ND)[t][2] == sorted(tirages[t]) for t in range(ND))
-        except IndexError:
-            ok = False
-        if ok and st not in trouves:
+        if regenere_tirages(seq, tirages, perdus_inter) and st not in trouves:
             trouves.append(st)
     return trouves, stats
 
@@ -273,6 +322,20 @@ def _temoin():
     t2 = time.time()
     trouves, _ = releve_etat([x & 31 for x in state], [S for (_, _, S) in draws], K, L)
     print(f"releve_etat : {trouves} == [vrai] {trouves == [state]}  ({time.time() - t2:.2f} s)")
+    # même état, tirages séparés par t mod 3 mots perdus (0, 1, 2) : relèvement avec perdus_inter=4
+    p = 0
+    draws_g = []
+    for t in range(ND):
+        d = tirages_de(r, 1, p)[0]
+        draws_g.append(d[2])
+        p = d[1] + t % 3
+    t3 = time.time()
+    trouves_g, stats_g = releve_etat([x & 31 for x in state], draws_g, K, L, perdus_inter=4)
+    print(f"releve_etat (perdus entre tirages t mod 3, perdus_inter=4) : {trouves_g} == [vrai] "
+          f"{trouves_g == [state]}  états vivants au plus {stats_g['etats_max']}  "
+          f"({time.time() - t3:.2f} s)")
+    print(f"regenere_tirages sans perdus admis sur ces tirages : "
+          f"{regenere_tirages(r, draws_g, 0)} (attendu False)")
 
 
 if __name__ == "__main__":
