@@ -94,9 +94,27 @@ niveau `j` avec probabilité `1 − 2ʲ/K`. D'où l'espérance `Σⱼ max(0, 1 �
 > `u` exactement comme une troncature**. Le théorème du préfixe s'y applique
 > tel quel. ∎
 
-Les bornes étant *estimées*, chaque intervalle est élargi de **4 σ** — ce qui
-coûte des bits et ne peut pas en inventer. Rendement mesuré : **0,762 bit
-exact** par tirage.
+Les bornes étaient *estimées*, donc chaque intervalle était élargi de **4 σ** —
+ce qui coûte des bits et ne peut pas en inventer. Rendement : **0,762 bit exact**
+par tirage.
+
+**Corrigé au §125 : les bornes sont exactes.** La loi du boost est portée par la
+grille **1/80** — soit la taille du vivier — avec les secteurs
+`(41, 19, 12, 4, 2, 2)` : χ² = 0,66 pour 5 ddl, loi entièrement spécifiée, et
+toutes les grilles de 6 à 78 rejetées. L'élargissement de 4 σ disparaît :
+
+> **1,150 bit exact par tirage au lieu de 0,762 — et démontré au lieu
+> qu'estimé.**
+
+Deux faits départagent 80 de 79, le seul autre dénominateur ≤ 100 qui ajuste, et
+aucun n'est une fréquence : **80 est le modulus déjà présent dans le tirage des
+numéros** ; et les **sept** valeurs filmées au §92 se ferment sur
+`39 + 2 + 19 + 12 + 4 + 2 + 2 = 80`, ce qui **prédit** `E[multiplicateur] = 162/80
+= 2,025` contre **2,0242 ± 0,0062** mesuré — 0,13 σ, sur une quantité non
+ajustée.
+
+*(Ce que la mesure ne donne pas : les **longueurs** des plages, oui ; leurs
+**positions** dans la table, jamais.)*
 
 ### 2.4 Théorème du confinement (§110) — l'ensemble trié
 
@@ -113,10 +131,10 @@ pourtant **inutilisable**, et le §7 dit pourquoi.
 
     ensemble trié des 20 numéros   61,6 bits/tirage   INUTILISABLE (§7)
     rang du bonus                   3,20 bits/tirage   utilisé
-    boost                           0,762 bit/tirage   utilisé
+    boost (§125, bornes exactes)    1,150 bit/tirage   utilisé
     ─────────────────────────────────────────────────────────────────
-                                    3,96 équations F₂ exactes/tirage
-                                    279 000 sur l'archive entière
+                                    4,35 équations F₂ exactes/tirage
+                                    307 000 sur l'archive entière
 
 **Il n'y a pas de quatrième champ.**
 

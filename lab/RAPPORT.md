@@ -12883,3 +12883,139 @@ Une conclusion recopiée plus large que sa source — §101, §121, §123, et ic
 
 Ce qui reste hors de portée, inchangé : le rejet à pas variable (§111), les
 sorties brouillées (§119, §123), et l'indexation dans l'ordre d'émission (§106).
+
+## 125. La loi du boost vit sur une grille de 1/80 — et 80 est la taille du vivier (`h106_grille_du_boost.py`)
+
+### Ce que le §92 a laissé ouvert
+
+Le §92 a filmé la roue — sept secteurs **égaux** à 360/7 près — et montré que la
+loi publiée n'est pas uniforme, d'où sa conclusion : *« l'angle d'arrêt n'est pas
+la variable publiée ; le résultat est tiré d'abord, d'une loi pondérée. »*
+
+Il note aussi que quatre des cinq seuils cumulés sont « ronds à moins de 0,6 σ ».
+**Mais ronds sur quelle grille ?** Il ne le dit pas — et c'est là qu'est la
+structure.
+
+### La mesure
+
+| boost | 1 | 2 | 3 | 4 | 5 | 10 |
+|---|---|---|---|---|---|---|
+| **secteurs** | **41** | **19** | **12** | **4** | **2** | **2** |
+
+Somme **80**. Loi **entièrement spécifiée**, aucun paramètre ajusté :
+**χ² = 0,66** pour 5 ddl, `p = 0,985`.
+
+| seuil cumulé | observé | exact | écart |
+|---|---|---|---|
+| 41/80 | 0,511933 | 0,512500 | **0,30 σ** |
+| 60/80 | 0,749901 | 0,750000 | **0,06 σ** |
+| 72/80 | 0,900496 | 0,900000 | **0,44 σ** |
+| 76/80 | 0,950454 | 0,950000 | **0,56 σ** |
+| 78/80 | 0,975099 | 0,975000 | **0,17 σ** |
+
+### Ce que le balayage prouve
+
+Parmi les **95 dénominateurs de 6 à 100**, **deux seulement** ne sont pas
+rejetés : **79 et 80**. Les 93 autres tombent, et la grille deux fois plus
+grossière avec eux :
+
+| | secteurs | χ² | |
+|---|---|---|---|
+| grille **1/40** | 20, 10, 6, 2, 1, 1 | **61,5** | **rejetée** (seuil 11,07) |
+| grille **1/80** | 41, 19, 12, 4, 2, 2 | **0,66** | `p = 0,985` |
+
+> Ce qui tranche est précisément le seul seuil que le §92 trouvait **non rond** :
+> `F(1) = 41/80`, et **41 est impair** — aucune grille 1/40 ne le porte.
+
+### Ce que le balayage ne prouve pas, et il faut le dire avant de s'en servir
+
+Sur `D ≤ 1000`, **759 dénominateurs** passent le seuil : une grille assez **fine**
+ajuste toujours. On pourrait croire que le **minimum** du χ² tranche — il tombe
+en `D = 80` sur l'archive. **Il ne tranche pas.**
+
+> On plante une **vraie** loi 1/80, on tire 70 560 boosts, on redemande le
+> minimum : il retombe sur un multiple de 80 dans **2 % des cas**, médiane 272.
+> Une grille fine suit le **bruit d'échantillonnage** mieux que la vraie grille.
+
+Le minimum observé en `D = 80` est donc une **coïncidence agréable, pas un
+argument**, et il n'est pas compté comme tel. Le χ² en `D = 80`, lui, est
+calibré : moyenne **5,07** sur les répliques plantées, pour une espérance de 5.
+
+### Ce qui départage 79 de 80 — et ce n'est pas une fréquence
+
+**1. 80 est la taille du vivier.** Le jeu tire vingt numéros sur **quatre-vingts**.
+Une table de 80 entrées réutilise un modulus déjà présent dans le code. **79 est
+premier et ne désigne rien.**
+
+**2. La clôture à sept secteurs.** Le §92 a **filmé** sept valeurs — le ×1,5 est
+fondu dans le seau « 1 » de l'archive. Sur la grille de 1/80, le seau de 41 se
+scinde en **39 + 2** :
+
+| valeur | ×1 | ×1,5 | ×2 | ×3 | ×4 | ×5 | ×10 | somme |
+|---|---|---|---|---|---|---|---|---|
+| **secteurs** | 39 | **2** | 19 | 12 | 4 | **2** | **2** | **80** |
+
+> **Les trois valeurs les plus rares ont exactement deux secteurs chacune.**
+
+Et cette lecture **prédit une quantité qu'elle n'a pas ajustée** :
+
+| | |
+|---|---|
+| `E[multiplicateur]` **prédit** | `162/80 =` **2,025** |
+| mesuré sur les seaux | 2,0117 ± 0,0062 |
+| corrigé du seau fondu | **2,0242** — soit **0,13 σ** |
+
+Le §92 estimait `P(×1,5) = 0,0234 ± 0,0123` par un tout autre chemin ;
+`2/80 = 0,025` y tombe à **0,13 σ**. Deux estimations indépendantes, une seule
+grille.
+
+### Ce que cela rapporte en bits
+
+Le §118 estimait les bornes puis les élargissait de **4 σ** — ce qui coûte des
+bits et ne peut pas en inventer. Avec des bornes `k/80` **exactes**,
+l'élargissement disparaît.
+
+| boost | secteurs | intervalle exact | bits exacts | §118 (4 σ) |
+|---|---|---|---|---|
+| 1 | 41 | `[0/80, 41/80)` | 0 | 0 |
+| 2 | 19 | `[41/80, 60/80)` | **2** | 1 |
+| 3 | 12 | `[60/80, 72/80)` | **2** | 1 |
+| 4 | 4 | `[72/80, 76/80)` | 3 | 3 |
+| 5 | 2 | `[76/80, 78/80)` | 4 | 4 |
+| 10 | 2 | `[78/80, 80/80)` | 5 | 5 |
+
+> **1,150 bit exact par tirage contre 0,762 : +51 % sur le canal boost**, et
+> désormais *démontré* au lieu d'*estimé*.
+
+Et le **théorème du contenu (§94) s'applique au mot du boost** : comme `16 | 80`,
+sous échantillonneur modulo le secteur donne les quatre bits **bas** du mot —
+pourvu qu'on sache *quel* secteur.
+
+**La limite.** Les fréquences donnent les **longueurs** des six plages, jamais
+leurs **positions**. Le tableau ci-dessus suppose la disposition **cumulée**,
+celle qu'un `cumsum` + `searchsorted` produit — l'hypothèse que le §92 avait déjà
+signalée sans pouvoir la lever, et qui n'est pas levée ici non plus.
+
+### Ce que cela rend testable sur la vidéo
+
+Le §92 demandait : filmer vingt arrêts et mesurer la fraction dans le secteur —
+constante, ou répartie sur `[0, 1)` ? **La grille de 1/80 rend la question
+quantitative.** Si l'animation calcule l'angle à partir du **secteur**, la
+fraction résiduelle ne prend pas une valeur continue : elle prend **au plus `k_v`
+valeurs distinctes**.
+
+| valeur | ×5, ×10, ×1,5 | ×4 | ×3 |
+|---|---|---|---|
+| **angles résiduels possibles** | **2** | 4 | 12 |
+
+> **Trois arrêts sur ×10 donnant trois fractions différentes réfutent la
+> lecture.** Et si elle tient, filmer un ×10 identifie le secteur parmi 80 —
+> **6,32 bits exacts** par tirage filmé.
+
+Trois lectures, et une seule vidéo les sépare : angle **constant** par valeur (la
+roue ne publie que le boost) ; angle à **`k_v` valeurs** (la roue publie le
+secteur, 6,32 bits) ; angle **continu** sur le secteur (la roue publie les bits
+de poids fort du mot brut — §87, plafond 7,00 bits).
+
+**Registre : consigné**, `χ² = 0,66`, verdict conforme, `m_extra = 294` pour le
+balayage des dénominateurs. `m = 58 443`, zéro significatif.
