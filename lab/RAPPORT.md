@@ -14889,3 +14889,95 @@ vraisemblance reste le plafond.
 **Registre : `m = 60 351`, 8/8, `verdict : conforme`.** Après `lab.dedupe()` — la
 première exécution avait épuisé son plafond de nœuds à `W = 18`, et une relance
 au même test avec plus de calcul l'a menée à terme.
+
+---
+
+## 144. Le prédicteur : de l'ordre observé aux vingt numéros du tirage suivant (`h123_predicteur.py`)
+
+### Ce qui manquait
+
+Les §140 à §143 ont chiffré la **difficulté** — bornes conditionnelles, coût du
+maximum de vraisemblance, corrélation rapide, arbre de branchement. **Aucun d'eux
+ne prédit.** Le dossier savait dire pourquoi c'est dur ; il ne savait pas dire, en
+un fichier exécutable :
+
+> *« voici des tirages ordonnés, voici les vingt numéros du prochain. »*
+
+### La théorie, en trois énoncés
+
+**(1) L'équation d'observation.** Connaître le numéro émis au pas `k` donne `j_k`,
+donc `⌊K·u/2³²⌋ = j_k − k` avec `K = 80 − k`, ce qui confine `u` à un intervalle
+`[lo, hi)`. Les bits de poids fort sur lesquels `lo` et `hi−1` s'accordent sont
+**exacts** : des formes `F₂`-linéaires de l'état, connues. Un tirage ordonné en
+rend ≈ 90.
+
+**(2) Le critère de prédictibilité — et c'est lui qui est neuf.** Le dossier a
+toujours demandé *« l'état est-il déterminé ? »*. **Ce n'est pas la bonne
+question.** Un bit cible `b = ⟨λ, s⟩` est prédictible **ssi**
+
+    λ ∈ espace des lignes du système observé,
+
+condition **strictement plus faible** que le rang plein. Donc :
+
+> **La prédiction peut réussir sur un système sous-déterminé.**
+
+En pratique : noyau de dimension `d`, on énumère ses `2^d` états, on garde ceux
+qui **rejouent** les tirages observés, et s'ils s'accordent tous sur le tirage
+suivant, **la prédiction est certaine même si l'état ne l'est pas**.
+
+**(3) La carte de prédiction.** L'état connu, le tirage `d` occupe les mots
+`21d … 21d+20` — le pas 21 étant **mesuré** au §137 — et Fisher-Yates rend les
+vingt numéros. Il n'y a plus de statistique : c'est du calcul.
+
+### Le témoin : cinq familles, cinq tirages prédits exactement
+
+Générateur planté, `n` tirages ordonnés donnés au prédicteur, **vingt numéros du
+suivant exigés dans l'ordre**. Probabilité de réussite au hasard : `10⁻³⁷`. Les
+cinq familles sont d'abord **vérifiées `F₂`-linéaires** (`f(a⊕b) = f(a)⊕f(b)`).
+
+| famille | `W` | `n` | rang | noyau | états qui rejouent | 20/20 |
+|---|---|---|---|---|---|---|
+| xorshift32 | 32 | 1 | 32 | 0 | 1 | **oui** |
+| xorshift64 | 64 | 1 | 64 | 0 | 1 | **oui** |
+| xorshift128 | 128 | 2 | 128 | 0 | 1 | **oui** |
+| **taus88** | 96 | 1 | **79** | **17** | **256** | **oui** |
+| **LFSR113** | 128 | 2 | **108** | **20** | **32 768** | **oui** |
+
+> **Le critère (2) mord dans 2 cas sur 5.** LFSR113 : rang **108 sur 128**, donc
+> **vingt dimensions de noyau**, et **32 768 états distincts** rejouent tous les
+> tirages observés — l'état n'est **pas** déterminé. Et pourtant **ils s'accordent
+> tous** sur les vingt numéros du tirage suivant.
+>
+> **La prédiction est certaine là où la reconstitution ne l'est pas.** C'est ce
+> que le dossier cherchait sans le formuler : il testait *« l'état est-il
+> déterminé ? »*, alors que la bonne question est *« **la cible** est-elle
+> déterminée ? »*.
+
+### Les douze tirages ordonnés réels
+
+Le §136 a exclu 120 systèmes sur 120 par incompatibilité, sans dire **où**. Le
+prédicteur ajoute ce diagnostic :
+
+| journée | xorshift32 | xorshift64 | xorshift128 | taus88 | LFSR113 |
+|---|---|---|---|---|---|
+| −1 (5 tirages) | 35 éq. | 61 | 130 | 89 | 105 |
+| 0 (5 tirages) | 32 | 60 | 118 | 89 | 105 |
+| 1 (2 tirages) | 33 | 56 | 127 | 87 | 109 |
+| **largeur `W`** | **32** | **64** | **128** | 96 *(rang 79)* | 128 *(rang 108)* |
+
+> **Le point de contradiction vaut la largeur de l'état.** Chaque système reste
+> cohérent exactement tant qu'il est sous-déterminé, et se contredit **dès la
+> première équation de trop**. C'est la signature d'une source incompressible
+> relativement à ces familles — et c'est une mesure que le §136 ne donnait pas.
+
+**0 prédiction sur 15 systèmes.** Le prédicteur ne rend aucun numéro, et c'est le
+seul résultat honnête : **une prédiction ne se publie que si un état la porte.**
+
+### Ce que la chaîne délivre désormais
+
+`h123_predicteur.py` est autonome : on lui donne des tirages ordonnés et un indice
+cible, il rend soit les vingt numéros, soit le diagnostic exact de l'échec. Avec
+le flux du §139 — 204 tirages ordonnés par jour — c'est la pièce qui manquait
+entre la capture et la prédiction.
+
+**Registre : `m = 60 352`, 0 prédiction, `verdict : conforme`.**

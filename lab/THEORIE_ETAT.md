@@ -496,6 +496,28 @@ linéaire en la donnée**.
 
 ---
 
+### 4.8 Le critère de prédictibilité (§144) — la bonne question
+
+Toutes les attaques ci-dessus demandent *« l'état est-il déterminé ? »*. Pour
+**prédire**, ce n'est pas la bonne question. Un bit cible `b = ⟨λ, s⟩` est
+prédictible **ssi `λ` appartient à l'espace des lignes du système observé** —
+condition **strictement plus faible** que le rang plein.
+
+> **La prédiction peut réussir sur un système sous-déterminé.** Noyau de
+> dimension `d` : on énumère ses `2^d` états, on garde ceux qui **rejouent** les
+> observations, et s'ils s'accordent tous sur la cible, la prédiction est
+> **certaine** même si l'état ne l'est pas.
+
+**Mesuré (§144).** LFSR113, rang **108 sur 128** : **32 768** états distincts
+rejouent tous les tirages observés, et **tous** donnent les mêmes vingt numéros du
+tirage suivant. Idem taus88 à rang 79/96, 256 états. Cinq familles sur cinq
+prédites **20/20 dans l'ordre**, probabilité au hasard `10⁻³⁷`.
+
+`lab/experiments/h123_predicteur.py` est la chaîne complète et autonome :
+tirages ordonnés + indice cible → vingt numéros, ou diagnostic exact de l'échec.
+
+---
+
 ## 5. Le théorème de prédiction
 
 > **Un générateur déterministe identifié prédit exactement tous les tirages
