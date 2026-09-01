@@ -12307,3 +12307,234 @@ l'horodatage a deux écritures et qu'une seule tient dans 2³².
 > reproduit volontiers — c'est pourquoi le dossier la traque.
 
 **Registre : consigné.** `m = 58 080`, zéro significatif.
+
+## 122. Le théorème de la complexité linéaire universelle : cesser d'énumérer (`h103_complexite_lineaire.py`, `tools/bmf2.c`)
+
+### Le défaut de méthode que ce paragraphe corrige
+
+Du §105 au §121, la méthode est toujours la même : **nommer** une famille,
+écrire ses formes F2-linéaires, résoudre, exclure. Onze mille systèmes, cinq
+axes de modèle de consommation. Et **trois de ces cinq axes** — l'ordre de
+service du cache (§112), les mots par numéro (§113), le décalage (§115) — n'ont
+été trouvés qu'**après coup**. Chacun faisait échouer toutes les attaques
+**en silence**.
+
+> Une exclusion par énumération ne vaut que pour ce qui a été énuméré. Et
+> l'histoire du dossier montre qu'on n'énumère jamais assez.
+
+Ce paragraphe change de méthode : il calcule un **invariant**.
+
+### Le théorème
+
+Soit un générateur dont l'état vit dans `F2^W`, évolue par `s ↦ A·s` pour une
+matrice `A` **quelconque** sur F2, et dont le mot rendu est `w = Λ·s` pour une
+application F2-linéaire `Λ` quelconque. Soit `β` une forme F2-linéaire du mot.
+Si la plateforme consomme ses mots aux positions d'une **progression
+arithmétique** `n_i = c + σ·i`, alors la suite observée
+
+    b_i  =  β( Λ · A^(c + σi) · s )
+
+vérifie la récurrence linéaire dont le polynôme caractéristique est le polynôme
+minimal de `A^σ`. Celui-ci divise le polynôme caractéristique de `A^σ`, de
+degré `W`. Donc :
+
+> **L(b) ≤ W**, où `L` est la complexité linéaire — et Berlekamp-Massey rend
+> **exactement** `L` pour la suite finie observée.
+
+**Le membre de droite ne contient ni `A`, ni `Λ`, ni `β`, ni `σ`, ni `c`.** Un
+seul nombre teste donc simultanément :
+
+| ce qui disparaît de l'énoncé | ce que cela remplace |
+|---|---|
+| la matrice `A` | **toute** famille F2-linéaire, y compris non publiée |
+| le pas `σ` | l'axe 2 du §121 — le §115 y avait passé 5 126 systèmes |
+| le décalage `c` | l'axe 5 |
+| les mots par numéro | l'axe 3 (§113) : absorbé dans `σ` |
+| la sortie `Λ`, la forme `β` | la position du bit lu dans le mot |
+
+### Le corollaire qui compte : prédire sans identifier
+
+Si `L` est petit, Berlekamp-Massey rend **la récurrence elle-même**, et tout bit
+suivant se calcule à partir des `L` derniers — sans jamais savoir de quelle
+famille il s'agit, ni quel est le pas, ni quel est l'échantillonneur.
+**L'identification de la famille n'est pas nécessaire à la prédiction.** C'est
+la seule voie du dossier qui prédise sans reconstituer.
+
+### Le ppcm : doubler la portée sans un bit de plus
+
+Le rang du bonus donne **deux** bits exacts par tirage. Les polynômes minimaux
+`f` et `f'` des deux suites divisent tous deux le polynôme caractéristique de
+`A^σ`, donc leur ppcm le divise aussi :
+
+    W  ≥  deg ppcm(f, f')  =  L + L' − deg pgcd(f, f').
+
+Sur un vrai générateur à polynôme caractéristique **irréductible** — MT19937 —
+`f = f'`, le pgcd vaut tout, et la borne rend exactement `W`. Sur du hasard les
+deux polynômes sont **premiers entre eux** et la borne vaut `~N` au lieu de
+`~N/2` : **la portée double**.
+
+### Deux bits exacts, toujours, et pourquoi
+
+Le §106 mesurait 3,20 bits en moyenne par rang de bonus — un nombre **variable**
+selon le rang. Ici il faut un bit à **position fixe**, sinon la suite n'est plus
+la trace d'une seule forme linéaire. Or **4 divise 20** :
+
+- **troncature** : `m = ⌊20u⌋` met `4u` dans `[m/5, (m+1)/5)`, intervalle de
+  longueur 1/5 qui ne contient un entier que si `m/5` en est un. Donc
+  `⌊4u⌋ = ⌊m/5⌋` **sans exception** : les deux bits de poids fort du mot sont
+  exacts sur les 70 560 tirages, et pas seulement sur une partie ;
+- **modulo** : `4 | 20 | 2^W` donne `w mod 4 = m mod 4` — les deux bits de poids
+  **faible**. C'est le théorème du contenu du §94 réduit à `K = 20`.
+
+### Les témoins : retrouver la largeur d'état sans nommer la famille
+
+On fabrique le rang du bonus sous le modèle « 20 mots de Fisher-Yates + 1 mot
+d'indice » — puis **on l'oublie**. Berlekamp-Massey ne reçoit que la suite de
+bits.
+
+| famille | état | tirages | L(f) | L(f') | ppcm | |
+|---|---|---|---|---|---|---|
+| xorshift32 | 32 | 600 | 32 | 32 | **32** | ✓ |
+| xorshift64 | 64 | 600 | 64 | 64 | **64** | ✓ |
+| xorshift96 | 96 | 600 | 92 | 92 | **92** | ✓ |
+| xorshift128 | 128 | 600 | 128 | 128 | **128** | ✓ |
+| taus88 | 96 | 600 | 84 | 83 | **84** | ✓ |
+| xoroshiro128 (brut) | 128 | 600 | 128 | 128 | **128** | ✓ |
+| xoshiro128 (brut) | 128 | 600 | 128 | 128 | **128** | ✓ |
+| xoshiro256 (brut) | 256 | 1 024 | 256 | 256 | **256** | ✓ |
+| LFSR113 | 128 | 600 | 79 | 83 | **83** | ✓ |
+| WELL512a | 512 | 2 048 | 512 | 512 | **512** | ✓ |
+| **MT19937** | **19 937** | 45 000 | 19 937 | 19 937 | **19 937** | ✓ |
+| *(générateur parfait)* | — | 70 560 | 35 280 | 35 278 | **70 553** | ~N |
+
+**MT19937 est retrouvé à 19 937 exactement**, depuis les seuls rangs du bonus,
+sans qu'aucune famille n'ait été nommée au solveur. Le §114 avait dû écrire
+19 937 formes linéaires et un solveur en C pour la même cible ; ici c'est un
+nombre qui tombe.
+
+### L'invariance mesurée, et non affirmée
+
+Le §115 a coûté 5 126 systèmes pour balayer le seul décalage. Sur WELL512a
+(512 bits) :
+
+| pas σ | décalage c | mots/numéro | ppcm |
+|---|---|---|---|
+| 21 | 20 | 1 | 512 |
+| 21 | 0 | 1 | 512 |
+| 22 | 7 | 1 | 512 |
+| 37 | 3 | 1 | 512 |
+| 41 | 40 | 2 | 512 |
+| 43 | 11 | 1 | 512 |
+
+**Six modèles de consommation, une seule borne.** Les axes 2, 3 et 5 du §121
+sont neutralisés par construction, pas par balayage.
+
+### L'archive
+
+| hypothèse | bits lus | L(f) | L(f') | pgcd | **W ≥ ppcm** |
+|---|---|---|---|---|---|
+| troncature | bits 1 et 2 hauts | 35 280 | 35 280 | 0 | **70 560** |
+| modulo | bits 1 et 0 bas | 35 282 | 35 280 | 0 | **70 562** |
+
+> **W ≥ 70 560.** Aucun générateur F2-linéaire dont l'état tient en moins de
+> 70 560 bits, consommé à pas constant, n'engendre les rangs du bonus de
+> l'archive.
+
+Ce que cela couvre n'est pas une liste de familles, c'est une **inégalité** :
+
+| | largeur | |
+|---|---|---|
+| xorshift 32/64/96/128 | 32-128 | couvert |
+| taus88, LFSR113 | 88-113 | couvert |
+| xoshiro / xoroshiro bruts | 128-256 | couvert |
+| WELL512a, WELL1024a | 512-1 024 | couvert |
+| MT19937, WELL19937 | 19 937 | couvert |
+| **WELL44497b** — le plus grand état publié | **44 497** | **couvert** |
+| tout le reste | < 70 560 | couvert, **nommé ou non** |
+
+### Le corollaire arithmétique : les récurrences entières mod 2^e
+
+Le théorème est écrit sur F2, et le §104 a dû bâtir une réduction de réseau pour
+les générateurs **entiers**. Une partie d'entre eux retombe dans le même test,
+et gratuitement. Soit
+
+    x_t  =  a₁x_{t−1} + … + a_r x_{t−r} + b   (mod 2^e).
+
+Réduite modulo 2, c'est une récurrence **affine** d'ordre `r` sur F2 ; une
+récurrence affine se rend homogène en multipliant son polynôme par `(1+x)` :
+
+> **L(bit 0) ≤ r + 1**, et la décimation par `σ` ne change pas ce degré — elle
+> élève les racines à la puissance `σ`.
+
+Or le bit 0 est justement ce que l'échantillonneur **modulo** publie, puisque
+4 divise 20.
+
+| témoin (mot = état entier) | ordre | L(bit 0) mesuré | borne |
+|---|---|---|---|
+| LCG mod 2³² (ANSI C, MMIX, Borland) | 1 | **2** | ≤ 2 |
+| Fibonacci additif mod 2³² (`r[i−3]+r[i−31]`) | 31 | **31** | ≤ 31 |
+
+**Mesure sur l'archive : `L(bit 0) = 35 280`.** Toute récurrence entière de
+module `2^e` et d'ordre inférieur à 35 280 termes est donc exclue.
+
+*Ce que le corollaire ne prend pas, et il faut le dire* : les modules **premiers**
+(Lehmer 2³¹−1 ; MWC, dont le module `a·b−1` est impair au §102) — la réduction
+modulo 2 n'a plus de sens ; et les implantations qui ne rendent que les bits
+**hauts** — Java `next(bits)`, PCG, et `random()` de la glibc qui décale d'un bit
+et jette justement le bit 0. Le bit 0 du **mot** n'est alors plus le bit 0 de
+l'**état**, et la retenue de l'addition brise la linéarité dès le bit 1. Pour ces
+deux cas, la réduction de réseau du §104 reste l'outil.
+
+### L'axe du cache : le seul qui casse la progression arithmétique
+
+Le §112 a montré que V8 remplit son cache par 64 en avant et le consomme **à
+rebours** : `g(j) = 64·(j//64) + 63 − (j mod 64)`. Les positions consommées ne
+sont alors plus arithmétiques. **Mais le théorème s'applique à chaque classe
+modulo 64** : `j_{i+64} = j_i + 64σ` laisse `(j mod 64)` inchangé et augmente
+`j//64` de `σ`, donc `g(j_{i+64}) = g(j_i) + 64σ`.
+
+| hypothèse | ppcm minimal sur les 64 classes | max | moyenne |
+|---|---|---|---|
+| troncature | **1 098** | 1 106 | 1 102 |
+| modulo | **1 096** | 1 107 | 1 103 |
+
+**W ≥ 1 096 sous ordre de service renversé** — ce qui couvre les 128 bits du
+`Math.random` de V8, le cas même qui a motivé le §112, ainsi que WELL512a.
+Le prix est de 1 102 bits par classe au lieu de 70 560.
+
+### Le résultat
+
+| | |
+|---|---|
+| autotest de `tools/bmf2.c` | **10/10** |
+| témoins F2-linéaires | **11/11**, MT19937 à 19 937 exactement |
+| témoins du corollaire arithmétique | **2/2** |
+| null | 200 archives d'un générateur parfait |
+| null : moyenne / min / max | 70 559 / 70 552 / 70 562 |
+| **observé** | **70 560** — `p = 0,826` |
+
+**Registre : consigné.** `m = 58 146`, zéro significatif.
+
+### Ce que cela change, et ce qu'il faudrait pour aller plus loin
+
+Les §105 à §121 excluaient des familles **nommées**, une par une, et chaque axe
+de modèle oublié rouvrait tout. Ici l'exclusion porte sur une **inégalité** :
+`W ≥ 70 560`. Elle ne s'écrit pas plus longtemps si l'on ajoute une famille, et
+aucun axe de consommation à pas constant ne la remet en cause.
+
+> **C'est la première borne du dossier qui ne se périme pas.**
+
+Ce qu'elle ne couvre pas, et c'est écrit dans le jeton :
+
+- le **rejet**, où le pas varie (§111) ;
+- les **sorties brouillées**, où aucun bit n'est F2-linéaire — le §119 les ferme
+  autrement, par `dim L = 0`. Les deux paragraphes se partagent l'espace sans
+  laisser d'interstice : §122 prend tout ce qui est linéaire, §119 démontre que
+  le reste n'a aucun bit à donner ;
+- l'indexation dans l'**ordre d'émission** plutôt que dans le tableau trié —
+  réserve héritée du §106, et qu'aucune donnée triée ne peut lever.
+
+**La pente.** La portée est de `~N` bits d'état pour `N` tirages, soit 70 560
+aujourd'hui. Un état plus large demande plus de tirages, **dans un rapport de un
+pour un**, et rien d'autre. Aucune autre borne du dossier n'a une pente aussi
+simple.

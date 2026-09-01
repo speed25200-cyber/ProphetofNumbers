@@ -201,6 +201,57 @@ exacte** : une base flottante fait dériver le réseau, et l'échec est silencie
 > motifs, et l'incompatibilité n'apparaît qu'après `n/5,20` numéros. L'arbre
 > avant élagage compte `C(n/5,20 + r, r)` nœuds. ∎
 
+### 4.5 Théorème de la complexité linéaire universelle (§122) — ne rien nommer
+
+Les quatre attaques précédentes ont toutes le même défaut : elles exigent qu'on
+**nomme** le générateur avant de le tester, et le §121 a recensé cinq axes de
+modèle dont **trois** n'ont été trouvés qu'après coup, chacun faisant échouer
+les attaques en silence.
+
+> Soit un état dans `F₂^W` évoluant par `s ↦ A·s` (`A` quelconque), un mot
+> `w = Λ·s` (`Λ` F₂-linéaire quelconque), une forme F₂-linéaire `β` du mot, et
+> une consommation aux positions d'une **progression arithmétique** `c + σi`.
+> Alors la suite `b_i = β(Λ·A^{c+σi}·s)` vérifie la récurrence de polynôme
+> caractéristique `minpoly(A^σ)`, de degré ≤ `W` :
+>
+> **`L(b) ≤ W`**, et Berlekamp-Massey rend *exactement* `L`. ∎
+
+Le membre de droite ne contient ni `A`, ni `Λ`, ni `β`, ni `σ`, ni `c` : un
+seul nombre teste **toute** famille F₂-linéaire, tout pas, tout décalage, tout
+nombre de mots par numéro — les axes 2, 3 et 5 du §1 disparaissent de l'énoncé.
+
+**Corollaire du ppcm.** Deux bits exacts du même mot donnent `f` et `f'`, tous
+deux diviseurs de `minpoly(A^σ)`, donc
+
+    W ≥ deg ppcm(f, f') = L + L′ − deg pgcd(f, f′).
+
+Sur un caractéristique **irréductible** (MT19937) `f = f′` et la borne rend `W`
+exactement ; sur du hasard les deux sont premiers entre eux et la borne vaut
+`~N` au lieu de `~N/2`. **La portée double sans un bit de plus.**
+
+**Corollaire arithmétique.** Pour `x_t = Σ a_i x_{t−i} + b (mod 2^e)`, la
+réduction modulo 2 est une récurrence **affine** d'ordre `r`, homogénéisée par
+`(1+x)` : `L(bit 0) ≤ r + 1`. Cela prend les LCG (`L ≤ 2`) et les Fibonacci
+additifs (`L ≤ r`) **à module puissance de deux et si le mot porte le bit 0 de
+l'état** — mais ni les modules premiers, ni les implantations qui ne rendent que
+les bits hauts, où la retenue brise la linéarité dès le bit 1.
+
+**Corollaire de prédiction — le seul du dossier qui prédise sans reconstituer.**
+Si `L` est petit, Berlekamp-Massey rend la récurrence elle-même et tout bit
+suivant se calcule à partir des `L` derniers, **sans avoir identifié la famille,
+le pas ni l'échantillonneur**. L'identification n'est pas nécessaire à la
+prédiction.
+
+**Deux bits à position fixe, et pourquoi.** Le §106 comptait 3,20 bits en
+moyenne — un nombre *variable*, donc inutilisable ici. Comme **4 divise 20** :
+sous troncature `⌊4u⌋ = ⌊m/5⌋` sans exception (les deux bits hauts) ; sous
+modulo `w mod 4 = m mod 4` (les deux bits bas).
+
+**Limites.** Le pas doit être **constant** — le rejet échappe (4.4) ; le bit doit
+être **F₂-linéaire** — les sorties brouillées échappent, mais 3.2 les ferme par
+`dim L = 0`. Sous l'ordre de service renversé du cache (§112) le théorème ne
+vaut que **par classe modulo 64**, et la portée tombe d'un facteur 64.
+
 ---
 
 ## 5. Le théorème de prédiction
@@ -243,6 +294,18 @@ tirages — et l'archive en compte 70 560.
 **La donnée n'est pas le facteur limitant.** Ce qui limite est le coût de
 calcul des formes linéaires — et il tombe avec un solveur en C (`tools/f2solve.c`,
 25 908 équations de 19 937 bits en 57 s).
+
+**La carte sans le catalogue.** La ligne du §122 se lit autrement : avec les
+**deux** bits à position fixe du rang, la borne de complexité linéaire atteint
+`~N` bits d'état pour `N` tirages — soit **70 560** aujourd'hui, sans qu'aucune
+famille figure dans l'énoncé. C'est la seule ligne de cette carte dont la pente
+soit de **un pour un** et qui n'ait rien à ajouter quand une famille nouvelle
+paraît.
+
+| ordre de service | portée mesurée sur l'archive |
+|---|---|
+| direct (progression arithmétique) | `W ≥ 70 560` |
+| cache renversé de V8 (§112), par classe mod 64 | `W ≥ 1 096` |
 
 ---
 
