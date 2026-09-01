@@ -365,6 +365,40 @@ modulo `w mod 4 = m mod 4` (les deux bits bas).
 `dim L = 0`. Sous l'ordre de service renversé du cache (§112) le théorème ne
 vaut que **par classe modulo 64**, et la portée tombe d'un facteur 64.
 
+### 4.5 bis Le canal de confinement (§141) — l'attaque qui ne suppose rien
+
+Le 4.5 et tout ce qui en découle lisent le **rang du bonus**, donc dépendent du
+modèle B (voir 7.4 bis). Cette attaque-ci n'en dépend pas.
+
+> À l'étape 0 de Fisher-Yates le tableau est **encore l'identité**, donc la valeur
+> émise vaut exactement `j₀ + 1` avec `j₀ = ⌊80·u₀⌋`, et elle appartient à
+> l'ensemble publié — **uniformément**, par symétrie. L'archive donne donc, pour
+> chaque tirage, une **loi a posteriori complète** sur `u₀`, et
+> `q = ⌊j₀/5⌋ = u₀ >> 28` en est la partie exacte.
+
+**Budget.** `H(q) = 4`, `E[H(q|S)] = 3,487`, donc **`I = 0,513 bit par tirage`**.
+Contrôle : `I(j₀;S) = log₂80 − log₂20 = 2` bits — le 2.4 par un autre chemin.
+Les 70 560 tirages portent donc **36 199 bits**, et **MT19937 (19 937) est
+dedans**.
+
+**Algorithme, et il est exact.** Les quatre bits de `q` sont linéaires en l'état,
+`q_i(s) = ⟨m_i, s⟩` ; en développant `log P(q|S)` sur la base de Walsh des quatre
+bits, la log-vraisemblance de **tous** les `2^W` états est **une seule
+transformée de Walsh-Hadamard** :
+
+    LL(s) = Σ_m B[m]·(−1)^⟨m,s⟩        O(N·16 + W·2^W), exact.
+
+**Témoin.** États de 16, 18, 20 et 22 bits **retrouvés et rejoués** à partir des
+seuls ensembles triés, en 40 à 120 tirages contre `W/0,513 = 31` à `43`
+théoriques. **4/4.** C'est la première reconstitution d'état du dossier sans
+l'ordre et sans le bonus.
+
+**La limite, et elle est algorithmique, pas informationnelle.** `2^W` bloque dès
+`W = 128`. Le problème est du **LPN structuré** de biais `0,075` ; BKW exige plus
+de couples que l'archive n'en a, et une attaque par corrélation rapide exige des
+contrôles de parité de **poids faible** — que la **sparsité** des récurrences de
+MT19937 et des WELL fabrique gratuitement. C'est la seule brèche visible.
+
 ### 4.6 Théorème du plafond universel (§134) — `T/2`, et une seule suite
 
 Le 4.5 borne `W` par le bas ; reste à savoir **jusqu'où** cette borne peut

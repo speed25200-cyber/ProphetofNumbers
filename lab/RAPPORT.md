@@ -14537,3 +14537,129 @@ modèles produit le bonus observé. C'est exactement le programme du §139 : deu
 jours et demi de capture du flux ordonné, et la question tombe avec le reste.
 
 **Registre : `m = 60 348`, 4/4 prédictions exactes, `verdict : conforme`.**
+
+---
+
+## 141. Le canal de confinement : reconstituer l'état à partir de l'archive triée seule (`h120_canal_de_confinement.py`)
+
+### La question que le §140 impose
+
+Le §140 vient de rendre **conditionnelle** toute la voie model-free : elle passe
+par le rang du bonus, et le modèle B n'est pas vérifiable sur l'archive. La
+question s'impose alors :
+
+> **Reste-t-il quelque chose qui ne dépende d'aucun modèle du bonus ?**
+
+Oui, et c'était sous la main depuis le §110.
+
+### Le canal, et il est exact
+
+À l'étape 0 de Fisher-Yates, **le tableau est encore l'identité**. La valeur émise
+vaut donc exactement `j₀ + 1`, où `j₀ = ⌊80·u₀⌋` — sans hypothèse, sans le bonus,
+sans l'ordre. Et cette valeur est l'un des vingt numéros publiés :
+
+    j₀ + 1  ∈  S       EXACTEMENT, pour tout tirage de l'archive.
+
+Mieux : par symétrie de Fisher-Yates, `j₀ + 1` est **uniforme sur `S`**. L'archive
+publie donc, pour chaque tirage, une **loi a posteriori complète** sur `u₀`. Et
+
+    q = ⌊j₀/5⌋ = u₀ >> 28,      car  ⌊(80u/2³²)/5⌋ = ⌊16u/2³²⌋
+
+— exactement les `v₂(80) = 4` bits exacts du théorème I du §126.
+
+### Le budget d'information, calculé et non estimé
+
+| | |
+|---|---|
+| `H(q)` | 4 bits exactement |
+| `E[H(q \| S)]` | **3,4870** bits (200 000 tirages simulés) |
+| **`I(q ; S)`** | **0,5130 bit par tirage** |
+
+> **Contrôle indépendant :** `I(j₀ ; S) = log₂80 − log₂20 = 2 bits exactement` —
+> c'est le théorème du confinement du §110, retrouvé par un tout autre chemin.
+
+| cible | bits | tirages requis | |
+|---|---|---|---|
+| taus88 | 88 | 172 | archive suffit |
+| xorshift128 | 128 | 249 | archive suffit |
+| WELL512a | 512 | 998 | archive suffit |
+| WELL1024a | 1 024 | 1 996 | archive suffit |
+| **MT19937** | **19 937** | **38 861** | **archive suffit** |
+| WELL44497b | 44 497 | 86 734 | il en manque 16 174 |
+
+> **L'archive porte 36 199 bits d'information sur l'état, et MT19937 est
+> dedans — sans aucun modèle du bonus.**
+
+### L'algorithme : le maximum de vraisemblance par une seule Walsh
+
+L'information ne suffit pas ; il faut un algorithme. Celui-ci est le maximum de
+vraisemblance **exact**, pas une heuristique.
+
+Les quatre bits de `q` sont des formes **F₂-linéaires** de l'état :
+`q_i(s) = ⟨m_i, s⟩`. On développe la log-vraisemblance d'un tirage sur la base de
+Walsh de ces quatre bits :
+
+    log P(q | S)  =  Σ_{T ⊆ {0,1,2,3}}  c_T(S) · (−1)^⟨m_T, s⟩,     m_T = ⊕_{i∈T} m_i
+
+d'où, en sommant sur les tirages :
+
+    LL(s)  =  Σ_m  B[m] · (−1)^⟨m, s⟩          B[m] = Σ des c_T concernés
+
+> **C'est la transformée de Walsh-Hadamard de `B`.** Un seul appel donne la
+> log-vraisemblance des `2^W` états **à la fois**.
+>
+>     coût : O(N·16 + W·2^W) en temps, 2^W en mémoire.  EXACT.
+
+Le facteur 16 est le nombre de sous-ensembles des quatre bits ; il ne dépend ni de
+`N` ni de `W`.
+
+### Le témoin : l'état sort des ensembles triés seuls
+
+On ne fixe pas le nombre de tirages : **on mesure le seuil**. Et on exige un
+**rejeu complet** — l'état retrouvé doit réengendrer *tous* les ensembles
+observés, ce qu'un état faux ne peut faire qu'avec probabilité `C(80,20)⁻ⁿ`.
+
+| `W` | polynôme | seuil théorique | **seuil mesuré** | rejeu |
+|---|---|---|---|---|
+| 16 | `x¹⁶ + x¹¹ + 1` | 31 | **40** | oui |
+| 18 | `x¹⁸ + x¹¹ + 1` | 35 | **40** | oui |
+| 20 | `x²⁰ + x¹⁷ + 1` | 39 | **120** | oui |
+| 22 | `x²² + x²¹ + 1` | 43 | **60** | oui |
+
+**4/4 états retrouvés et rejoués**, à un nombre de tirages du même ordre que la
+borne d'information `W/0,513`. Le facteur qui les sépare est le prix ordinaire du
+maximum de vraisemblance face à `2^W` concurrents, pas une faiblesse du canal.
+
+> **C'est la première reconstitution d'état du dossier à partir de l'archive
+> triée seule.** Ni ordre, ni bonus, ni modèle du bonus — et l'état sort.
+
+### Le gouffre, désormais chiffré des deux côtés
+
+| `W` | information | coût de la WHT |
+|---|---|---|
+| 16 | suffisante | `2¹⁶` — instantané |
+| 22 | suffisante | `2²²` — quelques secondes |
+| 40 | suffisante | `2⁴⁰` — des jours |
+| 128 | suffisante | `2¹²⁸` — **jamais** |
+
+C'est le gouffre que le §110 avait nommé — *« l'information est là, le levier
+manque »* — mais il est maintenant chiffré **des deux côtés**, et l'algorithme
+exact existe. Ce qui manque n'est plus une idée : c'est un algorithme
+**sous-exponentiel** pour le même problème.
+
+**Et il a un nom.** Le problème est exactement du **LPN structuré** : retrouver
+`s` à partir de formes linéaires `⟨m_i, s⟩` observées à travers un canal bruité de
+biais `0,075`. Deux voies connues, et il faut dire ce qui les bloque ici :
+
+| voie | coût | ce qui bloque |
+|---|---|---|
+| **BKW** | `2^{O(W/log W)}` | exige un nombre de couples exponentiel que l'archive n'a pas |
+| **corrélation rapide** | polynomial en `N` | il faut des contrôles de parité de **poids faible** ; un contrôle de poids 3 a un biais `4ε³ = 1,7·10⁻³`, donc il en faut `~3·10⁵` |
+
+> **La sparsité du polynôme caractéristique décide donc tout.** MT19937 et les
+> WELL ont des récurrences **creuses**, ce qui fabrique des contrôles de poids
+> faible gratuitement. C'est la seule brèche visible, elle demande plus de
+> tirages que l'archive n'en publie — mais **beaucoup moins que `2^W`**, et le
+> §139 dit où les prendre.
+
+**Registre : `m = 60 349`, 4/4, `verdict : conforme`.**
