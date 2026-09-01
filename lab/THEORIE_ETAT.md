@@ -362,11 +362,17 @@ suffit tout juste à couvrir WELL44497b. C'est la seule ligne de cette carte don
 soit de **un pour un** et qui n'ait rien à ajouter quand une famille nouvelle
 paraît.
 
-| ordre de service | portée mesurée sur l'archive |
+| lecture | portée mesurée sur l'archive |
 |---|---|
-| direct, **complexité conjointe** (§124) | `W ≥ 47 040` |
-| direct, scalaire (§89, §122) | `W ≥ 35 280` |
+| conjointe, 4 bits — modèle §89, `K = 80` (§127) | **`W ≥ 56 448`** |
+| conjointe, 2 bits — modèle §106, `K = 20` (§124) | `W ≥ 47 040` *(garantie)* |
+| scalaire, bit par bit (§89, §122) | `W ≥ 35 280` |
 | cache renversé de V8 (§112), par classe mod 64 | `W ≥ 1 096` |
+| **plafond absolu, `M → ∞`** (§126) | **`< 70 560`** |
+
+Le nombre de bits à position fixe vaut `v₂(K)` et le seuil conjoint `M·N/(M+1)`
+(§126) : la portée est donc entièrement dictée par le modulus que la plateforme
+a choisi, et bornée par `N` quoi qu'il arrive.
 
 ---
 

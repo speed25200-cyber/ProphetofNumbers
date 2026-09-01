@@ -13143,3 +13143,93 @@ La portée model-free croît comme `M/(M+1)` du nombre de tirages : pour exclure
 
 **Registre : inchangé** — ce paragraphe ne teste rien sur l'archive ; il démontre
 deux bornes et les vérifie sur du hasard simulé.
+
+## 127. Quatre bits au lieu de deux : la portée que le §89 avait sous la main (`h108_portee_quatre_bits.py`)
+
+### Ce que le §89 avait, et ce qu'il ne pouvait pas en faire
+
+Le §89 lit le bonus sous **son** modèle — *« le bonus est le premier numéro
+sorti »* — et en tire les **quatre** bits bas de `bonus − 1` par le théorème du
+contenu (`16 | 80`). Puis il fait tourner Berlekamp-Massey sur chacun
+**séparément**, et obtient quatre fois ~35 280.
+
+> **C'est la moitié de ce que ses quatre bits valaient.** Berlekamp-Massey
+> **scalaire** plafonne à `N/2` quel que soit le nombre de suites : il n'en
+> regarde qu'une à la fois.
+
+Ce sont les §124 et §126 qui convertissent le **nombre de bits** en **portée** :
+
+| | |
+|---|---|
+| théorème I (§126) | le nombre de bits à position fixe vaut `v₂(K)` |
+| théorème II (§126) | avec `M` suites, le seuil conjoint vaut `M·N/(M+1)` |
+
+Sous le modèle du §89, `K = 80` et `v₂(80) = 4`. Donc `M = 4`, et le seuil vaut
+
+    4N/5 = 56 448        au lieu des 35 280 annoncés.
+
+> **21 168 bits étaient sur la table depuis le §89.** Il fallait seulement
+> l'outil du §124 pour les ramasser — et aucune donnée nouvelle.
+
+### Le témoin : un état dans l'intervalle que cela ouvre
+
+L'intervalle nouvellement couvert est `(47 040 ; 56 448]`. On y plante une
+récurrence creuse de **52 000 bits**, observée sur les 70 560 tirages :
+
+| | `L` scalaire | **conjointe** |
+|---|---|---|
+| hasard, `M = 2` suites | ~35 280 | 47 040 |
+| hasard, `M = 4` suites | ~35 280 | **56 448** |
+| générateur F₂-linéaire de 52 000 bits | 35 281 | **35 282** |
+
+Le générateur planté rend 35 282 — ses quatre fonctionnelles vivent dans le
+**même module `F₂[x]`** (§124) et n'apportent aucune équation neuve. Le hasard,
+lui, monte à 56 448. **L'écart de 21 166 bits est ce qui exclut.**
+
+> Et le test **scalaire** ne voit rien : 35 281 pour le générateur contre ~35 280
+> pour le hasard. **C'est exactement l'angle mort du §89.**
+
+### L'archive, sous les deux modèles d'indexation
+
+| modèle | K | `v₂` | M | seuil `M·N/(M+1)` | **mesuré** |
+|---|---|---|---|---|---|
+| **A** — bonus = 1ᵉʳ numéro (§89) | 80 | 4 | 4 | 56 448 | **56 448** |
+| **B** — rang du bonus (§106) | 20 | 2 | 2 | 47 040 | **47 040** |
+
+Les deux modèles atteignent **exactement** leur seuil, sous les deux
+échantillonneurs : aucune structure linéaire, et la borne est la valeur mesurée.
+
+**Sont-ils départageables ? Non, et c'est vérifié :** sur les **9** tirages
+ordonnés du dossier, **0** porte un bonus ; et le seul tirage filmé avec un bonus
+(§92) est trié. Il manque toujours la **conjonction** que le §92 réclamait.
+
+> **`W ≥ 47 040` quel que soit le modèle d'indexation ; `W ≥ 56 448` sous celui
+> du §89.** WELL44497b (44 497 bits) est couvert dans les deux cas — marge 2 543
+> garantie, 11 951 sous le modèle A.
+
+| | |
+|---|---|
+| null | 200 archives d'un générateur parfait |
+| null : moyenne / min / max | 56 448 / 56 447 / 56 448 |
+| **observé** | **56 448** — `p = 1,000` |
+
+**Registre : consigné.** `m = 58 447`, zéro significatif.
+
+### Ce que cela déplace, et ce que cela ne déplace pas
+
+| | portée model-free |
+|---|---|
+| §89 — scalaire, 4 bits lus un par un | 35 280 |
+| §124 — conjointe, 2 bits (modèle B) | 47 040 |
+| **§127 — conjointe, 4 bits (modèle A)** | **56 448** |
+| plafond absolu du §126, `M → ∞` | `< 70 560` |
+
+**Ce que cela ne déplace pas.** La borne **garantie** reste 47 040, parce que le
+modèle d'indexation n'est pas tranché. Pour le trancher il ne faut **pas plus
+d'archive** : il faut **un enregistrement d'un seul tirage** montrant la grille se
+remplir boule après boule **puis** la boule EXTRA du même tirage. Le §92 le
+demandait déjà ; ce paragraphe chiffre ce que cela vaudrait : **9 408 bits de
+portée**.
+
+> **Et le plafond du §126 tient.** Même avec `M = 4`, on reste sous `N = 70 560`.
+> Aucune lecture des données publiées ne franchira ce mur.
