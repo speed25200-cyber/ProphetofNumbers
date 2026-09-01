@@ -11286,6 +11286,11 @@ bits disponibles**, pour un état qui en fait 128.
 **L'information est là. Elle est pourtant hors d'atteinte** — et voici la
 démonstration.
 
+> ⚠ **Le corollaire ci-dessous compte vingt choix par mot. C'est faux, et le
+> §143 le corrige : au pas `k` il n'en reste que `20−k`, donc l'arbre d'un tirage
+> vaut `20! = 2^61,08` et non `20²⁰ = 2^86,44` — une surestimation de `2^25,36`
+> par tirage. L'exposant de l'archive triée est `0,682·W`, pas `0,965·W`.**
+
 > **Corollaire de branchement.** Le confinement ne détermine **aucun** bit du
 > mot : une réunion de vingt intervalles sur quatre-vingts n'est jamais
 > contenue dans une moitié dyadique — il faudrait que les vingt numéros soient
@@ -14765,3 +14770,122 @@ vaut **90 équations exactes** au lieu de 0,5 bit bruité.
 
 **Registre : `m = 60 350`, 5/5 seuils mesurés, `verdict : conforme`.** Après
 `lab.dedupe()` — la mise au point de la section a produit une ligne à écraser.
+
+---
+
+## 143. L'arbre de branchement du §110 était trop grand de `2^25` par tirage (`h122_arbre_de_branchement.py`)
+
+### Ce que le §110 a écrit
+
+Le §110 démontre le théorème du confinement, puis en tire son corollaire de
+branchement :
+
+> *« Pour obtenir des équations il faut donc **brancher** sur la valeur — vingt
+> choix, `log₂20 = 4,32` bits — et chaque valeur supposée rend 4,48 équations.
+> L'arbre atteint donc `20^{n/4,48}` nœuds. »*
+
+**Vingt choix par mot, c'est faux.** Au pas `k` de Fisher-Yates, `k` valeurs ont
+déjà été émises : la valeur émise au pas `k` doit être l'une des **vingt moins
+`k`** qui restent, et chacune occupe exactement une position du tableau.
+
+### La vérification est exhaustive
+
+On énumère **tous** les vecteurs `j` et on compte combien tombent sur chaque
+ensemble trié :
+
+| bassin | tirés | compatibles par ensemble | attendu |
+|---|---|---|---|
+| 6 | 3 | {6} | `3! = 6` |
+| 7 | 3 | {6} | 6 |
+| 8 | 4 | {24} | `4! = 24` |
+| 9 | 4 | {24} | 24 |
+
+**4/4** — et le nombre est **le même pour tous les ensembles**, ce qui reprouve au
+passage l'**uniformité** dont le §141 a besoin.
+
+|  |  |
+|---|---|
+| §110 : 20 choix par mot | arbre `20²⁰ = 2^86,44` par tirage |
+| **vrai : `20−k` choix** | **arbre `20! = 2^61,08` par tirage** |
+
+> **Le §110 surestime l'arbre de `2^25,36` par tirage.**
+
+### L'archive triée a enfin un exposant
+
+Un tirage complet coûte 61,08 bits d'arbre et rend `20 × 4,48 = 89,6` équations,
+soit **0,682 bit d'arbre par équation** — là où le §110 en supposait 0,965,
+c'est-à-dire à peine mieux que la force brute. Le coût marginal **décroît** à
+l'intérieur d'un tirage (`log₂(20−k)` décroît), donc il faut **remplir** les
+tirages plutôt que d'en entamer plusieurs :
+
+    coût(W) = f·log₂(20!) + Σ log₂(20−k) sur les r premiers mots,
+    (f, r) = divmod(⌈W/4,48⌉, 20)
+
+| `W` | mots | §110 | **corrigé** |
+|---|---|---|---|
+| 64 | 15 | `2^64,8` | `2^54,2` |
+| 128 | 29 | `2^125,3` | `2^96,9` |
+| 512 | 115 | `2^497,0` | `2^359,6` |
+| **19 937** | 4 451 | `2^19237` | **`2^13602`** |
+| 44 497 | 9 933 | `2^42930` | `2^30343` |
+
+> **Exposant asymptotique : `0,682·W`, contre `0,965·W` au §110.** Hors
+> d'atteinte des deux côtés — mais c'est la **première fois que l'archive triée
+> reçoit un exposant strictement inférieur à un**.
+
+### L'attaque, écrite et mesurée — et elle corrige mon propre modèle
+
+Le §110 concluait que l'arbre est infranchissable. Il l'est pour l'archive, mais
+l'attaque doit **exister** et être **mesurée**, sinon l'exposant n'est qu'une
+formule. Parcours en profondeur sur l'ordre d'émission, élimination `F₂`
+**incrémentale**, élagage dès qu'un système devient incompatible, **rejeu**
+obligatoire :
+
+| `W` | mots | arbre à la profondeur d'info | nœuds **visités** | retard | rejeu |
+|---|---|---|---|---|---|
+| 12 | 3 | 6 840 | 298 630 | `2^5,4` | oui |
+| 14 | 4 | 116 280 | 3 017 887 | `2^4,7` | oui |
+| 16 | 4 | 116 280 | 7 477 203 | `2^6,0` | oui |
+| 18 | 5 | 1 860 480 | 43 821 361 | `2^4,6` | oui |
+
+**4/4 états retrouvés et rejoués à partir des seuls ensembles triés.** C'est la
+première fois que le dossier **écrit** l'attaque que le §110 déclarait
+infranchissable.
+
+> **Et la mesure corrige mon propre modèle, dans le mauvais sens.** Les nœuds
+> visités sont **au-dessus** de l'arbre à la profondeur d'information, d'un
+> retard de `2^4,6` à `2^6,0`. La raison est nette : **l'élagage exige une
+> contradiction, pas une simple sur-détermination** — une branche fausse survit
+> quelques niveaux de plus que le point où l'information suffit.
+>
+> **L'arbre à la profondeur d'information est donc un minorant du coût, pas une
+> estimation.** C'est exactement ce que le §110 croyait calculer.
+
+Le retard ne croît pas régulièrement (5,4 / 4,7 / 6,0 / 4,6) : à si petite
+largeur tout est dominé par le surcoût fixe des premiers niveaux
+(`20·19·18·17 = 2^16,8`), qui ne s'amortit pas. **On ne l'extrapole donc pas.**
+
+### L'enveloppe de l'archive triée
+
+| `W` | §141 exact | §142 corrélation | §143 branchement | **meilleur** |
+|---|---|---|---|---|
+| 64 | `2^64` | `2^49,8` | ≥ `2^54,2` | **`2^49,8`** |
+| 88 | `2^88` | `2^60,8` | ≥ `2^61,1` | **`2^60,8`** |
+| 128 | `2^128` | `2^82,6` | ≥ `2^96,9` | **`2^82,6`** |
+| 256 | `2^256` | `2^142,6` | ≥ `2^182,2` | **`2^142,6`** |
+| 512 | `2^512` | `2^284,5` | ≥ `2^359,6` | **`2^284,5`** |
+| 1 024 | `2^1024` | **impossible** | ≥ `2^707,7` | `2^707,7` |
+| **19 937** | `2^19937` | **impossible** | ≥ `2^13602` | **`2^13602`** |
+
+La corrélation rapide gagne jusqu'à 512 bits ; au-delà elle devient **impossible**
+faute de contrôles, et le branchement prend le relais ; le maximum de
+vraisemblance reste le plafond.
+
+> **L'archive triée a désormais une courbe de difficulté.** Ce n'est pas une bonne
+> nouvelle pour qui veut prédire — `2^13602` pour MT19937 reste `2^13602`, et le
+> vrai coût est plus haut. C'est une bonne nouvelle pour le dossier, **qui cesse
+> de dire « impossible » et se met à dire combien.**
+
+**Registre : `m = 60 351`, 8/8, `verdict : conforme`.** Après `lab.dedupe()` — la
+première exécution avait épuisé son plafond de nœuds à `W = 18`, et une relance
+au même test avec plus de calcul l'a menée à terme.

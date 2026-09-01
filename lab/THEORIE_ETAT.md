@@ -609,6 +609,30 @@ prix chiffré, `2·N_d(W)` tirages :
 Le coût est **linéaire en la donnée** (4.6) : il n'y a pas de raccourci, mais il
 n'y a pas de mur non plus — seulement une échelle.
 
+### 7.3 bis L'enveloppe de l'archive triée (§143)
+
+Trois attaques du 4.5 bis / 4.7 se répartissent la difficulté, et l'archive triée
+a désormais une **courbe** plutôt qu'un « impossible » :
+
+| `W` | ML exact (§141) | corrélation (§142) | branchement (§143) | **meilleur** |
+|---|---|---|---|---|
+| 64 | `2^64` | `2^50` | ≥ `2^54` | **`2^50`** |
+| 128 | `2^128` | `2^83` | ≥ `2^97` | **`2^83`** |
+| 512 | `2^512` | `2^285` | ≥ `2^360` | **`2^285`** |
+| 19 937 | `2^19937` | impossible | ≥ `2^13602` | **`2^13602`** |
+
+**Le branchement, corrigé.** Le corollaire du 2.4 comptait **vingt** choix par
+mot ; au pas `k` il n'en reste que `20−k`, donc l'arbre d'un tirage vaut
+`20! = 2^61,08` et non `20²⁰ = 2^86,44` — vérifié **exhaustivement** sur quatre
+petits bassins, où le nombre de vecteurs `j` compatibles avec un ensemble trié
+vaut exactement `tirés!`, **le même pour tous** (ce qui reprouve l'uniformité du
+4.5 bis). L'exposant passe de `0,965·W` à **`0,682·W`**.
+
+**Et c'est un minorant.** L'attaque est écrite et retrouve l'état (4/4, `W = 12`
+à 18, rejeu exigé), mais elle visite `2^4,6` à `2^6,0` fois plus de nœuds que
+l'arbre à la profondeur d'information : l'élagage exige une **contradiction**,
+pas une sur-détermination.
+
 ### 7.4 bis La condition sous laquelle la borne du dossier tient (§140)
 
 Toute la colonne « portée model-free » ci-dessus lit le **rang du bonus**, et
