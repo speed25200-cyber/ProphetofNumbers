@@ -15969,3 +15969,208 @@ cellules décisives, `verdict : conforme`, 0 significatif.** Durée totale :
 `tools/lfg_low_reject.c` ; journal `/tmp/h133.log`.
 
 ---
+
+## 155. L'archive triée contre le Fibonacci retardé par ses bits bas : `2^35` états criblés, `27L` bits relevés, les treize trinômes de degré ≤ 7 (`h134_lfg_archive_crible.py`, `tools/lfg_low_sieve.c`, `lab/lfg_releve.py`)
+
+**Ce qui restait ouvert.** Le §154 exclut TYPE_1, TYPE_2 et TYPE_3 de la
+glibc sur les **vidéos** — douze tirages ordonnés — et s'arrête devant
+l'archive : « un tirage trié ne donne pas les équations de retenue ». Le §7.6
+de la théorie dit pourtant que le crible existe : `r_i = r_{i−K} + r_{i−L}
+mod 2^32` est **autonome modulo 32**, l'archive triée publie `(v − 1) mod 16`
+= les bits 1..4 de chaque mot accepté, et l'état bas — `5L` bits, `2^35` pour
+`L = 7` — s'énumère. Le §7.8 relève ensuite les `27L` bits hauts par la
+chaîne mod 5 et un CVP exact, sur des tirages **jointifs**. Trois choses
+manquaient pour que l'archive soit criblée *sous le rejet* et non seulement à
+pas constant : cribler `2^35` états sous un pas variable sans brancher
+`145^204` fois, faire traverser à la chaîne mod 5 les mots perdus **entre**
+deux tirages, et savoir ce qu'un crible rend de structurel à petit `L`. Ce
+sont les trois lemmes du §7.9, écrits pour ce paragraphe, exécutés ici sur
+les **treize trinômes primitifs de degré `≤ 7`** — TYPE_1 `(3, 7)` compris,
+c'est-à-dire *tout* `random()` à état de 32 octets, mais aussi tout
+Fibonacci retardé additif qu'un programmeur aurait pu choisir plus court.
+
+**La théorie qu'elle exécute (§7.9 de THEORIE_ETAT.md).**
+
+1. **Le crible.** Chaque mot bas est une **forme linéaire** `r_i = Σ_j α_ij
+   r_j mod 32` des `L` mots initiaux, `α_i = α_{i−K} + α_{i−L}` ; les `2^{5L}`
+   états sont parcourus en `L` boucles imbriquées à sommes courantes, les
+   seize premières formes testées d'un coup en registre vectoriel, les seize
+   suivantes sur les rescapés, le reste en scalaire. Trois modes : à **pas
+   constant** (Fisher-Yates partiel par modulo, pas 20 à 24), les deux mots
+   *sûrs* de chaque tirage — les positions `0` et `16`, seules `k ≤ 19` telles
+   que `16 | k` et `16 | 80 − k`, dont le résidu mod 16 est celui du numéro
+   tiré quel que soit le pas — soit `0,744` bit par tirage ; en **shuffle**
+   (`Collections.shuffle`, vingt dernières cases, pas 79 et 80), les mêmes
+   mots sûrs ; sous le **rejet** (`v = ((r >> 1) mod 80) + 1` jusqu'à vingt
+   distincts, `σ ∈ [20, 48]` mots consommés, `0` à `P = 4` perdus entre deux
+   tirages), *tous* les mots, et un faux candidat survit à un tirage avec
+   probabilité `Σ_{σ=20}^{48} ρ^σ (P + 1) = 0,127` — `2,98` bits par tirage.
+2. **Le lemme des courses.** Sous le rejet, la définition du survivant
+   branche sur `(σ, g)` à chaque tirage. Or les départs possibles d'un tirage
+   forment des intervalles, et les départs du tirage suivant issus d'un
+   intervalle `[a, b]` sont la réunion, sur les *courses* maximales `(s, R)`
+   de `R ≥ 20` résidus consécutifs permis commençant en `s ∈ [a, b]`, des
+   intervalles `[s + 20, min(s + R, b_s + 48) + P]`, `b_s = min(b, s + R −
+   20)`. La récursion porte sur les courses — `w · ρ^20 (1 − ρ) ≈ 0,0013 w`
+   par fenêtre de `w` positions pour un faux candidat — et l'outil vérifie
+   l'égalité avec la définition branchante sur `2^20` états et des masques à
+   trente numéros.
+3. **La chaîne mod 5 avec perdus.** Un mot perdu entre deux tirages n'est
+   soumis à aucun masque, mais sa classe `q_i` est connue (les bits bas le
+   sont) et son résidu `ρ_i` est celui que la récurrence impose pour `w_i = 0`
+   ou `1` : **deux branches**, pas cinq. La clé de la programmation dynamique
+   gagne un compteur `g ∈ [0, P]` ; le vérificateur mémoïse les *départs
+   vivants* `(t, s)`. Les **faux jumeaux** (`δ ≡ 0 mod 10` sur la queue,
+   fréquence `5^{−L}`) qu'un représentant par clé ne refusionne jamais sont
+   absorbés par une **liste** de représentants par clé.
+4. **Les dégénérés.** Le sous-groupe `16 · F_2^L` (tous les mots `0` ou `16`,
+   résidus `0` et `8` seulement, état nul compris) est stable par la
+   récurrence et survit à tout crible dont tous les masques contiennent `0`
+   et `8` — `ρ^{2N} ≈ 10^{−46}` sur l'archive, mais fréquent sur un témoin de
+   degré `≤ 3` dont la suite basse, de période `(2^L − 1) · 16 ≤ 112`, est
+   riche en `0` et `8`. Ils sont comptés à part, et « décalé du vrai » se lit
+   modulo cette période.
+
+**Le tableau qui décide avant les données.** Pour chaque trinôme, `5L` bits
+criblés, `27L` relevés ; `n* = L (27 − log2 5) / log2 M(f)` mots pour que la
+chaîne mod 5 détermine l'état (§7.8, `M(f)` la mesure de Mahler), et la
+chaîne reçoit `nd = ⌈2,5 n* / 24,85⌉` tirages (au plus 30 ; `24,85` mots par
+tirage sous le rejet, `80 Σ_{d=61}^{80} 1/d + P/2`).
+
+| `K` | `L` | bas | hauts | `M(f)` | `n*` | `nd` | trinôme |
+|---|---|---|---|---|---|---|---|
+| 1 | 2 | `2^10` | `2^54` | 1,6180 | 71 | 8 | `x² − x − 1` |
+| 1 | 3 | `2^15` | `2^81` | 1,4656 | 134 | 14 | `x³ − x² − 1` |
+| 2 | 3 | `2^15` | `2^81` | 1,3247 | 182 | 19 | `x³ − x − 1` |
+| 1 | 4 | `2^20` | `2^108` | 1,3803 | 212 | 22 | `x⁴ − x³ − 1` |
+| 3 | 4 | `2^20` | `2^108` | 1,3803 | 212 | 22 | `x⁴ − x − 1` |
+| 2 | 5 | `2^25` | `2^135` | 1,3642 | 275 | 28 | `x⁵ − x³ − 1` |
+| 3 | 5 | `2^25` | `2^135` | 1,4092 | 249 | 26 | `x⁵ − x² − 1` |
+| 1 | 6 | `2^30` | `2^162` | 1,3710 | 325 | 30 | `x⁶ − x⁵ − 1` |
+| 5 | 6 | `2^30` | `2^162` | 1,3710 | 325 | 30 | `x⁶ − x − 1` |
+| 1 | 7 | `2^35` | `2^189` | 1,3887 | 365 | 30 | `x⁷ − x⁶ − 1` |
+| 3 | 7 | `2^35` | `2^189` | 1,3944 | 360 | 30 | `x⁷ − x⁴ − 1` **TYPE_1** |
+| 4 | 7 | `2^35` | `2^189` | 1,3739 | 377 | 30 | `x⁷ − x³ − 1` |
+| 6 | 7 | `2^35` | `2^189` | 1,3794 | 372 | 30 | `x⁷ − x − 1` |
+
+**L'archive.** 204 tirages **consécutifs** (espacés de 300 s), identifiants
+1309794 à 1309997 ; résidus mod 16 permis par tirage : `12,22` sur 16 en
+moyenne (attendu `16 · 0,773 = 12,37`), filtre mesuré `0,763`. Faux
+survivants attendus pour le plus large des cribles, `L = 7` : `2^35 ·
+0,773^{2·204} = 7,4·10^{−36}` à pas constant, `2^35 · 0,127^{204} =
+5,3·10^{−173}` sous le rejet. Aucun null n'est requis : **un survivant serait
+un événement**, et l'outil doit alors le relever et le faire régénérer les
+204 tirages — puis prédire le tirage 1309998, que l'archive contient et que
+le crible n'a pas vu.
+
+**Les témoins — l'outil, puis le régime de l'archive.** L'autotest de
+`lfg_low_sieve.c` (`L = 5`, `K = 2`, soixante tirages) rend **7/7** : à pas
+constant 20 et 22 et en shuffle 79 l'état planté est seul survivant ; sous le
+rejet avec perdus plantés le vrai est là, tous les survivants sont ses
+décalés `f^k(vrai)` et les structurels sont tous présents ; deux fenêtres
+aléatoires ne rendent rien ; le crible vectorisé rend les comptes et les
+empreintes du scalaire. Puis, pour chaque trinôme, un état de `L` mots de 32
+bits au hasard engendre 204 tirages sous le rejet avec `t mod 5` mots perdus
+entre les tirages `t` et `t + 1`, les masques au format de l'archive ; le
+crible `2^{5L}` en mode 2, le relèvement de chaque survivant sur les `nd`
+premiers tirages, la vérification sur les 204 — **les `204 − nd` tirages non
+vus sont prédits**. Pour TYPE_1 aussi le mode 0 au pas 20 (le bas est trouvé,
+il n'est pas relevé : le Fisher-Yates n'a pas de chaîne mod 5). `décal` :
+tous les survivants sont des décalés du vrai ou des dégénérés.
+
+| `K` | `L` | mode | `nd` | survivants | vrai | décalés | dégénérés | relevés | régénèrent 204 | s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2  | rejet | 8 | 4 | oui | oui | 0 | 1 | 1 / 1 | 0,0 |
+| 1 | 3  | rejet | 14 | 46 | oui | oui | 0 | 1 | 1 / 1 | 0,2 |
+| 2 | 3  | rejet | 19 | 28 | oui | oui | 8 | 2 | 2 / 2 | 4,4 |
+| 1 | 4  | rejet | 22 | 15 | oui | oui | 0 | 2 | 2 / 2 | 0,5 |
+| 3 | 4  | rejet | 22 | 18 | oui | oui | 0 | 1 | 1 / 1 | 2,8 |
+| 2 | 5  | rejet | 28 | 11 | oui | oui | 0 | 1 | 1 / 1 | 2,8 |
+| 3 | 5  | rejet | 26 | 10 | oui | oui | 0 | 1 | 1 / 1 | 0,8 |
+| 1 | 6  | rejet | 30 | 7 | oui | oui | 0 | 2 | 2 / 2 | 11,4 |
+| 5 | 6  | rejet | 30 | 25 | oui | oui | 0 | 3 | 3 / 3 | 11,8 |
+| 1 | 7  | rejet | 30 | 10 | oui | oui | 0 | 2 | 2 / 2 | 207,2 |
+| 3 | 7 **TYPE_1** | rejet | 30 | 12 | oui | oui | 0 | 1 | 1 / 1 | 74,6 |
+| 3 | 7 **TYPE_1** | modulo 20 | — | 1 | oui | oui | 0 | — | — | 18,0 |
+| 4 | 7  | rejet | 30 | 30 | oui | oui | 0 | 2 | 2 / 2 | 213,3 |
+| 6 | 7  | rejet | 30 | 13 | oui | oui | 0 | 1 | 1 / 1 | 187,4 |
+
+**Quatorze témoins sur quatorze.** À chaque trinôme le vrai état bas survit, chaque
+survivant non dégénéré est un décalé du vrai — le lemme des décalés du §154,
+lu modulo la période à petit `L` —, l'état de `32L` bits planté est parmi
+les relevés, et **chaque relevé régénère les 204 tirages**, dont les `204 −
+nd` qu'il n'a pas vus : pour TYPE_1, 174 tirages prédits depuis trente. Les
+relevés multiples (`2` ou `3`) sont les décalés du vrai relevés à leur tour :
+même flux, mêmes tirages, même prédiction — c'est l'orbite, pas un faux.
+
+**L'archive : 104 cribles.** Treize trinômes, huit modes chacun — modulo aux
+pas 20, 21, 22, 23, 24 ; shuffle aux pas 79, 80 ; rejet à quatre perdus au
+plus — contre les 204 masques ; un survivant sous le rejet serait relevé par
+la chaîne mod 5 sur `nd` tirages et devrait régénérer les 204, un survivant à
+pas constant serait rapporté comme bas non relevé.
+
+| `K` | `L` | crible | modulo 20..24 | shuffle 79, 80 | rejet `P = 4` | relevés | s (8 cribles) |
+|---|---|---|---|---|---|---|---|
+| 1 | 2 | `2^10` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 1 | 3 | `2^15` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 2 | 3 | `2^15` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 1 | 4 | `2^20` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 3 | 4 | `2^20` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 2 | 5 | `2^25` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 3 | 5 | `2^25` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | ≈ 0 |
+| 1 | 6 | `2^30` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 7,5 |
+| 5 | 6 | `2^30` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 6,7 |
+| 1 | 7 | `2^35` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 223,1 |
+| 3 | 7 **TYPE_1** | `2^35` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 193,1 |
+| 4 | 7 | `2^35` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 183,2 |
+| 6 | 7 | `2^35` | 0 sur 5 | 0 sur 2 | 0 sur 1 | 0 | 104,5 |
+
+**0 candidat bas survivant sur 104 cribles, 0 état relevé — les treize trinômes primitifs de degré `≤ 7`, soit `2^35` états bas au plus chacun, sont exclus sur l'archive triée sous chacun des huit modes ; pour TYPE_1 c'est l'ensemble des `2^224` états de `random()` qui est exclu, tout état ayant un bas et aucun bas ne survivant. Les 104 cribles ont pris 718 s, dont 704 s pour les quatre trinômes de degré 7.**
+
+**Ce que cela ferme, et sur quoi.** Sur l'**archive** — 204 tirages triés
+consécutifs, au niveau du générateur — tout Fibonacci retardé additif `r_i =
+r_{i−K} + r_{i−L} mod 2^32` à sortie `r >> 1` de degré `L ≤ 7`, **quel que
+soit l'état** : pour TYPE_1 ce sont les `2^224` états de `random()` à
+32 octets qui sont exclus d'un coup, parce que tout état a un bas et
+qu'aucun bas ne survit — sous le Fisher-Yates partiel par modulo aux pas 20
+à 24, sous `Collections.shuffle` aux pas 79 et 80, sous le rejet des
+doublons avec au plus quatre mots perdus entre deux tirages. C'est le
+premier résultat du dossier qui exclut un générateur d'ordre supérieur à un,
+par son état libre, **sur l'archive elle-même** et non sur les vidéos ; le
+§154 l'avait fait sur douze tirages ordonnés, celui-ci le fait sur 204
+tirages triés, avec `2,98` bits par tirage au lieu de 80 mais 204 tirages au
+lieu de quatre. Hors du crible, et dits pour que le zéro soit lu à sa
+taille : **TYPE_2** `(1, 15)`, **TYPE_3** `(3, 31)`, **TYPE_4** `(1, 63)` —
+`2^75`, `2^155`, `2^315` états bas, hors énumération, la frontière chiffrée
+au §7.8 ; la sortie par **troncature** `(x · 80) >> 32`, qui ne publie pas
+les bits bas ; plus de quatre mots perdus entre deux tirages ; une fenêtre
+non consécutive ; les vingt **premières** cases d'un shuffle complet.
+
+**Disclosures.** (i) La règle `nd = ⌈2,5 n* / 24,85⌉` a été fixée **sur les
+témoins avant la consignation** : `(3, 4)` échoue à huit tirages et passe à
+douze, `(3, 7)` échoue à douze et passe à vingt ; le facteur 2,5 couvre les
+deux et coûte 19 s au degré 2 à trente tirages. (ii) La liste de
+représentants par clé (faux jumeaux) et la prise en compte des dégénérés
+sont des réparations *de l'outil sur témoins*, faites avant toute lecture de
+l'archive : la première version du module gardait un représentant par clé
+et explosait au degré 2 ; la recherche du décalage ne couvrait que 48 pas et
+manquait le cycle court des degrés `≤ 3`. (iii) Une **première exécution**
+du script, lancée avec le module non réparé, a échoué à l'étape des témoins
+— relevés à zéro aux degrés 2, 3 et `(3, 4)`, décalés « étrangers » à
+`(2, 3)` — et a été **tuée avant tout crible de l'archive** ; son journal a
+été effacé et le script relancé une fois le design réparé sur témoins. (iv)
+Les `notes` consignées disent du compteur de perdus « classe et résidu
+libres » : la classe `q_i` d'un mot perdu est en fait connue (les bits bas
+le sont), seul le débordement `w_i` est libre — deux branches, comme au
+§7.9 ; la formulation du registre est plus large que l'outil, non plus
+étroite. (v) Le mode 2 borne les perdus entre tirages à `P = 4` ; un
+générateur qui en perdrait davantage rendrait le crible aveugle, non faux.
+
+**Registre : `h134.lfg_low_crible`, piste B, `m = 60 362`, 0 état sur
+104 cribles, `verdict : conforme`, 0 significatif.** Durée totale :
+1 455 s (24 min), dont 718 s pour les 104 cribles de l'archive et 735 s pour les
+quatorze témoins. Fichiers : `lab/experiments/h134_lfg_archive_crible.py`,
+`tools/lfg_low_sieve.c`, `lab/lfg_releve.py` ; journal `/tmp/h134.log`,
+reprise `/tmp/h134_journal.txt`.
+
+---
