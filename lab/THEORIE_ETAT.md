@@ -63,6 +63,31 @@ peut-être pas au même flux — et le « flux unique » du §110 enjambe une nu
 
 Le coût de l'énumération est nul en puissance statistique — voir §7.
 
+**Un axe est passé de supposé à mesuré (§137).** Sur les trois tirages filmés
+portant un bonus, l'indice de celui-ci n'est constant **ni** dans l'ordre
+d'émission (2, 18, 9) **ni** dans le tableau trié (10, 3, 4). L'indice est donc
+**tiré**, un appel de générateur le tire, et
+
+> le tirage consomme **vingt et un mots**, pas vingt.
+
+Aucun résultat ne change — les balayages énuméraient déjà 20 à 22 — mais le
+modèle B du §106, sur lequel repose la borne `W ≥ 47 040`, cesse d'être une
+hypothèse : c'est le seul survivant.
+
+**Et cet axe est une défense (§137).** Observer un mot sur `σ`, c'est observer un
+LCG de multiplicateur `a^σ` — de réseau **fin** même quand celui de `a` est
+grossier. Mesuré : les LCG `a = 5`, RANDU et glibc sont anéantis par
+l'équidistribution en dimensions 2 et 3 **au pas 1** (`p = 0, 0, 5·10⁻⁵`) et
+**aucun** ne tombe **au pas 21** (`p = 3·10⁻³, 2·10⁻², 6·10⁻²`).
+
+> La plateforme n'est pas protégée parce que son générateur serait bon, mais
+> parce qu'elle n'en publie qu'**un mot sur vingt et un**. C'est le 4.6 (b) vu de
+> l'autre côté : la décimation détruit la structure de réseau comme elle détruit
+> la complexité linéaire.
+
+Conséquence pratique : un test spectral n'a de puissance que sur des mots
+**consécutifs**, donc uniquement à l'intérieur d'un tirage **ordonné**.
+
 ---
 
 ## 2. Les observables, et ce qu'elles publient

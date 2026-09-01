@@ -14122,3 +14122,111 @@ tous les générateurs modernes y sont, sans exception et par construction.
 **Registre : `m = 60 345`** après `lab.dedupe()` (trois relances de mise au point
 retirées : `h91` deux fois, `h111` une fois). **164 hypothèses scellées, aucune
 significative.**
+
+---
+
+## 137. Le bonus est un vingt et unième appel — et vingt et un mots suffisent à immuniser la plateforme (`h118_bonus_vingt_et_unieme.py`)
+
+### La question que le §129 a laissée ouverte
+
+Le §129 a réfuté le modèle A du §89 sur la première vidéo, puis a écrit ce qu'il
+ne pouvait pas trancher :
+
+> *« L'indice du bonus vaut 2 dans l'ordre d'émission et 10 dans le tableau trié.
+> Les deux lectures restent possibles : `bonus = ordre[j]` avec `j = 2`, ou
+> `bonus = trié[j]` avec `j = 10`. **Un seul tirage ne les sépare pas — il
+> faudrait reconstituer l'état.** »*
+
+Il se trompait sur le moyen. Les deux lectures supposent toutes deux un indice
+**constant** : trois tirages suffisent, et le test est **déterministe**.
+
+### Les deux lectures tombent ensemble
+
+| tirage | bonus | indice **émission** | indice **trié** |
+|---|---|---|---|
+| 1381278 | 45 | 2 | 10 |
+| 1381481 | 10 | 18 | 3 |
+| 1381483 | 14 | 9 | 4 |
+
+**Ni l'un ni l'autre n'est constant.** Un modèle déterministe tombe sur un seul
+contre-exemple ; chacune des deux lectures en reçoit **deux**.
+
+| modèle | statut |
+|---|---|
+| A (§89) — bonus = 1ᵉʳ numéro sorti | réfuté au §129 |
+| A′ (§129) — `bonus = ordre[j]`, `j` constant | **réfuté ici** |
+| B′ (§129) — `bonus = trié[j]`, `j` constant | **réfuté ici** |
+| **B (§106) — rang du bonus = `⌊20u⌋`** | **seul survivant** |
+
+### Ce qui en découle : vingt et un mots par tirage
+
+Si l'indice du bonus est **tiré**, c'est qu'un appel de générateur le tire.
+
+> **Le tirage consomme vingt et un mots, pas vingt.**
+
+Le troisième axe du §121 — *« mots par numéro »* — passe de **supposé** à
+**mesuré**. Et le modèle B, qui porte les §103, §122, §124, §126 et la borne
+`W ≥ 47 040`, cesse d'être une hypothèse de travail.
+
+**Aucun résultat du dossier ne bouge** : les balayages ont toujours énuméré les
+pas 20, 21 et 22, et le bon pas était dans le lot. Ce qui change n'est pas un
+résultat, c'est son **statut**.
+
+### La mesure de puissance, faite avant de lire l'archive
+
+Savoir d'où vient le rang rend enfin possible le test classique du réseau :
+l'équidistribution en dimension 2 (400 cases) et 3 (8 000 cases), à chaque
+décalage. On mesure sa puissance **d'abord**, sur trois LCG dont on sait le
+réseau grossier :
+
+| générateur | pas 1 | pas 21 |
+|---|---|---|
+| LCG `a = 5`, `m = 2³¹` | `p = 0` | `p = 0,0030` |
+| RANDU `a = 65 539` | `p = 0` | `p = 0,022` |
+| LCG glibc | `p = 4,8·10⁻⁵` | `p = 0,058` |
+| hasard vrai | — | `p = 0,012` |
+
+> **Les trois sont anéantis au pas 1, et aucun ne tombe au pas 21.** Le test n'a
+> **aucune puissance** au pas de la plateforme.
+
+### Théorème de l'immunité par décimation arithmétique
+
+La raison est élémentaire, et elle vaut pour tout LCG :
+
+> observer un mot sur `σ`, c'est observer un LCG de multiplicateur **`a^σ mod m`**.
+
+Le réseau de `a²¹` est **fin** même quand celui de `a` est grossier. C'est
+exactement le phénomène du §134 (b) — la décimation détruit la complexité
+linéaire — **vu de l'autre côté** : ici elle détruit la structure de réseau.
+
+> **La consommation de vingt et un mots par tirage est, à elle seule, une
+> défense.** La plateforme n'est pas protégée parce que son générateur serait bon,
+> mais parce qu'elle n'en publie qu'**un mot sur vingt et un**.
+
+Cela explique **rétroactivement** pourquoi aucun test spectral du dossier n'a
+jamais rien trouvé — et dit qu'il ne fallait pas s'y attendre. Ce n'est pas une
+absence de preuve : c'est une **preuve d'absence de puissance**.
+
+**Corollaire pour la suite.** Un test spectral n'a de sens ici que sur des mots
+**consécutifs**, donc uniquement sur les tirages **ordonnés**, où les vingt mots
+d'un même tirage sont lus à la file. Douze tirages filmés donnent 252 mots
+consécutifs, par blocs de 21 : c'est peu, et c'est le seul endroit où le test ait
+de la puissance.
+
+### L'archive, lue en sachant que le test ne peut rien
+
+| | | |
+|---|---|---|
+| dimension 1, 19 ddl | `χ² = 27,5` | `p = 0,094` |
+| dimension 2, 399 ddl, 8 décalages | | `p min = 0,014` |
+| dimension 3, 7 999 ddl, 4 décalages | | `p min = 0,043` |
+| **13 tests, après Holm** | | **`p = 0,179`** |
+
+Aucun écart. **Et ce résultat ne vaut rien contre un LCG** — la section
+précédente l'a mesuré. Il vaut seulement comme contrôle de cohérence du modèle B :
+si le rang du bonus n'était pas `⌊20u⌋` d'un mot, rien ne garantissait qu'il soit
+uniforme ni indépendant, et il l'est.
+
+**Registre : `m = 60 346`, 2/2 lectures réfutées, `verdict : conforme`.** Le volet
+spectral est consigné dans les notes **comme dépourvu de puissance**, et non comme
+un test — l'enregistrer autrement aurait été enregistrer un homme de paille.
