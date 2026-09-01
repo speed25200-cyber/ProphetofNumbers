@@ -13019,3 +13019,127 @@ de poids fort du mot brut — §87, plafond 7,00 bits).
 
 **Registre : consigné**, `χ² = 0,66`, verdict conforme, `m_extra = 294` pour le
 balayage des dénominateurs. `m = 58 443`, zéro significatif.
+
+## 126. Le plafond de l'archive : ce qu'aucune donnée publiée ne pourra exclure (`h107_plafond_archive.py`)
+
+Les §105 à §125 ferment des cases, et chacune se termine par « voilà ce qui
+reste ouvert ». C'est une **liste**, et une liste ne dit pas où elle s'arrête.
+Ce paragraphe démontre où elle s'arrête. Il ne cherche rien : il calcule la
+**borne** de ce que l'archive peut faire.
+
+### Théorème I — le nombre de bits à position fixe vaut `v₂(K)`
+
+> Soit un mot de `W` bits, `u = w/2^W`, et une observation de modulus `K`.
+>
+> **Sous troncature** (`m = ⌊u·K⌋`), les `j` premiers bits de `u` sont
+> déterminés **pour tout `m`** si et seulement si `2ʲ | K`.
+>
+> *Preuve.* Si `K = 2ʲ·q`, alors `u·2ʲ ∈ [m/q, (m+1)/q)`, de longueur `1/q`. Un
+> entier n'y tombe que si `m/q` en est un, et il en est alors la borne **gauche** :
+> le plancher est constant. Réciproquement, si `2ʲ ∤ K`, posons `g = pgcd(2ʲ, K)
+> < 2ʲ` : les valeurs de `m·2ʲ mod K` parcourent les multiples de `g`, et
+> l'intervalle `(K − 2ʲ, K)`, de longueur `2ʲ > g`, en contient un. Pour ce `m`,
+> l'intervalle franchit un entier. ∎
+>
+> **Sous modulo** (`m = w mod K`), les `b` bits bas de `w` se lisent dans `m` si
+> et seulement si `2ᵇ | K`, la réduction étant alors compatible. ∎
+>
+> **Les deux échantillonneurs donnent le même nombre, et c'est la valuation
+> 2-adique du modulus.**
+
+Vérifié sur douze moduli — `v₂(K)` prédit **12/12** les deux mesures :
+
+| K | 7 | 12 | 16 | **20** | 24 | 32 | 40 | 48 | 64 | **80** | 96 | 100 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **v₂ = troncature = modulo** | 0 | 2 | 4 | **2** | 3 | 5 | 3 | 4 | 6 | **4** | 5 | 2 |
+
+| observable | K | bits à position fixe | |
+|---|---|---|---|
+| **rang du bonus** | 20 | **2** | utilisables |
+| un numéro | 80 | 4 | mais l'archive est **triée** |
+| le boost | 80 | 4 | mais seul le **seau** est publié (§125) |
+
+### Théorème II — le plafond conjoint : `M·N/(M+1) < N`
+
+> Un annulateur commun `g` de degré `d` a `d+1` coefficients et impose `M(N−d)`
+> équations. Une solution non triviale n'existe qu'à partir de
+>
+>     d + 1 > M(N − d)     soit     d > M·N/(M+1).
+>
+> **Corollaire.** `M·N/(M+1) < N` pour tout `M`. **Aucune exclusion model-free
+> au-delà de `N` bits d'état n'est possible depuis `N` tirages**, quel que soit
+> le nombre de bits extraits par tirage. ∎
+
+Mesuré plutôt que cru, sur 70 560 tirages de suites indépendantes :
+
+| M | prédit `M·N/(M+1)` | mesuré | écart |
+|---|---|---|---|
+| 1 | 35 280 | 35 278 | −2 |
+| 2 | 47 040 | **47 040** | 0 |
+| 3 | 52 920 | **52 920** | 0 |
+| 4 | 56 448 | **56 448** | 0 |
+
+*(La complexité d'une suite **finie** fluctue de `O(1)` autour du seuil ; l'écart
+mesuré ne dépasse jamais 2.)*
+
+### Ce que les deux donnent ensemble
+
+`M = v₂(20) = 2`, donc le seuil vaut `2N/3 = 47 040` — **c'est exactement le
+§124**, retrouvé sans le calculer. Et le plafond `N = 70 560` n'est pas
+atteignable, parce que `M` est fixé par le modulus que la plateforme a choisi :
+
+| si le bonus était tiré sur K = | 16 | **20** | 24 | 32 | 64 | 128 |
+|---|---|---|---|---|---|---|
+| `v₂ = M` | 4 | **2** | 3 | 5 | 6 | 7 |
+| **portée model-free** | 56 448 | **47 040** | 52 920 | 58 800 | 60 480 | 61 740 |
+
+> **Le plafond du dossier est un choix d'implémentation d'autrui.** Un modulus de
+> 32 au lieu de 20 aurait porté l'exclusion model-free à 58 800 bits.
+
+### La carte complète des portées
+
+| méthode | nomme la famille ? | portée en bits d'état |
+|---|---|---|
+| élimination directe (§105–§118) | **oui** | **306 936** |
+| complexité conjointe (§124) | non | **47 040** |
+| plafond model-free, `M → ∞` | non | `< 70 560` |
+| borne d'information brute | — | 141 120 |
+
+**Lecture.** L'élimination directe atteint 306 936 bits parce qu'elle utilise les
+4,35 équations exactes par tirage **à positions variables** — ce qu'elle peut
+faire puisqu'elle connaît les formes linéaires de la famille. La complexité
+conjointe ne peut utiliser que les positions **fixes**, et paie un facteur
+`(M+1)/M` sur ce qu'elle en tire : **c'est le prix de ne rien nommer.**
+
+**Le résidu.** Ce qui échappe aux deux est l'intervalle `(47 040 ; 306 936)` pour
+une famille **non nommée**. Il ne contient **aucun générateur publié** — le plus
+grand est WELL44497b à 44 497 bits, sous le seuil de 47 040. Le résidu est
+théorique, et il est nommé.
+
+### La pente, et ce qu'il faudrait
+
+La portée model-free croît comme `M/(M+1)` du nombre de tirages : pour exclure un
+état de `W` bits **sans nommer la famille**, il faut `N ≥ 1,5·W`.
+
+| état visé | tirages requis | l'archive suffit ? |
+|---|---|---|
+| 19 937 (MT19937) | 29 906 | **oui** |
+| 44 497 (WELL44497b) | 66 746 | **oui** |
+| 47 040 | 70 560 | **oui, tout juste** |
+| 70 000 | 105 000 | non — il en manque 34 440 |
+| 100 000 | 150 000 | non — il en manque 79 440 |
+
+> **C'est la seule pente linéaire du dossier.** Toutes les autres bornes — le
+> branchement en `20^(n/4,48)` du §110, l'arbre de rejet du §111 — sont
+> exponentielles. Celle-ci est de un pour un et demi.
+
+**Ce qu'il faudrait, exactement, et rien d'autre :**
+
+- pour dépasser 47 040 bits sans nommer la famille : **34 440 tirages de plus**,
+  soit **120 jours** d'archive supplémentaires ;
+- pour y aller sans attendre : un modulus différent — qu'on ne choisit pas ;
+- **pour tout le reste, ce n'est plus une question de volume** : c'est l'**ordre**
+  d'émission (§110) ou l'**angle** de la roue (§125).
+
+**Registre : inchangé** — ce paragraphe ne teste rien sur l'archive ; il démontre
+deux bornes et les vérifie sur du hasard simulé.
