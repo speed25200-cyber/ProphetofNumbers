@@ -256,6 +256,41 @@ static inline int match_order(int g, int s, uint64_t seed, const uint8_t *target
 }
 
 // ---------------------------------------------------------------------------
+// MODE JOURNÉE (§130). Le sixième axe du modèle de consommation dit que la
+// plateforme s'arrête 7 h 05 chaque nuit et reprend à 06:05, par blocs de 204
+// tirages. Si elle RÉ-AMORCE au début de chaque journée, alors le tirage
+// d'index m de la journée occupe les mots m*stride, et la graine naturelle est
+// l'heure du premier tirage du jour — connue exactement depuis le §130.
+//
+// Ce mode n'a de sens que pour les échantillonneurs de Fisher-Yates : sous
+// rejet le nombre de mots consommés VARIE, et « m*stride » n'existe pas.
+// ---------------------------------------------------------------------------
+
+static inline int match_jour(int g, int s, uint64_t seed, int stride,
+                             int ndraw, const int *idx, const uint8_t *tg) {
+    gstate st;
+    gen_init(g, seed, &st);
+    uint32_t bits = gen_bound(g);
+    long pos = 0;
+    for (int d = 0; d < ndraw; d++) {
+        long want = (long)idx[d] * (long)stride;
+        while (pos < want) { gen_next(g, &st); pos++; }
+        uint8_t arr[POOL];
+        for (int i = 0; i < POOL; i++) arr[i] = (uint8_t)(i + 1);
+        for (int i = 0; i < DRAWN; i++) {
+            uint32_t m = (uint32_t)(POOL - i);
+            uint32_t u = gen_next(g, &st);
+            uint32_t pp = (s == 2) ? (u % m) : (uint32_t)(((uint64_t)u * m) >> bits);
+            int j = i + (int)pp;
+            uint8_t t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+            if (arr[i] != tg[d * DRAWN + i]) return 0;
+        }
+        pos += DRAWN;
+    }
+    return 1;
+}
+
+// ---------------------------------------------------------------------------
 // Le balayage, réparti sur les cœurs
 // ---------------------------------------------------------------------------
 
@@ -266,12 +301,22 @@ typedef struct {
     int gen, samp;
     uint64_t hits;
     uint64_t hit_seed;
+    int jour_stride, jour_n;     // mode journée : 0 si inactif
+    const int *jour_idx;
 } job;
 
 static void *worker(void *arg) {
     job *j = (job *)arg;
     j->hits = 0;
     for (uint64_t seed = j->lo; seed < j->hi; seed++) {
+        if (j->jour_stride) {
+            if (match_jour(j->gen, j->samp, seed, j->jour_stride,
+                           j->jour_n, j->jour_idx, j->target)) {
+                if (j->hits == 0) j->hit_seed = seed;
+                j->hits++;
+            }
+            continue;
+        }
         if (match_order(j->gen, j->samp, seed, j->target)) {
             if (j->confirm && !match_order(j->gen, j->samp, seed, j->confirm)) continue;
             if (j->hits == 0) j->hit_seed = seed;
@@ -291,6 +336,9 @@ static const char *SAMP_NAME[NSAMP] = {
     "Fisher-Yates multiply-shift"
 };
 
+static int JOUR_STRIDE = 0, JOUR_N = 0;
+static const int *JOUR_IDX = NULL;
+
 static uint64_t sweep(int g, int s, uint64_t lo, uint64_t hi,
                       const uint8_t *target, const uint8_t *confirm,
                       int nthreads, uint64_t *first) {
@@ -304,6 +352,8 @@ static uint64_t sweep(int g, int s, uint64_t lo, uint64_t hi,
         if (jobs[i].lo > hi) jobs[i].lo = jobs[i].hi = hi;
         jobs[i].target = target; jobs[i].confirm = confirm;
         jobs[i].gen = g; jobs[i].samp = s; jobs[i].hits = 0; jobs[i].hit_seed = 0;
+        jobs[i].jour_stride = JOUR_STRIDE; jobs[i].jour_n = JOUR_N;
+        jobs[i].jour_idx = JOUR_IDX;
         pthread_create(&th[i], NULL, worker, &jobs[i]);
     }
     uint64_t total = 0;
@@ -390,8 +440,98 @@ int main(int argc, char **argv) {
         return ok == tot ? 0 : 1;
     }
 
+    // --- TÉMOIN DU MODE JOURNÉE ------------------------------------------
+    // Une attaque qui ne retrouve pas sa propre graine ne prouve rien quand
+    // elle ne trouve rien. On plante une graine, on engendre le flux de la
+    // journée, on en extrait DEUX tirages à des index éloignés, et on exige
+    // que le balayage retrouve la graine.
+    if (argc >= 2 && strcmp(argv[1], "--jour-selftest") == 0) {
+        const uint64_t WIT = 1234567;
+        const int IDX[2] = { 33, 41 };
+        int ok = 0, tot = 0;
+        printf("AUTOTEST JOURNÉE — graine %llu, index %d et %d, pas 20\n\n",
+               (unsigned long long)WIT, IDX[0], IDX[1]);
+        printf("%-20s %-30s %-10s %s\n", "générateur", "échantillonneur",
+               "retrouvée", "graines");
+        for (int g = 0; g < NGEN; g++) {
+            for (int s = 2; s < NSAMP; s++) {
+                // fabrique les deux tirages depuis la graine plantée
+                static uint8_t tg[2 * DRAWN];
+                gstate st; gen_init(g, WIT, &st);
+                uint32_t bits = gen_bound(g);
+                long pos = 0; int complet = 1;
+                for (int d = 0; d < 2; d++) {
+                    while (pos < (long)IDX[d] * 20) { gen_next(g, &st); pos++; }
+                    uint8_t arr[POOL];
+                    for (int i = 0; i < POOL; i++) arr[i] = (uint8_t)(i + 1);
+                    for (int i = 0; i < DRAWN; i++) {
+                        uint32_t m = (uint32_t)(POOL - i);
+                        uint32_t u = gen_next(g, &st);
+                        uint32_t pp = (s == 2) ? (u % m)
+                                              : (uint32_t)(((uint64_t)u * m) >> bits);
+                        int j = i + (int)pp;
+                        uint8_t t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+                        tg[d * DRAWN + i] = arr[i];
+                        if (!arr[i]) complet = 0;
+                    }
+                    pos += DRAWN;
+                }
+                if (!complet) continue;
+                JOUR_STRIDE = 20; JOUR_N = 2; JOUR_IDX = IDX;
+                uint64_t first = 0;
+                uint64_t n = sweep(g, s, 1200000, 1300000, tg, NULL, nthreads, &first);
+                tot++; if (n >= 1) ok++;
+                printf("%-20s %-30s %-10s %llu\n", GEN_NAME[g], SAMP_NAME[s],
+                       n >= 1 ? "OUI" : "NON", (unsigned long long)n);
+            }
+        }
+        printf("\n%d/%d combinaisons retrouvent leur témoin de journée.\n", ok, tot);
+        return ok == tot ? 0 : 1;
+    }
+
+    // --- MODE JOURNÉE (§130) ---------------------------------------------
+    //   --jour <lo> <hi> <stride> <ndraw> <m1> <o1..o20> [<m2> <o1..o20> ...]
+    // Le tirage d'index m de la journée occupe les mots m*stride. Seuls les
+    // deux échantillonneurs de Fisher-Yates sont testés : sous rejet le nombre
+    // de mots consommés varie et « m*stride » n'a pas de sens.
+    if (argc >= 6 && strcmp(argv[1], "--jour") == 0) {
+        uint64_t lo = strtoull(argv[2], 0, 10), hi = strtoull(argv[3], 0, 10);
+        int stride = atoi(argv[4]), ndraw = atoi(argv[5]);
+        if (ndraw < 1 || ndraw > 16) { fprintf(stderr, "ndraw hors bornes\n"); return 1; }
+        if (argc < 6 + ndraw * (1 + DRAWN)) { fprintf(stderr, "arguments manquants\n"); return 1; }
+        static int idx[16];
+        static uint8_t tg[16 * DRAWN];
+        int a = 6;
+        for (int d = 0; d < ndraw; d++) {
+            idx[d] = atoi(argv[a++]);
+            for (int i = 0; i < DRAWN; i++) tg[d * DRAWN + i] = (uint8_t)atoi(argv[a++]);
+        }
+        JOUR_STRIDE = stride; JOUR_N = ndraw; JOUR_IDX = idx;
+        fprintf(stderr, "journee : plage [%llu, %llu) — pas %d — %d tirage(s) — %d fils\n",
+                (unsigned long long)lo, (unsigned long long)hi, stride, ndraw, nthreads);
+        printf("%-20s %-30s %s\n", "générateur", "échantillonneur", "graines compatibles");
+        uint64_t grand = 0;
+        for (int g = 0; g < NGEN; g++) {
+            for (int s = 2; s < NSAMP; s++) {          // Fisher-Yates seulement
+                uint64_t first = 0;
+                uint64_t n = sweep(g, s, lo, hi, tg, NULL, nthreads, &first);
+                grand += n;
+                if (n)
+                    printf("%-20s %-30s %llu   PREMIÈRE = %llu\n", GEN_NAME[g],
+                           SAMP_NAME[s], (unsigned long long)n,
+                           (unsigned long long)first);
+                else
+                    printf("%-20s %-30s 0\n", GEN_NAME[g], SAMP_NAME[s]);
+                fflush(stdout);
+            }
+        }
+        printf("\ntotal : %llu graine(s) compatible(s)\n", (unsigned long long)grand);
+        return 0;
+    }
+
     if (argc < 23) {
         fprintf(stderr, "usage: %s <lo> <hi> <o1..o20> [-- <c1..c20>]\n", argv[0]);
+        fprintf(stderr, "       %s --jour <lo> <hi> <stride> <ndraw> <m> <o1..o20> ...\n", argv[0]);
         fprintf(stderr, "       %s --selftest\n", argv[0]);
         return 1;
     }
