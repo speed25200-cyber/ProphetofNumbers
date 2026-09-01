@@ -68,7 +68,13 @@ DEPOT = os.path.dirname(os.path.dirname(ICI))
 A, C = 0x5DEECE66D, 0xB
 M48, M21 = (1 << 48) - 1, (1 << 21) - 1
 POOL, DRAWN = 80, 20
-STRIDES = (20, 21, 22) if DRY else (20, 21, 22, 23, 24)
+# Pas 20 a 24 : Fisher-Yates partiel (20 appels) plus jusqu'a quatre appels
+# perdus. Pas 79 : `Collections.shuffle` complet (nextInt(80) ... nextInt(2),
+# 79 appels), le tirage etant les VINGT DERNIERES cases — la premiere valeur
+# nextInt(80) y est placee en case 79 et n'en bouge plus, donc j_0 + 1 est
+# dans l'ensemble publie, et le meme crible s'applique. (Les vingt PREMIERES
+# cases d'un shuffle ne se criblent pas par le mot 0 : j_0 + 1 en est exclu.)
+STRIDES = (20, 21, 22) if DRY else (20, 21, 22, 23, 24, 79)
 
 
 def say(*a):
@@ -261,7 +267,9 @@ else:
     tok = lab.preregister(
         "h128.java_48_bits",
         "Aucun des 281 474 976 710 656 etats de java.util.Random n'engendre les "
-        "tirages de l'archive, pour aucun des pas 20 a 24. L'attaque n'enumere "
+        "tirages de l'archive, pour aucun des pas 20 a 24 (Fisher-Yates partiel, "
+        "jusqu'a quatre appels perdus) ni pour le pas 79 (Collections.shuffle, "
+        "vingt dernieres cases). L'attaque n'enumere "
         "pas 2^48 : elle crible les 2^21 bits BAS, ce que rend possible le fait "
         "que 80 = 16 x 5 — donc (v-1) mod 16 vaut les bits 17 a 20 de l'etat — "
         "et que le LCG de module 2^48 soit AUTONOME modulo 2^21. C'est le cas "
@@ -289,7 +297,7 @@ else:
                f"(v-1) mod 16 = (s>>>17) mod 16 = les bits 17 a 20 de l'etat, qui "
                f"ne dependent que de s mod 2^21 ; et le LCG mod 2^48 est AUTONOME "
                f"modulo 2^21. Un crible de 2^21 exclut donc 2^48. Filtre 0,8 par "
-               f"tirage, {NJ} tirages consecutifs, pas 20 a 24 tous balayes."))
+               f"tirage, {NJ} tirages consecutifs, pas 20 a 24 et 79 tous balayes."))
     h = lab.holm()
     say(f"   consigne : h128.java_48_bits   {len(REL)} etat sur 2^48 x "
         f"{len(STRIDES)} pas")

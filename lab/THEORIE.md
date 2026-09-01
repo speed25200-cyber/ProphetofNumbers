@@ -1063,5 +1063,5 @@ il dit ce qui serait vrai si elle l'était, et fournit le test qui l'aurait
 prise en défaut. Il ne parle pas de l'option EXTRA, dont la loi n'est pas
 publiée (§62). Et il ne dit rien du générateur : une archive engendrée par un
 xorshift de 32 bits vérifie le théorème pour toute règle qui ignore l'état —
-c'est précisément pourquoi le dossier attaque l'état (§148–§150) et non les
+c'est précisément pourquoi le dossier attaque l'état (§149–§150) et non les
 fréquences.

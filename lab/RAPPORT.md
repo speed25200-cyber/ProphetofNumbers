@@ -15384,3 +15384,79 @@ même instrument lit −30,6 sur sa meilleure mise : rien.
 −22,16, `verdict : conforme`, 0 significatif sur 60 357.** Durée : 173 s.
 
 ---
+
+## 149. Les 2^48 états de `java.util.Random`, balayés en 2^21 (`h128_java_48_bits.py`, `tools/java_lift.c`)
+
+### Le trou que les §120 et §121 laissaient
+
+Le §120 balaie 2^32 **graines**, le §121 les millisecondes. Cela couvre
+`new Random(k)` pour `k` petit — un identifiant, un horodatage. Cela ne couvre
+**pas** `new Random()` sans argument, qui amorce l'état sur
+`nanoTime ^ 0x5DEECE66D` : l'état est alors un entier **libre** de 48 bits, et
+`2^48 = 2,8·10^14` est hors de portée d'une énumération. C'est pourtant la façon
+dont on écrit `new Random()` neuf fois sur dix.
+
+### La structure qui rend le balayage possible
+
+`java.util.Random` est un LCG de module `2^48`, `next(31) = s >>> 17`, et
+`nextInt(80)` rend `next(31) mod 80`. Or
+
+    80 = 16 · 5,   donc   (v − 1) mod 16 = (s >>> 17) mod 16 = les bits 17 à 20 de l'état,
+
+qui ne dépendent que de `s mod 2^21`. Et le LCG mod `2^21` est **autonome** :
+les bits bas évoluent sans jamais consulter les 27 bits hauts. À l'étape 0 de
+Fisher-Yates le tableau est encore l'identité, donc la première valeur émise
+vaut `j_0 + 1` et appartient à l'ensemble publié (§141). Pour chaque tirage on
+exige
+
+    (s >>> 17) mod 16  ∈  { (v − 1) mod 16 : v ∈ S }
+
+Ce résidu couvre en moyenne 12,8 des 16 classes — un filtre de **0,8** par
+tirage, faible, mais 150 tirages consécutifs ramènent `2 097 152` candidats à
+`0,8^150 · 2^21 = 4·10^−9`. **Un crible de 2^21 exclut un espace d'état de
+2^48.** Les 27 bits hauts d'un survivant se relèvent ensuite par énumération
+(`tools/java_lift.c`, 2^27 essais à vingt pas, quelques secondes), l'état
+complet devant rejouer l'**ensemble** des vingt numéros — filtre `1/C(80,20)`,
+faux positifs attendus `3,8·10^−11`.
+
+### Témoin : 3/3
+
+Trois états de 48 bits tirés au hasard, 140 tirages engendrés au pas 21 :
+le crible garde **2 candidats bas** sur 2 097 152, le vrai y est, et le
+relèvement rend l'**état complet** — 3/3.
+
+### L'archive
+
+150 tirages consécutifs d'une même journée (identifiants 1309794 à 1309943).
+Le pas est balayé, puisqu'on ne le suppose pas : 20 à 24 (Fisher-Yates partiel
+plus jusqu'à quatre appels perdus) et **79** (`Collections.shuffle` complet,
+`nextInt(80)…nextInt(2)`, le tirage étant les vingt dernières cases — la
+première valeur est placée en case 79 et n'en bouge plus, donc le même crible
+s'applique).
+
+| pas | candidats bas restants | décroissance |
+|---|---|---|
+| 20 | 0 | 1 441 792 → 1 081 342 → 811 009 → … |
+| 21 | 0 | 1 441 792 → 1 081 345 → 811 015 → … |
+| 22 | 0 | 1 441 792 → 1 081 351 → 811 033 → … |
+| 23 | 0 | 1 441 792 → 1 081 344 → 810 992 → … |
+| 24 | 0 | 1 441 792 → 1 081 343 → 811 025 → … |
+| 79 | 0 | 1 441 792 → 1 081 344 → 810 959 → … |
+
+**0 candidat bas, 0 état.** La décroissance suit exactement le facteur 0,8 par
+tirage — le crible se comporte sur l'archive comme sur le témoin, et il ne
+reste rien.
+
+> Les **281 474 976 710 656** états de `java.util.Random` sont exclus sur
+> l'archive, pour chacun des six pas, **sans que l'amorçage soit supposé**.
+
+**Ce qui n'est pas couvert, et il faut le dire.** Le tirage « vingt distincts
+par rejet des doublons » a un nombre d'appels variable par tirage (≈ 22,9 en
+moyenne) : le pas n'y est pas constant, et ce crible ne s'y applique pas. Les
+vingt **premières** cases d'un `Collections.shuffle` non plus : `j_0 + 1` en est
+exclu, et le résidu ne filtre rien. Ces deux variantes restent ouvertes.
+
+**Registre : `h128.java_48_bits`, piste B, `m = 60 358`, 0 état, `verdict :
+conforme`, 0 significatif.** Durée : 9,3 s.
+
+---
