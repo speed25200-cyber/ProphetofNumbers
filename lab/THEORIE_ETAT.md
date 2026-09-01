@@ -611,6 +611,33 @@ Les 2,8 millions de bits de l'ensemble trié sont donc réels et hors d'atteinte
     ordre connu, pas inconnu   →  arbre combinatoire, C(n/5,2 + r, r)
     ordre inconnu              →  arbre exponentiel, 20^(n/4,48)
 
+### 7.2 bis Le brouilleur est affine sur `Z/2⁶⁴` (§145) — `dim L = 0` ne dit pas ce qu'on croyait
+
+`dim L_d = 0` (7.3) est un énoncé sur **`F₂`**. Sur **`Z/2⁶⁴`**, la sortie de
+xoshiro est **affine** :
+
+> `rotl(y,7) = 128y + (y>>57)` sans bits communs, d'où pour xoshiro256\*\* et
+> xoroshiro128\*\* : **`sortie = 5760·x + 9c (mod 2⁶⁴)`**, `c = (5x)>>57 ∈ [0,128)`,
+> `5760 = 2⁷·45`. Vérifié 200 000/200 000. Pour xoshiro256++ :
+> `2²³·(s₀+s₃) + (s₀+s₃)>>41 + s₀`.
+
+**Et le terme `9c` ne résiste pas.** `5760·x` a ses sept bits bas nuls, donc
+`sortie mod 128 = 9c mod 128` et 9 est inversible mod 128 : **`c` est déterminé**.
+Puis 45 est inversible mod `2⁵⁷`. **Un mot complet détermine `x`** (20 000/20 000).
+
+**Reconstitution.** La mise à jour étant `F₂`-linéaire, `état → (x₀..x_{n−1})` est
+carrée et inversible : **4 mots pour les 256 bits de xoshiro256\*\*, 2 pour les
+128 de xoroshiro128\*\***. 40/40, avec rejeu **et** prédiction de six mots
+(`2⁻³⁸⁴` par hasard).
+
+**Ce qui protège l'archive n'est donc pas le brouilleur.** L'inversion exige les
+bits de **poids faible** ; Fisher-Yates publie 6,3 bits de **poids fort**. Il en
+faudrait **56**.
+
+> La plateforme est protégée par la façon dont elle **consomme** (§137, pas de 21
+> mots) et **publie** (§145, 6 bits sur 64) son générateur — **pas par le
+> générateur**.
+
 ### 7.3 `dim L = 0` — et ce que le §135 en fait
 
 Pour xoshiro\*\*, xoshiro++, PCG32, splitmix64 : **aucune** fonctionnelle de la

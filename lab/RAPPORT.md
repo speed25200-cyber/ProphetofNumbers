@@ -14981,3 +14981,102 @@ le flux du §139 — 204 tirages ordonnés par jour — c'est la pièce qui manq
 entre la capture et la prédiction.
 
 **Registre : `m = 60 352`, 0 prédiction, `verdict : conforme`.**
+
+---
+
+## 145. Le théorème du brouilleur affine : le dossier travaillait dans le mauvais anneau (`h124_brouilleur_affine.py`)
+
+### Ce que le dossier croyait
+
+Les §119 et §123 mesurent, pour xoshiro256++/\*\*, xoroshiro128\*\*, splitmix64 :
+**`dim L_d = 0` pour `d ≤ 3`** — aucune fonctionnelle de la sortie n'est un
+polynôme de degré ≤ 3 de l'état. Le §141 en tirait la conclusion du dossier : ces
+familles sont **hors de portée**.
+
+> **C'est vrai sur `F₂`. C'est faux sur `Z/2⁶⁴`, et le dossier travaillait dans le
+> mauvais anneau.**
+
+### Le théorème
+
+Une rotation est une multiplication modulaire **plus un report explicite** :
+
+    rotl(y, 7) = 128·y mod 2⁶⁴  +  (y >> 57),
+
+les deux termes ne partageant **aucun bit**. En composant avec `y = 5x mod 2⁶⁴` :
+
+> **Théorème.** Pour xoshiro256\*\* et xoroshiro128\*\*,
+>
+>     sortie = 5760·x + 9c  (mod 2⁶⁴),   c = (5x mod 2⁶⁴) >> 57 ∈ [0, 128),
+>
+> où `5760 = 2⁷ · 45`. Et pour xoshiro256++,
+> `sortie = 2²³·(s₀+s₃) + ((s₀+s₃)>>41) + s₀ (mod 2⁶⁴)`. ∎
+
+| famille | forme affine | vérifié |
+|---|---|---|
+| xoshiro256\*\* / xoroshiro128\*\* | `5760·x + 9c` | **200 000/200 000** |
+| xoshiro256++ | `2²³·(s₀+s₃) + (s₀+s₃)>>41 + s₀` | **200 000/200 000** |
+
+### Le terme `9c` ne résiste pas
+
+`5760·x` a ses **sept bits de poids faible nuls**, donc
+
+    sortie mod 128 = 9c mod 128,   et 9 est inversible mod 128,
+
+d'où **`c = 9⁻¹·sortie (mod 128)` — déterminé, pas deviné.** Puis 45 est
+inversible mod `2⁵⁷`, donc `x` est déterminé mod `2⁵⁷`, et ses sept bits de poids
+fort sont fixés par la contrainte `c = (5x)>>57`.
+
+> **Un seul mot de sortie complet détermine l'entrée du brouilleur.**
+> 20 000/20 000 candidats uniques, **1,000 candidat en moyenne**.
+
+### La reconstitution, et elle marche
+
+La mise à jour d'état de xoshiro est **`F₂`-linéaire**. Donc l'application
+« état initial → les `n` mots lus successifs » est `F₂`-linéaire, et pour
+`n = W/64` elle est **carrée et inversible**.
+
+| famille | `W` | mots lus | états retrouvés | **prédit 6/6** |
+|---|---|---|---|---|
+| **xoshiro256\*\*** | 256 | **4** | **40/40** | **40/40** |
+| **xoroshiro128\*\*** | 128 | **2** | **40/40** | **40/40** |
+
+Double témoin : **rejeu** de tous les mots observés **et prédiction exacte de six
+mots de 64 bits jamais montrés** — `2⁻³⁸⁴` par hasard.
+
+> **Quatre mots suffisent pour les 256 bits de xoshiro256\*\*, deux pour les 128
+> de xoroshiro128\*\*.** Ce sont exactement les familles que les §119, §123 et §141
+> déclaraient hors de portée.
+
+### Ce qui protège vraiment la plateforme
+
+Rien de tout cela ne s'applique à l'archive, et il faut dire **pourquoi** avec
+précision. L'inversion a besoin de `sortie mod 128` — les bits de **poids
+faible**. Or Fisher-Yates ne publie que `⌊K·u/2^b⌋`, soit `log₂80 ≈ 6,3` bits de
+**poids fort**.
+
+> **Les bits dont l'attaque a besoin sont exactement ceux que l'échantillonneur
+> jette.**
+
+| bits observés `t` | coût par mot | coût total (4 mots) |
+|---|---|---|
+| **6** *(l'archive)* | `2^58` | `2^232` |
+| 32 | `2^32` | `2^128` |
+| **56** | `2^8` | **`2^32`** |
+| 64 | `2^0` | **immédiat** |
+
+Il faudrait `t ≥ 56` — **cinquante-six des soixante-quatre bits**. L'échantillonneur
+en publie **six**.
+
+> **Ce n'est pas le brouilleur qui protège la plateforme, c'est
+> l'échantillonneur.** Et le §137 avait déjà montré que le pas de vingt et un mots
+> en est une seconde couche : **la plateforme est protégée par la façon dont elle
+> consomme et publie son générateur, pas par le générateur.**
+
+### La consigne de collecte que cela donne
+
+Tout observable exposant un mot **complet** — ou seulement ses cinquante-six bits
+de poids fort — ferait tomber ces familles **en quatre tirages**. À chercher dans
+le flux du §139 : une graine affichée, un paramètre d'animation, un identifiant
+dérivé, un horodatage sous-milliseconde. **Le brouilleur, lui, ne protège rien.**
+
+**Registre : `m = 60 353`, 4/4, `verdict : conforme`.**
