@@ -394,10 +394,28 @@ théoriques. **4/4.** C'est la première reconstitution d'état du dossier sans
 l'ordre et sans le bonus.
 
 **La limite, et elle est algorithmique, pas informationnelle.** `2^W` bloque dès
-`W = 128`. Le problème est du **LPN structuré** de biais `0,075` ; BKW exige plus
-de couples que l'archive n'en a, et une attaque par corrélation rapide exige des
-contrôles de parité de **poids faible** — que la **sparsité** des récurrences de
-MT19937 et des WELL fabrique gratuitement. C'est la seule brèche visible.
+`W = 128`. Le problème est du **LPN structuré** de biais `0,075`.
+
+**La brèche, chiffrée et fermée (§142).** L'échappatoire est la corrélation
+rapide. Un contrôle de poids `w` a un biais `δ = 2^{w−2}ε^{w−1}` et il en faut
+`m* = c/δ²` par bit — la constante `c = 0,022` est **mesurée**, pas supposée, et
+elle a corrigé un premier modèle **pessimiste d'un facteur 45**. Les multiples de
+poids `w` et degré `< D` en fournissent `w·D^{w−2}/((w−1)!·2^W)`. En optimisant
+le poids, sur les **1 552 320** bits que l'archive observe (22 par tirage, biais
+0,075 à 0,026 selon le mot) :
+
+| `W` | 64 | 128 | 256 | 512 | 1 024 | MT19937 |
+|---|---|---|---|---|---|---|
+| coût | `2^50` | `2^83` | `2^143` | `2^285` | **impossible** | **impossible** |
+| contre | `2^64` | `2^128` | `2^256` | `2^512` | — | — |
+
+> Elle fait tomber `2^128` à `2^83` — quarante-cinq bits gagnés sur un mur qui en
+> fait encore quatre-vingt-trois — et **au-delà de 512 bits elle se referme**,
+> faute de contrôles à tout poids.
+
+Le canal de confinement et sa corrélation rapide sont donc **le meilleur qu'on
+puisse tirer d'une archive triée**. L'ordre, lui, ramène tout à un pivot de
+Gauss (§139).
 
 ### 4.6 Théorème du plafond universel (§134) — `T/2`, et une seule suite
 

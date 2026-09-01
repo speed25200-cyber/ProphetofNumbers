@@ -14663,3 +14663,105 @@ biais `0,075`. Deux voies connues, et il faut dire ce qui les bloque ici :
 > §139 dit où les prendre.
 
 **Registre : `m = 60 349`, 4/4, `verdict : conforme`.**
+
+---
+
+## 142. La corrélation rapide : la seule brèche du §141, chiffrée et fermée (`h121_correlation_rapide.py`)
+
+### Ce que le §141 avait laissé ouvert
+
+Le §141 a construit le canal de confinement et l'algorithme exact qui l'exploite
+— maximum de vraisemblance par une Walsh-Hadamard, `O(N·16 + W·2^W)`. Le `2^W`
+bloque dès `W = 128`, et le §141 a nommé la seule échappatoire visible :
+
+> *« il faut des contrôles de parité de **poids faible**, que la **sparsité** des
+> récurrences de MT19937 et des WELL fabrique gratuitement. C'est la seule brèche
+> visible. »*
+
+Cette section la chiffre. Elle ne l'agrandit pas : elle la ferme, avec un nombre.
+
+### Les biais, mesurés mot par mot
+
+Le §141 n'exploitait que le **premier** mot, où le confinement est exact. Les
+autres en portent aussi, moins : à l'étape `k` le tableau a déjà bougé de `k`
+places. Mesure sur 300 000 tirages simulés — un mot ne donne de bits exacts à
+position fixe que si `K = 80−k` est **pair** (`v₂(K)` bits, théorème I du §126) :
+
+| mot `k` | 0 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16 | 18 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `v₂(80−k)` | 4 | 1 | 2 | 1 | 3 | 1 | 2 | 1 | **6** | 1 |
+| **biais** | **0,075** | 0,074 | 0,068 | 0,064 | 0,058 | 0,051 | 0,046 | 0,039 | 0,033 | 0,026 |
+
+**22 bits exacts par tirage**, contre 4 pour le seul premier mot : l'archive en
+publie **1 552 320**. Le biais décroît de 0,075 à 0,026 — c'est le prix des
+échanges déjà faits. On retient le meilleur, `ε = 0,0754`, ce qui **favorise
+l'attaque**.
+
+### Le modèle de coût, et ses deux exigences contraires
+
+Un contrôle de poids `w` porte sur la position à décider et `w−1` autres. Par le
+lemme d'empilement son biais vaut `δ = 2^{w−2}·ε^{w−1}`, et il en faut `m` par
+bit. Or les multiples de poids `w` et de degré `< D` du polynôme caractéristique
+sont au nombre de `~D^{w−1}/((w−1)!·2^W)`, d'où
+
+    m disponible  =  w · D^{w−2} / ((w−1)! · 2^W).
+
+> Un poids élevé rend les contrôles **abondants** mais leur biais **s'effondre**
+> en `ε^{w−1}`. Il existe donc un poids optimal, et il se calcule.
+
+### Le seuil est mesuré, pas supposé — et mon premier modèle était faux
+
+`m ~ 1/δ²` est le seuil d'une décision **en un coup**. Le décodage **itéré** fait
+bien mieux, et conclure à l'impossibilité d'une attaque en la chiffrant mal serait
+la pire des fautes. Mesure par dichotomie sur un code linéaire aléatoire,
+contrôles de poids 4 trouvés par rencontre au milieu, vote majoritaire itéré :
+
+| `W` | `D` | `ε` | `1/δ²` | **`m*` mesuré** | `c = m*·δ²` |
+|---|---|---|---|---|---|
+| 16 | 2 000 | 0,20 | 3 906 | 88 | 0,0224 |
+| 16 | 2 000 | 0,25 | 1 024 | 23 | 0,0224 |
+| 16 | 2 000 | 0,30 | 343 | 10 | 0,0303 |
+| 16 | 4 000 | 0,20 | 3 906 | 88 | 0,0224 |
+| 20 | 4 000 | 0,25 | 1 024 | 23 | 0,0224 |
+
+**5/5, et la constante est stable** à travers trois biais, deux longueurs et deux
+largeurs : `m* = c/δ²` avec `c = 0,022`.
+
+> **Mon premier modèle était donc pessimiste d'un facteur 45.** On retient la
+> valeur la **plus favorable à l'attaque**.
+
+### Ce que ça donne sur l'archive
+
+`D = 1 552 320` bits observés (`2^{20,6}`), `ε = 0,0754`, `c = 0,0224` :
+
+| `W` | `w*` | `m` requis | `m` dispo | **coût `D·m`** | contre |
+|---|---|---|---|---|---|
+| 64 | 7 | `2^29,3` | `2^32,1` | **`2^49,8`** | `2^64` |
+| 88 | 9 | `2^40,2` | `2^43,8` | `2^60,8` | `2^88` |
+| **128** | 13 | `2^62,0` | `2^73,1` | **`2^82,6`** | `2^128` |
+| 256 | 24 | `2^122,1` | `2^126,6` | `2^142,6` | `2^256` |
+| 512 | 50 | `2^264,0` | `2^272,2` | `2^284,5` | `2^512` |
+| **1 024** | — | | | **impossible** | il manque `2^239` |
+| **MT19937** | — | | | **impossible** | il manque `2^19152` |
+
+> **La brèche existe, elle est réelle, et elle ne mène nulle part.** Elle fait
+> tomber `2^128` à `2^83` — quarante-cinq bits gagnés sur un mur qui en fait
+> encore quatre-vingt-trois — et **au-delà de 512 bits d'état elle se referme** :
+> aucun poids ne fournit assez de contrôles, quel qu'il soit.
+
+**Le seul cas où elle mord** est `W = 64`, à `2^50` opérations : hors d'atteinte
+d'un particulier, mais plus du tout absurde. Aucune famille du catalogue n'a
+64 bits d'état sauf xoroshiro64, déjà exclu au §136.
+
+### Pourquoi plus de données n'y change rien d'utile
+
+Le coût `D·m` décroît quand `D` croît, mais le §139 dit qu'il existe **mille fois
+mieux** à faire de tirages supplémentaires : les prendre **ordonnés**, où chacun
+vaut **90 équations exactes** au lieu de 0,5 bit bruité.
+
+> Le canal de confinement (§141) et sa corrélation rapide (§142) sont la meilleure
+> chose qu'on puisse tirer d'une archive **triée**. Ils butent l'un sur `2^W`,
+> l'autre sur `2^83`. L'ordre, lui, ramène tout à un pivot de Gauss.
+
+**Registre : `m = 60 350`, 5/5 seuils mesurés, `verdict : conforme`.** Après
+`lab.dedupe()` — la mise au point de la section a produit une ligne à écraser.
