@@ -15425,6 +15425,14 @@ Trois états de 48 bits tirés au hasard, 140 tirages engendrés au pas 21 :
 le crible garde **2 candidats bas** sur 2 097 152, le vrai y est, et le
 relèvement rend l'**état complet** — 3/3.
 
+*Note ajoutée au §152.* Le second candidat n'est pas un hasard : c'est le
+registre du **mot 16** du vrai flux, `f^{16}(s₀)`. Comme `16 | 80 − 16`, le
+numéro `j_16 + 1` est toujours tiré et `j_16 ≡ x_16 (mod 16)` : le mot 16 est
+**sûr** au même titre que le mot 0, et le crible à un mot ne peut pas
+distinguer `s₀` de `f^{16}(s₀)` — un **fantôme** structurel, que le relèvement
+départage (lemme des deux mots sûrs, `THEORIE_ETAT.md` §7.6). Le §152 lit les
+deux mots et n'a plus qu'un survivant.
+
 ### L'archive
 
 150 tirages consécutifs d'une même journée (identifiants 1309794 à 1309943).
@@ -15455,6 +15463,13 @@ par rejet des doublons » a un nombre d'appels variable par tirage (≈ 22,9 en
 moyenne) : le pas n'y est pas constant, et ce crible ne s'y applique pas. Les
 vingt **premières** cases d'un `Collections.shuffle` non plus : `j_0 + 1` en est
 exclu, et le résidu ne filtre rien. Ces deux variantes restent ouvertes.
+
+*Corrigé au §152.* Le premier de ces deux énoncés était **faux** : sous le
+rejet, chaque mot du tirage — accepté ou doublon — vaut un numéro publié, donc
+**tous** les mots sont contraints, et le pas variable se crible en branchant
+sur la fin du tirage. C'est même le mode le plus criblable (2,98 bits par
+tirage contre 0,74). Le §152 le fait, pour `java` comme pour six autres LCG.
+Seules les vingt premières cases du shuffle restent ouvertes.
 
 **Registre : `h128.java_48_bits`, piste B, `m = 60 358`, 0 état, `verdict :
 conforme`, 0 significatif.** Durée : 9,3 s.

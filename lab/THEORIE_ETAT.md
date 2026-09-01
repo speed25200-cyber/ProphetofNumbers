@@ -360,7 +360,8 @@ moyenne — un nombre *variable*, donc inutilisable ici. Comme **4 divise 20** :
 sous troncature `⌊4u⌋ = ⌊m/5⌋` sans exception (les deux bits hauts) ; sous
 modulo `w mod 4 = m mod 4` (les deux bits bas).
 
-**Limites.** Le pas doit être **constant** — le rejet échappe (4.4) ; le bit doit
+**Limites.** Le pas doit être **constant** — le rejet échappe (4.4), mais pas au
+crible des quotients du 7.6, qui en fait son meilleur cas ; le bit doit
 être **F₂-linéaire** — les sorties brouillées échappent, mais 3.2 les ferme par
 `dim L = 0`. Sous l'ordre de service renversé du cache (§112) le théorème ne
 vaut que **par classe modulo 64**, et la portée tombe d'un facteur 64.
@@ -755,6 +756,128 @@ sont dans l'espace et en sont rejetées.
 
 > Ce n'est plus « aucune famille publiée ne convient » mais **« aucun générateur
 > de ces cinq formes ne convient, quels que soient ses paramètres »**.
+
+---
+
+### 7.6 Théorème des quotients (§149, §152) — exclure `2^W` états en n'en criblant que `2^m`
+
+Le 7.5 exclut par **énumération** : `2^32` états par design, jamais `2^48` ni
+`2^64`. Le §149 exclut pourtant les `2^48` états de `java.util.Random` en n'en
+regardant que `2^21`, et le §152 les `2^64` de `musl`, `newlib` et MMIX en n'en
+regardant que `2^37` — ou **seize**. Voici pourquoi cela marche, et pour qui.
+
+**Le quotient.** Soit `f` la transition sur l'espace d'état `S`, `|S| = 2^W`.
+Une partition `Q` de `S` est **invariante** si `f` envoie chaque bloc dans un
+bloc : `f` passe au quotient, et le générateur est **autonome sur `Q`** — on
+peut faire tourner `f̄` sur `Q` sans connaître le reste de l'état.
+
+> **Théorème Q (quotients d'un cycle).** *Si `f` est un cycle unique de
+> longueur `L` sur `S`, les partitions invariantes sont exactement les
+> **phases modulo `d`** pour `d | L` : le bloc de `s₀` est `{f^{jd}(s₀)}`, les
+> autres ses translatés.*
+>
+> *Preuve.* Soit `B` le bloc de `s₀` et `D = {k : f^k(s₀) ∈ B}`. Si `k ∈ D`,
+> `f^k` envoie `B` dans un bloc, qui contient `f^k(s₀) ∈ B` : c'est `B`. Donc
+> `k, k′ ∈ D ⇒ f^{k+k′}(s₀) ∈ f^k(B) ⊆ B`, et `D` est un sous-semi-groupe de
+> `Z/L` contenant `0`, donc un sous-groupe `dZ/L`. ∎
+
+> **Corollaire (le crible).** *Un crible de coût `|Q|` existe si et seulement
+> si une **statistique du mot observé se factorise par la phase** — ici
+> `(v−1) mod 16`, qui est une fonction du bloc. Alors :*
+>
+> - *coût du crible `|Q|` candidats, `~4` opérations par tirage et par candidat
+>   grâce au saut affine ;*
+> - *porte : `N · b > log₂|Q|`, où `b` est le nombre de bits que chaque tirage
+>   retire à un faux candidat ;*
+> - *relèvement `|S|/|Q|` par survivant ;*
+> - ***l'exclusion ne relève rien** : zéro survivant sur `Q` exclut tout `S`.*
+
+C'est ce dernier point qui fait le prix du théorème. Pour le mot entier de
+MMIX (`r = 0`, `m = 4`) il n'y a que **seize** candidats bas, et leur mort
+exclut `2^64` états — un relèvement de `2^60` par survivant n'aurait jamais été
+fait.
+
+**Ce que chaque tirage retire — les deux lemmes.** Le §149 lisait **un** mot
+par tirage et trouvait toujours « 2 candidats bas » sur ses témoins. Les deux
+faits ont la même cause.
+
+> **Lemme des deux mots sûrs.** *Dans un Fisher-Yates partiel par modulo
+> (`j_k = k + x_k mod (80−k)`) comme dans un shuffle complet lu par ses vingt
+> dernières cases (`j_k = x_k mod (80−k)`), le numéro `j_k + 1` est **toujours
+> tiré**, pour tout `k ≤ 19` ; et `j_k ≡ x_k (mod 16)` si et seulement si
+> `16 | (80 − k)`, soit `k ∈ {0, 16}`.*
+>
+> *Preuve.* La case `j_k` n'est jamais une case déjà fixée (`j_k ≥ k`, ou
+> `j_k ≤ i` dans le shuffle) ; à la **première** étape `k′ ≤ k` qui la vise,
+> son contenu d'origine `j_k + 1` part dans une case qui est fixée à cette
+> étape et n'est plus jamais visée : il est tiré. Et `x mod (80−k) ≡ x
+> (mod 16)` exactement quand `16 | (80−k)` — avec `16 | 80`, `j_k ≡ x_k`. ∎
+
+Donc chaque tirage donne **deux** contraintes sûres — les registres des mots
+`0` et `16` — et `ρ = 1 − C(75,20)/C(80,20) = 0,7728` étant la probabilité
+qu'une classe mod 16 soit permise, un faux candidat perd `b = 2·log₂(1/ρ)
+= 0,744` bit par tirage au lieu de `0,372`. Et le crible **à un mot** a deux
+survivants structurels par état vrai : `s₀` et `f^{16}(s₀)`, dont le mot `0`
+est le vrai mot `16`, sûr à chaque tirage — le **fantôme**, celui des témoins
+du §149. À deux mots le fantôme meurt (son mot `16` est le vrai mot `32`, qui
+n'est pas sûr) ; pour `m ≤ 4`, `f^{16} = id` mod `2^m` et le fantôme est
+confondu avec le vrai.
+
+> **Lemme des décalés (le rejet).** *Sous le tirage par rejet des doublons
+> (`v = x mod 80 + 1` jusqu'à vingt distincts), **chaque** mot du tirage —
+> accepté ou doublon — vaut un numéro de l'ensemble publié : les `σ ≥ 20` mots
+> sont tous contraints. Le crible branche sur la fin du tirage (`σ = 20..48`)
+> et sur `0..P` mots perdus entre deux tirages ; un faux candidat survit à un
+> tirage avec probabilité `Σ_{σ≥20} ρ^σ · (P+1) = 0,0254·(P+1)`, soit
+> `b = 2,98` bits pour `P = 4`, `5,30` pour `P = 0`. Ses survivants
+> structurels sont les registres **décalés** `f^k(s₀)`, `0 ≤ k ≤ σ₀ − 20`, du
+> premier tirage ; les décalages `f^{−p}(s₀)` et `f^{σ₀−20+q}(s₀)` survivent
+> avec probabilité `ρ^p`, `ρ^q` (ils se réalignent un tirage plus tard) ;
+> aucun survivant n'est étranger au vrai flux.*
+
+Le §149 déclarait le rejet « hors du crible » à cause de son pas variable.
+C'est l'inverse : **le rejet est le mode le plus criblable**, huit fois plus de
+bits par tirage que le pas constant, parce que le pas variable y est
+**la conséquence** de la contrainte sur chaque mot. Témoin (`tools/lcg64_sieve.c
+--selftest`, 6/6) : à un mot, état planté retrouvé **avec** son fantôme ; à
+deux mots, seul ; sous rejet avec deux mots perdus plantés, douze survivants,
+**tous** des `f^k(s₀)` pour `k ∈ [−5, 6]`, les six structurels présents ;
+fenêtres aléatoires nulles dans les deux modes.
+
+**Le budget de l'archive.** Le plus long segment à 300 s compte `N = 204`
+tirages, soit **152 bits** à pas constant (deux mots) et **608 bits** sous le
+rejet. Le crible de `musl` (`m = 37`) attend `2^37·ρ^{408} = 3·10⁻³⁵`
+survivants par hasard ; l'exclusion est sur-déterminée d'un facteur quatre.
+
+**Qui a un quotient, et qui n'en a pas.** Le théorème décide famille par
+famille — c'est sa vraie portée, et elle est étroite :
+
+| générateur | `L` | quotients | `(v−1) mod 16` se factorise ? | crible |
+|---|---|---|---|---|
+| LCG mod `2^W`, sortie `s >> r` | `2^W` | `s mod 2^m` (anneau) | **oui**, `m = r+4` | `2^{r+4}` — §149, §152 |
+| LCG mod `2^W`, sortie tronquée `(x·80) >> 32` | `2^W` | `s mod 2^m` | non : lit les bits **hauts** | aucun |
+| LCG mod `p` premier (MINSTD), MWC (`≡` LCG mod `a·2^32−1`) | `p−1` | phases `d \| p−1` | non : `s mod 16` n'est pas une fonction de la phase (cosets multiplicatifs, équidistribués) | aucun |
+| MT19937, tout `L` premier | `2^19937−1` | **aucun** (`L` premier de Mersenne) | — | aucun |
+| xorshift32 primitif | `2^32−1 = 3·5·17·257·65537` | phases `d \| L` | non pour `d < 2^16` : un bit de `x_k` est `Tr(β α^k)`, et sur un coset de taille `> √q` la somme de caractères est `< ` sa taille (Weil) ; `d ≥ 65537` : question sans objet, l'énumération §150–151 est complète | aucun |
+| SplitMix64, PCG, xorshift\* | `2^64` | `s mod 2^m` (compteur, LCG) | non : la sortie **mélange** tous les bits | aucun |
+| Fibonacci retardé additif mod `2^32` (glibc `random()` TYPE_3, `r_i = r_{i−3} + r_{i−31}`, sortie `r_i >> 1`) | — | `(Z/2^m)^{31}` | **oui**, `m = 5` (bits 1..4) | `2^{155}` : quotient trop large pour l'énumération |
+
+La dernière ligne est la **frontière**. Le quotient existe et la statistique
+s'y factorise — le théorème dit que l'attaque est possible — mais `2^155`
+candidats ne s'énumèrent pas. Le budget dit ce qu'il faut à la place : à pas
+constant, `155/0,744 = 208` tirages, **quatre de plus que le plus long segment
+de l'archive** ; sous le rejet, 52 tirages suffisent. L'attaque suivante n'est
+donc plus un crible mais un **solveur** : 155 inconnues dans `Z/32`, une
+récurrence à deux termes, et par mot une contrainte d'appartenance de quatre
+bits — un problème de satisfaction que le crible, lui, résout par force brute.
+Réduire `m` ne sert à rien : à `m = 4` (bits 1..3) une classe mod 8 n'est
+vide qu'avec probabilité `C(70,20)/C(80,20) = 0,046`, soit `0,07` bit par
+mot, et `m = 3` n'en donne plus.
+
+> Le crible des bits bas n'est pas une astuce sur `java` : c'est le théorème
+> des quotients appliqué à l'anneau `Z/2^W`. Il atteint **toute** la famille
+> des LCG à sortie décalée, sous les trois échantillonneurs à modulo, et il
+> **nomme** ceux qu'il n'atteint pas — et pourquoi.
 
 ---
 
