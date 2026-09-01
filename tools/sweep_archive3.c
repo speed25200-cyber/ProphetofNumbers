@@ -109,7 +109,7 @@ static inline int suite_shuffle(uint32_t x, const design *d, int j0) {
 }
 
 typedef struct {
-    uint32_t lo, hi;
+    uint64_t lo, hi;                             // [lo, hi) ; hi = 2^32 pour le dernier fil
     const design *d;
     long trouves[NMODES];
     long long pas;
@@ -121,7 +121,7 @@ static void *fil(void *v) {
     tache *t = (tache *)v;
     memset(t->trouves, 0, sizeof t->trouves);
     long long p = 0;
-    for (uint64_t s = t->lo; s < (uint64_t)t->hi; s++) {
+    for (uint64_t s = t->lo; s < t->hi; s++) {
         uint32_t x = pas32((uint32_t)s, t->d);
         int j0 = (int)(x % (uint32_t)POOL);
         p++;
@@ -149,8 +149,8 @@ static void balaye_design(const design *d, long *trouves, long long *pas) {
     tache tk[64];
     uint64_t span = (1ULL << 32) / NBFILS;
     for (int i = 0; i < NBFILS; i++) {
-        tk[i].lo = (uint32_t)(i * span);
-        tk[i].hi = (uint32_t)((i + 1 == NBFILS) ? 0xFFFFFFFFu : (i + 1) * span);
+        tk[i].lo = (uint64_t)i * span;
+        tk[i].hi = (i + 1 == NBFILS) ? (1ULL << 32) : (uint64_t)(i + 1) * span;   // l'etat 2^32-1 inclus
         tk[i].d = d;
         pthread_create(&th[i], NULL, fil, &tk[i]);
     }

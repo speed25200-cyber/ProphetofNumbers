@@ -105,7 +105,7 @@ static inline int survit(uint32_t s, const design *d, int t) {
 }
 
 typedef struct {
-    uint32_t lo, hi;
+    uint64_t lo, hi;                             // [lo, hi) ; hi = 2^32 pour le dernier fil
     const design *d;
     int cible;                                   // indice du tirage vise
     long trouves;
@@ -117,7 +117,7 @@ static void *fil(void *v) {
     tache *t = (tache *)v;
     t->trouves = 0;
     long long p = 0;
-    for (uint64_t s = t->lo; s < (uint64_t)t->hi; s++) {
+    for (uint64_t s = t->lo; s < t->hi; s++) {
         int r = survit((uint32_t)s, t->d, t->cible);
         p += (r < 0) ? DRAWN : (r + 1);
         if (r < 0) {
@@ -137,8 +137,8 @@ static long balaye_design(const design *d, int cible, long long *pas) {
     tache tk[64];
     uint64_t span = (1ULL << 32) / NBFILS;
     for (int i = 0; i < NBFILS; i++) {
-        tk[i].lo = (uint32_t)(i * span);
-        tk[i].hi = (uint32_t)((i + 1 == NBFILS) ? 0xFFFFFFFFu : (i + 1) * span);
+        tk[i].lo = (uint64_t)i * span;
+        tk[i].hi = (i + 1 == NBFILS) ? (1ULL << 32) : (uint64_t)(i + 1) * span;   // l'etat 2^32-1 inclus
         tk[i].d = d; tk[i].cible = cible;
         pthread_create(&th[i], NULL, fil, &tk[i]);
     }
