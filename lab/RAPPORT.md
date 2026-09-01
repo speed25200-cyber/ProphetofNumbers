@@ -13233,3 +13233,109 @@ portée**.
 
 > **Et le plafond du §126 tient.** Même avec `M = 4`, on reste sous `N = 70 560`.
 > Aucune lecture des données publiées ne franchira ce mur.
+
+## 128. La hiérarchie des hypothèses : ce que chaque supposition achète (`h109_hierarchie_hypotheses.py`)
+
+Les §105 à §127 empilent des exclusions, chacune sous ses propres hypothèses.
+Mais elles ne sont jamais **rangées par force d'hypothèse** — et c'est ce
+rangement qui fait une théorie plutôt qu'une collection. Le niveau le plus
+faible, celui qui ne suppose **rien** d'autre que le déterminisme, n'avait jamais
+été traité.
+
+### Le théorème du déterminisme
+
+> Soit un générateur d'état `s`, de transition **déterministe quelconque**, et
+> une observation `o = φ(s)` **quelconque**. Si deux pas produisent le même état,
+> toutes les observations suivantes coïncident.
+>
+> **Contraposée.** Si la suite observée ne contient **aucune répétition** sur `N`
+> pas, aucun état ne s'est répété. ∎
+
+Aucune linéarité, aucun échantillonneur, aucun pas constant, aucune famille.
+**C'est la seule affirmation du dossier qui ne suppose rien d'autre.**
+
+| granularité | répétitions | attendu par hasard |
+|---|---|---|
+| les 20 numéros | **0** | 7,0·10⁻¹⁰ |
+| 20 numéros + bonus + boost | **0** | 1,5·10⁻¹² |
+| deux tirages consécutifs | **0** | 5,0·10⁻¹⁹ |
+
+**Ce que cela minore.** Pour une transition **bijective** — tous les générateurs
+standards le sont — la trajectoire d'un point au hasard d'une permutation
+aléatoire de `S` états boucle en `L` pas avec probabilité `L/S`. N'observer
+aucune répétition sur 70 560 pas ne minore donc `S` qu'à
+
+    S ≥ 70 560 / 0,05 = 1 411 200 états,  soit 20,4 bits.
+
+> C'est **faible**, et ce n'est pas un défaut de mesure : c'est ce que vaut le
+> déterminisme tout seul. Un générateur de période maximale ne se répète jamais
+> en 70 560 pas, quelle que soit sa taille au-delà de 20 bits.
+
+### Le raffinement, et le piège de formule qu'il contient
+
+Une répétition complète est un événement de mesure nulle. Le plus long **bloc**
+répété, lui, a une loi connue : pour une source sans mémoire d'entropie de
+**collision** `H₂ = −ln(Σp²)`, il vaut `≈ 2·ln(N)/H₂`.
+
+> **On lit souvent `2·log_a(N)` pour un alphabet de taille `a`. C'est la forme
+> uniforme, et le boost ne l'est pas du tout.**
+
+| suite | alphabet | `H₂` (nat) | `2·ln N/H₂` | formule uniforme | **mesuré** |
+|---|---|---|---|---|---|
+| rang du bonus | 20 | 2,996 | 7,5 | 7,5 | **7** |
+| **boost** | 6 | **1,063** | **21,0** | *12,5* | **20** |
+| (rang, boost) | 120 | 4,059 | 5,5 | *4,7* | **5** |
+
+Les trois mesures collent à la prédiction par entropie de collision, et aucune à
+la formule uniforme. **Le « 20 » du boost, qui paraissait énorme contre 12,5,
+tombe sous son attendu de 21,0.** Lue avec la mauvaise formule, la mesure aurait
+crié à l'anomalie.
+
+| | |
+|---|---|
+| null | 200 suites simulées, mêmes marginales |
+| null : moyenne / min / max | 5,04 / 4 / 6 |
+| **observé** | **5** — `p = 0,960` |
+
+**Registre : consigné.** `m = 58 450`, zéro significatif.
+
+### La hiérarchie complète
+
+Chaque ligne suppose **strictement plus** que la précédente, et achète
+strictement plus de portée.
+
+| ce qu'on suppose | outil | portée sur l'état |
+|---|---|---|
+| **le déterminisme, et rien d'autre** | absence de répétition (§128) | **> 20,4 bits** |
+| + le modèle d'indexation inconnu | minimum des deux (§127) | ≥ 47 040 bits |
+| + sortie F₂-linéaire, pas constant | complexité conjointe (§127) | ≥ 56 448 bits |
+| + la famille est nommée | élimination directe (§105–§118) | ≤ 306 936 bits |
+| + la graine tient en 32 bits | balayage (§120–§121) | 1,2·10¹¹ testées |
+
+**Lue de haut en bas.** Plus on suppose, plus on atteint — et la première ligne
+montre le prix de ne rien supposer : **vingt bits**. Toute la portée du dossier
+vient donc des hypothèses de **modèle**, pas du volume de données. C'est pourquoi
+70 560 tirages ne suffisent pas, et pourquoi **neuf tirages ordonnés valaient
+plus que sept mille triés**.
+
+**Lue de bas en haut.** Chaque hypothèse est un point de rupture possible : si la
+plateforme indexe dans l'ordre d'émission (§106), la ligne 3 tombe et il reste la
+ligne 2 ; si elle rejette à pas variable (§111), les lignes 2 et 3 tombent **et
+il reste vingt bits**.
+
+> **Le dossier tient entier sur deux suppositions — pas constant, et sortie
+> linéaire — dont aucune n'est vérifiable depuis les données publiées.**
+
+### La réponse complète à « peut-on reconstituer l'état »
+
+**Non depuis l'archive** — et la raison n'est pas qu'on manque de tirages :
+**c'est qu'on manque d'hypothèses vérifiables.** Les deux données qui en
+vérifieraient une sont nommées depuis le §92 et le §110, et elles se filment en
+une soirée :
+
+1. **un enregistrement d'un seul tirage** montrant la grille se remplir boule
+   après boule **puis** la boule EXTRA du même tirage — tranche le modèle
+   d'indexation, vaut 9 408 bits de portée (§127) ;
+2. **vingt arrêts de roue** avec la fraction dans le secteur — tranche entre
+   « la roue ne publie que le boost », « elle publie le secteur » (6,32 bits
+   exacts par tirage filmé) et « elle publie les bits de poids fort » (§125).
