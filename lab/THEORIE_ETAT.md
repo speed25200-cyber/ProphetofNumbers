@@ -725,6 +725,39 @@ zéro. Probabilité de faux positif `2,8·10⁻¹⁹` par graine sur l'ensemble 
 
 ---
 
+### 7.5 L'espace des designs, et non le catalogue (§146, §147)
+
+Le §25 avait nommé le trou : *« il fallait **énumérer des constantes publiées** ;
+un générateur aux constantes maison lui échappait entièrement »*. Fermé pour les
+LCG, il est resté ouvert pour les `F₂`-linéaires jusqu'ici.
+
+`tools/sweep_design.c` balaie l'**espace des paramètres**, pas la liste :
+
+| forme | `W` | espace | designs |
+|---|---|---|---|
+| Marsaglia `x ^= x<<\|>>a,b,c` | 32 / 64 / 128 | tous décalages × 8 orientations | 2 476 · 10³ |
+| xoroshiro128 brut | 128 | toutes rotations, tout mot lu | 500 094 |
+| xoshiro256 brut | 256 | toutes rotations, tout mot lu | 31 752 |
+
+**8 994 882 designs testés, zéro compatible.** Témoin 10/10 : design planté
+retrouvé, design différant d'**un** paramètre rejeté ; les constantes publiées
+sont dans l'espace et en sont rejetées.
+
+**Deux points de méthode qui ont rendu cela possible ou faillible :**
+
+- **Ré-originage.** L'état au début du premier tirage observé est aussi inconnu
+  que celui du début de la journée : la profondeur de flux tombe de 1 806 mots à
+  63, facteur 28.
+- **Porte de puissance (§147).** Une exclusion n'a de sens que là où le système
+  est **sur-déterminé**. La première version l'a omise et a rendu 23 288 faux
+  « survivants » — 185 équations pour 256 inconnues. Le 4.8 l'avait pourtant
+  mesuré : *le point de contradiction vaut la largeur de l'état*.
+
+> Ce n'est plus « aucune famille publiée ne convient » mais **« aucun générateur
+> de ces cinq formes ne convient, quels que soient ses paramètres »**.
+
+---
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**

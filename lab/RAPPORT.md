@@ -15148,3 +15148,90 @@ Le trou que le §25 avait nommé et laissé ouvert pour les `F₂`-linéaires es
 pour les trois largeurs balayées.
 
 **Registre : `m = 60 354`, 0 design, `verdict : conforme`.**
+
+---
+
+## 147. Les designs à rotation, et la porte de puissance que j'avais oubliée (`h126_designs_a_rotation.py`)
+
+### Ce que le §146 laissait
+
+Le §146 a fermé l'espace **entier** de la forme de Marsaglia. Mais la forme de
+Marsaglia n'est pas la seule : **tout ce qui a été écrit après 2014 est bâti sur
+des rotations**, pas sur des décalages.
+
+    xoroshiro128   s1 ^= s0 ; s0 = rotl(s0,A) ^ s1 ^ (s1<<B) ; s1 = rotl(s1,C)
+    xoshiro256     t = s1<<A ; s2^=s0 ; s3^=s1 ; s1^=s2 ; s0^=s3 ;
+                   s2 ^= t ; s3 = rotl(s3,B)
+
+Aucun balayage du dossier n'a couvert leur espace de paramètres : les §136 et
+§144 les testent avec les rotations **publiées**, `(24,16,37)` et `(17,45)`.
+
+| forme | `W` | designs |
+|---|---|---|
+| xoroshiro128 brut | 128 | **500 094** |
+| xoshiro256 brut | 256 | 31 752 |
+
+« Brut » veut dire sortie **`F₂`-linéaire** — un mot d'état, sans le brouilleur
+arithmétique. C'est délibéré, et le §145 dit pourquoi : le brouilleur est **affine
+sur `Z/2⁶⁴`** donc inversible, et ce qui protège la plateforme est
+l'échantillonneur, pas lui.
+
+### La faute : j'ai lancé un test sans puissance
+
+La première exécution a rendu **23 288 « survivants »**. Ce n'était pas une
+trouvaille — c'était une **faute de conception de ma part**, et elle se lit dans
+les chiffres : **185 équations pour 256 inconnues**, sur tous les 23 288 sans
+exception.
+
+> Un balayage n'exclut **rien** tant que le système est sous-déterminé. Le §144
+> l'avait pourtant mesuré — *« le point de contradiction vaut la largeur de
+> l'état »* — et je ne l'ai pas transporté ici.
+
+La journée 1 n'a que **deux** tirages ordonnés : elle ne peut rien dire d'un état
+de 256 bits. La ligne scellée au registre garde son verdict `DESIGN TROUVE` — **on
+ne réécrit pas une pré-inscription après avoir vu le résultat**. Le test a été
+refait avec sa **porte de puissance** sous une nouvelle pré-inscription,
+`h126b.designs_a_rotation_determine`.
+
+### Le résultat, avec la porte
+
+| journée | forme | `W` | équations | concluant | designs | survivants |
+|---|---|---|---|---|---|---|
+| −1 | xoroshiro128 | 128 | 452 | **oui** | 500 094 | **0** |
+| −1 | xoshiro256 | 256 | 452 | **oui** | 31 752 | **0** |
+| 0 | xoroshiro128 | 128 | 455 | **oui** | 500 094 | **0** |
+| 0 | xoshiro256 | 256 | 455 | **oui** | 31 752 | **0** |
+| 1 | xoroshiro128 | 128 | 185 | **oui** | 500 094 | **0** |
+| 1 | xoshiro256 | 256 | 185 | **non** | ~~31 752~~ | ~~23 288~~ **écarté** |
+
+    1 563 786 designs testés dans les couples concluants
+                            0 compatible
+
+**Témoin de l'outil : 10/10** — pour chacune des **cinq** formes, un design planté
+est retrouvé compatible et un design ne différant que d'**un** paramètre est
+rejeté. Et le contrôle tient : xoroshiro128 `(24,16,37)` et xoshiro256 `(17,45)`
+sont **dans** l'espace balayé, donc rejetés comme aux §136 et §144.
+
+### Ce qui est fermé maintenant, avec le §146
+
+| forme | largeur | espace balayé |
+|---|---|---|
+| Marsaglia | 32, 64, 128 | tous décalages, toutes orientations |
+| xoroshiro128 | 128 | toutes rotations, tout mot lu |
+| xoshiro256 | 256 | toutes rotations, tout mot lu |
+
+> Ce n'est plus *« aucune famille **publiée** ne convient »* : c'est **« aucun
+> générateur de ces cinq formes ne convient, quels que soient ses paramètres »**.
+> **8 994 882 designs** au total, zéro compatible.
+
+### Et la leçon de méthode, qui vaut pour la suite
+
+Le §144 avait mesuré que le point de contradiction vaut la largeur de l'état. Le
+§147 vient de payer le prix de ne pas l'avoir appliqué :
+
+> **Une exclusion n'a de sens que là où le système est sur-déterminé.** Tout
+> balayage futur doit porter sa porte de puissance, et une journée à deux tirages
+> ne conclut sur rien au-delà de 185 bits.
+
+**Registre : `m = 60 356`, 0 design sur 1 563 786 concluants, `verdict :
+conforme`.** La ligne fautive reste au registre, avec son verdict.

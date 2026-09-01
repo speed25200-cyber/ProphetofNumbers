@@ -118,15 +118,42 @@ for i, o in LIG:
     off = i - BASE_ID
     JOURS.setdefault(off // PARJOUR, {})[off % PARJOUR] = o
 
+def prefixe_nb(v, K):
+    lo = -(-(v << 32) // K)
+    hi = -(-((v + 1) << 32) // K) - 1
+    n = 0
+    while n < 32 and ((lo >> (31 - n)) & 1) == ((hi >> (31 - n)) & 1):
+        n += 1
+    return n
+
+
+def equations(ordre_par_index):
+    """Nombre d'equations exactes que rendent les tirages ordonnes d'une journee."""
+    tot = 0
+    for ordre in ordre_par_index.values():
+        arr = list(range(1, 81))
+        for k, val in enumerate(ordre):
+            j = arr.index(val, k)
+            arr[k], arr[j] = arr[j], arr[k]
+            tot += prefixe_nb(j - k, 80 - k)
+    return tot
+
+
 FORMES = [(4, 256)] if DRY else [(3, 128), (4, 256)]
 say(f"""   Chaque journee est re-originee sur son premier tirage observe (§146).
 
-       {'journée':>8} {'forme':>16} {'W':>5} {'designs':>10} {'survivants':>11} {'sec':>8}""")
+   ET CHAQUE COUPLE (journee, forme) PORTE SA PORTE DE PUISSANCE. Un balayage
+   n'exclut RIEN tant que le systeme est sous-determine : le §144 l'a mesure —
+   le point de contradiction vaut la largeur de l'etat. Une journee ne conclut
+   donc sur une largeur W que si elle rend PLUS de W equations.
+
+       {'journée':>8} {'forme':>16} {'W':>5} {'équations':>10} {'concluant':>10} {'designs':>10} {'survivants':>11} {'sec':>7}""")
 NOM = {3: "xoroshiro128", 4: "xoshiro256"}
-TOTAL, SURV = 0, []
+TOTAL, SURV, TESTES, SANSPUIS = 0, [], 0, []
 for j in sorted(JOURS):
     idx = sorted(JOURS[j])
     rel = [k - idx[0] for k in idx]
+    NEQ = equations(JOURS[j])
     for forme, W in FORMES:
         args = [BIN, str(forme), str(len(idx))]
         for k, r in zip(idx, rel):
@@ -142,13 +169,28 @@ for j in sorted(JOURS):
                 d = dict(kv.split("=", 1) for kv in l.split() if "=" in kv)
                 nd, ns = int(d["designs"]), int(d["survivants"])
         TOTAL += nd
-        say(f"   {j:>8} {NOM[forme]:>16} {W:>5} {nd:>10,} {ns:>11} "
-            f"{time.time()-tt:>8.1f}")
+        concluant = NEQ > W
+        if concluant:
+            TESTES += nd
+        else:
+            SANSPUIS.append((j, NOM[forme], W, NEQ, nd, ns))
+            SURV[:] = [x for x in SURV if not (x[0] == j and x[1] == W)]
+        say(f"   {j:>8} {NOM[forme]:>16} {W:>5} {NEQ:>10} "
+            f"{('OUI' if concluant else 'non'):>10} {nd:>10,} {ns:>11} "
+            f"{time.time()-tt:>7.1f}")
 
 say(f"""
-   {len(SURV)} design compatible sur {TOTAL:,} testes.""")
+   {len(SURV)} design compatible sur {TESTES:,} testes DANS LES COUPLES CONCLUANTS.""")
 for j, W, l in SURV:
     say(f"     !! journee {j}, W={W} : {l}")
+if SANSPUIS:
+    say("""
+   COUPLES SANS PUISSANCE, ECARTES ET DITS COMME TELS :""")
+    for j, nom, W, neq, nd, ns in SANSPUIS:
+        say(f"     journee {j}, {nom} (W = {W}) : {neq} equations pour {W} "
+            f"inconnues.\n       Le systeme est SOUS-DETERMINE, donc {ns:,} des "
+            f"{nd:,} designs\n       « survivent » sans que cela signifie quoi que "
+            f"ce soit. Ecarte.")
 if not SURV:
     say("""     AUCUN. Et le controle tient : xoroshiro128 (24,16,37) et xoshiro256
      (17,45) sont DANS l'espace balaye, donc le balayage les rejette comme le
@@ -173,11 +215,16 @@ if DRY:
     say("   MODE ESSAI : rien n'est consigne.")
 else:
     tok = lab.preregister(
-        "h126.designs_a_rotation",
+        "h126b.designs_a_rotation_determine",
         "Aucun generateur des deux formes A ROTATION — xoroshiro128 (W = 128, "
         "rotations A et C, decalage B, mot lu haut ou bas) et xoshiro256 "
         "(W = 256, decalage A, rotation B, mot lu parmi quatre, haut ou bas) — "
-        "n'engendre les tirages ordonnes filmes, POUR AUCUN jeu de parametres. "
+        "n'engendre les tirages ordonnes filmes, POUR AUCUN jeu de parametres, "
+        "LA OU LE SYSTEME EST SUR-DETERMINE — c'est-a-dire la ou la journee rend "
+        "plus d'equations que la largeur d'etat ne compte d'inconnues. Un couple "
+        "(journee, largeur) sous-determine est ECARTE et dit comme tel : il "
+        "n'exclut rien, et la premiere version de cette section avait omis cette "
+        "porte. "
         "Le §146 avait ferme la forme de Marsaglia ; les formes a rotation, "
         "c'est-a-dire tout ce qui a ete ecrit apres 2014, restaient ouvertes",
         "nombre de designs compatibles, un design etant compatible si le systeme "
@@ -195,7 +242,7 @@ else:
         notes=(f"COMPLETE LE §146. Celui-ci avait balaye la forme de Marsaglia "
                f"(decalages) ; les formes a ROTATION — celles de tout ce qui a "
                f"ete ecrit apres 2014 — restaient entieres. {TOTAL:,} designs "
-               f"testes sur les trois journees filmees. Les rotations publiees "
+               f"testes dans les couples CONCLUANTS. Les rotations publiees "
                f"sont DANS l'espace balaye — xoroshiro128 (24,16,37), xoshiro256 "
                f"(17,45) — donc le balayage les rejette comme les §136 et §144. "
                f"La sortie balayee est BRUTE, c'est-a-dire F2-lineaire : c'est "
@@ -205,7 +252,8 @@ else:
                f"ne convient » mais « aucun generateur de ces cinq FORMES ne "
                f"convient, quels que soient ses parametres »."))
     h = lab.holm()
-    say(f"   consigne : h126.designs_a_rotation   {len(SURV)} design sur {TOTAL:,}")
+    say(f"   consigne : h126b.designs_a_rotation_determine   {len(SURV)} design "
+        f"sur {TESTES:,} concluants")
     say(f"   m du registre : {h[0]['m_total']:,}   significatifs : "
         f"{sum(1 for r in h if r['significant'])}")
 
