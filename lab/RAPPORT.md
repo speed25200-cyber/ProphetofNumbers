@@ -15235,3 +15235,84 @@ Le §144 avait mesuré que le point de contradiction vaut la largeur de l'état.
 
 **Registre : `m = 60 356`, 0 design sur 1 563 786 concluants, `verdict :
 conforme`.** La ligne fautive reste au registre, avec son verdict.
+
+---
+
+## 147. Les designs à rotation, et la porte de puissance que j'avais oubliée (`h126_designs_a_rotation.py`)
+
+### Ce que le §146 avait laissé
+
+Le §146 a balayé l'espace entier de la forme de Marsaglia. Mais cette forme n'est
+pas la seule : **tout ce qui a été écrit après 2014 est bâti sur des rotations**,
+pas sur des décalages.
+
+    xoroshiro128   s1 ^= s0 ; s0 = rotl(s0,A) ^ s1 ^ (s1<<B) ; s1 = rotl(s1,C)
+    xoshiro256     t = s1<<A ; s2^=s0 ; s3^=s1 ; s1^=s2 ; s0^=s3 ;
+                   s2 ^= t ; s3 = rotl(s3,B)
+
+Aucun balayage du dossier n'avait couvert leur espace de paramètres : les §136 et
+§144 les testent avec les rotations **publiées**, `(24,16,37)` et `(17,45)`.
+
+| forme | `W` | designs |
+|---|---|---|
+| xoroshiro128 brut | 128 | `63³ × 2 = ` **500 094** |
+| xoshiro256 brut | 256 | `63² × 8 = ` **31 752** |
+
+*Brut* veut dire sortie `F₂`-linéaire — un mot d'état, sans le brouilleur
+arithmétique. C'est délibéré, et le §145 dit pourquoi : le brouilleur est **affine
+sur `Z/2⁶⁴`**, donc inversible ; ce qui protège la plateforme est
+l'échantillonneur, pas lui.
+
+### J'ai consigné un faux positif, et je le retire
+
+Le premier run a enregistré **23 288 designs « compatibles »**. Le diagnostic le
+disait pourtant en toutes lettres : `rang = 185/256`.
+
+> **185 équations pour 256 inconnues.** Le système est **sous-déterminé** : aucun
+> design n'était compatible, le balayage n'avait simplement **aucune puissance**
+> sur la journée 1, qui ne porte que **deux** tirages ordonnés.
+
+C'est la porte que le §144 avait pourtant mesurée — *le point de contradiction
+vaut la largeur de l'état* — et que je n'avais pas appliquée. Elle l'est
+désormais : le nombre d'équations exactes est calculé **par journée**, et tout
+couple (journée, forme) sous-déterminé est **écarté et dit comme tel**. Le run
+corrigé est consigné sous le **même identifiant**, pour que `lab.dedupe()` écrase
+la ligne fautive — la voie sanctionnée du protocole.
+
+### Le résultat, avec la porte
+
+| journée | forme | `W` | équations | concluant | designs | survivants |
+|---|---|---|---|---|---|---|
+| −1 | xoroshiro128 | 128 | 452 | **oui** | 500 094 | **0** |
+| −1 | xoshiro256 | 256 | 452 | **oui** | 31 752 | **0** |
+| 0 | xoroshiro128 | 128 | 455 | **oui** | 500 094 | **0** |
+| 0 | xoshiro256 | 256 | 455 | **oui** | 31 752 | **0** |
+| 1 | xoroshiro128 | 128 | 185 | **oui** | 500 094 | **0** |
+| 1 | xoshiro256 | 256 | 185 | **non** | — | *écarté* |
+
+    0 design compatible sur 1 563 786 testés DANS LES COUPLES CONCLUANTS.
+
+**Témoin de l'outil : 10/10** — pour chacune des cinq formes, un design planté est
+retrouvé **compatible** et un design ne différant que d'**un** paramètre est
+**rejeté**. Et le contrôle tient : xoroshiro128 `(24,16,37)` et xoshiro256
+`(17,45)` sont **dans** l'espace balayé, et le balayage les rejette comme l'ont
+fait les §136 et §144.
+
+### Ce qui est fermé, avec le §146
+
+| forme | `W` | couverture |
+|---|---|---|
+| Marsaglia | 32, 64, 128 | tous décalages, toutes orientations |
+| xoroshiro128 | 128 | toutes rotations, tout mot lu |
+| xoshiro256 | 256 | toutes rotations, tout mot lu |
+
+> Ce n'est plus *« aucune famille **publiée** ne convient »* : c'est **« aucun
+> générateur de ces cinq formes ne convient, quels que soient ses paramètres »**.
+
+### Ce que l'incident laisse comme règle
+
+Un balayage qui « trouve » quelque chose doit d'abord prouver qu'il **pouvait**
+ne rien trouver. Le nombre d'équations contre le nombre d'inconnues est la seule
+chose à regarder, et il doit être **affiché**, pas supposé — c'est pour cela que
+la colonne *équations* et la colonne *concluant* figurent maintenant dans le
+tableau.
