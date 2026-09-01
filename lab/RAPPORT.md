@@ -12170,3 +12170,77 @@ une conjecture — c'est une dimension calculée**.
 **Registre : inchangé** — ce fichier ne teste rien sur l'archive ; il mesure
 une propriété des générateurs eux-mêmes, et fixe la frontière que tout le reste
 du dossier supposait.
+
+---
+
+## 120. La graine des familles brouillées : la dernière voie vers un positif (`h101_graine_brouillee.py`, `tools/sweep_brouille.c`)
+
+### Ce que le §119 a fermé, et ce qu'il n'a pas fermé
+
+Le §119 mesure que `xoshiro256**`, `xoshiro256++`, `xoroshiro128**`, `PCG32` et
+`splitmix64` ont un sous-espace de linéarité de dimension **exactement zéro**.
+Aucune élimination de Gauss ne mordra jamais sur eux — dimension **calculée**,
+pas conjecture.
+
+**Mais cela ne dit rien de leur graine.**
+
+> Un état de 256 bits est hors de portée. **Une graine de 32 bits ne l'est pas.**
+
+Et une loterie régulée doit pouvoir **rejouer** ses tirages pour l'audit — ce
+qui pousse à amorcer sur le numéro de tirage ou sur l'horodatage, **tous deux
+publiés dans l'archive**.
+
+C'était la dernière voie par laquelle un résultat **positif** pouvait encore
+sortir du dossier. Les §105 à §119 ferment l'**état** ; celle-ci ferme la
+**graine**.
+
+### Une seule plage couvre les trois hypothèses
+
+On balaie `[0 ; 2³²)`, soit `[0 ; 4 294 967 296)`. Cet intervalle contient :
+
+| | plage |
+|---|---|
+| petites graines | 0 à quelques millions |
+| **numéro de tirage** | 1 309 614 – 1 380 173 |
+| **horodatage unix** | 1 757 829 900 – 1 787 691 600 |
+
+Une seule plage, trois hypothèses d'amorçage. Pas besoin d'en balayer trois.
+
+### Le filtre, et son coût réel
+
+La cible est l'**ensemble trié** des vingt numéros ; un numéro tiré sur quatre y
+appartient, donc l'abandon survient après **1,33 pas** en moyenne. Mesure :
+2²⁴ graines en 0,3 s, donc 2³² en 75 s.
+
+> Probabilité de faux positif : `1/C(80,20) = 2,8·10⁻¹⁹` par graine. **Un seul
+> succès aurait été décisif.**
+
+**Autotest : 28/28** — pour chacune des sept familles et des quatre
+échantillonneurs, une graine plantée est retrouvée.
+
+### Le résultat
+
+| | |
+|---|---|
+| familles × échantillonneurs | 7 × 4 = **28 balayages** |
+| graines testées | **120 259 084 288** |
+| espérance de faux positifs | 3,4·10⁻⁸ |
+| **graines compatibles** | **0** |
+
+### Ce que cela veut dire
+
+L'**état** était fermé par le §119 — une dimension calculée. La **graine** l'est
+ici — 120 milliards de graines, espérance de faux positifs 3,4·10⁻⁸.
+
+**Ce qui subsiste après les deux :**
+
+- une graine de **plus de 32 bits**, ou tirée d'un CSPRNG — c'est le cas d'un
+  générateur correctement amorcé, et c'est aussi ce qu'un auditeur exigerait ;
+- un **état brouillé jamais réamorcé**, hors d'atteinte par le §119 ;
+- le **matériel**.
+
+> **Le dossier a atteint sa borne.** Il ne reste que des hypothèses dont on peut
+> *démontrer* qu'aucune donnée publiée ne les distinguera — et non des
+> hypothèses qu'il resterait à essayer.
+
+**Registre : consigné.** `m = 58 079`, zéro significatif.
