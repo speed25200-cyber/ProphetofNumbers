@@ -8871,6 +8871,12 @@ pas *quelle* est la famille, il demande si la suite est **linéaire**.
 Et 35 280 bits, c'est **1,8 fois** l'état de MT19937, 69 fois celui de WELL512a,
 276 fois celui de `Math.random`. Aucun générateur déployé n'en a autant.
 
+> **⚠ Correction apportée par le §124.** Si : **WELL44497b** en a **44 497**,
+> publié en 2006 dans la même famille que WELL512a et WELL19937, tous deux déjà
+> au catalogue du dossier. Ce paragraphe laissait donc une case ouverte sans le
+> savoir. Il faut **deux bits par tirage** et la complexité **conjointe** pour
+> la fermer : le seuil passe alors de `N/2 = 35 280` à `2N/3 = 47 040`.
+
 *(Pour mémoire : le §77 déclarait MT19937 « computationnellement hors de
 portée ». Berlekamp-Massey le traite en **0,2 seconde**.)*
 
@@ -12327,6 +12333,28 @@ l'horodatage a deux écritures et qu'une seule tient dans 2³².
 
 ## 122. Le théorème de la complexité linéaire universelle : cesser d'énumérer (`h103_complexite_lineaire.py`, `tools/bmf2.c`)
 
+> **⚠ Deux corrections apportées par le §124.**
+>
+> **(a) L'étape du ppcm est fausse.** Ce paragraphe écrit `W ≥ deg ppcm(f, f′)`
+> et en conclut 70 560. Sur une suite **finie**, Berlekamp-Massey rend un
+> annulateur du **préfixe**, qui ne divise le polynôme caractéristique que si
+> `N ≥ 2W` ; le ppcm **majore** la borne conjointe au lieu de la minorer.
+> Contre-exemple exécuté : un LFSR de degré 400 observé sur 640 termes donne
+> `L = 318`, `L′ = 321`, ppcm `= 639` — la lecture de ce paragraphe aurait donc
+> **exclu le générateur qui avait produit les données**. La borne valide est la
+> **complexité conjointe**, et elle vaut **47 040**. La *portée* annoncée
+> (WELL44497b couvert) reste acquise, mais par un autre calcul et avec une marge
+> de 2 543 bits au lieu de 26 063.
+>
+> **(b) Le cadrage « cesser d'énumérer » sur-vend la nouveauté.** Le **§89** a
+> déjà fait tourner Berlekamp-Massey sur le bonus, et il s'intitule justement
+> « le premier test qui ne nomme aucune famille ». Ce que ce paragraphe ajoute
+> réellement au §89 : l'observable est le **rang** du bonus (`K = 20`) et non
+> `bonus − 1` ; l'échantillonneur par **troncature** est couvert, alors que le
+> §89 ne voyait que le modulo ; l'invariance en pas et en décalage est
+> **mesurée** ; et l'ordre de service renversé du cache est traité par classes
+> modulo 64. Ce sont des additions réelles — mais pas un changement de méthode.
+
 ### Le défaut de méthode que ce paragraphe corrige
 
 Du §105 au §121, la méthode est toujours la même : **nommer** une famille,
@@ -12377,7 +12405,13 @@ famille il s'agit, ni quel est le pas, ni quel est l'échantillonneur.
 **L'identification de la famille n'est pas nécessaire à la prédiction.** C'est
 la seule voie du dossier qui prédise sans reconstituer.
 
-### Le ppcm : doubler la portée sans un bit de plus
+### ~~Le ppcm : doubler la portée sans un bit de plus~~ ⚠ **retiré au §124**
+
+*Ce qui suit est conservé tel quel pour que la faute reste lisible. « `f` et `f′`
+divisent le caractéristique » ne vaut que pour les suites **infinies** ;
+Berlekamp-Massey ne voit qu'un **préfixe**, et son annulateur minimal ne divise
+le caractéristique que si `N ≥ 2W`. Le ppcm **majore** la borne conjointe au lieu
+de la minorer.*
 
 Le rang du bonus donne **deux** bits exacts par tirage. Les polynômes minimaux
 `f` et `f'` des deux suites divisent tous deux le polynôme caractéristique de
@@ -12448,14 +12482,14 @@ sont neutralisés par construction, pas par balayage.
 
 ### L'archive
 
-| hypothèse | bits lus | L(f) | L(f') | pgcd | **W ≥ ppcm** |
+| hypothèse | bits lus | L(f) | L(f′) | ppcm ⚠ | **conjointe (§124)** |
 |---|---|---|---|---|---|
-| troncature | bits 1 et 2 hauts | 35 280 | 35 280 | 0 | **70 560** |
-| modulo | bits 1 et 0 bas | 35 282 | 35 280 | 0 | **70 562** |
+| troncature | bits 1 et 2 hauts | 35 280 | 35 280 | ~~70 560~~ | **47 040** |
+| modulo | bits 1 et 0 bas | 35 282 | 35 280 | ~~70 562~~ | **47 040** |
 
-> **W ≥ 70 560.** Aucun générateur F2-linéaire dont l'état tient en moins de
-> 70 560 bits, consommé à pas constant, n'engendre les rangs du bonus de
-> l'archive.
+> **W ≥ 47 040** *(et non 70 560 — voir le bandeau en tête de section).* Aucun
+> générateur F₂-linéaire dont l'état tient en moins de 47 040 bits, consommé à
+> pas constant, n'engendre les rangs du bonus de l'archive.
 
 Ce que cela couvre n'est pas une liste de familles, c'est une **inégalité** :
 
@@ -12466,8 +12500,8 @@ Ce que cela couvre n'est pas une liste de familles, c'est une **inégalité** :
 | xoshiro / xoroshiro bruts | 128-256 | couvert |
 | WELL512a, WELL1024a | 512-1 024 | couvert |
 | MT19937, WELL19937 | 19 937 | couvert |
-| **WELL44497b** — le plus grand état publié | **44 497** | **couvert** |
-| tout le reste | < 70 560 | couvert, **nommé ou non** |
+| **WELL44497b** — le plus grand état publié | **44 497** | **couvert**, marge 2 543 |
+| tout le reste | < 47 040 | couvert, **nommé ou non** |
 
 ### Le corollaire arithmétique : les récurrences entières mod 2^e
 
@@ -12536,10 +12570,12 @@ Le prix est de 1 102 bits par classe au lieu de 70 560.
 
 Les §105 à §121 excluaient des familles **nommées**, une par une, et chaque axe
 de modèle oublié rouvrait tout. Ici l'exclusion porte sur une **inégalité** :
-`W ≥ 70 560`. Elle ne s'écrit pas plus longtemps si l'on ajoute une famille, et
+`W ≥ 47 040` (chiffre corrigé au §124). Elle ne s'écrit pas plus longtemps si
 aucun axe de consommation à pas constant ne la remet en cause.
 
-> **C'est la première borne du dossier qui ne se périme pas.**
+> **C'est une borne qui ne se périme pas quand on ajoute une famille** — le §89
+> l'avait déjà pour l'échantillonneur modulo ; ce paragraphe l'étend à la
+> troncature et aux quatre axes de consommation à pas constant.
 
 Ce qu'elle ne couvre pas, et c'est écrit dans le jeton :
 
@@ -12551,7 +12587,7 @@ Ce qu'elle ne couvre pas, et c'est écrit dans le jeton :
 - l'indexation dans l'**ordre d'émission** plutôt que dans le tableau trié —
   réserve héritée du §106, et qu'aucune donnée triée ne peut lever.
 
-**La pente.** La portée est de `~N` bits d'état pour `N` tirages, soit 70 560
+**La pente.** La portée est de `2N/3` bits d'état pour `N` tirages, soit 47 040
 aujourd'hui. Un état plus large demande plus de tirages, **dans un rapport de un
 pour un**, et rien d'autre. Aucune autre borne du dossier n'a une pente aussi
 simple.
@@ -12713,3 +12749,137 @@ hypothèse qu'il resterait à essayer, c'est une borne.
 
 **Registre : inchangé** — ce fichier ne teste rien sur l'archive ; il mesure une
 propriété des générateurs eux-mêmes.
+
+## 124. La complexité linéaire conjointe : réparer le §122, et fermer WELL44497b (`h105_complexite_conjointe.py`, `tools/jointf2.c`)
+
+### La faute
+
+Le §122 mesure deux complexités linéaires `L` et `L′` sur les deux bits exacts du
+rang du bonus, puis écrit
+
+    W ≥ deg ppcm(f, f′) = L + L′ − deg pgcd(f, f′)          ← FAUX
+
+et en conclut `W ≥ 70 560`. **C'est une inégalité lue à l'envers.**
+
+Sur une suite **finie** de `N` termes, Berlekamp-Massey rend le degré minimal
+d'un annulateur du **préfixe**. Ce polynôme ne divise le polynôme
+caractéristique du générateur que si `N ≥ 2W`. Pour `W > N/2`, un vrai
+générateur rend exactement `L = N/2` — **indiscernable du hasard**.
+
+| un LFSR de degré 400 observé sur 640 termes | |
+|---|---|
+| `N/2` | 320 |
+| Berlekamp-Massey scalaire | `L = 318`, `L′ = 321` — **aveugle** |
+| **ppcm, lu comme au §122** | **639** |
+| complexité **conjointe** | **323** |
+| la vérité plantée | **400** |
+
+> Le §122 aurait donc écrit « `W ≥ 639` » et **exclu le générateur de largeur 400
+> qui avait produit les données**. Ce n'est pas une borne trop faible : c'est une
+> **exclusion fausse**.
+
+### Ce qui est vrai
+
+> Si un générateur de largeur `W` a produit les `M` suites, son polynôme
+> caractéristique `χ` — de degré ≤ `W` — annule les `M` préfixes **à la fois**.
+> Donc
+>
+>     W ≥ L_conjointe = min { deg g : g annule les M préfixes }.
+>
+> **Rigoureux pour tout `W`, sans condition sur `N`.** ∎
+
+### Le théorème du second bit — et il ne dit pas ce qu'on croit
+
+On attendrait du second bit qu'il apporte des **équations neuves** sur le
+générateur. **Il n'en apporte aucune**, et cela se démontre :
+
+> Les suites annulées par `χ` forment un module sur `F₂[x]` isomorphe à
+> `F₂[x]/(χ)`. Si `χ` est **irréductible** — MT19937, les WELL, tout LFSR à
+> polynôme primitif — ce module est **cyclique**, donc deux fonctionnelles
+> quelconques du même générateur vérifient `b′ = h(x)·b` : la seconde est une
+> combinaison de **décalages** de la première. ∎
+
+Mesure, sur un état planté de **44 497 bits** (la largeur de WELL44497b) observé
+sur 70 560 tirages, comme l'archive :
+
+| | `L` scalaire | **conjointe** |
+|---|---|---|
+| hasard (deux suites indépendantes) | ~35 280 | **47 040** |
+| générateur F₂-linéaire de 44 497 bits | 35 281 | **35 283** |
+
+> **Le second bit ne rehausse pas le signal — il rehausse le null.** Deux suites
+> *indépendantes* passent de `N/2 = 35 280` à `2N/3 = 47 040`, parce qu'un `g` de
+> degré `d` a `d+1` coefficients pour `2(N−d)` équations et qu'une solution non
+> triviale n'apparaît qu'à partir de `d > 2N/3`.
+
+Et c'est là que l'écart se creuse. Le test **scalaire** rend 35 281 pour le
+générateur et ~35 280 pour le hasard : **il ne les sépare pas**. Le test
+**conjoint** rend 35 283 contre 47 040 — **11 757 bits d'écart**.
+
+### Le calcul
+
+`g` de degré ≤ `d` annule le préfixe de `b` **ssi**, en notant `R` le renversé de
+`b` et `ĝ` le renversé de `g`, `(ĝ·R mod x^N)` est de degré `< d`. L'ensemble des
+`(ĝ, ρ₀, …, ρ_{M−1})` tels que `ĝ·R_j = ρ_j (mod x^N)` est un module **libre de
+rang `M+1`** sur `F₂[x]` ; on y cherche l'élément de degré **décalé** minimal, le
+décalage `(0, 1, …, 1)` encodant « `deg ρ_j < deg ĝ` ». L'algorithme de
+**Mulders-Storjohann** met la base en forme **faiblement de Popov** — pivots
+distincts — et la propriété de degré prévisible garantit que le minimum sur les
+**lignes** est le minimum sur tout le module.
+
+`tools/jointf2.c` : chaque étape fait strictement décroître la somme des degrés
+décalés, donc terminaison en `O(M·N)` étapes — **0,2 s pour `N` = 70 560**.
+Autotest **10/10** : pour `M = 1` le résultat coïncide avec Berlekamp-Massey aux
+quatre longueurs testées ; sur des LFSR plantés il rend exactement leur degré ;
+sur deux suites indépendantes il rend `2N/3` et non `N/2`.
+
+### L'archive
+
+| hypothèse | `L` scalaire | `L′` | ppcm (§122, faux) | **W ≥ conjointe** |
+|---|---|---|---|---|
+| troncature | 35 280 | 35 280 | ~~70 560~~ | **47 040** |
+| modulo | 35 282 | 35 280 | ~~70 562~~ | **47 040** |
+
+| | |
+|---|---|
+| null | 200 archives d'un générateur parfait |
+| null : moyenne / min / max | 47 040 / 47 038 / 47 040 |
+| **observé** | **47 040** — `p = 1,000` |
+
+> **W ≥ 47 040.** WELL44497b (44 497 bits) est **couvert**, avec une marge de
+> **2 543 bits**. MT19937 et WELL19937 aussi, et tout état plus petit, **nommé ou
+> non**.
+
+**Registre : consigné.** `m = 58 148`, zéro significatif.
+
+### Ce que cela corrige
+
+**Au §122.** Sa conclusion de portée — « WELL44497b est couvert » — tient, mais
+sa **démonstration** ne tenait pas, et la marge n'est pas celle qu'il annonçait :
+**47 040 et non 70 560**. Tout le reste du §122 reste vrai : le théorème
+`L(b) ≤ W`, l'invariance en pas et en décalage, l'extension par classes modulo
+64, le corollaire arithmétique. **C'est la seule étape du ppcm qui tombe.**
+
+**Au §89.** Il écrivait : *« 35 280 bits, c'est 1,8 fois l'état de MT19937. Aucun
+générateur déployé n'en a autant. »* **WELL44497b en a 44 497**, publié en 2006
+dans la même famille que WELL512a et WELL19937, tous deux déjà au catalogue du
+dossier. Le §89 laissait donc une case ouverte **sans le savoir** ; c'est ce
+paragraphe qui la ferme, et il faut **deux bits par tirage** pour cela.
+
+**Au registre.** La ligne `h103.complexite_lineaire` reste telle quelle : sa
+statistique a bien été calculée comme déclarée, et un jeton scellé ne se
+réécrit pas après coup. C'est son **interprétation** qui était fausse, et c'est
+la ligne `h105.complexite_conjointe` qui teste le même énoncé avec une
+statistique valide. Les deux comptent dans `m` — ce qui est conservateur, donc
+correct.
+
+### La leçon, et c'est la quatrième fois
+
+Une conclusion recopiée plus large que sa source — §101, §121, §123, et ici.
+
+> La source disait `L ≤ W` : une **majoration** de `L`. J'en ai tiré une
+> **minoration** de `W` par un chemin qui n'existe pas. La différence entre les
+> deux se voit en une simulation de dix lignes ; **encore faut-il la faire**.
+
+Ce qui reste hors de portée, inchangé : le rejet à pas variable (§111), les
+sorties brouillées (§119, §123), et l'indexation dans l'ordre d'émission (§106).

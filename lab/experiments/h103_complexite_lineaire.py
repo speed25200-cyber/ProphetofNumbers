@@ -1,5 +1,28 @@
 """h103 — le théorème de la complexité linéaire universelle.
 
+/!\ DEUX CORRECTIONS, APPORTEES PAR LE §124 (h105_complexite_conjointe.py)
+==========================================================================
+(a) L'ETAPE DU PPCM, PLUS BAS, EST FAUSSE. Ce fichier ecrit W >= deg ppcm(f,f')
+    et en conclut 70 560. Sur une suite FINIE, Berlekamp-Massey rend un
+    annulateur du PREFIXE, qui ne divise le polynome caracteristique que si
+    N >= 2W ; le ppcm MAJORE la borne conjointe au lieu de la minorer.
+    Contre-exemple execute : un LFSR de degre 400 observe sur 640 termes donne
+    L = 318, L' = 321 et un ppcm de 639 — la lecture de ce fichier aurait donc
+    EXCLU le generateur qui avait produit les donnees. La borne valide est la
+    complexite CONJOINTE et vaut 47 040. La PORTEE annoncee reste acquise, par
+    un autre calcul et avec une marge de 2 543 bits au lieu de 26 063.
+
+(b) LE CADRAGE « CESSER D'ENUMERER » SUR-VEND LA NOUVEAUTE. Le §89 a deja fait
+    tourner Berlekamp-Massey sur le bonus. Ce que ce fichier ajoute reellement :
+    l'observable est le RANG du bonus (K = 20) et non bonus - 1 ; la TRONCATURE
+    est couverte alors que le §89 ne voyait que le modulo ; l'invariance en pas
+    et en decalage est MESUREE ; et le cache renverse est traite par classes
+    modulo 64.
+
+Tout le reste de ce fichier tient : le theoreme L(b) <= W, les temoins, MT19937
+retrouve a 19 937, l'invariance, l'extension par classes, le corollaire
+arithmetique.
+
 CE QUE TOUT LE DOSSIER FAIT DEPUIS LE §105, ET SA FAIBLESSE
 ============================================================
 Du §105 au §121, la méthode est toujours la même : NOMMER une famille, écrire
@@ -54,17 +77,25 @@ famille il s'agit, ni quel est le pas, ni quel est l'échantillonneur.
 L'IDENTIFICATION DE LA FAMILLE N'EST PAS NÉCESSAIRE À LA PRÉDICTION. C'est la
 seule voie du dossier qui prédise sans reconstituer.
 
-LE PPCM : DOUBLER LA PORTÉE SANS UN BIT DE PLUS
-================================================
+LE PPCM : CE PARAGRAPHE EST FAUX — VOIR LE BANDEAU EN TETE (§124)
+==================================================================
+[[ RETRACTE. Conserve tel quel pour que la faute reste lisible. ]]
+
 Le rang du bonus donne DEUX bits exacts par tirage, pas un (voir plus bas).
 Les polynômes minimaux f et f' des deux suites divisent tous deux le polynôme
 caractéristique de A^σ. Donc leur ppcm le divise aussi :
 
-    W >= deg ppcm(f, f') = L + L' - deg pgcd(f, f').
+    W >= deg ppcm(f, f') = L + L' - deg pgcd(f, f').       <-- FAUX
 
 Sur un vrai générateur à polynôme caractéristique irréductible — MT19937 —
 f = f' et la borne rend exactement W. Sur du hasard, f et f' sont premiers
 entre eux et la borne vaut ~N au lieu de ~N/2 : LA PORTÉE DOUBLE.
+
+CE QUI CLOCHE. « f et f' divisent le caractéristique » ne vaut que pour les
+suites INFINIES. Berlekamp-Massey ne voit qu'un PREFIXE de N termes, et son
+annulateur minimal ne divise le caractéristique que si N >= 2W. Le ppcm MAJORE
+donc la borne conjointe au lieu de la minorer. La quantité juste est la
+complexité CONJOINTE du §124, de seuil 2N/3 et non ~N.
 
 DEUX BITS EXACTS, TOUJOURS, ET POURQUOI
 ========================================

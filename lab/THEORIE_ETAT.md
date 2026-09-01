@@ -246,14 +246,29 @@ Le membre de droite ne contient ni `A`, ni `Λ`, ni `β`, ni `σ`, ni `c` : un
 seul nombre teste **toute** famille F₂-linéaire, tout pas, tout décalage, tout
 nombre de mots par numéro — les axes 2, 3 et 5 du §1 disparaissent de l'énoncé.
 
-**Corollaire du ppcm.** Deux bits exacts du même mot donnent `f` et `f'`, tous
-deux diviseurs de `minpoly(A^σ)`, donc
+**Corollaire du second bit (§124).** L'énoncé du ppcm que portait d'abord cette
+section était **faux** : sur une suite finie, Berlekamp-Massey rend un
+annulateur du *préfixe*, et le ppcm **majore** la borne conjointe au lieu de la
+minorer. Ce qui est vrai :
 
-    W ≥ deg ppcm(f, f') = L + L′ − deg pgcd(f, f′).
+> `χ` annule les **deux** préfixes à la fois, donc
+> **`W ≥ L_conjointe = min { deg g : g annule les deux préfixes }`** —
+> rigoureux pour tout `W`, sans condition sur `N`. ∎
 
-Sur un caractéristique **irréductible** (MT19937) `f = f′` et la borne rend `W`
-exactement ; sur du hasard les deux sont premiers entre eux et la borne vaut
-`~N` au lieu de `~N/2`. **La portée double sans un bit de plus.**
+Et le second bit n'agit pas là où on l'attend. Les suites annulées par `χ`
+forment un module `F₂[x]/(χ)` ; si `χ` est **irréductible** — MT19937, les WELL,
+tout polynôme primitif — ce module est **cyclique**, donc `b′ = h(x)·b` : la
+seconde fonctionnelle est une combinaison de décalages de la première et
+**n'apporte aucune équation neuve**.
+
+> **Le second bit ne rehausse pas le signal : il rehausse le null.** Deux suites
+> *indépendantes* ont une complexité conjointe de `2N/3` et non `N/2`, car un `g`
+> de degré `d` a `d+1` coefficients pour `2(N−d)` équations.
+
+Mesure : un état planté de 44 497 bits rend `L_conjointe = 35 283` quand le
+hasard rend `47 040` — 11 757 bits d'écart, là où le test scalaire rend 35 281
+contre 35 280 et **ne sépare rien**. Le calcul se fait par réduction de base sur
+`F₂[x]` en forme faiblement de Popov (`tools/jointf2.c`).
 
 **Corollaire arithmétique.** Pour `x_t = Σ a_i x_{t−i} + b (mod 2^e)`, la
 réduction modulo 2 est une récurrence **affine** d'ordre `r`, homogénéisée par
@@ -321,16 +336,18 @@ tirages — et l'archive en compte 70 560.
 calcul des formes linéaires — et il tombe avec un solveur en C (`tools/f2solve.c`,
 25 908 équations de 19 937 bits en 57 s).
 
-**La carte sans le catalogue.** La ligne du §122 se lit autrement : avec les
-**deux** bits à position fixe du rang, la borne de complexité linéaire atteint
-`~N` bits d'état pour `N` tirages — soit **70 560** aujourd'hui, sans qu'aucune
-famille figure dans l'énoncé. C'est la seule ligne de cette carte dont la pente
+**La carte sans le catalogue.** La ligne du §122, corrigée au §124, se lit
+autrement : avec les **deux** bits à position fixe du rang, la borne de
+complexité **conjointe** atteint `2N/3` bits d'état pour `N` tirages — soit
+**47 040** aujourd'hui, sans qu'aucune famille figure dans l'énoncé, et cela
+suffit tout juste à couvrir WELL44497b. C'est la seule ligne de cette carte dont la pente
 soit de **un pour un** et qui n'ait rien à ajouter quand une famille nouvelle
 paraît.
 
 | ordre de service | portée mesurée sur l'archive |
 |---|---|
-| direct (progression arithmétique) | `W ≥ 70 560` |
+| direct, **complexité conjointe** (§124) | `W ≥ 47 040` |
+| direct, scalaire (§89, §122) | `W ≥ 35 280` |
 | cache renversé de V8 (§112), par classe mod 64 | `W ≥ 1 096` |
 
 ---
