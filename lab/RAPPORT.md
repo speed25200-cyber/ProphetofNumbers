@@ -15080,3 +15080,71 @@ le flux du §139 : une graine affichée, un paramètre d'animation, un identifia
 dérivé, un horodatage sous-milliseconde. **Le brouilleur, lui, ne protège rien.**
 
 **Registre : `m = 60 353`, 4/4, `verdict : conforme`.**
+
+---
+
+## 146. L'espace des designs, et non le catalogue publié (`h125_espace_des_designs.py`, `tools/sweep_design.c`)
+
+### Le trou que le §25 a nommé lui-même
+
+Le §25 écrit, à propos de l'attaque par réseau du §24 :
+
+> *« h11 laissait une faille béante : il fallait **énumérer des constantes
+> publiées**. Un générateur aux constantes maison lui échappait entièrement. »*
+
+Le §25 a fermé ce trou **pour les LCG**, en *calculant* `(a, c)` au lieu de les
+deviner. **Pour les générateurs `F₂`-linéaires, il est resté ouvert.** Les §34,
+§110, §136 et §144 testent tous xorshift32/64/128, taus88, LFSR113, WELL512a —
+c'est-à-dire des **décalages publiés**.
+
+> Un xorshift maison dont les décalages `(13, 17, 5)` seraient remplacés par
+> `(11, 19, 3)` leur échappe **à tous**. Et rien n'oblige une plateforme à
+> reprendre les constantes de l'article.
+
+### Ce qui est balayé
+
+`tools/sweep_design.c` énumère l'espace **entier** de la forme de Marsaglia —
+tous les triplets de décalages **et** les huit orientations :
+
+| forme | `W` | designs |
+|---|---|---|
+| `x ^= x<<\|>>a ; x ^= x<<\|>>b ; x ^= x<<\|>>c` | 32 | 238 328 |
+| idem, décalages jusqu'à 63 | 64 | **2 000 376** |
+| `t = x^(x<<\|>>a) ; x=y;y=z;z=w ; w = w^(w<<\|>>b)^t^(t<<\|>>c)` | 128 | 238 328 |
+
+### Le ré-originage, qui rend le balayage possible
+
+L'état au **début du premier tirage observé** est aussi inconnu que celui du début
+de la journée. On ré-origine donc sur lui :
+
+| journée | index bruts | ré-originés | mots de flux |
+|---|---|---|---|
+| −1 | 33, 36, 38, 40, 41 | 0, 3, 5, 7, 8 | 882 → **189** |
+| 0 | 62, 63, 64, 65, 84 | 0, 1, 2, 3, 22 | 1 785 → **483** |
+| 1 | 83, 85 | 0, 2 | 1 806 → **63** |
+
+**Facteur cinq à vingt-huit sur le coût** — sans quoi le balayage était hors
+d'atteinte.
+
+### Le résultat
+
+    7 431 096 designs testés sur les trois journées
+                            0 compatible
+
+**Témoin de l'outil : 6/6** — pour chacune des trois largeurs, un design planté
+est retrouvé **compatible** et un design ne différant que d'**un** décalage est
+**rejeté**.
+
+Et le contrôle tient : les familles publiées sont **dans** l'espace balayé —
+xorshift32 `(13,17,5)`, xorshift64 `(13,7,17)`, xorshift128 `(11,19,8)` — donc le
+balayage les rejette comme le §136 les avait rejetées.
+
+### Ce que cela change à l'énoncé
+
+> Ce n'est plus *« aucune famille **publiée** ne convient »*, c'est **« aucun
+> xorshift de la forme de Marsaglia ne convient, quels que soient ses décalages »**.
+
+Le trou que le §25 avait nommé et laissé ouvert pour les `F₂`-linéaires est fermé
+pour les trois largeurs balayées.
+
+**Registre : `m = 60 354`, 0 design, `verdict : conforme`.**
