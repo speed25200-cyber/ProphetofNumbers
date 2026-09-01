@@ -13453,3 +13453,107 @@ Le même enregistrement filme la roue, arrêtée sur **×1,5**, pointeur en haut
 C'est la source du §92 : rien de neuf. **La prédiction du §125 — au plus deux
 angles résiduels distincts pour ×1,5, ×5 et ×10 — exige trois arrêts sur une même
 valeur rare, et une vidéo n'en donne qu'un.**
+
+## 130. Le sixième axe : la journée (`h111_reamorcage_quotidien.py`)
+
+Trois vidéos publiées en release GitHub ont apporté trois ordres d'émission — et
+en cherchant à les dater, l'archive a livré une structure que 70 560 tirages
+n'avaient jamais fait regarder.
+
+### La journée, mesurée
+
+Les intervalles entre tirages consécutifs ne prennent que **deux** valeurs :
+
+| intervalle | fréquence |
+|---|---|
+| **300 s = 5 min** | 99,48 % |
+| **25 500 s = 7 h 05** | **343 fois — une par nuit** |
+
+L'archive est faite de **346 blocs de 204 tirages**, de **06:05 à 23:00**. Et
+`204 × 5 min = 1 020 min = 17 h 00` — exactement `06:05 → 23:00`.
+
+### La validation, hors échantillon, à la minute
+
+Le modèle est ajusté sur les 70 560 tirages **antérieurs** aux vidéos. Extrapolé
+jusqu'à elles :
+
+| nom du fichier | index prédit | heure prédite | réel |
+|---|---|---|---|
+| `ScreenRecording_08-31-2026.`**`13-05`**`-00` | 84 | **13:05** | 13:05 ✓ |
+| `ScreenRecording_09-01-2026.`**`13-00`**`-20` | 83 | **13:00** | 13:00 ✓ |
+| `ScreenRecording_09-01-2026.`**`13-10`**`-08` | 85 | **13:10** | 13:10 ✓ |
+
+Et pour la troisième, le modèle prédisait aussi **l'identifiant** : index 85 du
+01/09 → **1381483**. La vidéo affiche 1381483.
+
+> **Trois validations hors échantillon, dont une sur l'identifiant lui-même.**
+> La structure de journée n'est pas une hypothèse : elle est mesurée, puis
+> vérifiée.
+
+### Le sixième axe
+
+Le §121 recensait **cinq** axes du modèle de consommation — échantillonneur, pas,
+mots par numéro, ordre de service, décalage. Il en manquait un : **la journée**.
+
+Les douze tirages ordonnés ne sont pas sur un flux unique :
+
+| journée | tirages | index dans la journée | équations |
+|---|---|---|---|
+| 30/08 | 5 | 33, 36, 38, 40, 41 | 448 |
+| 31/08 | 5 | 62, 63, 64, 65, 84 | 448 |
+| 01/09 | 2 | 83, 85 | 179 |
+
+> Le « flux unique » du §110 enjambe **460 identifiants**, donc au moins une
+> nuit. **Si la plateforme ré-amorce chaque matin, son modèle est impossible** —
+> et son exclusion ne porte que sur le couple *générateur + absence de
+> ré-amorçage*. L'autre branche n'avait jamais été testée.
+
+### L'attaque, journée par journée
+
+Chaque journée est traitée comme un flux **indépendant** : le tirage d'index `m`
+occupe les mots `m·stride + off + k`. Balayage des pas 20 à 22 et de tous les
+décalages, **avec rejeu obligatoire** — le système échelonné ne suffit pas (§111).
+
+| journée | familles exclues | hors de portée |
+|---|---|---|
+| 30/08 (448 éq.) | **9 sur 10** | WELL512a (512 bits) |
+| 31/08 (448 éq.) | **9 sur 10** | WELL512a |
+| 01/09 (179 éq.) | **8 sur 10** | xoshiro256 (256), WELL512a |
+
+| | |
+|---|---|
+| essais | **1 890** |
+| exclus | **1 638** |
+| non testés | 252 |
+| **états compatibles** | **0** |
+
+Les familles qui survivent ne survivent pas par résistance : **par arithmétique**.
+448 équations ne déterminent pas 512 bits. Rien d'autre ne les protège.
+
+**Registre : consigné.** `m = 61 601`, zéro significatif.
+
+### Ce que le modèle A du §89 devient
+
+Les trois vidéos portent chacune un bonus, et **aucune** n'a le bonus comme
+premier numéro sorti :
+
+| tirage | bonus | 1ᵉʳ sorti | indice ÉMISSION | indice TRIÉ |
+|---|---|---|---|---|
+| 1381278 | 45 | 17 | 2 | 10 |
+| 1381481 | 10 | 61 | 18 | 3 |
+| 1381483 | 14 | 76 | 9 | 4 |
+
+**Réfuté trois fois.** Et les deux lectures de l'indice — dans l'ordre d'émission
+ou dans le tableau trié — restent indépartageables : il faudrait reconstituer
+l'état puis **prédire** le mot d'indice.
+
+### Ce qu'il faut, et c'est quarante minutes
+
+Les tirages tombent toutes les 5 minutes, 204 par jour.
+
+> **Huit tirages consécutifs d'une même journée : 718 équations.** WELL512a tombe
+> avec le reste, et le catalogue est épuisé sous le sixième axe.
+
+Six suffiraient probablement (538 équations). Un trou connu ne casse rien — le
+§110 a montré, témoin à l'appui, que l'alignement traverse les trous ; ce qui
+casse, c'est **la nuit**.

@@ -49,6 +49,12 @@ a été trouvé — trois d'entre eux *après coup*, parce qu'un axe mal deviné
 | **consommation** | un / deux mots par numéro | 113 |
 | **ordre de service** | direct / cache renversé | 112 |
 | **décalage** | 0 à `stride−1` | 115 |
+| **la journée** | flux continu / **ré-amorçage quotidien** | **130** |
+
+Le sixième axe a été trouvé en cherchant à dater trois vidéos : l'archive est
+faite de **346 blocs de 204 tirages, 06:05 → 23:00**, séparés par des pauses de
+25 500 s **exactement**. Deux tirages de journées différentes n'appartiennent
+peut-être pas au même flux — et le « flux unique » du §110 enjambe une nuit.
 
 > **Règle du modèle.** Une attaque algébrique qui rend « incompatible » ne dit
 > pas *« ce n'est pas ce générateur »*. Elle dit *« ce n'est pas ce générateur
