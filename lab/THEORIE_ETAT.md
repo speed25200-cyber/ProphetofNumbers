@@ -93,6 +93,24 @@ niveau `j` avec probabilité `1 − 2ʲ/K`. D'où l'espérance `Σⱼ max(0, 1 �
 | rang du bonus | 20 | **3,20** |
 | bits bas sous modulo (§94) | — | 4,00 |
 
+### 2.3 bis L'angle de la roue (§131) — la porte qui semblait la plus large
+
+Le §92 laissait ouverte la meilleure observation que le dossier pouvait espérer :
+si l'angle d'arrêt de la roue était **tiré**, il publierait les bits de poids fort
+du mot brut — **7,00 bits par tirage filmé** (§87). Trois arrêts mesurés :
+
+| tirage | boost | fraction du secteur |
+|---|---|---|
+| 1381278 | ×1,5 | 0,4865 |
+| 1381481 | ×3 | 0,4787 |
+| 1381483 | ×1,5 | 0,4865 |
+
+> Étendue **0,40° sur 51,43°**. Sous l'hypothèse de l'angle tiré,
+> `P(étendue ≤ r) = n·r^(n−1) − (n−1)·r^n = 1,8·10⁻⁴`. **L'angle est constant.**
+
+La roue est une **animation**. Elle ne publie que le multiplicateur, déjà compté
+en 2.3. Il n'y a pas de cinquième observable.
+
 ### 2.3 Théorème de l'intervalle cumulé (§118) — le boost
 
 > Une loi discrète de bornes cumulées `F(0) < … < F(k)`, échantillonnée par

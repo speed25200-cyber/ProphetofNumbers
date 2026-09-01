@@ -9260,6 +9260,12 @@ rapport réel pour le boost : 1,151 forme pour 1,879 bit, soit 61 %. Les jours
 sont donc un **plancher**, pas une promesse ; mais le **rapport** de 5,8 entre la
 première ligne et la dernière ne dépend pas de ce taux de conversion.
 
+> **⚠ Tranché par le §131.** Trois arrêts filmés donnent une étendue de **0,40°
+> sur 51,43°** : l'angle résiduel est **constant**, la roue ne publie rien
+> au-delà du boost, et les 7,00 bits espérés n'existent pas. La mesure de 0,761
+> ci-dessous est erronée — l'image mesurée montrait une roue encore en mouvement,
+> et le rayon d'échantillonnage tombait sur l'anneau des étiquettes.
+>
 > **Ce qu'il faut pour le savoir, et c'est petit : filmer vingt arrêts de roue et
 > mesurer la fraction dans le secteur.** Si les vingt valeurs se serrent sur une
 > constante, la roue ne publie rien de plus et la section se ferme. Si elles se
@@ -13557,3 +13563,86 @@ Les tirages tombent toutes les 5 minutes, 204 par jour.
 Six suffiraient probablement (538 équations). Un trou connu ne casse rien — le
 §110 a montré, témoin à l'appui, que l'alignement traverse les trous ; ce qui
 casse, c'est **la nuit**.
+
+## 131. L'angle résiduel de la roue : la question du §92, tranchée (`h114_angle_de_la_roue.py`)
+
+### Ce que le §92 demandait
+
+Le §92 a filmé la roue du boost, mesuré ses sept secteurs égaux à `360/7`, et
+constaté que l'aiguille tombait à **0,761** de la largeur de son secteur — pas au
+centre. Il en a tiré la seule question qu'il n'a pas pu trancher :
+
+> *« Filmer vingt arrêts de roue et mesurer la fraction dans le secteur. Si les
+> vingt valeurs se serrent sur une constante, la roue ne publie rien de plus et
+> la section se ferme. Si elles se répartissent sur `[0, 1)`, la roue publie les
+> bits de poids fort du générateur — et c'est la meilleure observation que le
+> dossier ait jamais eue. »*
+
+Trois vidéos donnent **trois** arrêts. C'est moins que vingt, et c'est assez —
+parce que l'écart mesuré est minuscule.
+
+### Deux pièges, et c'est là que le §92 s'est trompé
+
+**Premier piège : mesurer une image où la roue tourne encore.** L'animation la
+ralentit, **la fige presque, puis la relance** avant l'arrêt définitif. On repère
+donc l'arrêt automatiquement : dernière image dont la différence avec la
+précédente est sous 0,0025 et dont la couronne colorée n'est pas encore couverte
+par le badge.
+
+**Second piège : échantillonner sur l'anneau des étiquettes.** Les ovales blancs
+y coupent chaque secteur en deux, et on lit **quatorze** frontières au lieu de
+sept. On échantillonne hors étiquettes, et on vérifie sur **dix-sept rayons**.
+
+**L'estimateur.** Plutôt que de chercher sept frontières — fragile, trois
+secteurs étant rouges et deux jaunes — on ajuste le **seul paramètre libre** que
+la géométrie laisse : l'orientation `φ`, les sept secteurs étant égaux (§92, à
+2,3 % près). Minimisation de la variance intra-secteur des couleurs.
+
+### La mesure
+
+| tirage | boost | arrêt | `φ` | sd / rayons | fraction |
+|---|---|---|---|---|---|
+| 1381278 | ×1,5 | 24,7 s | 26,410° | 0,073° / 17 | **0,4865** |
+| 1381481 | ×3 | 7,1 s | 26,810° | 0,066° / 17 | **0,4787** |
+| 1381483 | ×1,5 | 17,5 s | 26,410° | 0,064° / 17 | **0,4865** |
+
+> **Les deux arrêts sur ×1,5 donnent le même `φ` à 0,001° près.** Étendue des
+> trois fractions : **0,0078 de secteur, soit 0,40° sur 51,43°.**
+
+Le minimum de variance est **6,0 à 6,9 fois plus profond** que tout autre minimum
+local éloigné : l'orientation n'est pas ambiguë.
+
+### Ce que cela tranche
+
+Sous l'hypothèse « l'angle résiduel est **tiré** uniformément sur le secteur »,
+l'étendue de `n` tirages suit exactement
+
+    P(étendue ≤ r) = n·r^(n−1) − (n−1)·r^n
+
+soit, pour `r = 0,0078` et `n = 3` : **`p = 1,8·10⁻⁴`**.
+
+> **L'hypothèse de l'angle tiré est rejetée. L'angle résiduel est constant à
+> 0,40° près.**
+
+**Ce que cela ferme.** La roue ne publie **rien** au-delà du boost. Les 7,00 bits
+par tirage que le §92 espérait de l'angle — *« la meilleure observation que le
+dossier ait jamais eue »* — **n'existent pas**. Et la prédiction du §125, selon
+laquelle l'angle prendrait au plus `k_v` valeurs distinctes, est vraie de la façon
+la plus pauvre possible : **il n'en prend qu'une**.
+
+**Ce que cela corrige au §92.** Il mesurait 0,761 et en concluait que la roue ne
+s'arrête pas au centre. La mesure donne **0,4839** — le centre à **0,83° près**.
+L'écart tient aux deux pièges nommés plus haut.
+
+**Registre : consigné.** `étendue = 0,0078`, `p = 1,8·10⁻⁴`, `m = 61 602`. Avec
+`n = 3`, ce `p` ne franchit pas le seuil de Holm du registre — **c'est la limite
+du nombre d'arrêts, pas de l'effet** : vingt arrêts donneraient `p ~ 10⁻³⁰`.
+
+### Ce qu'il reste de la roue
+
+Rien. Elle était, depuis le §92, la seule observation dont le dossier espérait
+**plus** que ce que l'archive publie. Elle est maintenant mesurée, et elle ne
+donne que le multiplicateur — 1,879 bit d'entropie, déjà compté au §125.
+
+> Le catalogue des observables est clos : **l'ensemble trié, le rang du bonus, le
+> boost, et l'ordre d'émission quand on le filme.** Il n'y en a pas de cinquième.
