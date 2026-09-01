@@ -860,6 +860,7 @@ famille — c'est sa vraie portée, et elle est étroite :
 | MT19937, tout `L` premier | `2^19937−1` | **aucun** (`L` premier de Mersenne) | — | aucun |
 | xorshift32 primitif | `2^32−1 = 3·5·17·257·65537` | phases `d \| L` | non pour `d < 2^16` : un bit de `x_k` est `Tr(β α^k)`, et sur un coset de taille `> √q` la somme de caractères est `< ` sa taille (Weil) ; `d ≥ 65537` : question sans objet, l'énumération §150–151 est complète | aucun |
 | SplitMix64, PCG, xorshift\* | `2^64` | `s mod 2^m` (compteur, LCG) | non : la sortie **mélange** tous les bits | aucun |
+| Fibonacci retardé additif mod `2^32` (glibc `random()` TYPE_1, `r_i = r_{i−3} + r_{i−7}`, sortie `r_i >> 1`) | — | `(Z/2^m)^{7}` | **oui**, `m = 5` (bits 1..4) | `2^{35}` — §155, les treize trinômes de degré `≤ 7` |
 | Fibonacci retardé additif mod `2^32` (glibc `random()` TYPE_3, `r_i = r_{i−3} + r_{i−31}`, sortie `r_i >> 1`) | — | `(Z/2^m)^{31}` | **oui**, `m = 5` (bits 1..4) | `2^{155}` : quotient trop large pour l'énumération — voir 7.7 |
 
 La dernière ligne est la **frontière**. Le quotient existe et la statistique
@@ -1206,6 +1207,104 @@ régénération.
 > `0,47` pour toute la famille — et un algorithme exact, témoin compris, qui
 > transforme `n*` tirages triés consécutifs et `5L` bits bas en l'état
 > entier. Pour TYPE_1 l'archive fournit les deux ; c'est le §155.
+
+### 7.9 Le crible des bas sous le rejet (§155) — le lemme des courses, la chaîne mod 5 avec perdus, les dégénérés
+
+Le 7.6 dit que le rejet est le mode le plus criblable (2,98 bits par tirage
+pour `P = 4` perdus) ; le 7.8 relève l'état haut. Le §155 met les deux bout à
+bout sur l'archive pour **tous** les Fibonacci retardés de degré `L ≤ 7` — les
+treize trinômes primitifs, TYPE_1 `(3, 7)` compris — et trois points de
+théorie manquaient pour que cela tourne : comment cribler `2^35` états sous
+un pas variable sans brancher, comment la chaîne mod 5 traverse des mots
+perdus entre tirages, et ce que le crible rend de **structurel** à petit `L`.
+
+**Le crible sans branchement.** La définition du survivant sous le rejet
+branche : à chaque tirage sur `σ ∈ [20, 48]` et sur `g ∈ [0, P]` perdus, soit
+`145^N` chemins pour `N` tirages. Or les départs possibles d'un tirage ne sont
+pas des points mais des **courses**.
+
+> **Lemme (les courses).** *Soient `A_d ⊂ Z/16` le masque du tirage `d`, et
+> `[a, b]` un intervalle de départs possibles de ce tirage. Appelons course
+> maximale `(s, R)` une suite de `R` résidus consécutifs permis par `A_d`
+> commençant en `s ∈ [a, b]`, bornée par un résidu interdit. Les départs
+> possibles du tirage `d + 1` issus de `[a, b]` sont la réunion, sur les
+> courses de longueur `R ≥ 20`, des **intervalles***
+>
+>     [s + 20,  min(s + R, b_s + 48) + P],     b_s = min(b, s + R − 20).
+>
+> *Preuve.* Un départ `s′ ∈ [s, b_s]` de la course admet exactement les
+> longueurs `σ ∈ [20, min(48, s + R − s′)]` — tous ses mots sont permis
+> jusqu'au bout de la course et pas au-delà — puis `g ∈ [0, P]` perdus : ses
+> départs suivants forment `[s′ + 20, min(s′ + 48, s + R) + P]`. Deux
+> départs consécutifs de la course donnent des intervalles qui se recouvrent
+> (`s′ + 21 ≤ s′ + 48 + P`), la réunion sur `s′ ∈ [s, b_s]` est l'intervalle
+> annoncé ; un départ hors d'une course de longueur `≥ 20` n'a aucune
+> continuation. ∎
+
+La récursion porte donc sur les **courses** et non sur les couples `(σ, g)` :
+le nombre de courses de longueur `≥ 20` dans une fenêtre de `w` positions
+vaut en moyenne `w · ρ^20 (1 − ρ) ≈ 0,0013 w` pour un faux candidat — la
+récursion est presque **sans branchement**, et sur le vrai flux la course du
+vrai départ est la seule qui compte. L'autotest de `tools/lfg_low_sieve.c`
+vérifie l'égalité des deux définitions — mêmes survivants, mêmes empreintes —
+sur `2^20` états et des masques à trente numéros (courses longues, où le
+branchement de la définition est le plus lourd). Le reste est de
+l'énumération : chaque mot bas est une **forme linéaire** `r_i = Σ_j α_ij r_j
+mod 32` des `L` mots initiaux, `α_i = α_{i−k} + α_{i−L}`, énumérée en `L`
+boucles imbriquées à sommes courantes ; les seize premières formes sont
+testées d'un coup en registre vectoriel (`1,6 %` passent à pas constant, deux
+mots sûrs par tirage), les seize suivantes sur les rescapés, le reste en
+scalaire. `2^35` états contre 204 masques : une à trois minutes sur quatre
+cœurs.
+
+**La chaîne mod 5 traverse les perdus.** Le 7.8 supposait les tirages
+**jointifs** : le premier mot du tirage `t + 1` suit le dernier du tirage
+`t`. Sous le rejet, `g_t ∈ [0, P]` mots peuvent être consommés entre deux
+tirages sans être publiés. Un tel mot n'est soumis à **aucun** masque : sa
+classe `q_i` est connue (les bits bas le sont), son résidu `ρ_i` est celui
+que la récurrence impose pour `w_i = 0` ou `w_i = 1` — deux branches, pas
+cinq. La clé de la programmation dynamique gagne un compteur `g ∈ [0, P]` :
+un mot est *libre* dès que le tirage courant n'a encore ni accepté ni perdu
+et que `g < P` ; les mots libres ne coûtent qu'un facteur `2^{g}` par tirage,
+que les fusions du lemme des paquets absorbent (mesuré, TYPE_1 : `451`
+états vivants au plus sur vingt tirages avec `g_t = t mod 3`, `1 066` sur
+trente avec `g_t = t mod 5`, contre `120` à `700` sans perdus au 7.8). Le vérificateur, lui, mémoïse les **départs vivants** `(t, s)`
+— le tirage `t` peut-il commencer au mot `s` ? — et accepte un état dès qu'un
+chemin de départs traverse tous les tirages.
+
+**Les faux jumeaux à petit `L`.** Le 7.8 compte un faux jumeau (`δ ≡ 0 mod
+10` sur la queue sans `δ = 0`) pour une coïncidence en `5^{−L}` — `1/25` au
+degré 2, `1/125` au degré 3. À cette fréquence, une programmation dynamique
+qui garde **un** représentant par clé et rejette dans une clé neuve chaque
+jumeau qu'elle ne peut fusionner ne les refusionne plus jamais : au degré 2
+les chemins explosent (`200 000` états, abandon) alors que l'état est
+déterminé par soixante-dix mots. La réparation est une **liste** de
+représentants par clé : un chemin nouveau est confronté à chacun, fusionné au
+premier dont la queue de `δ` est nulle, ajouté sinon. Mesuré au degré 2, trente
+tirages : `760` états vivants, `34 191` jumeaux confrontés, l'état exact — en
+19 secondes ; à `n* = 71` mots (huit tirages), un centième. Le §155 donne à la
+chaîne `2,5 n*` mots, ni plus (le degré 2 à trente tirages coûte cher) ni
+moins (le degré 4 échoue à huit tirages, TYPE_1 à douze).
+
+**Les dégénérés.** Le sous-groupe `16 · F_2^L` des états bas dont tous les
+mots sont `0` ou `16` est **stable** par la récurrence (`16 + 16 ≡ 0 mod
+32`) : ses `2^L` états n'ont que les résidus `0` et `8`. Ils survivent à tout
+crible dont les `N` masques contiennent tous `0` et `8` — probabilité
+`ρ^{2N}` sur des masques quelconques, `10^{−46}` pour l'archive, mais
+**fréquent** sur un témoin de degré `≤ 3` : la suite basse y est de période
+`(2^L − 1) · 16 ≤ 112`, et si `0` et `8` y sont fréquents, toute fenêtre de
+vingt mots les contient, donc tous les masques. Le témoin `(2, 3)` du §155
+rend ainsi ses `8` dégénérés en plus des décalés du vrai (ceux de degré 2 et
+`(1, 3)`, dont la suite basse omet `0` ou `8` dans quelque fenêtre, n'en
+rendent aucun) ; ils sont comptés à part, et sur l'archive aucun ne survit.
+Même remarque pour le lemme des décalés : à petit `L` le cycle du vrai est
+court, et « décalé » se lit modulo sa période.
+
+> Le 7.9 ferme la boucle du 7.6 au 7.8 : le théorème des quotients dit que
+> le crible existe (`(Z/32)^L`), le lemme des courses le rend linéaire sous
+> le rejet, la chaîne mod 5 avec perdus et le CVP exact relèvent le
+> survivant, et le §155 exécute le tout sur l'archive pour les treize
+> trinômes de degré `≤ 7`.
 
 ---
 
