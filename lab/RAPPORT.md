@@ -12086,6 +12086,16 @@ branchement en 4,48 bits d'équations gratuites.
 
 ## 119. Le sous-espace de linéarité : mesurer la frontière au lieu de l'affirmer (`h100_sous_espace.py`)
 
+> **⚠ Correction apportée par le §123.** Le modèle de PCG32 employé ici oubliait
+> le cast en `uint32_t` de la référence (`uint32_t xorshifted = ((old >> 18u) ^
+> old) >> 27u;`) et faisait tourner **37 bits au lieu de 32**. La rotation
+> cessait alors d'être une permutation du mot, et la mesure rendait
+> `dim L = 0` pour PCG32 là où la valeur juste est **`dim L = 1`** — la
+> **parité du mot**, qu'aucune rotation ne peut brouiller. `h100_sous_espace.py`
+> est corrigé et le tableau ci-dessous relu ; la conclusion pratique tient, mais
+> son énoncé change : voir le §123.
+
+
 ### Ce que tout le dossier faisait sans le mesurer
 
 Depuis le §68, chaque section range les générateurs en deux tas —
@@ -12133,7 +12143,7 @@ Sortie concaténée sur **4 pas** — ce qui attrape aussi les relations linéai
 | xoshiro256++ | addition + **rotation** | 256 | 256 | **0** |
 | xoshiro256\*\* | multiplication + **rotation** | 256 | 256 | **0** |
 | xoroshiro128\*\* | multiplication + **rotation** | 256 | 256 | **0** |
-| PCG32 | rotation **variable** | 128 | 128 | **0** |
+| PCG32 | rotation **variable** | 128 | 127 | **1** ⚠ *corrigé au §123 — la parité du mot* |
 | splitmix64 | chaîne de mélange | 256 | 256 | **0** |
 
 ### La vérification indépendante du §117
@@ -12155,7 +12165,7 @@ mesuré.
 | **additive** | **1 par mot** | rien — le bit 0 passe |
 | addition + **rotation** | **0** | la rotation |
 | multiplication + rotation | **0** | la rotation |
-| rotation **variable** (PCG) | **0** | la rotation |
+| rotation **variable** (PCG) | **1 par mot** ⚠ | rien — la **parité** passe, une rotation étant une permutation des bits (§123) |
 | chaîne de mélange | **0** | les décalages à droite |
 
 > Le §117 avait **deviné** cette règle à partir d'un cas ; elle est ici
@@ -12163,9 +12173,16 @@ mesuré.
 > la multiplication par un impair — c'est toujours un décalage à droite ou une
 > rotation appliqués APRÈS elles.**
 
-Et c'est aussi le verdict sur ce qui reste : les cinq familles à `dim L = 0`
+Et c'est aussi le verdict sur ce qui reste : les **quatre** familles à
+`dim L = 0` — `xoshiro256++`, `xoshiro256**`, `xoroshiro128**`, `splitmix64` —
 sont hors d'atteinte de toute attaque par algèbre linéaire, **et ce n'est plus
-une conjecture — c'est une dimension calculée**.
+une conjecture — c'est une dimension calculée**. Le §123 étend d'ailleurs cette
+mesure aux **degrés 2 et 3**, où elle rend encore zéro pour ces quatre-là.
+
+> **PCG32 n'en fait plus partie** : sa dimension vaut 1, et c'est la parité du
+> mot. Elle ne sert pourtant à rien ici — l'archive ne publie que deux bits du
+> mot, et la transition de PCG32 est un LCG, qui ne se chaîne pas sur F₂. La
+> conclusion pratique tient, **son énoncé change** (§123).
 
 **Registre : inchangé** — ce fichier ne teste rien sur l'archive ; il mesure
 une propriété des générateurs eux-mêmes, et fixe la frontière que tout le reste
@@ -12538,3 +12555,161 @@ Ce qu'elle ne couvre pas, et c'est écrit dans le jeton :
 aujourd'hui. Un état plus large demande plus de tirages, **dans un rapport de un
 pour un**, et rien d'autre. Aucune autre borne du dossier n'a une pente aussi
 simple.
+
+## 123. Le degré algébrique : le §119 n'avait mesuré qu'au degré un (`h104_degre_algebrique.py`)
+
+### La limite non dite du §119
+
+Le §119 a remplacé une frontière **affirmée** par une frontière **mesurée**, et
+c'était juste. Mais son défaut
+
+    D(x, y) = Ψ(x⊕y) ⊕ Ψ(x) ⊕ Ψ(y) ⊕ Ψ(0)
+
+est la **dérivée seconde** : il ne teste que le **degré 1**. Un bit de sortie de
+degré algébrique 2 y compte pour zéro — alors qu'il donne une équation
+parfaitement exploitable, **par linéarisation** : on remplace chaque produit
+`x_i·x_j` par une inconnue neuve et le système redevient linéaire. Le prix est
+le nombre d'inconnues, et **l'archive peut le payer** :
+
+| état `W` | degré 1 | degré 2 | degré 3 | l'archive (70 560) suffit ? |
+|---|---|---|---|---|
+| 64 | 65 | 2 081 | 43 745 | **degré 2 et degré 3** |
+| 128 | 129 | 8 257 | 349 633 | **degré 2** |
+| 256 | 257 | 32 897 | 2 796 161 | **degré 2** |
+| 512 | 513 | 131 073 | 22 238 721 | non |
+
+> Le degré 2 est payable jusqu'à `W = 375`, le degré 3 jusqu'à `W = 74`. **Si
+> l'une des familles que le §119 a fermées avait un seul bit de degré 2, elle
+> tombait.** Personne dans le dossier ne l'avait demandé.
+
+### Le théorème du défaut, porté au degré `d`
+
+> Soit `Ψ : F₂ⁿ → F₂ᵐ`. Pour des directions `a₁, …, a_{d+1}` et un point `x`,
+> la **dérivée (d+1)-ième** vaut
+>
+>     T(x; a₁..a_{d+1}) = ⊕_{S ⊆ {1..d+1}} Ψ( x ⊕ ⊕_{i∈S} a_i ).
+>
+> Alors `deg(c·Ψ) ≤ d` **si et seulement si** `c·T = 0` partout.
+>
+> **Preuve.** `deg(Δ_a f) ≤ deg(f) − 1`, donc un degré ≤ `d` annule toute dérivée
+> (d+1)-ième. Réciproquement, si `deg f = e > d`, la dérivée (d+1)-ième garde la
+> partie de degré `e−d−1`, non identiquement nulle. ∎
+>
+> **Conséquence.** `L_d = vect{T}^⊥`, `dim L_d = m − rang(T)`. Le §119 est le
+> cas `d = 1`, où `T` a quatre termes.
+
+### La calibration : ce que l'arithmétique de la retenue impose
+
+Le §117 donne la prédiction, et elle est **arithmétique**, pas empirique. Pour
+`A + B` : bit 0 → aucune retenue entrante, degré 1 ; bit 1 → retenue
+`bit0(A)·bit0(B)`, degré 2 ; bit 2 → retenue de la retenue, degré 3. Sur quatre
+mots concaténés, une famille additive **doit** rendre `4 / 8 / 12`.
+
+### Ce que la mesure a trouvé en chemin : une faute dans le §119
+
+En portant le calcul au degré 2, **PCG32 a rendu une dimension non nulle** là où
+le §119 avait écrit zéro. Avant de crier victoire, on vérifie le **modèle** — et
+c'est le modèle qui était faux. La référence écrit
+
+    uint32_t xorshifted = ((old >> 18u) ^ old) >> 27u;
+
+Le cast **tronque à 32 bits avant la rotation**. Le §119 l'avait omis et faisait
+tourner 37 bits : ce n'est alors plus une permutation du mot.
+
+| sortie | référence C | §119 | §119 corrigé |
+|---|---|---|---|
+| 0 | 355 248 013 | 356 296 589 ✗ | 355 248 013 |
+| 1 | 1 055 580 183 | 1 055 580 183 | 1 055 580 183 |
+| 2 | 3 222 338 950 | 3 222 338 950 | 3 222 338 950 |
+| 3 | 2 908 720 768 | 3 982 462 592 ✗ | 2 908 720 768 |
+| 4 | 1 758 754 096 | 1 758 754 736 ✗ | 1 758 754 096 |
+| 5 | 2 682 436 660 | 2 682 437 492 ✗ | 2 682 436 660 |
+
+**Quatre sorties sur six diffèrent**, et la mesure change avec le modèle :
+
+| modèle | dim L₁ | dim L₂ |
+|---|---|---|
+| §119 tel quel | 0 | 1 |
+| **référence** | **1** | **3** |
+
+**La raison tient en une ligne.** Une rotation est une **permutation** des 32
+bits du mot : elle en conserve la **parité**. Or
+
+    x = (uint32)( ((s >> 18) ^ s) >> 27 )
+
+est **F₂-linéaire** en l'état — ce ne sont que des décalages et des XOR. Donc
+
+> **parité(sortie) = parité(x) = une forme F₂-linéaire de l'état**, quel que soit
+> l'angle de rotation — alors que c'est précisément la rotation variable qui
+> devait brouiller PCG32.
+
+La fonctionnelle mesurée vaut `0xFFFFFFFF` sur le premier mot et zéro sur les
+suivants : **exactement cette parité, et rien d'autre.**
+
+### La mesure, degré par degré
+
+| famille | état | sortie | dim L₁ | dim L₂ | dim L₃ | prédit | |
+|---|---|---|---|---|---|---|---|
+| xorshift128 (Marsaglia) | 128 | 32 | 128 | 128 | 128 | tout | **calibré** |
+| xoshiro256 (brut) | 256 | 64 | 256 | 256 | 256 | tout | **calibré** |
+| V8 `Math.random` (§112) | 128 | 52 | 208 | 208 | 208 | tout | **calibré** |
+| xorshift128+ | 128 | 64 | 4 | 8 | 12 | 4/8/12 | **calibré** |
+| xoroshiro128+ | 128 | 64 | 4 | 8 | 12 | 4/8/12 | **calibré** |
+| xoshiro256+ | 256 | 64 | 4 | 8 | 12 | 4/8/12 | **calibré** |
+| xoshiro256++ | 256 | 64 | **0** | **0** | **0** | — | fermé |
+| xoshiro256\*\* | 256 | 64 | **0** | **0** | **0** | — | fermé |
+| xoroshiro128\*\* | 128 | 64 | **0** | **0** | **0** | — | fermé |
+| **PCG32** | 64 | 32 | **1** | **3** | **7** | — | ⚠ |
+| splitmix64 | 64 | 64 | **0** | **0** | **0** | — | fermé |
+
+**6/6 témoins calibrés.** Les familles additives rendent exactement `4 / 8 / 12`
+— les bits 0, 1 et 2 de chaque mot, ni plus ni moins, comme l'arithmétique de la
+retenue l'exige. La mesure est donc lisible.
+
+### Ce que la mesure décide
+
+Une dimension non nulle **ne suffit pas**. Il faut deux conditions de plus, et
+elles doivent figurer dans le **même tableau** que la dimension, sinon on relit
+un chiffre pour une conclusion :
+
+- **observable** — la forme doit se lire dans ce que l'archive publie : deux
+  bits du mot (§122), et non le mot entier ;
+- **chaînable** — la transition doit être F₂-linéaire, sinon la forme vaut pour
+  l'état courant et ne se propage pas d'un tirage au suivant.
+
+| famille brouillée | état | dim L₁ | dim L₂ | dim L₃ | monômes | observable | chaînable | **exploitable** |
+|---|---|---|---|---|---|---|---|---|
+| xoshiro256++ | 256 | 0 | 0 | 0 | — | — | — | **non : aucun bit** |
+| xoshiro256\*\* | 256 | 0 | 0 | 0 | — | — | — | **non : aucun bit** |
+| xoroshiro128\*\* | 128 | 0 | 0 | 0 | — | — | — | **non : aucun bit** |
+| PCG32 | 64 | 1 | 3 | 7 | 65 | **non** | **non (LCG)** | **non** |
+| splitmix64 | 64 | 0 | 0 | 0 | — | — | — | **non : aucun bit** |
+
+> **Zéro famille exploitable.** La frontière du §119 tient — et elle est
+> désormais mesurée à **trois degrés au lieu d'un**, sur un modèle **vérifié
+> contre la référence**.
+
+Pour les quatre familles à zéro, la conclusion est même **plus forte** que celle
+du §119 : il ne s'agit pas seulement de l'absence d'un bit *linéaire*, c'est
+qu'aucune combinaison de bits n'atteint même le **degré 3**. La linéarisation,
+qui aurait rattrapé le degré 2 à 32 897 inconnues pour un état de 256 bits, n'a
+**rien à linéariser**.
+
+### Ce que cela ajoute au dossier
+
+Le §119 écrivait « `dim L = 0`, donc aucune élimination de Gauss ». C'était vrai
+de l'élimination **directe** et faux comme borne générale : la linéarisation
+ramène le degré 2 à une élimination de Gauss, simplement plus large.
+
+> **La phrase du §119 valait plus large que sa mesure.** C'est la troisième fois
+> dans ce dossier — §101, §121, et ici — qu'une conclusion se révèle recopiée
+> plus largement que sa source. Elle se reproduit, et c'est pourquoi le dossier
+> la traque.
+
+Ce qui reste hors d'atteinte, et pourquoi ce n'est pas un aveu : au-delà du degré
+3 le nombre de monômes dépasse le nombre de tirages, et **aucune donnée publiée
+ne comblera l'écart** — `C(256,4)` vaut déjà 174 792 640. Ce n'est pas une
+hypothèse qu'il resterait à essayer, c'est une borne.
+
+**Registre : inchangé** — ce fichier ne teste rien sur l'archive ; il mesure une
+propriété des générateurs eux-mêmes.

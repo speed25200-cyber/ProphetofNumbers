@@ -154,11 +154,37 @@ l'espace de toutes celles qui existent**. Mesure sur onze familles :
 | additive | **1 par mot** (le bit 0) | **xorshift128+**, xoroshiro128+, xoshiro256+ |
 | addition + **rotation** | **0** | xoshiro256++ |
 | multiplication + rotation | **0** | xoshiro256\*\*, xoroshiro128\*\* |
-| rotation variable | **0** | PCG32 |
+| rotation variable | **1 par mot** (la parité) | PCG32 — corrigé au §123 |
 | chaîne de mélange | **0** | splitmix64 |
 
 > **Ce qui protège n'est jamais l'addition, ni la multiplication par un impair —
 > c'est toujours un décalage à droite ou une rotation appliqués APRÈS elles.**
+
+### 3.3 Le degré algébrique (§123) — le défaut porté au degré `d`
+
+`D` est la **dérivée seconde** : elle ne teste que le degré 1. Or un bit de
+degré 2 donne une équation exploitable **par linéarisation**, au prix de
+`1 + W + C(W,2)` inconnues — que l'archive peut payer jusqu'à `W = 375`.
+
+> Pour des directions `a₁..a_{d+1}` et un point `x`, la dérivée (d+1)-ième
+> `T = ⊕_{S} Ψ(x ⊕ ⊕_{i∈S} a_i)` vérifie : `deg(c·Ψ) ≤ d` **ssi** `c·T = 0`
+> partout, car `deg(Δ_a f) ≤ deg f − 1`. Donc **`dim L_d = W − rang(T)`**, et
+> §119 est le cas `d = 1`. ∎
+
+**Calibration.** L'arithmétique de la retenue impose, pour une sortie additive,
+`dim L₁ / L₂ / L₃ = 1 / 2 / 3` **par mot** (bits 0, 1, 2). La mesure les rend
+exactement.
+
+**Mesure.** `xoshiro256++`, `xoshiro256**`, `xoroshiro128**` et `splitmix64`
+rendent **0 aux trois degrés** : il n'y a rien à linéariser. `PCG32` rend
+`1 / 3 / 7`, mais sa forme de degré 1 est la **parité du mot entier** — donc
+
+- **non observable** : l'archive n'en publie que deux bits (§122) ;
+- **non chaînable** : la transition est un LCG, pas une matrice sur F₂.
+
+> Une dimension non nulle ne suffit pas. Une forme n'est exploitable que si elle
+> est **observable** dans ce que la source publie **et chaînable** par la
+> transition. Ces deux colonnes appartiennent au même tableau que la dimension.
 
 ---
 

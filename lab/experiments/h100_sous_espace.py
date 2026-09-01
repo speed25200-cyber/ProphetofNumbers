@@ -152,8 +152,12 @@ def xoroshiro128ss(s):
 
 
 def pcg32(s):
+    # CORRIGE PAR LE §123. La reference ecrit `uint32_t xorshifted = ...` :
+    # le decalage est TRONQUE A 32 BITS avant la rotation. Sans ce masque la
+    # rotation n'est plus une permutation de 32 bits, elle ne conserve plus la
+    # parite du mot, et la mesure du §119 rendait dim L = 0 au lieu de 1.
     ns = (6364136223846793005 * s + 1442695040888963407) & M64
-    x = ((s >> 18) ^ s) >> 27
+    x = (((s >> 18) ^ s) >> 27) & M32
     r = s >> 59
     return ns, ((x >> r) | (x << ((-r) & 31))) & M32
 
@@ -340,13 +344,24 @@ say(f"""
                                                         bit 0 la ou les retenues
                                                         sont deja entrees
      multiplication + rotation dim L = 0
-     rotation VARIABLE (PCG)   dim L = 0
+     rotation VARIABLE (PCG)   dim L = 1 PAR MOT        la PARITE : une rotation
+                                                        est une permutation des
+                                                        bits, elle la conserve
      chaine de melange         dim L = 0
 
    Le §117 avait devine cette regle a partir d'un cas ; elle est ici MESUREE
    sur onze familles. Ce qui protege n'est jamais l'addition ni la
    multiplication par un impair — c'est TOUJOURS un decalage a droite ou une
    rotation appliques APRES elles.
+
+   ET LA LIGNE DE PCG32 EST UNE CORRECTION, apportee par le §123 : la premiere
+   version de ce fichier oubliait le cast en `uint32_t` de la reference et
+   faisait tourner 37 bits au lieu de 32. La rotation cessait alors d'etre une
+   permutation, et la mesure rendait 0 au lieu de 1. La forme trouvee est la
+   PARITE du mot entier — donc NON OBSERVABLE depuis une archive qui n'en
+   publie que deux bits (§122), et NON CHAINABLE puisque la transition de PCG32
+   est un LCG et non une matrice sur F2. La conclusion pratique tient ; c'est
+   son ENONCE qui etait faux.
 
    REGISTRE : INCHANGE. Ce fichier ne teste rien sur l'archive — il mesure une
    propriete des generateurs eux-memes, et fixe la frontiere que tout le reste
