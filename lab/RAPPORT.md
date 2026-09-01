@@ -12206,6 +12206,11 @@ On balaie `[0 ; 2³²)`, soit `[0 ; 4 294 967 296)`. Cet intervalle contient :
 
 Une seule plage, trois hypothèses d'amorçage. Pas besoin d'en balayer trois.
 
+> **Correction, §121** : cette phrase est trop large. Elle vaut pour
+> l'horodatage en **secondes** et non pour celui en **millisecondes**, qui vaut
+> 1 757 829 900 000 — soit 409 fois la borne du balayage. La lacune est comblée
+> au §121.
+
 ### Le filtre, et son coût réel
 
 La cible est l'**ensemble trié** des vingt numéros ; un numéro tiré sur quatre y
@@ -12244,3 +12249,61 @@ ici — 120 milliards de graines, espérance de faux positifs 3,4·10⁻⁸.
 > hypothèses qu'il resterait à essayer.
 
 **Registre : consigné.** `m = 58 079`, zéro significatif.
+
+---
+
+## 121. La graine en millisecondes : la lacune du §120 (`h102_graine_milliseconde.py`)
+
+### Une affirmation de portée, pas un résultat
+
+Le §120 balaie `[0 ; 2³²)` et affirme que cette plage couvre « les trois
+hypothèses d'amorçage ». **C'est vrai pour l'horodatage en secondes, et faux
+pour celui en millisecondes :**
+
+|  |  |
+|---|---|
+| `2³²` | 4 294 967 296 |
+| horodatage **secondes** | 1 757 829 900 — dans la plage |
+| horodatage **millisecondes** | **1 757 829 900 000 — hors de la plage, ×409** |
+
+Or `Date.now()` en JavaScript, `System.currentTimeMillis()` en Java et
+`microtime()` en PHP rendent **tous** des millisecondes ou mieux. Une plateforme
+qui amorce sur l'horloge sort donc, le plus souvent, de la plage que le §120 a
+balayée.
+
+### Ce qui rattrape la lacune sans coûter cher
+
+L'archive publie l'horodatage **à la seconde** : la partie milliseconde est
+inconnue sur trois chiffres seulement, et l'incertitude sur l'instant réel du
+tirage se compte en minutes.
+
+    graine = ts × 1000 + m,   m dans ±600 s
+
+soit 1 200 000 graines par tirage — contre 2³² au §120 — dans une plage que le
+§120 ne pouvait pas voir.
+
+**Et sur dix tirages.** C'est le point : sous l'hypothèse du ré-amorçage
+horaire, **chaque tirage a sa propre graine**. Dix tirages sont dix chances
+**indépendantes**, pas une confirmation.
+
+### Le résultat
+
+| | |
+|---|---|
+| autotest du balayeur | **28/28** |
+| tirages balayés | 10 |
+| graines testées | **336 000 000** |
+| **graines compatibles** | **0** |
+
+### Ce que cela corrige
+
+Le §120 ne s'est **pas trompé dans ses mesures** : ses 120 milliards de graines
+sont bien testées et bien nulles. Il s'est trompé dans la **phrase qui les
+résume** — « une seule plage couvre les trois hypothèses » — parce que
+l'horodatage a deux écritures et qu'une seule tient dans 2³².
+
+> C'est exactement la faute que le §101 avait trouvée dans la carte de
+> couverture : **une conclusion recopiée plus largement que sa source.** Elle se
+> reproduit volontiers — c'est pourquoi le dossier la traque.
+
+**Registre : consigné.** `m = 58 080`, zéro significatif.
