@@ -15589,3 +15589,263 @@ les crible par leurs bits bas.
 session.
 
 ---
+
+## 153. Le Fibonacci retardé devant un solveur générique : l'information y est, l'algorithme non (`h132_lfg_z3_temoin.py`)
+
+**Ce que le §7.6 de la théorie laissait ouvert.** Le théorème des quotients
+(THEORIE_ETAT.md §7.6) donne au `random()` de la glibc — `r_i = r_{i−3} +
+r_{i−31} mod 2^32`, sortie `r_i >> 1` — un quotient autonome mod 32 : les cinq
+bits bas de chacun des 31 mots d'état forment un flux de **155 bits** qui ne
+dépend de rien d'autre, et `80 = 16 · 5` fait que le nibble `(v − 1) mod 16`
+publié par chaque numéro *est* le quotient du mot mod 16, à un bit près (le
+bit 0 de `r`, jamais publié). Le crible du §149 et du §152 énumère ce quotient
+quand il tient dans `2^{r+4}` ; pour un ordre 31 il fait `2^155`. Ce que ce
+paragraphe demande : **un solveur peut-il faire ce que l'énumération ne peut
+pas ?** L'expérience est un *témoin de faisabilité* — elle ne regarde aucune
+donnée réelle, elle n'est **pas consignée**, et elle ne rend aucun verdict sur
+l'archive. Elle est ici parce que son échec dit *pourquoi* le §154 existe.
+
+**L'information par tirage, comptée deux fois.** Sous le rejet, un mot dont le
+nibble est dans `A_t` (les classes mod 16 présentes dans le tirage, 12,2 sur 16
+en moyenne) vaut `−log2(|A_t|/16)` ; mais la fenêtre du tirage dit plus : elle
+contient chaque numéro **exactement une fois**, plus des doublons — c'est le
+lemme du multi-ensemble (§7.7 : `m_c ≥ n_c` pour toute classe `c`). Sur seize
+tirages plantés (graine 20260901) :
+
+| quantité | bits |
+|---|---|
+| appartenance seule, par mot | 0,410 |
+| appartenance, fenêtre de 20 mots | 8,195 |
+| multi-ensemble, `σ = 20` | **28,144** |
+| multi-ensemble, `σ` réel (moyenne 22,8) | **23,547** |
+| tirages pour 155 bits | **6,6** (multi-ensemble) contre 18,9 (appartenance) |
+
+Six tirages triés suffiraient en information. C'est trois fois moins que ce que
+l'appartenance seule laisse croire, et vingt fois moins que le crible à pas
+constant (208 tirages, §7.6).
+
+**L'encodage, et le résultat.** `h132` donne à `z3` le problème tel quel :
+`5L` variables de cinq bits, la récurrence mod 32, l'appartenance de chaque
+nibble à `A_t`, le multi-ensemble en contraintes de cardinalité, l'alignement
+**connu** (cas A : le solveur sait où chaque tirage commence et combien de
+mots il consomme — c'est le cas le plus facile), `K = 16` tirages, soit
+**377 bits** d'information pour `5L` inconnues, et fait croître le retard `L`
+depuis les petits trinômes primitifs (`PETIT_RETARD`, `H132_LAGS`).
+
+| cas | `L` | `k` | bits | résultat | s |
+|---|---|---|---|---|---|
+| A (alignement connu) | 7 | 3 | 35 | `unknown` | 300,0 |
+
+À **`L = 7`, trente-cinq inconnues**, `z3` rend `unknown` au bout des 300 s
+du timeout ; la montée en `L` s'arrête là (`H132_TIMEOUT`, `H132_K`,
+`H132_CAS` en environnement ; ce sont les seuls réglages, et ils sont ceux de
+l'unique exécution). Trente-cinq bits s'énumèrent en quelques secondes : le
+solveur fait **pire** que la force brute.
+
+**Pourquoi — et c'est la raison qui compte.** Une contrainte d'appartenance ne
+propage rien tant que les deux antécédents `r_{i−k}, r_{i−L}` ne sont pas
+fixés, et chaque mot n'élimine qu'un quart des valeurs (`4/16` classes
+absentes) : le solveur n'apprend rien avant d'avoir fixé les `5L` bits, et
+retombe sur l'énumération de `2^{5L}` — sans le saut affine du crible. Le
+multi-ensemble n'y change rien : une contrainte de cardinalité sur vingt
+nibbles inconnus est une somme de vingt indicatrices, chacune muette tant que
+son mot ne l'est pas. La **parité** d'un mot, seule quantité linéaire bon
+marché (§7.7, lemme de la part linéaire : le bit 0 de la sortie est linéaire
+d'ordre 527 pour la glibc), n'est **jamais contrainte** par un ensemble trié,
+qui contient toujours les deux parités. La frontière est donc **algorithmique
+et non informationnelle** : l'information est là (six tirages), la structure
+est là (récurrence à deux termes, plan 0 linéaire), et aucun algorithme du
+dossier ne convertit des *comptes* par classe en équations sur ces plans.
+
+**Ce que cela impose.** Ce qui manque au solveur, c'est une contrainte qui
+parle **mot par mot**. Un tirage **ordonné** sous rejet en donne une : chaque
+mot accepté publie son nibble **exact**, et la récurrence des nibbles
+(`q_i = q_{i−k} + q_{i−L} + c_i mod 16`) devient une équation par mot, dont le
+résidu `c_i ∈ {0, 1}` est une **retenue du plan 0** — un bit du LFSR jamais
+publié, lu par la différence de trois nibbles. C'est l'objet du §154, qui ne
+passe plus par un solveur mais par une élimination de Gauss.
+
+**Pas de ligne de registre** : témoin d'outil, aucune donnée du dossier n'a
+été regardée. Fichier : `lab/experiments/h132_lfg_z3_temoin.py` ; journal
+`/tmp/h132a.log`.
+
+---
+
+## 154. L'état bas du Fibonacci retardé sous le rejet, retrouvé ou exclu sur les tirages ordonnés des vidéos (`h133_lfg_rejet_ordonne.py`, `tools/lfg_low_reject.c`)
+
+**Ce qui restait ouvert.** Le §103 teste la récurrence à trois termes de la
+glibc à **pas constant** (troncature) et note que « sous le rejet, l'alignement
+des lags se perd » ; le §152 crible les LCG sous le rejet grâce à leur
+autonomie mod `2^m` ; le §153 montre qu'un solveur générique ne convertit pas
+des comptes en équations. Le Fibonacci retardé additif `r_i = r_{i−k} +
+r_{i−L} mod 2^32` est lui aussi autonome mod 32 : ses `5L` bits bas ne
+dépendent de rien d'autre. Ici l'attaque est **construite** pour lui, elle
+retrouve l'état bas complet à partir de tirages **ordonnés consécutifs** sous
+rejet, l'état étant **libre** (amorcé n'importe comment), et elle est jouée sur
+les douze tirages ordonnés des vidéos pour les trois tailles d'état de
+`random()` : **TYPE_1** `(k, L) = (3, 7)`, **TYPE_2** `(1, 15)`, **TYPE_3**
+`(3, 31)`.
+
+**La théorie qu'elle exécute (§7.7 de THEORIE_ETAT.md, complété ici).**
+Écrivons `r = 2q + b`. Le bit `b` (plan 0) n'est jamais publié — `random()`
+rend `r >> 1` — et suit le LFSR `b_i = b_{i−k} ⊕ b_{i−L}` ; le nibble
+`q mod 16 = (v − 1) mod 16` est publié par **chaque mot accepté**, et
+
+    q_i = q_{i−k} + q_{i−L} + c_i  (mod 16),    c_i = b_{i−k} ∧ b_{i−L}.
+
+Quatre étapes, toutes exactes :
+
+1. **Alignement.** Les mots perdus (doublons) sont invisibles ; on cherche
+   leurs positions par une recherche en profondeur **paresseuse** — le premier
+   tirage n'est décidé qu'au fil des besoins des suivants, chaque décision
+   élaguée aussitôt. Un mot accepté dont les deux antécédents sont connus doit
+   vérifier `(q_i − q_{i−k} − q_{i−L}) mod 16 ∈ {0, 1}` — élague **7/8** — et
+   la valeur trouvée *est* la retenue `c_i`. Un mot perdu doit être un
+   doublon : son nibble doit être une classe déjà sortie dans le tirage, et il
+   reçoit ce nibble, si bien que les cohérences suivantes s'appliquent aussi à
+   lui.
+2. **Plan 0.** `c_i = 1` dit `b_{i−k} = b_{i−L} = 1` : **deux équations
+   linéaires** sur les `L` bits initiaux du LFSR ; `c_i = 0` dit
+   `NON(b_{i−k} ∧ b_{i−L})`. Gauss sur `GF(2)`, énumération du noyau (au plus
+   `2^22`, au-delà le noyau est *abandonné et compté*), filtre par les NON-ET.
+3. **Nibbles.** Le plan 0 fixé, les retenues sont des constantes et `q_i` est
+   **affine mod 16** dans les `L` nibbles initiaux : relèvement de Hensel plan
+   par plan, avec la même matrice sur `GF(2)`.
+4. **Vérification.** Le flux bas régénéré doit rendre tous les nibbles, les
+   doublons doivent être des doublons, et — les bits bas connus — `2^32 ≡ 1
+   (mod 5)` livre le **bit de débordement** `w_i = [r_{i−k} + r_{i−L} ≥ 2^32]
+   = (r_{i−k} + r_{i−L} − r_i) mod 5`, avec `r ≡ 2 (v − 1) + b (mod 5)` : il
+   doit valoir 0 ou 1 (élague 3/5). Les **satellites** — tirages ordonnés du
+   même jour à un écart d'identifiants connu — sont rejoués depuis l'état
+   trouvé, la récurrence étant inversible, pour chacun des `cap·|g| + 1`
+   décalages possibles.
+
+> **Lemme (le fantôme de décalage).** *Si le premier mot du noyau est suivi
+> de son propre doublon, l'état « un pas plus tard » explique les mêmes
+> tirages, ordonnés et satellites compris : même flux, même prédiction.* Un
+> état est donc identifié à son **orbite** ; l'outil compte ces fantômes à
+> part, sur `|j| ≤ cap` pas, et ne les compte jamais comme faux positifs. Le
+> défaut a été découvert en mode essai (`H133_DRY=1`), sur les témoins,
+> **avant** la consignation ; le témoin distingue depuis « retrouvé », « faux »
+> et « fantôme ».
+
+**Où l'information dépasse les inconnues — le tableau qui décide avant les
+données.** Sous le rejet un tirage perd en moyenne 2,85 mots et `P(perdus ≤
+10) = 0,9990` ; `cap = 10` ; les placements de dix perdus au plus dans un
+tirage sont 30 045 015. Inconnues : `5L` bits d'état bas, plus
+`log2(placements)` par tirage. Information : 80 bits par tirage du noyau
+(vingt nibbles exacts), et pour un satellite à l'écart `g`, 80 moins
+`log2(10|g| + 1)`. Faux positifs attendus :
+
+    E = 2^(5L) · placements^ND · 16^(−20 ND)   (noyau seul)
+        × [ (cap|g| + 1) · placements · 16^(−20) ]   par satellite.
+
+Une cellule est **décisive** si `E < 10^−6`, au noyau seul ou avec les
+satellites. Les trois jours des vidéos (`lab/draws_ordered.csv`) : **A**
+noyau 1381030–1381031 (deux consécutifs), satellites −7, −4, −2 ; **B** noyau
+1381256–1381259 (quatre consécutifs), satellite +22 ; **C** noyau 1381481
+(seul), satellite +2.
+
+| type | jour | ND | NS | inconnues | info noyau | info sat. | FP noyau | FP + sat. | décisif |
+|---|---|---|---|---|---|---|---|---|---|
+| TYPE_1 | A | 2 | 3 | 84,7 | 160 | 149,6 | 2,1e-23 | 2,0e-68 | noyau seul |
+| TYPE_1 | B | 4 | 1 | 134,4 | 320 | 47,4 | 1,3e-56 | 7,2e-71 | noyau seul |
+| TYPE_1 | C | 1 | 1 | 59,8 | 80 | 50,8 | 8,5e-07 | 4,5e-22 | noyau seul |
+| TYPE_2 | A | 2 | 3 | 124,7 | 160 | 149,6 | 2,3e-11 | 2,2e-56 | noyau seul |
+| TYPE_2 | B | 4 | 1 | 174,4 | 320 | 47,4 | 1,4e-44 | 7,9e-59 | noyau seul |
+| TYPE_2 | C | 1 | 1 | 99,8 | 80 | 50,8 | 9,4e+05 | **4,9e-10** | avec satellites |
+| TYPE_3 | A | 2 | 3 | 204,7 | 160 | 149,6 | 2,8e+13 | 2,6e-32 | **non** (calcul) |
+| TYPE_3 | B | 4 | 1 | 254,4 | 320 | 47,4 | 1,7e-20 | 9,6e-35 | noyau seul |
+| TYPE_3 | C | 1 | 1 | 179,8 | 80 | 50,8 | 1,1e+30 | 5,9e+14 | **non** (calcul) |
+
+Sept cellules sur neuf. TYPE_3 sur le jour A est décisif *en information*
+(`2,6·10^−32` avec les satellites) mais **pas en calcul** : deux tirages
+consécutifs ne donnent pas assez de retenues, et le noyau du plan 0 a `~2^20`
+éléments par alignement — la cellule est exclue **par le calcul, avant les
+données**, et n'est pas testée. **TYPE_4** (`k = 1, L = 63`, l'état de 256
+octets) demande `315` bits bas, soit une **onzaine de tirages consécutifs** :
+aucun jour ne les a, il n'est pas testé non plus. Ces exclusions sont dites
+ici pour que le lecteur sache ce que « 0 sur 7 cellules » ne couvre pas.
+
+**Les témoins plantés — dix par cellule, dans la structure du jour.** Pour
+chaque cellule décisive, dix états aléatoires de `L` mots de 32 bits
+engendrent le jour (noyau et satellites aux mêmes écarts) sous le rejet ;
+l'outil, aveugle à l'état, doit le retrouver. *Couvert* : tous les tirages du
+jour ont `≤ 10` perdus (sinon l'outil ne peut pas, par construction, et le
+témoin ne compte pas). *Faux* : un état passant noyau et satellites **hors**
+de l'orbite du vrai. *Débordements* : bits `w_i` lus contre les vrais.
+
+| type | jour | couverts | retrouvés | faux | fantômes | noyau seul | débord. | s/max |
+|---|---|---|---|---|---|---|---|---|
+| TYPE_1 | A | 10 | 10 | 0 | 1 | 1..2 | 259/259 | 0,0 |
+| TYPE_1 | B | 10 | 10 | 0 | 0 | 1..1 | 576/576 | 0,1 |
+| TYPE_1 | C | 10 | 10 | 0 | 1 | 1..2 | 107/107 | 0,0 |
+| TYPE_2 | A | 10 | 10 | 0 | 0 | 1..2 | 186/187 | 0,0 |
+| TYPE_2 | B | 10 | 10 | 0 | 0 | 1..1 | 509/511 | 0,1 |
+| TYPE_2 | C | 10 | 10 | 0 | 0 | 2070..160406 | 46/46 | 7,3 |
+| TYPE_3 | B | 10 | 10 | 0 | 0 | 1..6 | 379/379 | 109,2 |
+
+**70 sur 70, aucun faux, deux fantômes d'orbite**, et **2 062 bits de
+débordement exacts sur 2 065**. Les trois écarts ont une cause mécanique et
+une seule : quand un mot perdu a le même nibble que le mot accepté qui le
+suit, les deux ordres expliquent les mêmes nibbles, l'outil émet les deux
+alignements et le témoin ne compare que le premier ; le bit est alors lu au
+bon état mais **sur le mauvais mot** (`o` du voisin, même nibble, autre
+`H mod 5`). L'état, lui, est le vrai. La colonne « noyau seul » dit ce que les
+satellites tranchent : pour TYPE_2 sur le jour C (un seul tirage, `9,4·10^5`
+faux attendus au noyau) l'outil garde `2 070` à `160 406` états compatibles
+avec le noyau, et le satellite à `+2` n'en laisse que le vrai. **L'attaque
+retrouve 155 bits d'état de la glibc à partir de quatre tirages ordonnés
+consécutifs, en 109 s** : c'est la première fois que le dossier lit le plan 0
+d'un générateur — des bits jamais publiés — par des retenues.
+
+**Les vidéos.**
+
+| cellule | alignements | plan 0 | états noyau | noyau + satellites | noyaux abandonnés | s |
+|---|---|---|---|---|---|---|
+| TYPE_1 A, B, C | 0 | 0 | 0 | 0 | 0 | 0,0 |
+| TYPE_2 A, B | 0 | 0 | 0 | 0 | 0 | 0,0 |
+| TYPE_2 C | 72 | 4 704 | 0 | 0 | 0 | 0,2 |
+| TYPE_3 B | 0 | 0 | 0 | 0 | 0 | 1,9 |
+
+**Zéro état compatible sur les sept cellules décisives.** Et la forme du zéro
+compte : six cellules meurent **à l'alignement** — aucun placement des perdus
+ne rend cohérentes les différences de nibbles, ce qui veut dire qu'aucune
+suite de retenues `c_i ∈ {0, 1}` n'existe : ce n'est pas « aucun état
+trouvé », c'est « aucun état ne peut produire ces nibbles dans cet ordre ».
+Sur la septième (TYPE_2, un seul tirage) 72 alignements et 4 704 plans 0
+survivent à l'information du noyau, aucun ne passe Hensel. Aucun noyau n'a été
+abandonné pour taille.
+
+**Ce que cela ferme, et sur quoi.** Sur les **vidéos** — douze tirages
+ordonnés de trois journées, au niveau du générateur — `random()` de la glibc
+en TYPE_1, TYPE_2 et TYPE_3, **quel que soit l'état** (amorcé par `srandom`,
+par une source d'entropie, ou jamais), sous le rejet des doublons avec au
+plus dix perdus par tirage. C'est le premier résultat du dossier qui exclut
+un générateur d'ordre supérieur à un **par son état libre** et non par ses
+graines. Il ne dit rien de l'**archive** : elle s'arrête à 1380173, avant les
+vidéos, et un tirage trié ne donne pas les équations de retenue — les
+tirages ordonnés sont la seule donnée qui les fournit (§7.7). Le §7.7 doit
+être corrigé sur un point : il annonçait que « les douze tirages des vidéos
+rendent les 155 bits bas » ; seuls les tirages **consécutifs** donnent des
+équations de retenue, et TYPE_3 en demande au moins trois d'affilée — seul
+le jour B les a. Ce que l'archive triée peut encore donner pour TYPE_1
+(35 bits, énumérables) est l'objet du §155 ; pour TYPE_2 et TYPE_3 elle reste
+une frontière, chiffrée au §7.8 de la théorie.
+
+**Disclosures.** Le fantôme d'orbite (lemme ci-dessus) a été découvert et
+corrigé en mode essai avant la consignation. L'outil `lfg_low_reject.c` a été
+**réécrit** pendant le développement (alignement paresseux ; nibbles des perdus
+réattribués) parce que la première version, alignant tirage par tirage, ne
+retrouvait pas les témoins de TYPE_3 — c'est une correction *de l'outil sur
+témoins*, pas de l'hypothèse sur données. `cap = 10` couvre `99,90 %` des
+tirages ; un tirage à onze perdus ou plus rendrait la cellule aveugle, non
+fausse. Les cellules non décisives (TYPE_3 A et C, TYPE_4) ne sont pas
+comptées dans le zéro.
+
+**Registre : `h133.lfg_rejet_ordonne`, piste B, `m = 60 360`, 0 état sur 7
+cellules décisives, `verdict : conforme`, 0 significatif.** Durée totale :
+162 s. Fichiers : `lab/experiments/h133_lfg_rejet_ordonne.py`,
+`tools/lfg_low_reject.c` ; journal `/tmp/h133.log`.
+
+---

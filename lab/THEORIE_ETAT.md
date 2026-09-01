@@ -879,7 +879,7 @@ mot, et `m = 3` n'en donne plus.
 > des LCG à sortie décalée, sous les trois échantillonneurs à modulo, et il
 > **nomme** ceux qu'il n'atteint pas — et pourquoi.
 
-### 7.7 La frontière (§153) — le Fibonacci retardé par ses plans de bits, et ce que l'archive triée en voit
+### 7.7 La frontière (§153, §154) — le Fibonacci retardé par ses plans de bits, et ce que l'archive triée en voit
 
 Le 7.6 laisse un générateur dont le quotient existe et ne s'énumère pas :
 `random()` de la glibc, `r_i = r_{i−3} + r_{i−31} mod 2^32`, sortie `r_i >> 1`.
@@ -969,31 +969,243 @@ convertit des **comptes** par classe en équations sur ces plans — la parité
 d'un mot, seule quantité linéaire bon marché, n'est jamais contrainte par un
 ensemble trié, qui contient toujours les deux parités.
 
-**Ce qu'il faudrait collecter (§9 complété).** Des tirages **ordonnés** sous
-rejet changent tout : chaque mot accepté donne `n − 1 = o mod 80`, donc le
-nibble `q_i` **exact** et `o mod 5`. Alors
+**Ce que les tirages ordonnés donnent, et ce que le §154 en a fait.** Des
+tirages **ordonnés** sous rejet changent tout : chaque mot accepté donne
+`v − 1 = o mod 80`, donc le nibble `q_i` **exact** et `o mod 5`. Alors la
+cohérence `(q_i − q_{i−k} − q_{i−L}) mod 16 = c_i` livre `c_i = b_{i−k} ∧
+b_{i−L}` pour tout mot dont les deux antécédents ont un nibble connu ;
+`c_i = 1` (un mot sur quatre) fixe **deux bits** du LFSR — deux équations
+linéaires sur les `L` bits initiaux — et `c_i = 0` en interdit un couple. Un
+mot perdu a lui aussi un nibble : c'est un doublon, sa classe est l'une de
+celles déjà sorties, et l'alignement se cherche en profondeur, paresseusement,
+chaque hypothèse élaguée par la cohérence (7/8 par mot). Le plan 0 fixé, les
+nibbles sont **affines** mod 16 et se relèvent par Hensel plan par plan.
 
-- la cohérence `(q_i − q_{i−3} − q_{i−31}) mod 16 = c_i` livre `c_i =
-  b_{i−3} ∧ b_{i−31}` pour tout mot dont les deux antécédents sont acceptés ;
-  `c_i = 1` (un mot sur quatre) fixe **deux bits** du LFSR — deux équations
-  linéaires sur les 31 bits initiaux — et `c_i = 0` en interdit un couple ;
-  seize retenues à 1, soit une soixantaine de mots utiles, **trois tirages
-  ordonnés**, déterminent le plan 0, et les plans 1 à 4 sont lus ; les
-  **douze tirages des vidéos (≈ 276 mots) rendent les 155 bits bas** avec
-  une marge de quatre — l'alignement des doublons se branche comme au 7.6 ;
-- les bits bas connus, `r_i = 2 o_i + b_i` donne `r_i mod 5` (2 est inversible
-  mod 5), et `r_i = r_{i−3} + r_{i−31} − 2^32 w_i` avec `2^32 ≡ 1 (mod 5)`
-  livre le **bit de débordement** `w_i = [r_{i−3} + r_{i−31} ≥ 2^32]` de
-  chaque mot accepté : une comparaison sur les bits hauts, un bit par mot ;
-  `837` bits hauts demandent au moins `837` mots, soit **42 tirages ordonnés**
-  — la reconstitution complète est alors un problème de comparaisons, ouvert
-  ici mais posé.
+Mais une condition manquait à la première rédaction de ce paragraphe, et elle
+est décisive : la cohérence relie le mot `i` à ses antécédents `i − k` et
+`i − L`, qui doivent avoir un nibble connu — donc appartenir à la **même suite
+de tirages consécutifs**. Entre deux tirages ordonnés séparés d'un écart
+inconnu de mots, aucune équation de retenue ne traverse ; un tirage isolé
+(« satellite ») ne sert qu'à **vérifier** un état, en rejouant la récurrence
+sur l'écart pour chacun des décalages possibles. Les `5L` bits bas demandent
+`5L` bits de cohérence ; un tirage donne ~80 bits de nibbles moins
+l'alignement, mais TYPE_3 (`L = 31`) a besoin de **trois tirages consécutifs
+au moins** avant que les premières retenues n'apparaissent — `i − 31` doit
+être dans la fenêtre. Les douze tirages des vidéos sont trois journées : `A`
+deux consécutifs, `B` quatre, `C` un seul. Le §154 le fait, sur ces
+données :
+
+- **témoins** : 70 états plantés sur 70 retrouvés, aucun faux, `2 062` bits de
+  débordement exacts sur `2 065` ; **155 bits bas de TYPE_3 à partir de quatre
+  tirages ordonnés consécutifs, en 109 s** — le plan 0, jamais publié, lu par
+  ses retenues ;
+- **vidéos** : `0` état sur les sept cellules décisives (TYPE_1 sur A, B, C ;
+  TYPE_2 sur A, B, C ; TYPE_3 sur B), six d'entre elles mourant à
+  l'**alignement** : aucun placement des doublons ne rend cohérents les
+  nibbles, donc aucune suite de retenues n'existe.
+
+> **Lemme (le fantôme de décalage).** *Si le premier mot de la fenêtre est
+> suivi de son propre doublon, l'état « un pas plus tard » explique les mêmes
+> tirages, ordonnés et satellites compris.* Un état est identifié à son
+> **orbite** ; deux fantômes sur soixante-dix témoins, comptés à part.
+
+Les bits bas connus, `r_i = 2 o_i + b_i` donne `r_i mod 5` et, avec `2^32 ≡ 1
+(mod 5)`, le **bit de débordement** `w_i = (r_{i−k} + r_{i−L} − r_i) mod 5 ∈
+{0, 1}` de chaque mot. Ce bit ne vaut pas, comme l'affirmait la première
+rédaction, « un bit d'état haut par mot, `837` mots pour TYPE_3 » : il est une
+**fonction des résidus** (`w_i ≡ 2(ρ_{i−k} + ρ_{i−L} + κ_i − ρ_i) mod 5`) et
+n'ajoute rien à ce que les résidus disent déjà. Ce qui fixe l'état haut est
+la **boîte** `0 ≤ H_i < 2^27` imposée à chaque mot, et son prix est celui du
+7.8 : `log₂ M(f)` bit par mot, `M(f)` la mesure de Mahler du trinôme —
+`1 640` mots, **72 tirages ordonnés consécutifs** pour l'état entier de TYPE_3,
+`35` pour TYPE_2, `17` pour TYPE_1.
 
 > Le 7.6 dit *qui* a un quotient ; le 7.7 dit que le quotient ne suffit pas
 > quand l'ordre de la récurrence dépasse un, et **nomme le prix exact** de la
-> frontière : douze tirages ordonnés pour les bits bas de la glibc, quarante-deux
-> pour l'état entier — contre une archive triée qui, elle, n'en donne que des
-> comptes.
+> frontière : trois tirages ordonnés **consécutifs** pour les bits bas de la
+> glibc — payés au §154, et la réponse est zéro —, soixante-douze pour l'état
+> entier. L'archive triée, elle, n'en donne que des comptes ; le 7.8 dit ce
+> que ces comptes valent quand même.
+
+### 7.8 Le relèvement (§154, §155) — l'état haut par l'archive triée : paquets, mesure de Mahler, réseau exact
+
+Le 7.7 s'arrête aux `5L` bits bas. Supposons-les connus — par les vidéos
+(§154) ou, pour TYPE_1, par l'énumération des `2^35` états bas contre l'archive
+(§155). Reste l'état **haut** : `L` mots de 27 bits, `27L` bits, et une
+archive qui ne publie que des **ensembles triés**. Ce paragraphe montre que
+l'archive triée suffit, dit combien de tirages elle demande — une formule,
+vérifiée à 5 % près —, et donne l'algorithme, témoin compris
+(`lab/lfg_releve.py`, `lab/lll_exact.py`).
+
+**La chaîne mod 5.** Écrivons `r_i = 32 H_i + ℓ_i`, `ℓ_i = r_i mod 32` connu,
+`H_i` les 27 bits hauts. La récurrence `r_i = r_{i−k} + r_{i−L} − 2^32 w_i`
+devient
+
+    H_i = H_{i−k} + H_{i−L} + κ_i − 2^27 w_i,    κ_i = [ℓ_{i−k} + ℓ_{i−L} ≥ 32],
+
+`κ_i` la retenue des bits bas, **connue**, `w_i ∈ {0, 1}` le débordement,
+inconnu. Le numéro publié `v` s'écrit `v − 1 = (r_i >> 1) mod 80 = 16 (H_i mod
+5) + q_i` puisque `16 · 5 = 80` : l'archive triée dit, pour chaque classe `c`
+du nibble présente dans le tirage `t`, l'ensemble `Q_t(c) ⊂ {0..4}` des
+résidus `ρ = H mod 5` sortis. Comme `2^27 ≡ 3 (mod 5)`, la chaîne des résidus
+est
+
+    ρ_i = ρ_{i−k} + ρ_{i−L} + κ_i − 3 w_i    (mod 5),
+
+et un mot de la fenêtre du tirage `t` doit vérifier `ρ_i ∈ Q_t(q_i)`. Sous le
+rejet, la fenêtre a une structure de plus : chaque couple `(q_i, ρ_i)` d'un
+mot accepté est **nouveau** dans le tirage, un mot perdu **répète** un couple
+déjà sorti, et le tirage s'achève au vingtième accepté. L'alignement n'est
+donc pas une inconnue de plus : c'est une **conséquence** de la chaîne. Les
+seuls choix sont les `5^L` résidus initiaux et les bits `w_i`.
+
+**Le lemme des paquets, et pourquoi la chaîne ne branche pas.** Énumérer les
+chemins `(ρ_0..ρ_{L−1}, w_L, w_{L+1}, …)` explose : `6 768` chemins compatibles
+après douze tirages sur un état planté, `162 432` à `30 320 640` après vingt.
+Mais ces chemins sont presque tous **le même état** :
+
+> **Lemme (les paquets).** *Soient deux chemins `(ρ^a, w^a)` et `(ρ^b, w^b)`
+> qui, au mot `i`, ont les mêmes `L` derniers résidus et se poursuivent
+> identiquement. Soit `δ` la suite entière définie par `δ_j = 2 m_j` pour
+> `j < L`, `m_j ≡ 2(ρ^b_j − ρ^a_j) (mod 5)` dans `[−2, 2]`, et*
+>
+>     δ_i = δ_{i−k} + δ_{i−L} − 2 (w^b_i − w^a_i)    (i ≥ L).
+>
+> *Alors `H^b = H^a + 2^26 δ` est un relèvement entier du chemin `b` dès que
+> `H^a` en est un du chemin `a` — même récurrence, mêmes résidus. Si `δ` est
+> nulle sur `L` indices consécutifs elle est nulle ensuite, et alors `H^b_i =
+> H^a_i` hors d'un **support fini** `S`, et `H^b_i ≡ H^a_i (mod 2^27)` sur `S`
+> (`δ` est paire).*
+>
+> *Preuve.* `2^26 · 2 m_j = 2^27 m_j ≡ 3 m_j ≡ ρ^b_j − ρ^a_j (mod 5)` règle les
+> mots initiaux ; pour `i ≥ L`, `2^26 δ_i = 2^26 (δ_{i−k} + δ_{i−L}) − 2^27
+> (w^b_i − w^a_i)` est exactement la différence des deux récurrences ; la
+> parité de `δ` suit par récurrence de celle des `δ_j`. Une suite qui obéit à
+> une récurrence linéaire d'ordre `L` et s'annule sur `L` termes consécutifs
+> — les différences `w^b − w^a` étant nulles ensuite — est nulle. ∎
+
+Deux chemins d'un même **état** de la programmation dynamique — `(tirage,
+acceptés, perdus, couples sortis, L derniers résidus)` — décrivent donc les
+mêmes 27 bits hauts sur tous les mots hors de `S`, et les mêmes mod `2^27` sur
+`S`. On les **fusionne** : un représentant, un masque `S` accumulé. Un chemin
+dont la queue de `δ` n'est pas nulle (« faux jumeau », `δ ≡ 0 mod 10` sur la
+queue sans être nulle, une coïncidence en `5^{−L}`) reste un état à part.
+Mesuré (`lfg_releve.py`, TYPE_1 planté, vingt tirages) : **`120` à `700` états
+vivants** au plus, `26` à `42` mots masqués, `0` faux jumeau, un état final,
+un centième de seconde — contre des millions de chemins.
+
+**La boîte, et la mesure de Mahler.** Le représentant choisi, chaque `H_i`
+est une **forme affine entière** des `L` inconnues `G_j = (H_j − ρ_j)/5` :
+
+    H_i = 5 Σ_j α_ij G_j + c_i,   α_i = α_{i−k} + α_{i−L},   α_j = e_j (j < L),
+
+et la seule contrainte restante est la **boîte** : `0 ≤ H_i < 2^27` pour tout
+mot hors masque. Combien de mots la rendent unique ? L'estimation naïve
+(« un bit de débordement par mot, `27L` mots ») est fausse, et la raison est
+belle. Décomposons `H` sur les racines `θ` du polynôme caractéristique
+`f(x) = x^L − x^{L−k} − 1` : `H_i = Σ_θ a_θ θ^i` (plus une solution
+particulière). Pour une racine **hors du cercle unité**, la boîte impose
+`|a_θ| ≲ 2^27 |θ|^{−n}` au bout de `n` mots ; pour une racine dedans elle
+n'impose rien de plus que `|a_θ| ≲ 2^27`. Le volume des `a` admissibles vaut
+donc `(2^27)^L / Π_{|θ|>1} |θ|^n`, et le produit des racines hors du cercle
+est la **mesure de Mahler** `M(f)`. Les `G ∈ Z^L` sont un réseau de densité
+constante ; le nombre attendu de solutions parasites est `(2^27/5)^L /
+M(f)^n`, d'où
+
+> **Théorème (le nombre de mots).** *Le relèvement de l'état haut d'un
+> Fibonacci retardé additif de trinôme `f`, sur `n` mots de résidus connus,
+> est unique dès que*
+>
+>     n > n* = L (27 − log₂ 5) / log₂ M(f),
+>
+> *et la boîte rapporte `log₂ M(f)` bit par mot — pas un.*
+
+Le bit de débordement, en effet, n'est pas une information indépendante : il
+vaut `w_i ≡ 2(ρ_{i−k} + ρ_{i−L} + κ_i − ρ_i) (mod 5)`, il est *lu* dans les
+résidus ; et les résidus successifs sont corrélés par la récurrence — seules
+les directions **instables** perdent du volume à chaque mot. Or, pour tous
+les trinômes des Fibonacci retardés, `M(f)` est **presque la même
+constante** : elle converge (Boyd) vers `M(1 + x + y) = 1,3813…`, la
+constante de Smyth, `0,466` bit par mot. D'où une règle générale, `n* ≈ 53 L`
+mots, soit **`≈ 2,3 L` tirages** de `22,85` mots :
+
+| trinôme | générateur | racines hors du cercle | `M(f)` | bit/mot | `n*` mots | tirages |
+|---|---|---|---|---|---|---|
+| `x⁷ − x⁴ − 1` | glibc TYPE_1 | 3 | 1,3944 | 0,480 | **360** | 16 |
+| `x⁷ − x⁶ − 1` | — | 3 | 1,3887 | 0,474 | 365 | 16 |
+| `x⁷ − x − 1` | — | 5 | 1,3794 | 0,464 | 372 | 16 |
+| `x⁵ − x² − 1` | — | 3 | 1,4092 | 0,495 | 249 | 11 |
+| `x¹⁵ − x¹⁴ − 1` | glibc TYPE_2 | 5 | 1,3835 | 0,468 | **790** | 35 |
+| `x³¹ − x²⁸ − 1` | glibc TYPE_3 | 11 | 1,3819 | 0,467 | **1 640** | 72 |
+| `x⁶³ − x⁶² − 1` | glibc TYPE_4 | 21 | 1,3815 | 0,466 | 3 335 | 146 |
+| `x⁵⁵ − x³¹ − 1` | Knuth (55, 24) | 27 | 1,3813 | 0,466 | 2 913 | 128 |
+| `x¹⁰⁰ − x⁶³ − 1` | `ran_array` | 45 | 1,3813 | 0,466 | 5 295 | 232 |
+| `x²⁵⁰ − x¹⁴⁷ − 1` | r250 | 117 | 1,3814 | 0,466 | 13 237 | 579 |
+
+**Mesuré.** TYPE_1, dix états plantés (graines 11–20), dix-neuf tirages : à
+`360` mots le relèvement **échoue 8 fois sur 10** ; à `380` il **réussit 10
+fois sur 10** ; `x⁵ − x² − 1` (`n* = 249`) réussit entre `280` et `309`. La
+formule est juste à 5–20 % près, et par le bon côté : elle nomme le seuil.
+Sur la graine 1 (ci-dessus, `460` mots) : faux à `300`, juste à `380`, `400`,
+`460`, et l'état retrouvé **régénère les vingt tirages**.
+
+**Le réseau, et pourquoi il doit être exact.** La boîte est un problème de
+**plus proche vecteur** : le réseau `Λ = {5 α G : G ∈ Z^L} ⊂ Z^n` (coordonnées
+hors masque), la cible `τ_i = 2^26 − c_i` (le centre de la boîte), et la
+solution est le point de `Λ` à distance `≤ 2^26 √n` de `τ`. Babai sur une
+base LLL le trouve, et la base réduite donne la **condition suffisante
+d'unicité** : deux solutions diffèrent d'un vecteur de `Λ` de norme `≤ 2^27
+√n`, donc `λ₁(Λ) > 2^27 √n` suffit. Mesuré : `λ₁/(2^27 √n) = 0,003` à `300`
+mots, `0,13` à `380`, `0,34` à `400`, `5,6` à `460` — la condition suffisante
+croise 1 entre `400` et `460`, Babai réussit dès `380` : la garantie est
+prudente d'un facteur `1,2`, la formule de Mahler est la bonne. Mais les
+entrées de la base croissent comme `M(f)^n ≈ 2^{190}` à `400` mots, et
+`lll.py`, qui orthogonalise en flottants, **échoue toujours** (0 succès sur 8
+tailles, alors que la solution est unique) : la base « réduite » est fausse
+et Babai rend n'importe quoi. `lll_exact.py` calcule la matrice de Gram **une
+fois**, en entiers exacts (`L²` produits scalaires de longueur `n`), puis
+réduit et projette en rationnels exacts de dimension `L` en suivant la
+matrice unimodulaire ; une seconde par relèvement.
+
+**L'algorithme complet (`lfg_releve.releve_etat`).** État bas + tirages
+triés consécutifs → chaîne mod 5 en programmation dynamique avec fusion des
+paquets → pour chaque état final, formes entières du représentant, CVP exact
+hors masque, `H = H' mod 2^27`, état `r_j = 32 H_j + ℓ_j` → **vérification
+par régénération** des tirages. Témoin : `python3 lab/lfg_releve.py 3 7 20
+graine`, `[état] == [vrai]` sur toutes les graines essayées ; les faux états
+finaux (graine 5 : treize, d'alignements voisins) meurent à la
+régénération.
+
+**Ce que l'archive triée peut donc donner, générateur par générateur.** Deux
+étages : les `5L` bits bas, puis le relèvement.
+
+- *Bits bas.* L'archive triée en dit `≈ 0,41` bit par mot par appartenance
+  (§153, h132), jusqu'à `23` à `28` bits par tirage avec le multi-ensemble :
+  l'information y est dès **deux à quatre tirages**. Mais aucun solveur ne
+  la convertit (§153) ; il faut **énumérer** `2^{5L}` états bas contre la
+  fenêtre : `2^35` pour TYPE_1 — faisable, et c'est le §155 — ; `2^75` pour
+  TYPE_2 et `2^155` pour TYPE_3, hors de portée. C'est là, et là seulement,
+  que passe la frontière.
+- *Relèvement.* Les bits bas connus, `n*` mots **triés consécutifs**
+  suffisent : `17` tirages pour TYPE_1, `35` pour TYPE_2, `72` pour TYPE_3 —
+  et l'état entier régénère l'archive et **prédit** le tirage suivant. Pour
+  TYPE_2 et TYPE_3 ce second étage est prêt et n'attend que le premier ;
+  les vidéos donnent l'état bas par les retenues (§154) mais elles ne
+  sont pas suivies de trente-cinq tirages ordonnés ou triés consécutifs
+  connus : la chaîne mod 5 peut traverser un écart d'identifiants connu en
+  branchant sur le nombre de mots perdus, elle ne traverse pas un écart
+  inconnu.
+- *Fisher-Yates et brassages.* Le relèvement n'existe que pour
+  l'échantillonneur à modulo, où `v − 1 = 16 (H mod 5) + q` publie un résidu
+  de `H`. Sous un brassage, `r_i` indexe une position, non un numéro : le
+  résidu mod 5 n'est pas publié, la chaîne n'a pas de contrainte, et le
+  relèvement redevient une recherche de permutation — non développée ici.
+
+> Le 7.7 chiffre ce que l'archive triée ne voit pas ; le 7.8 chiffre ce
+> qu'elle voit : **`log₂ M(f)` bit par mot**, la mesure de Mahler du trinôme,
+> `0,47` pour toute la famille — et un algorithme exact, témoin compris, qui
+> transforme `n*` tirages triés consécutifs et `5L` bits bas en l'état
+> entier. Pour TYPE_1 l'archive fournit les deux ; c'est le §155.
 
 ---
 
@@ -1036,6 +1248,23 @@ Et ils **n'ont pas besoin d'être consécutifs** (§110) : sous stride constant,
 identifiant manquant est un décalage connu, pas une rupture. C'est ce qui rend
 les captures d'écran utilisables : douze tirages ordonnés, pris six jours et
 trois journées différentes, valent douze équations du même flux.
+
+**Sauf pour le Fibonacci retardé sous le rejet** (§7.7, §154) : là, les
+équations sont des retenues entre un mot et ses antécédents `i − k`, `i − L`,
+et elles n'existent qu'entre tirages **consécutifs** — un tirage isolé ne
+sert qu'à vérifier. TYPE_3 (`L = 31`) demande trois consécutifs au moins ;
+les vidéos en ont quatre (jour B), et la réponse est zéro. Pour l'état
+**entier**, c'est le §7.8 qui compte : `n* = L(27 − log₂ 5)/log₂ M(f)` mots,
+`72` tirages consécutifs — ordonnés ou **triés**, l'archive suffit — pour
+TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
+
+| cible (glibc `random()`, sous rejet) | tirages consécutifs requis | disponibles |
+|---|---|---|
+| état bas TYPE_1, TYPE_2 (35, 75 bits) | 1 à 2 ordonnés (+ satellites) | **jours A, B, C — atteint, réponse 0** |
+| état bas TYPE_3 (155 bits) | 3 ordonnés | **jour B (4) — atteint, réponse 0** |
+| état bas TYPE_1 par l'archive triée | énumération `2^35` | **archive — §155** |
+| état entier TYPE_1 (224 bits) | 17 triés | **archive — §155** |
+| état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas | bits bas hors de portée par l'archive |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
