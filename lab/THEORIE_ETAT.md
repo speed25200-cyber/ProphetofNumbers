@@ -372,6 +372,46 @@ Vérifié 38/38, témoin positif inclus : le test **détecte** la chute du (b).
 Spectre de décimation de l'archive, 12 pas de 1 à 21 : **le seuil du hasard
 partout**, à une unité près.
 
+### 4.7 Théorème de la complexité polynomiale (§135) — la fin de l'exemption
+
+Le 4.5 se refusait aux sorties brouillées : *« le bit doit être F₂-linéaire ».*
+C'était l'exemption la plus coûteuse du document — elle laissait dehors tout ce
+qui a été écrit après 2014. Elle se lève en une ligne.
+
+> Si `s_n = A^n s₀`, chaque bit de `s_n` est linéaire en `s₀` ; donc tout
+> **produit** de `k` bits de `s_n` est une somme de produits de `k` bits de `s₀`.
+> Le **vecteur des monômes** de degré ≤ `d` évolue donc **linéairement**, dans un
+> espace de dimension `N_d(W) = Σ_{k≤d} C(W,k)`.
+
+Un bit de sortie polynomial de degré ≤ `d` est une forme **linéaire** de ce
+vecteur : on retombe sur 4.5, largeur `N_d(W)` au lieu de `W`.
+
+> **`L(b) ≤ N_d(W)`**, sans aucune hypothèse de linéarité de la sortie. Le 4.5
+> est le cas `d = 1`. ∎
+
+**La forme maîtresse.** Avec `N_d(W) ~ W^d/d!` et le plafond `L ≤ T/2` du 4.6 :
+
+> **`W ≥ (d! · T/2)^{1/d}`** — le pouvoir d'exclusion s'effondre comme `T^{1/d}`.
+
+C'est le prix chiffré du refus de supposer la sortie linéaire. Pour
+`T = 70 560` : `35 279` en degré 1, **266** en degré 2, **60** en degré 3,
+**31** en degré 4.
+
+**Corollaire de prédiction, et il est neuf.** Avec `2·N_d(W)` bits,
+Berlekamp-Massey rend la récurrence et **prédit** — sans connaître la famille, le
+brouilleur, le pas ni l'état. Témoin : une sortie **quadratique** prédite
+**300/300**, là où l'attaque de degré 1 fait 145/300 sur les mêmes bits.
+
+| `W` | `d` | tirages requis (`2·N_d`) |
+|---|---|---|
+| 64 | 4 | **1 358 242** — atteignable |
+| 128 | 4 | 22 035 266 |
+| 256 | 4 | 355 178 114 |
+
+**Ce que cela change au 7.3.** `dim L = 0` n'est plus un mur qualitatif : c'est
+une position `(W, d)` dans un plan, et le coût de l'atteindre est **chiffré et
+linéaire en la donnée**.
+
 ---
 
 ## 5. Le théorème de prédiction
@@ -467,18 +507,34 @@ Les 2,8 millions de bits de l'ensemble trié sont donc réels et hors d'atteinte
     ordre connu, pas inconnu   →  arbre combinatoire, C(n/5,2 + r, r)
     ordre inconnu              →  arbre exponentiel, 20^(n/4,48)
 
-### 7.3 `dim L = 0`
+### 7.3 `dim L = 0` — et ce que le §135 en fait
 
 Pour xoshiro\*\*, xoshiro++, PCG32, splitmix64 : **aucune** fonctionnelle de la
-sortie n'est linéaire en l'état. Ce n'est pas « je n'en ai pas trouvé » — c'est
-une dimension **calculée**.
+sortie n'est linéaire en l'état, et le §123 pousse la mesure jusqu'au degré 3.
+Ce n'est pas « je n'en ai pas trouvé » — c'est une dimension **calculée**.
+
+Le 4.7 change le statut de ce mur. Il n'est plus qualitatif : une sortie de degré
+`d` reste justiciable de Berlekamp-Massey, à la largeur `N_d(W)` près. Le mur
+devient donc une **position dans le plan `(W, d)`**, et son franchissement a un
+prix chiffré, `2·N_d(W)` tirages :
+
+| | `W` | `d` mesuré | tirages requis | archive |
+|---|---|---|---|---|
+| xoroshiro64\*\* | 64 | ≥ 4 | 1 358 242 | ×19 |
+| xoroshiro128\*\* | 128 | ≥ 4 | 22 035 266 | ×312 |
+| xoshiro256++/\*\* | 256 | ≥ 4 | 355 178 114 | ×5 034 |
+
+Le coût est **linéaire en la donnée** (4.6) : il n'y a pas de raccourci, mais il
+n'y a pas de mur non plus — seulement une échelle.
 
 ### 7.4 La graine
 
 L'état de ces familles est hors de portée ; leur **graine** de 32 bits ne
 l'était pas. **120 259 084 288** graines balayées (§120) plus **336 000 000**
-en millisecondes (§121) : zéro. Probabilité de faux positif `2,8·10⁻¹⁹` par
-graine.
+en millisecondes (§121), **618 648 090 624** couples contre l'ordre d'émission
+daté (§132) et **1 232 352 352** contre les 346 journées de l'archive (§133) :
+zéro. Probabilité de faux positif `2,8·10⁻¹⁹` par graine sur l'ensemble trié,
+`10⁻³⁷` sur l'ordre.
 
 ---
 

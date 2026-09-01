@@ -13915,3 +13915,210 @@ de plus pour dépasser `W = 44 497`, le plus grand état publié.
 > **Un tirage de plus vaut mieux qu'un bit de plus par tirage.** À bits égaux,
 > `M = 1` bat `M = 2` d'un facteur `3/2`. C'est contre l'intuition — un bit est un
 > bit — et c'est démontré.
+
+---
+
+## 135. La complexité linéaire universelle, forme polynomiale : la fin de l'exemption des sorties brouillées (`h117_complexite_polynomiale.py`)
+
+### L'exemption que le §122 s'était accordée
+
+Le §122 démontre que si l'état évolue par `s ↦ A·s` et si le bit observé est une
+forme **F₂-linéaire** de l'état, alors `L(b) ≤ W`. Et il s'arrête là, en écrivant
+noir sur blanc sa propre limite :
+
+> *« le bit doit être F₂-linéaire — **les sorties brouillées échappent**. »*
+
+C'était l'exemption la plus coûteuse du dossier. Elle laisse dehors xoshiro256++,
+xoshiro256\*\*, xoroshiro128\*\*, splitmix64, PCG32 — tout ce qui a été écrit
+après 2014 — et le §123 a mesuré que pour ces familles **aucune** fonctionnelle de
+la sortie n'a de degré ≤ 3.
+
+### La levée, et elle est élémentaire
+
+> Si `s_n = A^n s₀`, chaque bit de `s_n` est une forme **linéaire** des bits de
+> `s₀`. Donc tout **produit** de `k` bits de `s_n` est une somme de produits de
+> `k` bits de `s₀`. Le **vecteur des monômes** de degré ≤ `d` évolue donc
+> **linéairement** :
+>
+>     m_n = A_d^n · m₀,    m = (1, s₁, …, s_W, s₁s₂, …),   dim = N_d(W) = Σ_{k≤d} C(W,k)
+
+Un bit de sortie **polynomial** de degré ≤ `d` est une forme **linéaire** de `m`.
+On est ramené exactement au §122, à ceci près que la largeur n'est plus `W` mais
+`N_d(W)`.
+
+> **Théorème (§135).** Soit `s ↦ A·s` sur `F₂^W`, `A` quelconque, et
+> `b_i = P(A^{c+σi}·s)` avec `P` polynôme `F₂` de degré ≤ `d`. Alors `b` vérifie
+> une récurrence linéaire de degré ≤ `N_d(W)`, donc
+>
+>     L(b) ≤ N_d(W) = Σ_{k≤d} C(W,k).                              ∎
+>
+> Le §122 est le cas `d = 1`. **Aucune hypothèse de linéarité de la sortie.**
+
+### La vérification
+
+| `W` | `d` | `N_d(W)` | termes lus | `L` mesuré | `L ≤ N_d` |
+|---|---|---|---|---|---|
+| 16 | 1 | 17 | 68 | 16 | oui |
+| 16 | 2 | 137 | 548 | 72 | oui |
+| 16 | 3 | 697 | 2 788 | 681 | oui |
+| 24 | 1 | 25 | 100 | 24 | oui |
+| 24 | 2 | 301 | 1 204 | 295 | oui |
+| 20 | 3 | 1 351 | 5 404 | 1 180 | oui |
+| 12 | 4 | 794 | 3 176 | 641 | oui |
+
+**7/7.**
+
+### Le témoin : une sortie quadratique, prédite sans rien savoir
+
+Le corollaire de prédiction du §122 se transporte tel quel. On donne à
+Berlekamp-Massey `2·N_d` bits et **rien d'autre** — ni la famille, ni le
+brouilleur, ni le pas, ni l'état — et on lui demande les 300 suivants. La
+contre-épreuve est indispensable : **l'attaque du §122 telle quelle, sur les mêmes
+bits, doit échouer.**
+
+| `W` | `d` | `N_d` | bits lus | prédits justes | §122 seul |
+|---|---|---|---|---|---|
+| 16 | 2 | 137 | 274 | **300/300** | 151/300 |
+| 20 | 2 | 211 | 422 | **300/300** | 145/300 |
+| 16 | 3 | 697 | 1 394 | **300/300** | 140/300 |
+| 24 | 2 | 301 | 602 | **300/300** | 141/300 |
+
+**4/4 témoins complets.** La prédiction polynomiale est parfaite ; la prédiction
+linéaire est au hasard exact (145/300 ≈ 150). C'est la **première prédiction du
+dossier sur une sortie non linéaire, et elle ne nomme rien.**
+
+### La forme maîtresse : `W ≥ (d!·T/2)^{1/d}`
+
+Avec `N_d(W) ~ W^d/d!`, la borne se renverse, et le §134 plafonne `L` par `T/2` :
+
+    W ≥ (d! · L)^{1/d}          W ≥ (d! · T/2)^{1/d}
+
+| degré `d` | `T = 70 560` | `141 120` | `10⁶` | `4,36·10⁶` |
+|---|---|---|---|---|
+| 1 | 35 279 | 70 559 | 499 999 | 2 179 999 |
+| 2 | 266 | 376 | 1 000 | 2 088 |
+| 3 | 60 | 76 | 145 | 236 |
+| 4 | 31 | 37 | 60 | 86 |
+| 5 | 22 | 26 | 37 | 50 |
+| 6 | 19 | 21 | 29 | 36 |
+
+> **Le pouvoir d'exclusion s'effondre comme `T^{1/d}`.** C'est le prix exact du
+> refus de supposer la sortie linéaire, et personne ne l'avait chiffré.
+
+### Ce que cela exclut vraiment sur l'archive
+
+Le bit exact de poids fort du rang du bonus, 70 560 tirages : `L = 35 280`,
+exactement le seuil du hasard — l'archive sature, comme le §134 le veut.
+
+| degré | `W` exclu si `W <` | ce que cela ferme |
+|---|---|---|
+| 1 | 35 279 | tout F₂-linéaire de moins de 35 279 bits *(le §122)* |
+| 2 | **266** | toute sortie **quadratique** de moins de 266 bits |
+| 3 | **60** | toute sortie **cubique** de moins de 60 bits |
+| 4 | **31** | toute sortie de degré 4 de moins de 31 bits |
+| 5 | **22** | toute sortie de degré 5 de moins de 22 bits |
+
+Le §123 mesure que xoshiro256++/\*\*, xoroshiro128\*\* et splitmix64 ont un degré
+utile ≥ 4. Donc :
+
+- **xoshiro256++**, `W = 256` : `31 < 256` → **non exclu** ;
+- **xoroshiro128\*\***, `W = 128` : `31 < 128` → **non exclu** ;
+- **PCG32**, `W = 64` : **non exclu**.
+
+> Le théorème ferme une exemption **de principe** sans rien fermer en pratique —
+> et il **dit pourquoi** : `W^d/d!` croît trop vite. Ce n'est plus une lacune du
+> dossier, c'est un théorème sur la donnée disponible.
+
+### Ce qu'il faudrait pour prédire une sortie brouillée sans la nommer
+
+Berlekamp-Massey prédit dès qu'il a lu `2·N_d(W)` bits :
+
+| famille | `W` | `d` | tirages requis | verdict |
+|---|---|---|---|---|
+| xoroshiro64\*\* | 64 | 4 | **1 358 242** | **atteignable** |
+| xoroshiro128\*\* | 128 | 4 | 22 035 266 | lointain |
+| xoshiro256++/\*\* | 256 | 4 | 355 178 114 | hors d'atteinte |
+| xoshiro256++/\*\* | 256 | 5 | 17 974 276 226 | hors d'atteinte |
+| MT19937 | 19 937 | 2 | 397 503 908 | hors d'atteinte |
+
+L'archive publie 70 560 tirages. **Pour la première fois le dossier chiffre ce
+qu'il faudrait pour prédire une sortie brouillée sans la nommer** :
+
+> un générateur de **64 bits**, quel que soit son brouilleur, serait prédit par
+> **1,36 million de tirages** — dix-neuf fois l'archive. Le §134 dit que le coût
+> est **linéaire** : il n'y a pas de raccourci, mais il n'y a pas de mur.
+
+Au-delà de 128 bits, c'est fini : 22 millions de tirages, soit un siècle et demi
+de plateforme à 204 tirages par jour.
+
+**Registre : `m = 60 345`, 11/11, `verdict : conforme`.**
+
+---
+
+## 136. Le catalogue épuisé sous les deux branches (`h91_flux_unique.py`, relancé sur douze tirages)
+
+### La branche que le §130 avait ouverte
+
+Le §130 a montré que les douze tirages ordonnés **ne sont pas sur un flux unique** :
+ils se répartissent sur trois journées, et le flux du §110 enjambe 460
+identifiants, donc au moins une nuit. Il en tirait la bonne conclusion — l'exclusion
+du §110 ne portait que sur le couple *générateur + absence de ré-amorçage* — et il
+laissait la branche « ré-amorçage » à tester séparément.
+
+Les deux branches sont maintenant closes, **et par des chemins indépendants**.
+
+### Branche A — pas de ré-amorçage : le flux unique, relancé
+
+Le §110 tournait sur **neuf** tirages ordonnés ; les vidéos en donnent **douze**,
+dont onze alignables sur un flux unique. Six pas, deux conventions de Fisher-Yates,
+avec rejeu obligatoire.
+
+| famille | `W` | essais | exclus | compatibles | s |
+|---|---|---|---|---|---|
+| xorshift32 | 32 | 12 | 12 | 0 | 21 |
+| xorshift64 | 64 | 12 | 12 | 0 | 83 |
+| xorshift96 | 96 | 12 | 12 | 0 | 78 |
+| xorshift128 | 128 | 12 | 12 | 0 | 102 |
+| taus88 | 88 | 12 | 12 | 0 | 63 |
+| xoroshiro128 (brut) | 128 | 12 | 12 | 0 | 164 |
+| xoshiro128 (brut) | 128 | 12 | 12 | 0 | 140 |
+| xoshiro256 (brut) | 256 | 12 | 12 | 0 | 465 |
+| LFSR113 | 113 | 12 | 12 | 0 | 75 |
+| **WELL512a** | **512** | 12 | 12 | 0 | 1 140 |
+| | | **120** | **120** | **0** | |
+
+> **120 systèmes sur 120 sont incompatibles.** Pas « aucune solution trouvée » :
+> **aucun état ne peut produire ces données**. WELL512a, hors de portée à toutes
+> les étapes précédentes, tombe ici.
+
+La portée passe de **807** équations au §110 à **897** — de quoi couvrir tout le
+catalogue F₂-linéaire jusqu'à 512 bits.
+
+### Branche B — ré-amorçage : trois attaques, trois fois rien
+
+| ré-amorçage | testé par | volume | verdict |
+|---|---|---|---|
+| par tirage, graine = id / heure / ms | §120, §132 | 6,19·10¹¹ couples | rien |
+| par journée, sur l'**ordre** filmé (3 j.) | §113 | 1 890 essais, 1 638 exclus | rien |
+| par journée, sur l'**ensemble** trié (346 j.) | §133 | 1,23·10⁹ couples | rien |
+
+### Ce que la conjonction établit
+
+|  | branche A : flux continu | branche B : ré-amorçage |
+|---|---|---|
+| **F₂-linéaire ≤ 512 bits** | exclu, 120/120 incompatibles | exclu, aucune graine nommable |
+| **sortie brouillée** | `dim L = 0` (§119, §123) | exclu, aucune graine nommable |
+| **F₂-linéaire > 35 279 bits** | non exclu — mais **rien de tel n'est publié** | — |
+
+> Le catalogue publié est **épuisé**. Ce n'est plus « on n'a pas trouvé » : c'est
+> une exclusion **par incompatibilité** sous la branche A, et par balayage
+> exhaustif de tout ce qui se nomme sous la branche B.
+
+Et le §135 en donne la lecture générale : ce qui reste debout n'est pas une famille
+qu'on aurait oubliée, c'est une **région du plan `(W, d)`** — largeur au-delà de
+35 279 bits en degré 1, au-delà de 266 en degré 2, au-delà de 31 en degré 4 — et
+tous les générateurs modernes y sont, sans exception et par construction.
+
+**Registre : `m = 60 345`** après `lab.dedupe()` (trois relances de mise au point
+retirées : `h91` deux fois, `h111` une fois). **164 hypothèses scellées, aucune
+significative.**
