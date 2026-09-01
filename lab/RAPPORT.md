@@ -15475,3 +15475,117 @@ Seules les vingt premières cases du shuffle restent ouvertes.
 conforme`, 0 significatif.** Durée : 9,3 s.
 
 ---
+
+## 150. L'espace d'état entier de xorshift32 contre l'archive : 972 designs × 2^32 états (`h127_archive_etats.py`, `tools/sweep_archive.c`)
+
+### Ce que les §120 et §146 laissaient ouvert
+
+Le §146 balaie les 238 328 designs de la forme de Marsaglia — mais contre les
+**douze tirages ordonnés des vidéos**. Le §120 balaie bien l'archive, mais des
+**graines** : 2^32 valeurs passées à un amorçage **nommé** (identifiant du tirage,
+horodatage). Un xorshift32 amorcé sur une source d'entropie — `/dev/urandom`,
+`time ^ pid`, n'importe quoi — a un état initial **libre**, et il échappe aux
+deux.
+
+> Ici on énumère les **4 294 967 296 états** d'un générateur de 32 bits, amorcés
+> n'importe comment, **contre l'archive** — pour chacun des designs à période
+> pleine.
+
+### Le filtre : l'ensemble complet d'un seul tirage
+
+La question posée à chaque état est la plus simple qui soit : produit-il
+**exactement** les vingt numéros du tirage 1309794 ? L'échantillonneur est la
+troncature `j = k + ((x · (80 − k)) >> 32)` avec Fisher-Yates partiel — le
+modulo, le rejet des doublons et `Collections.shuffle` sont l'objet du §151.
+Chaque numéro émis doit appartenir à l'ensemble publié :
+
+    filtre 1/C(80,20) = 2,83·10^−19 par état,   faux positifs attendus 1,2·10^−9 par design
+
+**Un seul tirage suffit**, et cela supprime deux hypothèses d'un coup : aucun
+**pas** entre tirages à supposer (les vingt et un mots du §137 ne servent plus),
+et aucun **alignement** à supposer, puisque énumérer tous les états couvre tous
+les points de départ possibles. Ni l'ordre, ni le bonus, ni aucun modèle du
+bonus n'entrent.
+
+Le rejet précoce fait le travail : trois états sur quatre meurent au **premier**
+mot (probabilité 20/80 d'être dans l'ensemble), l'espérance vaut 1/(1 − 1/4) =
+1,33 mot par état, et le coût mesuré est de **5,7·10^9 pas de générateur par
+design** — entre 5,63 et 5,91·10^9 sur les 972 lignes du journal.
+
+### Les designs sont calculés, pas recopiés
+
+Pour chacun des 31^3 × 8 = 238 328 designs (trois décalages de 1 à 31, huit
+orientations), le polynôme caractéristique est extrait par **Berlekamp-Massey**
+sur la suite du bit 0, puis sa **primitivité** testée : `x^(2^32) ≡ x (mod f)`,
+et ordre exactement `2^32 − 1` par les facteurs premiers 3, 5, 17, 257, 65537.
+
+    designs à période pleine : 972 sur 238 328
+    le canonique (13,17,5, orientation 5) en fait partie : OUI
+
+C'est le contrôle : xorshift32 tel que Marsaglia le publie doit être dans la
+liste, et il y est. Les designs à période non pleine ne sont pas balayés : un
+générateur qui se cycle en moins de `2^32` pas n'est pas un xorshift utilisable,
+et aucune implémentation ne les emploie.
+
+### Témoin : 2/2
+
+`tools/sweep_archive.c --selftest` plante un état de 32 bits, fabrique
+l'ensemble **trié** qu'il produirait, et vérifie que le balayage le retrouve —
+**lui et lui seul** sur les 2^32. Puis il refait le balayage contre un masque
+**aléatoire** de vingt numéros et exige zéro survivant. `autotest : 2/2`.
+
+### Le balayage
+
+    972 designs × 4 294 967 296 états  =  4 174 708 211 712 états
+                                            5,544·10^12 pas de générateur
+                                            0 état compatible
+
+En trois sessions (411 + 182 + 379 designs, journal `/tmp/h127_journal.txt`,
+reprise au design près), la dernière de 7 325 s — 19 s par design au lieu de
+8 s, la machine étant partagée avec les balayages des §151 et §154.
+
+> Tout xorshift de 32 bits à période pleine — **quel que soit son triplet de
+> décalages, son orientation, et son état initial**, y compris amorcé par une
+> source d'entropie — est exclu sur l'archive, sous l'échantillonneur par
+> troncature.
+
+### Ce qu'il faut dire
+
+**Le texte de consignation a été aligné en cours de balayage.** Le noyau de
+`tools/sweep_archive.c` a été changé à 17 h 29 (`12416c3`) : le confinement du
+seul mot 0 sur quarante tirages (filtre `4^−40`) a été remplacé par l'ensemble
+complet d'un seul tirage (filtre `1/C(80,20)`), 2,5 fois plus rapide et sans
+hypothèse de pas. Le texte de `preregister` du script disait encore
+« quarante tirages, `4^−40` » et n'a été aligné qu'à 19 h 16 (`c70fb7c`),
+pendant le balayage. Trois choses rendent cela acceptable, et elles sont
+vérifiables : la **règle de décision** (« conforme si aucun état n'est
+compatible ») n'a pas changé ; la colonne `pas` du journal est **uniforme sur
+les 972 lignes** (5,63 à 5,91·10^9), alors que l'ancien noyau en coûtait 2,5
+fois plus — les 972 designs ont donc tous été balayés par le **même** noyau,
+celui que le registre décrit ; et le premier design a été balayé après
+`12416c3`. La consignation elle-même (`registered_at 21:07:31Z`) est
+postérieure à tout. Reste que le texte a été mis en conformité avec l'outil
+après le début du calcul, et non avant : c'est un défaut de procédure, disclosé
+ici.
+
+**Un état manquait par design.** Le découpage en fils écrivait `hi =
+0xFFFFFFFF` pour le dernier fil et bouclait `s < hi` : l'état `2^32 − 1` n'était
+jamais testé. Corrigé (`[lo, hi)` avec `hi = 2^32` pour le dernier fil, dans
+`sweep_archive.c` comme dans `sweep_archive3.c`, autotest rejoué 2/2), et l'état
+manquant testé **séparément, avec l'état 0, pour les 972 designs** : aucun des
+deux n'est compatible. Le décompte de 4 174 708 211 712 états est donc exact.
+
+Les colonnes `sec` et `reste` du journal d'avancement sont cosmétiques après une
+reprise (elles divisent le temps de la session par le total des designs faits).
+
+**Ce qui n'est pas couvert.** L'échantillonneur par modulo (`x mod (80 − k)`),
+le rejet des doublons et `Collections.shuffle` sont trois autres façons de
+passer du mot au numéro ; le §151 les balaie avec le même filtre. Les LCG de
+64 bits ne sont pas des générateurs de 32 bits et ne s'énumèrent pas ; le §152
+les crible par leurs bits bas.
+
+**Registre : `h127.archive_espace_etat`, piste B, `m = 60 359`, 0 état,
+`verdict : conforme`, 0 significatif.** Durée : 7 325 s pour la dernière
+session.
+
+---
