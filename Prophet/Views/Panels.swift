@@ -8,6 +8,8 @@ struct LiveView: View {
         let payload = store.payload
         let count = store.countdown
         VStack(spacing: 16) {
+            DrawTheaterView()
+
             Card {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
