@@ -1790,9 +1790,13 @@ hypothèses de plan 0 chacun, plans 1–2 par linéarisation cubique sur
 plantés retrouvés seuls dans le régime de l'archive (`L = 7, 9, 15, 17`,
 shifts `0` et `1`). Verdict conforme, jeton `a0905869bb411907`, `14 728` s
 de crible. Sous le flux continu, TYPE_1 et TYPE_2 sont **exclus** de
-l'archive pour ces échantillonneurs à pas fixe ; le pas variable (rejet)
-est repris par le crible à retrait par échange avec le dernier (h138,
-§158) et le décodage mou (7.13).
+l'archive pour ces échantillonneurs à pas fixe. Le troisième
+échantillonneur à vingt mots — le retrait par échange avec le dernier,
+dont le masque est celui du shuffle — a été criblé aux pas `20`–`24` par
+h138 (§158, jeton `71fff0fc2e5270dc`) : `310` cribles, `0` survivant,
+`0` indécis, quatre témoins retrouvés seuls, `19 499` s ; avec le §157,
+`868` cribles sous onze schémas à pas fixe, aucun état. Le pas variable
+(rejet) reste hors des cribles exacts du flux continu.
 
 ---
 
@@ -3138,7 +3142,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état entier TYPE_1 (224 bits) | 17 triés | **archive — §155** |
 | état bas TYPE_2 par l'archive triée, pas constant | `2^45` hypothèses à trois plans (§7.10) | archive — calcul **non lancé** (une heure de carte graphique, des années-cœur ici) |
 | état bas TYPE_3 par l'archive triée | `2^93` (§7.10) | hors de portée |
-| état bas TYPE_1, TYPE_2 et 29 trinômes par l'archive triée, **flux continu** à pas constant (§7.11) | `2^L` plans 0, plans 1–2 par linéarisation cubique | **archive — §157 (fy 20–24, 79, 80 ; shuffle 79, 80), §158 (shuffle 20–24) : §157 **conforme**, 558 cribles, 0 survivant : TYPE_1, TYPE_2 exclus à pas fixe ; §158 en cours** |
+| état bas TYPE_1, TYPE_2 et 29 trinômes par l'archive triée, **flux continu** à pas constant (§7.11) | `2^L` plans 0, plans 1–2 par linéarisation cubique | **archive — §157 (fy 20–24, 79, 80 ; shuffle 79, 80), §158 (shuffle 20–24) : §157 et §158 **conformes**, 558 + 310 = 868 cribles, 0 survivant, 0 indécis : TYPE_1, TYPE_2 et les 29 autres trinômes exclus sous les onze schémas à pas fixe** |
 | état bas TYPE_1, TYPE_2, TYPE_3 et 29 trinômes sous flux continu, **tirages ordonnés** (§7.12) | `2^L` par table de vérité, `5 264` cellules exactes | **vidéos — §159 : 0 survivant sur 5 264 cellules, TYPE_1, TYPE_2, TYPE_3 exclus à pas constant** |
 | état **entier** TYPE_1 (224 bits) par des tirages ordonnés à pas constant | 5 ordonnés, plan 0 par crible linéaire puis LLL (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |

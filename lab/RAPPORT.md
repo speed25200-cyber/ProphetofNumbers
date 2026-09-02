@@ -16511,6 +16511,122 @@ journaux `/tmp/h137.log`, `/tmp/h137_journal.txt`.
 
 ---
 
+## 158. Le retrait par échange avec le dernier aux pas 20 à 24 : le trou de couverture du §157, fermé par le même crible (`h138_retrait_dernier.py`)
+
+**Le trou.** Le §157 crible `fy` (Fisher-Yates partiel par modulo : `j = k
++ x_k mod (80 − k)`, échange des cases `k` et `j`, numéro tiré = case `k`)
+aux pas `20`–`24`, `79` et `80`, et `shuffle` (`Collections.shuffle`
+complet, les vingt dernières cases lues) aux pas `79` et `80` seulement.
+Or un troisième échantillonneur est aussi naturel que les deux autres et
+consomme exactement vingt mots :
+
+    restant = [1..80]
+    pour k = 0..19 :  j = x_k mod (80 − k) ; tiré = restant[j] ;
+                      restant[j] = restant[79 − k] ; restant.pop()
+
+— le **retrait par échange avec le dernier**, en `O(1)` par numéro. Sa
+dynamique est celle de `Collections.shuffle` lu par ses vingt dernières
+cases — à chaque pas la case `79 − k` reçoit `restant[j]` et la case `j`
+reçoit l'ancien dernier — et son masque est donc le masque `shuffle` : le
+mot `k` vérifie `x_k mod 2^e = (v − 1) mod 2^e` pour un `v` tiré, `v ≤ 80
+− k`. Preuve : la position `j_k ≤ 79 − k` n'est modifiée, avant le pas
+`k`, que si elle est choisie ; la première fois qu'elle l'est (au plus
+tard au pas `k`) elle contient encore sa valeur initiale `j_k + 1`, qui
+est tirée ; et `j_k mod 2^e = x_k mod 2^e` puisque `2^e` divise `80 − k`.
+Mais un tel échantillonneur a vingt mots par tirage, donc un pas de `20`
+(à `24` avec des mots perdus), et `shuffle` aux pas `20`–`24` **n'est pas**
+dans le §157. Le trou a été vu **après** le scellement du jeton du §157,
+pendant que son crible tournait ; il est fermé ici par une consignation
+**séparée** (`h138.retrait_dernier`), jamais par une réécriture du §157.
+
+**Ce que c'est.** Le script du §157 relu tel quel, par ses variables
+d'environnement (`H137_ID`, `H137_VARIANTES = shuffle:20,21,22,23,24`,
+`H137_TEMOINS`, `H137_SCHEMAS`) : `31` trinômes primitifs de degré `L ≤
+17` × `shuffle` aux pas `{20, 21, 22, 23, 24}` × `2` shifts = **`310`
+cribles** sur les `60 000` premiers tirages triés (identifiants `1309614`
+à `1369613`), survivants confrontés aux `10 560` retenus ; mêmes
+événements (`3 562` sous le masque `shuffle`, `0,0594` par tirage), même
+linéarisation cubique (`M = 120, 220, 816, 1 140` pour `L = 7, 9, 15, 17`),
+même relèvement, même outil (`tools/lfg_flux_continu.c`). Le générateur
+d'autotest `shuffle` de l'outil (`Collections.shuffle` complet lu aux
+cases `60..79`) vaut pour tout pas `S ≥ 20` : les cases `60..79` ne
+dépendent que des mots `0..19`. Pré-enregistrement **avant le crible**,
+jeton scellé `71fff0fc2e5270dc` le `2026-09-02T05:47:17Z` : hypothèse
+« aucun état d'aucun Fibonacci retardé additif de degré `L ≤ 17` (les `31`
+trinômes, TYPE_1 et TYPE_2 compris) lu à pas constant à travers les pauses
+n'engendre les tirages triés sous le retrait par échange avec le dernier
+aux pas `20`–`24`, shifts `0` et `1` » ; verdict prévu : conforme si `0`
+survivant et `0` indécis sur `310` cribles, ETAT TROUVE si un survivant
+est cohérent avec les retenus, FAUX SURVIVANT sinon.
+
+**Témoins dans le régime de l'archive** (`60 000` tirages plantés sous le
+schéma testé, puis `60 000` tirages aléatoires ; deux fils, machine
+partagée avec `h130`, `h137`, `h140`, `h141` et `h142`) :
+
+| `K` | `L` | `S` | mode | shift | événements | `M` | rang | s | résultat |
+|---|---|---|---|---|---|---|---|---|---|
+| 3 | 7 | 20 | shuffle | 1 | 3 391 | 120 | 98 | 0,2 | planté seul, aléatoire rien |
+| 3 | 7 | 21 | shuffle | 0 | 3 271 | 120 | 7 | 0,1 | idem |
+| 1 | 15 | 21 | shuffle | 1 | 3 586 | 816 | 710 | 99,7 | idem |
+| 3 | 17 | 20 | shuffle | 1 | 3 717 | 1 140 | 1 003 | 1 052,7 | idem |
+
+Quatre témoins — TYPE_1 aux deux shifts, TYPE_2 et un trinôme de degré
+`17` à shift 1 —, quatre fois l'état planté seul (`0` indécis), quatre
+fois rien sur l'aléatoire.
+
+**Le crible de l'archive.** `310` cribles, du moins cher au plus cher,
+journal `/tmp/h138_journal.txt`, reprise possible :
+
+| `L` | trinômes (`K`) | shift | cribles | événements | rang | survivants | indécis | s |
+|---|---|---|---|---|---|---|---|---|
+| 2 | 1 | 0 / 1 | 5 / 5 | 3 562 | 2 / 7 | 0 | 0 | 0,0 |
+| 3 | 1, 2 | 0 / 1 | 10 / 10 | idem | 3 / 15 | 0 | 0 | 0,0 |
+| 4 | 1, 3 | 0 / 1 | 10 / 10 | idem | 4 / 25 | 0 | 0 | 0,0 |
+| 5 | 2, 3 | 0 / 1 | 10 / 10 | idem | 5 / 25 | 0 | 0 | 0,0 |
+| 6 | 1, 5 | 0 / 1 | 10 / 10 | idem | 6 / 68 | 0 | 0 | 0,0 |
+| 7 | 1, 3, 4, 6 | 0 / 1 | 20 / 20 | idem | 7 / 98 | 0 | 0 | 0,0 |
+| 9 | 4, 5 | 0 / 1 | 10 / 10 | idem | 9 / 183 | 0 | 0 | 0,0 |
+| 10 | 3, 7 | 0 / 1 | 10 / 10 | idem | 10 / 240 | 0 | 0 | 0,0 / 1,2 |
+| 11 | 2, 9 | 0 / 1 | 10 / 10 | idem | 11 / 308 | 0 | 0 | 0,0 / 3,9 |
+| 15 | 1, 4, 7, 8, 11, 14 | 0 / 1 | 30 / 30 | idem | 15 / 710 | 0 | 0 | 3,2 / 1 643 |
+| 17 | 3, 5, 6, 11, 12, 14 | 0 / 1 | 30 / 30 | idem | 17 / 1 003 | 0 | 0 | 13,0 / 17 835 |
+
+Colonnes comme au §157 (« rang » : shift 0, les `L` bits du plan 0 ;
+shift 1, le rang du système linéarisé des plans 1–2 sur `M` monômes —
+`710/816` à `L = 15`, `1 003/1 140` à `L = 17`, le reste tranché par les
+événements non linéaires). En tout `310` cribles, **`0` survivant, `0`
+indécis**, `0` état cohérent avec les `10 560` tirages retenus, `0` faux
+survivant ; `19 499` s de crible cumulées (`5,42` h) sur `20 712` s de
+marche, deux fils sur une machine à charge `≈ 17`. Le temps est celui de
+`L = 17`, shift 1 : `17 835` s, `511` à `724` s par crible, et `L = 15`,
+shift 1 : `1 643` s ; tout le reste tient en une demi-minute.
+
+**Ce que le crible exclut.** Avec le §157, le flux continu est maintenant
+criblé sous les **trois** échantillonneurs à pas fixe qui consomment vingt
+mots — Fisher-Yates partiel (`fy`), `Collections.shuffle` lu par ses vingt
+dernières cases, et le retrait par échange avec le dernier, qui partage le
+masque du second — aux pas `20`–`24`, et sous `fy`/`shuffle` aux pas `79`
+et `80` : `868` cribles, `0` survivant. Sous l'hypothèse du flux continu,
+les `31` trinômes primitifs de degré `≤ 17`, TYPE_1 et TYPE_2 compris,
+sont exclus sur l'archive sous ces onze schémas et deux shifts.
+
+**Ce que cela n'est pas.** Les mêmes réserves qu'au §157 : le
+réensemencement quotidien (§156, puis §161 pour la graine journalière) ;
+TYPE_3 et TYPE_4 (`2^{31}`, `2^{63}` plans 0 et le plafond de linéarisation
+`L ≤ 25`) ; le **rejet** des doublons (pas variable) ; la troncature
+`(x·80) >> 32` ; les vingt **premières** cases d'un shuffle ; le Fibonacci
+**soustractif**.
+
+**Ligne de registre** : `h138.retrait_dernier`, piste B, `m_extra = 0`,
+`observé 0`, `p = 1`, verdict **conforme**, puissance : quatre témoins
+plantés dans le régime de l'archive sous le schéma testé, tous conformes ;
+Holm sur `60 368` lignes, `0` significatif. Fichiers :
+`lab/experiments/h138_retrait_dernier.py` (relit
+`h137_flux_continu.py`), `tools/lfg_flux_continu.c` ; journaux
+`/tmp/h138.log`, `/tmp/h138_journal.txt`.
+
+---
+
 ## 159. Les douze tirages ordonnés sous le flux continu : le crible exact des plans bas, 5 264 cellules, TYPE_3 compris (`h139_videos_flux_continu.py`)
 
 **Ce que l'ordre change.** Les §157–158 criblent l'archive **triée** : un
