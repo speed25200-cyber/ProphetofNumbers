@@ -58,6 +58,10 @@
  *               force l'etat initial ; avec toute la suite on force le chemin entier, ce
  *               qui rend le verdict instantane.  Sert aux temoins : verifier qu'un etat
  *               plante est retenu, sans enumerer la famille (qui se compte en millions).
+ *   chemin    : si le mot "chemin" est passe en 13e argument, chaque survivant est imprime
+ *               AVEC TOUTE SA SUITE DE CLASSES (ligne "chem"), et non seulement ses L
+ *               premieres.  C'est ce dont le relevement a besoin (§173) : les delta se
+ *               lisent sur la suite complete, pas sur l'etat initial.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,6 +78,7 @@
 
 static int NT, NB;
 static int FIXE[4096], NFIXE = 0;
+static int CHEMIN = 0;          /* imprimer la suite de classes complete des survivants */
 static unsigned char *PUB;      /* NT x POOL : 1 si la classe est publiee par le tirage */
 static unsigned char *LST;      /* NT x DRAWN : la liste des vingt classes publiees */
 static int *DEB;                /* debuts de blocs */
@@ -154,6 +159,8 @@ typedef struct {
     unsigned char sol[64];      /* le premier survivant, ses L classes */
     unsigned char (*tous)[64];  /* jusqu'a NSURV survivants, pour les temoins */
     int ntous;
+    unsigned char *chem;        /* suite de classes complete du PREMIER survivant */
+    int nchem;
     long long *front;           /* front[i] : noeuds poses a la profondeur i */
 } Bilan;
 
@@ -207,7 +214,13 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
 
         int prochain = prof + 1;
         if (prochain >= nmax || d >= R->tfin || d - t0 >= R->ntir) {     /* survivant */
-            if (B->surv == 0) memcpy(B->sol, hist, (size_t)L);
+            if (B->surv == 0) {
+                memcpy(B->sol, hist, (size_t)L);
+                if (CHEMIN && B->chem) {
+                    B->nchem = prochain < nmax ? prochain : nmax;
+                    memcpy(B->chem, hist, (size_t)B->nchem);
+                }
+            }
             if (B->tous && B->ntous < NSURV) { memcpy(B->tous[B->ntous], hist, (size_t)L); B->ntous++; }
             B->surv++;
             continue;
@@ -268,7 +281,8 @@ int main(int argc, char **argv)
     int saut = (argc > 8) ? atoi(argv[8]) : 1;
     R.nmaxd = (argc > 9) ? atoi(argv[9]) : 60;
     R.plafond = (argc > 10) ? atoll(argv[10]) : 200000000000LL;
-    if (argc > 11) {
+    if (argc > 12 && strcmp(argv[12], "chemin") == 0) CHEMIN = 1;
+    if (argc > 11 && argv[11][0] && strcmp(argv[11], "chemin") != 0) {
         char *q = argv[11];
         while (NFIXE < 4096 && *q) { FIXE[NFIXE++] = (int)strtol(q, &q, 10); if (*q == ',') q++; }
         if (NFIXE < R.L) { fprintf(stderr, "fixe : %d classes, il en faut au moins L = %d\n", NFIXE, R.L); return 2; }
@@ -302,6 +316,7 @@ int main(int argc, char **argv)
         Bilan B; memset(&B, 0, sizeof B);
         B.front = calloc((size_t)R.nmax + 2, sizeof *B.front);
         B.tous = malloc((size_t)NSURV * 64);
+        B.chem = CHEMIN ? malloc((size_t)R.nmax + 2) : NULL;
         crible_bloc(&r, anc, &B, nuit ? -1 : b);
         noeuds += B.noeuds; coupes += B.coupes; surv += B.surv;
         long long p = 0;
@@ -312,13 +327,18 @@ int main(int argc, char **argv)
         {
             if (p > pic) pic = p;
             if (B.surv && bmax < 0) { bmax = b; memcpy(sol, B.sol, (size_t)R.L); }
+            if (CHEMIN && B.nchem > 0) {
+                printf("chem %d %d", nuit ? b : 0, B.nchem);
+                for (int i = 0; i < B.nchem; i++) printf(" %d", B.chem[i]);
+                printf("\n");
+            }
             for (int u = 0; u < B.ntous; u++) {
                 printf("surv %d", nuit ? b : 0);
                 for (int i = 0; i < R.L; i++) printf(" %d", B.tous[u][i]);
                 printf("\n");
             }
         }
-        free(B.front); free(B.tous);
+        free(B.front); free(B.tous); free(B.chem);
     }
 
     double sec = horloge() - t0;

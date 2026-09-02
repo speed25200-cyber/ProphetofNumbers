@@ -1,253 +1,198 @@
-"""La prédiction elle-même : les numéros du prochain tirage.
+"""predire — le prédicteur de bout en bout : des tirages publiés à l'état complet, puis aux
+vingt numéros du tirage suivant (THEORIE_ETAT §7.24, §7.26 ; RAPPORT §172, §173).
 
-Ce fichier fait ce que tout le dossier a servi à cadrer — il sort vingt
-numéros. Il les sort avec l'appareil complet : les 26 têtes de l'essaim,
-leurs poids AdaHedge appris en marche avant sur 70 560 tirages, et le champ
-qu'elles opposent au tirage qui n'a pas encore eu lieu.
+CE QUE C'EST
+============
+Les pièces existaient séparément — le crible de classes (§172) trouve les classes, le
+relèvement par réseau (§173) en tire l'état de `32L` bits — mais rien ne les reliait. Ce
+fichier est le fil : il prend une suite de tirages et rend, SOIT le générateur identifié avec
+son état exact et sa prédiction du tirage suivant, SOIT « aucun modèle » avec la liste exacte
+de ce qui a été parcouru.
 
-Et il dit, dans le même souffle, ce que ces vingt numéros valent — parce
-qu'une prédiction sans son espérance n'est pas une prédiction, c'est une
-liste.
+LA CHAÎNE
+=========
+    tirages triés
+      -> classes publiées (v - 1)
+      -> crible de classes : automate non déterministe sur (Z/80)^L, verdict DUR
+      -> pour chaque survivant : sa suite de classes complète
+      -> relèvement : les delta donnent T demi-espaces sur les parties fractionnaires,
+         CVP résolu par LLL exact
+      -> état de 32L bits
+      -> REJEU de la fenêtre entière : si un seul tirage diffère, le candidat est rejeté
+      -> prédiction du tirage suivant
 
-Ce que le dossier a établi, et qui s'applique ici sans exception
-----------------------------------------------------------------
-Sous un tirage uniforme de 20 parmi 80, le nombre de bons numéros d'une
-sélection de k numéros suit la même loi hypergéométrique QUELLE QUE SOIT la
-sélection. L'espérance vaut k/4, exactement, pour ces vingt numéros comme
-pour n'importe quels vingt autres.
+Le rejeu est la clé : le crible est ambigu (§7.24 (viii)) et le relèvement peut rendre
+plusieurs points ; seul le rejeu tranche, et il ne se trompe pas — un état qui rejoue vingt
+tirages triés à l'identique est le bon, à `2^{-1232}` près.
 
-Trente-deux voies d'investigation, 3 328 tests consignés, zéro significatif
-après correction de multiplicité. Cinq familles de générateurs couvertes sur
-les tirages ordonnés, chacune avec ses témoins : aucun état retrouvé.
-
-Ces vingt numéros ne sont donc pas « les bons numéros du prochain tirage ».
-Ce sont les vingt numéros que l'appareil le mieux calibré du dossier propose,
-et leur espérance de hits est exactement celle de vingt numéros pris au
-hasard. Le dire est le seul usage honnête qu'on puisse en faire.
-
-Ce sur quoi le dossier a trouvé prise
---------------------------------------
-Deux choses, et aucune ne concerne le choix des numéros :
-
-  la GÉOMÉTRIE du portefeuille (h13, h17) — n grilles disjointes touchent le
-  rang plein n fois plus souvent que n grilles identiques, à coût et à
-  espérance égaux, et font croître le capital n fois plus vite ;
-
-  le MOMENT (h15, h16) — ne miser qu'au-dessus du seuil de bascule de la
-  cagnotte rapporte μ/S par franc, soit +29,5 % au dernier relevé.
-
-C'est pourquoi ce fichier ne rend pas seulement vingt numéros mais aussi le
-portefeuille disjoint qui les met en œuvre.
+USAGE
+=====
+    python3 lab/predire.py --temoin                  # démonstration sur une suite plantée
+    python3 lab/predire.py --archive [--depuis T] [--nb N]
+    python3 lab/predire.py --fichier tirages.txt     # 20 numéros 1..80 par ligne
 """
 
-import csv
-import math
 import os
+import random
+import subprocess
 import sys
 import time
 
-import numpy as np
+RACINE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, RACINE)
+sys.path.insert(0, os.path.join(RACINE, "experiments"))
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import lab
-import swarm_py as sp
+import h153_releve_troncature as R                                      # noqa: E402
 
-T0 = time.time()
+M32 = 1 << 32
 POOL, DRAWN = 80, 20
-ROOT = os.path.dirname(os.path.abspath(__file__))
+OUTIL = os.path.join(RACINE, "tools_bin", "lfg_crible_classe")
+SRC = os.path.normpath(os.path.join(RACINE, "..", "tools", "lfg_crible_classe.c"))
+NMAXD, NTIR = 45, 25
+TMP = "/tmp"
 
 
 def say(*a):
     print(*a, flush=True)
 
 
-def rule(t=""):
-    say("\n" + "=" * 78)
-    if t:
-        say(t)
-        say("=" * 78)
+def compiler():
+    os.makedirs(os.path.dirname(OUTIL), exist_ok=True)
+    if not os.path.exists(OUTIL) or os.path.getmtime(OUTIL) <= os.path.getmtime(SRC):
+        subprocess.run(["gcc", "-O2", "-march=native", "-fopenmp", "-o", OUTIL, SRC], check=True)
 
 
-def p_full(k: int) -> float:
-    return math.comb(DRAWN, k) / math.comb(POOL, k)
+def trinomes(lmax):
+    def primitif(K, L):
+        import h145_sync_rejet as H
+        return H.primitif(K, L)
+    return [(K, L) for L in range(2, lmax + 1) for K in range(1, L) if primitif(K, L)]
 
 
-# --------------------------------------------------------------------------
-# 1. Les données, jusqu'au dernier tirage connu
-# --------------------------------------------------------------------------
+# ------------------------------------------------------------------ le crible
 
-rule("1. CE SUR QUOI LA PRÉDICTION S'APPUIE")
-
-a = lab.load()
-masks = [a.mask]
-recent = []
-path = os.path.join(ROOT, "draws_ordered.csv")
-if os.path.exists(path):
-    with open(path) as fh:
-        for row in csv.DictReader(fh):
-            nums = [int(row[f"o{i}"]) for i in range(1, DRAWN + 1)]
-            recent.append((int(row["id"]), sorted(nums)))
-recent.sort()
-if recent:
-    extra = np.zeros((len(recent), POOL), bool)
-    for i, (_, nums) in enumerate(recent):
-        for x in nums:
-            extra[i, x - 1] = True
-    masks.append(extra)
-mask = np.concatenate(masks, axis=0)
-# Les numéros de tirage, alignés sur `mask` : c'est eux qui portent le temps.
-# Un trou entre deux tirages absorbés fait d'abord décroître les têtes du
-# temps manquant (swarm_py, advance) — par tirage ÉCOULÉ, pas absorbé.
-ids = np.concatenate([a.ids, np.array([d for d, _ in recent], np.int64)]) \
-    if recent else a.ids
-
-say(f"   archive          {len(a):,} tirages, jusqu'au {int(a.ids.max()):,}")
-if recent:
-    say(f"   tirages récents  {len(recent)} relevés à la main : "
-        f"{', '.join(str(d) for d, _ in recent)}")
-    say(f"   NOTE : {recent[0][0] - int(a.ids.max()) - 1} tirages manquent entre les deux. "
-        f"Les têtes décroissent")
-    say("          du temps ÉCOULÉ (h23) : le trou éteint la mémoire courte au lieu")
-    say("          de la geler à trois jours d'âge. Ce qu'il coûte malgré cela")
-    say("          — l'information des tirages non vus — est mesuré dans")
-    say("          experiments/h23_trou_recence.py, et rien d'autre n'est affirmé.")
-say(f"   total            {len(mask):,} tirages absorbés")
-next_id = (recent[-1][0] if recent else int(a.ids.max())) + 1
-say(f"   prédiction pour  le tirage {next_id:,} (le suivant du dernier connu)")
+def crible(classes, K, L, shift, ntir=NTIR, plaf=200_000_000_000):
+    """renvoie la liste des suites de classes des survivants (au plus une par ancrage)."""
+    fc = os.path.join(TMP, f"predire_cls_{os.getpid()}.txt")
+    fb = os.path.join(TMP, f"predire_b_{os.getpid()}.txt")
+    open(fc, "w").write("\n".join(" ".join(map(str, t)) for t in classes) + "\n")
+    open(fb, "w").write("0\n")
+    cmd = [OUTIL, str(K), str(L), str(shift), "flux", fc, fb, str(ntir), "1", str(NMAXD),
+           str(plaf), "", "chemin"]
+    p = subprocess.run(cmd, capture_output=True, text=True,
+                       env=dict(os.environ, OMP_NUM_THREADS="4"))
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr[:300])
+    chemins, info = [], {}
+    for l in p.stdout.splitlines():
+        t = l.split()
+        if not t:
+            continue
+        if t[0] == "noeuds":
+            info = dict(noeuds=int(t[1]), surv=int(t[5]), coupes=int(t[7]))
+        elif t[0] == "chem":
+            chemins.append([int(x) for x in t[3:]])
+    for f in (fc, fb):
+        try:
+            os.unlink(f)
+        except OSError:
+            pass
+    return chemins, info
 
 
-# --------------------------------------------------------------------------
-# 2. Ce que l'essaim a valu, mesuré
-# --------------------------------------------------------------------------
+# ------------------------------------------------------------------ la chaîne complète
 
-rule("2. CE QUE L'ESSAIM A VALU — mesuré, pas annoncé")
-
-say("   Rejeu en marche avant sur les 20 000 derniers tirages : chaque")
-say("   prédiction est notée sur le tirage qu'elle n'a pas encore vu.")
-res = sp.run(mask[-20_000:], keep_picks=False, ids=ids[-20_000:])
-ov = res["ov_ens"]
-z = sp.z_of(ov)
-say(f"\n   recouvrement moyen de l'ensemble : {ov.mean():.4f} sur {len(ov):,} tirages")
-say(f"   espérance exacte sous l'invariance : {DRAWN * DRAWN / POOL:.4f}")
-say(f"   écart standardisé : {z:+.2f} σ")
-say(f"   meilleur tirage : {ov.max()}/20   pire : {ov.min()}/20")
-say(f"""
-   Lecture. L'essaim fait jeu égal avec le hasard, à {abs(z):.1f} σ près — et il ne
-   peut rien faire d'autre : l'espérance de hits est la même pour toute
-   sélection. Ce chiffre n'est pas un échec de l'essaim, c'est la mesure du
-   théorème.""")
-
-
-# --------------------------------------------------------------------------
-# 3. La prédiction
-# --------------------------------------------------------------------------
-
-rule(f"3. LES VINGT NUMÉROS — tirage {next_id:,}")
-
-pred = sp.predict_next(mask, ids=ids)
-top20 = pred["top20"]
-ranking = pred["ranking"]
-
-say("   Les vingt numéros que l'essaim place en tête :\n")
-for i in range(0, DRAWN, 10):
-    say("      " + "  ".join(f"{n:>2}" for n in top20[i:i + 10]))
-
-say(f"\n   Classement complet, du plus au moins soutenu :")
-for i in range(0, POOL, 20):
-    say("      " + " ".join(f"{n:>2}" for n in ranking[i:i + 20]))
-
-pmf = [math.comb(DRAWN, h) * math.comb(POOL - DRAWN, DRAWN - h) / math.comb(POOL, DRAWN)
-       for h in range(DRAWN + 1)]
-mean = sum(h * p for h, p in enumerate(pmf))
-say(f"""
-   Ce que cette sélection vaut, exactement :
-     espérance de bons numéros   {mean:.4f} sur 20
-     et pour n'importe quels vingt autres numéros, {mean:.4f} également.
-     P(au moins 10 bons)         {sum(pmf[10:]):.4%}
-     P(les 20)                   1 sur {1 / pmf[20]:,.0f}""")
+def essaie(tirages, K, L, shift, verbeux=False):
+    """une configuration : crible -> relèvement -> rejeu. Renvoie (etat, diagnostic)."""
+    classes = [[v - 1 for v in t] for t in tirages]
+    t0 = time.time()
+    chemins, info = crible(classes, K, L, shift)
+    if info.get("coupes"):
+        return None, f"parcours COUPE au plafond ({info['noeuds']:,} noeuds) — n'exclut rien"
+    if not chemins:
+        return None, f"0 survivant ({info.get('noeuds',0):,} noeuds, {time.time()-t0:.1f} s)"
+    Treq = R.mots_utiles(K, L, 25.68 * L)
+    for cls in chemins:
+        if Treq < 0 or len(cls) < Treq:
+            return None, (f"{len(chemins)} survivant(s), mais le relèvement demande {Treq} mots "
+                          f"et la fenêtre n'en donne que {len(cls)}")
+        etat, s = R.releve(cls, K, L, Treq, shift)
+        if etat is None:
+            continue
+        rejoue = R.rejoue(etat, K, L, len(tirages), shift)
+        if rejoue == [sorted(t) for t in tirages]:
+            return etat, f"REJEU EXACT sur {len(tirages)} tirages"
+    return None, f"{len(chemins)} survivant(s), aucun ne rejoue la fenêtre"
 
 
-# --------------------------------------------------------------------------
-# 4. Le portefeuille — le seul endroit où le choix change quelque chose
-# --------------------------------------------------------------------------
-
-rule("4. LE PORTEFEUILLE — ce qui, lui, change réellement les chances")
-
-
-def portfolio(k: int, n: int, order: list) -> list:
-    """n grilles de k numéros : couverture équilibrée, recouvrement minimal.
-
-    Reprend la construction de h13 : la couverture décide d'abord, le
-    recouvrement induit ensuite, et le classement de l'essaim ne sert que de
-    départage — puisqu'il ne déplace pas l'espérance, il ne peut servir qu'à
-    cela, et c'est déjà ce qu'il fait de mieux.
-    """
-    rank = {x: i for i, x in enumerate(order)}
-    grids, cover = [], {x: 0 for x in order}
-    for _ in range(n):
-        g = set()
-        for _ in range(k):
-            best, key_best = None, None
-            for x in order:
-                if x in g:
-                    continue
-                trial = g | {x}
-                ov = max((len(gg & trial) for gg in grids), default=0)
-                key = (cover[x], ov, rank[x])
-                if key_best is None or key < key_best:
-                    key_best, best = key, x
-            g.add(best)
-        for x in g:
-            cover[x] += 1
-        grids.append(g)
-    return [sorted(g) for g in grids]
+def chercher(tirages, lmax=7, shifts=(0, 1), verbeux=True):
+    """parcourt les configurations ; renvoie (K, L, shift, etat) ou None, et la couverture."""
+    compiler()
+    couverture = []
+    for K, L in trinomes(lmax):
+        for shift in shifts:
+            etat, diag = essaie(tirages, K, L, shift)
+            couverture.append((K, L, shift, diag))
+            if verbeux:
+                say(f"   ({K},{L}) shift {shift} : {diag}")
+            if etat is not None:
+                return (K, L, shift, etat), couverture
+    return None, couverture
 
 
-for k in (6, 10):
-    n = POOL // k
-    pf = portfolio(k, n, ranking)
-    oms = [len(set(pf[i]) & set(pf[j]))
-           for i in range(n) for j in range(i + 1, n)]
-    p1 = p_full(k)
-    say(f"\n   {n} grilles DISJOINTES de {k} numéros "
-        f"(recouvrement max {max(oms)}, seuil neutre {k * k / POOL:.2f}) :")
-    for i, g in enumerate(pf):
-        say(f"      {i + 1:>2}. " + "  ".join(f"{x:>2}" for x in g))
-    say(f"      une grille pleine : 1 sur {1 / p1:,.0f}")
-    say(f"      AU MOINS une des {n} : 1 sur {1 / (n * p1):,.0f}   "
-        f"soit ×{n} — exactement le facteur de h13")
-
-say(f"""
-   Et c'est tout ce que le choix des numéros peut faire. Le facteur {POOL // 6}
-   ci-dessus ne vient pas d'une meilleure prédiction : il vient de ce que
-   treize grilles disjointes offrent treize occasions distinctes là où treize
-   grilles quelconques s'en partagent moins. L'espérance de gain, elle, est
-   identique — sauf sur un rang partagé, où la disjonction la fait monter
-   (h13 §4).""")
+def predire(tirages, lmax=7, shifts=(0, 1), verbeux=True):
+    say(f"predire — {len(tirages)} tirages, trinômes de degré ≤ {lmax}, décalages {shifts}")
+    trouve, couv = chercher(tirages, lmax, shifts, verbeux)
+    if trouve is None:
+        say(f"\n   AUCUN MODELE. {len(couv)} configurations parcourues, toutes exclues "
+            "(verdict dur : zéro survivant, parcours complet).")
+        say("   Ce que cela veut dire : la fenêtre n'est engendrée par aucun Fibonacci "
+            f"retardé additif de degré ≤ {lmax} lu par troncature avec rejet, aux deux "
+            "décalages. Cela ne dit rien des degrés supérieurs ni des autres familles.")
+        return None
+    K, L, shift, etat = trouve
+    say(f"\n   MODELE TROUVE : x^{L} + x^{L-K} + 1, sortie r >> {shift}, troncature avec rejet")
+    say(f"   état ({L} mots de 32 bits) : {etat}")
+    suite = R.rejoue(etat, K, L, len(tirages) + 1, shift)
+    say(f"   PREDICTION du tirage {len(tirages) + 1} : {suite[len(tirages)]}")
+    return dict(K=K, L=L, shift=shift, etat=etat, prediction=suite[len(tirages)])
 
 
-# --------------------------------------------------------------------------
-# 5. Quand jouer, et combien
-# --------------------------------------------------------------------------
+# ------------------------------------------------------------------ démonstration
 
-rule("5. QUAND JOUER, ET COMBIEN — les deux vrais leviers")
+def temoin(K=3, L=7, shift=0, ntir=30, graine=20260902):
+    tir, cls, mots, etat = R.engendre(K, L, graine, ntir + 1, shift)
+    say(f"témoin : x^{L} + x^{L-K} + 1 planté, sortie r >> {shift}, {ntir} tirages TRIÉS donnés")
+    say(f"   état vrai (caché au prédicteur) : {etat}")
+    res = predire(tir[:ntir], lmax=L, shifts=(shift,))
+    if res:
+        juste = res["prediction"] == tir[ntir]
+        say(f"   tirage {ntir + 1} réel                : {tir[ntir]}")
+        say(f"   >>> PREDICTION {'EXACTE, 20/20' if juste else 'FAUSSE'} ; "
+            f"état {'exact' if res['etat'] == etat else 'différent'}")
+        return juste
+    return False
 
-S6 = 1 / p_full(6)
-say(f"""   MOMENT (h15, h16). Le pari devient favorable dès que la cagnotte de la
-   mise 6 dépasse CHF {S6:,.0f} par franc misé — condition suffisante, qui ne
-   suppose rien du barème des rangs intermédiaires. Au dernier relevé
-   (CHF 2 287), le gain conditionnel disponible une fois ce seuil franchi
-   vaut +29,5 % par franc, et le seuil est atteint sur environ 3,4 % des
-   tirages. Ne pas jouer en dessous : c'est la politique optimale, et h18
-   démontre qu'attendre PLUS que le seuil est également une erreur.
 
-   TAILLE (h17). À ce seuil, la fraction de Kelly sur treize grilles
-   disjointes vaut 3,8·10⁻⁴ du capital. Un tour de treize grilles à CHF 1
-   correspond donc à un capital de CHF 34 000. En dessous, on mise au-dessus
-   de Kelly, et la croissance devient négative dès trois fois Kelly — le pari
-   reste favorable en espérance et devient perdant en croissance.
-
-   Ces deux leviers sont les seuls que trente-deux voies d'investigation
-   aient trouvés. Les vingt numéros du §3 n'en sont pas un.""")
-
-rule(f"total {time.time() - T0:.0f}s")
+if __name__ == "__main__":
+    if "--temoin" in sys.argv:
+        ok = temoin()
+        sys.exit(0 if ok else 1)
+    if "--archive" in sys.argv:
+        import lab
+        import numpy as np
+        A = lab.load()
+        NUM = np.sort(np.asarray(A.nums).astype(np.int64), axis=1)
+        d = int(sys.argv[sys.argv.index("--depuis") + 1]) if "--depuis" in sys.argv else 0
+        n = int(sys.argv[sys.argv.index("--nb") + 1]) if "--nb" in sys.argv else 40
+        lm = int(sys.argv[sys.argv.index("--degres") + 1]) if "--degres" in sys.argv else 7
+        tir = [[int(v) for v in NUM[i]] for i in range(d, d + n)]
+        say(f"archive : tirages {d} à {d + n - 1}")
+        predire(tir, lmax=lm)
+        sys.exit(0)
+    if "--fichier" in sys.argv:
+        f = sys.argv[sys.argv.index("--fichier") + 1]
+        tir = [[int(x) for x in l.split()] for l in open(f) if l.strip()]
+        predire(tir)
+        sys.exit(0)
+    print(__doc__)
