@@ -17819,8 +17819,10 @@ d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
 | 0 | `x^21 + x^19 + 1` | nuit | `2 097 151` | `6,67` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `188` | `0` | 0 | 546 |
 | 0 | `x^22 + x^1 + 1` | nuit | `4 194 303` | `7,11` @ `70 370` | `31,78` | `370` ; `0,00` ; bloc `65` | `0` | 0 | 654 |
 | 0 | `x^22 + x^21 + 1` | nuit | `4 194 303` | `7,37` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `319` | `0` | 0 | 662 |
+| 0 | `x^23 + x^5 + 1` | nuit | `8 388 607` | `8,35` @ `70 371` | `31,78` | `370` ; `0,00` ; bloc `214` | `0` | 0 | 870 |
+| 0 | `x^23 + x^9 + 1` | nuit | `8 388 607` | `7,76` @ `70 364` | `31,78` | `370` ; `0,00` ; bloc `230` | `0` | 0 | 898 |
 
-*Grille en cours : `46` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `48` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -17974,8 +17976,22 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 | `100` | 0 | `x^31 + x^6 + 1` | `2 147 483 647` | `0,14` @ `26` | `0` | `0` | 0 | 536 |
 | `100` | 0 | `x^31 + x^7 + 1` | `2 147 483 647` | `0,01` @ `1` | `0` | `0` | 0 | 532 |
 | `100` | 0 | `x^31 + x^13 + 1` | `2 147 483 647` | `0,86` @ `55` | `0` | `0` | 0 | 531 |
+| `100` | 0 | `x^31 + x^18 + 1` | `2 147 483 647` | `0,01` @ `1` | `0` | `0` | 0 | 541 |
+| `100` | 0 | `x^31 + x^24 + 1` | `2 147 483 647` | `0,01` @ `1` | `0` | `0` | 0 | 552 |
+| `100` | 0 | `x^31 + x^25 + 1` | `2 147 483 647` | `0,01` @ `1` | `0` | `0` | 0 | 577 |
+| `100` | 0 | `x^31 + x^28 + 1` | `2 147 483 647` | `0,29` @ `5` | `0` | `0` | 0 | 562 |
+| `100` | 1 | `x^2 + x^1 + 1` | `12` | `8,70` @ `1 555` | `65` | `65` | 0 | 3 |
+| `100` | 1 | `x^3 + x^1 + 1` | `56` | `6,96` @ `2 826` | `65` | `65` | 0 | 3 |
+| `100` | 1 | `x^3 + x^2 + 1` | `56` | `4,20` @ `2 962` | `65` | `65` | 0 | 3 |
+| `100` | 1 | `x^4 + x^1 + 1` | `240` | `4,90` @ `8` | `0` | `0` | 0 | 19 |
+| `100` | 1 | `x^4 + x^3 + 1` | `240` | `4,88` @ `8` | `0` | `0` | 0 | 18 |
+| `100` | 1 | `x^5 + x^2 + 1` | `992` | `5,91` @ `8` | `0` | `0` | 0 | 69 |
+| `100` | 1 | `x^5 + x^3 + 1` | `992` | `5,78` @ `8` | `0` | `0` | 0 | 70 |
+| `100` | 1 | `x^6 + x^1 + 1` | `4 032` | `2,00` @ `13` | `0` | `0` | 0 | 76 |
+| `100` | 1 | `x^6 + x^5 + 1` | `4 032` | `1,53` @ `7` | `0` | `0` | 0 | 79 |
+| `100` | 1 | `x^7 + x^1 + 1` | `16 256` | `1,08` @ `7` | `0` | `0` | 0 | 77 |
 
-*Grille en cours : `59` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `73` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18108,104 +18124,5 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 *à écrire à la fin de la grille.*
 
 **Ligne de registre.** `h149.canal_mod4`, piste B, en cours (rien n'est consigné avant la fin des `84` configurations).
-
----
-## 171. Le témoin de **bout en bout** : détecter, relever les 224 bits, prédire le tirage suivant — exactement (`h151_bout_en_bout.py`)
-
-### La question que les §165 à §170 laissent ouverte
-
-Ils cherchent, et ne trouvent pas. Mais **que vaudrait une trouvaille ?**
-La DP de synchronisation ne lit qu'un ou deux bits par mot ; elle rendrait
-la suite et la position, pas les trente-deux plans. La réponse est au
-§7.23 en chiffres — l'alignement acquis, chaque mot consommé vaut `2` bits
-(`x mod 80 ∈ A_t`), `45,7` par tirage, contre `2,85` d'entropie
-d'alignement — mais un chiffre n'est pas un programme. Voici le programme,
-et il tourne.
-
-### La chaîne, sur un TYPE_1 planté
-
-`x⁷ + x³ + 1`, sortie `r >> 1` (la `random()` de la glibc à état de 32
-octets), état de **`224` bits** tiré au hasard, lu par l'échantillonneur à
-rejet, publié **trié**. Données : **`25` tirages** — deux heures de jeu.
-
-| étape | ce qu'elle fait | coût |
-|---|---|---|
-| **1. détection** | la DP du §165 sur les `64` orbites du Fibonacci mod 4 : orbite et position trouvées ; le lissage avant-arrière donne les frontières entre tirages à quelques mots près | `0,2` s |
-| **2. crible** | les plans `2-4` des `7` mots (`2^{21}` candidats) : *sous rejet, tout mot consommé — accepté ou doublon — a sa classe `x mod 16` dans le tirage courant*, ce qui tue `30 %` des candidats par mot ; appliqué à l'intérieur sûr de chaque tirage (marge de `8` mots, décalages `± 6` balayés) | `24` s |
-| **3. relèvement** | le réseau LLL **exact** du §154 sur les états bas survivants : l'état `32` bits | `2` à `16` s |
-| **4. prédiction** | l'état régénère la suite : le tirage suivant, ses vingt numéros | immédiat |
-
-### Trois témoins, trois réussites
-
-| graine | `log₂ BF` de la détection | pic (masse) | états bas après crible | états `32` bits | état exact | **tirage 26 prédit** |
-|---|---|---|---|---|---|---|
-| `151` | `23,3` | `0,177` | `102` (le vrai dedans) | `1` | **oui** | **exact, 20/20** |
-| `152` | `29,8` | `0,129` | `15` (le vrai dedans) | `4` | **oui** | **exact, 20/20** |
-| `153` | `15,6` | `0,400` | `157` (le vrai dedans) | `2` | **oui** | **exact, 20/20** |
-
-Moins d'une minute de calcul par cas. Le tirage prédit est reproduit
-ici pour la graine `151` :
-
-    prédit : 7 9 14 19 22 25 30 33 36 38 39 46 49 56 57 65 70 71 75 77
-    réel   : 7 9 14 19 22 25 30 33 36 38 39 46 49 56 57 65 70 71 75 77
-
-### Avec combien de données ? Et sous quel seuil ?
-
-En faisant varier le nombre de tirages donnés à la chaîne (mêmes trois
-graines) :
-
-| tirages | mots | crible : vrai état bas retenu | relèvement : état exact | prédiction |
-|---|---|---|---|---|
-| `12` | `262`-`278` | `3/3` | **`0/3`** | — |
-| `16` | `352`-`369` | `3/3` | `2/3` | `2/3` |
-| `20` | `446`-`459` | `3/3` | **`3/3`** | **`3/3`** |
-| `25` | `557`-`581` | `3/3` | **`3/3`** | **`3/3`** |
-
-La contrainte qui mord n'est ni la détection ni le crible : c'est le
-**réseau**. Le §154 mesure `n* ≈ 380` mots pour TYPE_1 (`380` réussit
-`10/10`, `360` échoue `8/10`) ; à `12` tirages on n'en a que `270`, et le
-CVP rend un vecteur faux. À `20` tirages — `450` mots, **une heure et
-demie de jeu** — il rend l'état, chaque fois.
-
-Et un détail qui compte : **à `16` et `20` tirages, la chaîne a réussi
-avec des facteurs de Bayes de `9,8`, `10,4` et `17,2` bits**, tous
-**sous** le seuil de Ville de `23,25` (les autres cas donnaient `15,6` à
-`32,5`). Ce n'est pas une contradiction, c'est une remarque de méthode :
-le seuil de `23,25` gouverne la **déclaration** d'une détection à partir
-de la DP seule ; le relèvement, lui, **s'auto-vérifie** — un état qui
-régénère exactement `20` tirages triés est juste avec une probabilité
-`1 − C(80, 20)^{−20}`. On peut donc tenter le relèvement sur les `K`
-meilleures positions d'une DP sous-critique **sans aucun coût de test
-multiple**, et c'est la voie la moins chère pour les petits états. Ce qui
-la borne alors n'est plus le seuil, c'est le prix du crible : `2^{3L}`
-candidats, soit `2^{21}` pour TYPE_1 (fait ici) mais `2^{45}` pour TYPE_2.
-
-### Ce que ce témoin établit
-
-**Sur cette famille, la détection suffit.** Tout ce qui suit — l'alignement
-fin, les plans intermédiaires, l'état haut, la prédiction — est mécanique
-et coûte moins d'une minute. Le `D = 0` des §165 à §170 n'est donc pas
-« nous n'avons pas su chercher » : c'est le **premier maillon** d'une
-chaîne entière, et vérifiée de bout en bout, qui ne se ferme pas sur
-l'archive.
-
-**Ce que la DP fait gagner au crible.** Le §155 criblait déjà les `2^{5L}`
-états bas de TYPE_1 **à l'aveugle** — `2^{35}` états, `0` survivant. La DP
-en donne deux plans : le crible tombe à `2^{3L}`, soit `2^{21}` au lieu de
-`2^{35}`, un facteur `2^{2L} = 16 384`. C'est ce qui rend la chaîne
-minutée plutôt qu'horaire, et ce qui la porterait jusqu'aux degrés `9` à
-`11` (`2^{27}` à `2^{33}`) là où le crible aveugle (`2^{45}` à `2^{55}`)
-ne va pas.
-
-**Et ce qu'il ne dit pas.** Il porte sur TYPE_1 (`L = 7`, `2^{21}`
-candidats au crible) ; pour TYPE_2 le crible pèse `2^{45}` et pour TYPE_3
-`2^{93}` — il faudrait alors le crible incrémental en C du §155 (qui
-élague mot par mot au lieu d'énumérer) plutôt que le tableau numpy utilisé
-ici. Le principe ne change pas, le coût si. Rien de tout cela n'a été
-appliqué à l'archive, et pour cause : aucune détection ne l'y autorise.
-
-**Ligne de registre.** Aucune : c'est un **témoin sur générateur planté**,
-pas un test sur l'archive. Il n'a pas de jeton parce qu'il n'en a pas
-besoin — il ne lit pas les données réelles.
 
 ---
