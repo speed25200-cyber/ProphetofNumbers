@@ -19386,3 +19386,164 @@ d'échantillonnage.
 appliquée).
 
 ---
+## 185. Le détecteur **converti en prédicteur**, et la fuite qu'il a fallu trouver dans mon propre instrument (`h170_predicteur_energie.py`)
+
+Les six détecteurs des §177 à §184 répondent à « y a-t-il une trace ? ». Aucun ne
+répond à « quels numéros sortiront ? ». La conversion est pourtant immédiate : si
+un mot vaut `r_i = r_{i−K} + r_{i−L}`, alors sa classe vaut `c_{i−K} + c_{i−L} + δ`,
+donc **les classes du tirage à venir sont des sommes de classes déjà publiées**.
+D'où un score, pour chaque numéro `v` candidat au tirage `t` :
+
+    S_t(v) = # { (u,w) ∈ C_{t−g₁} × C_{t−g₂} : u + w + δ ≡ v − 1  (mod 80) }
+
+sommé sur les couples de décalages retenus et sur `δ ∈ {0,1}`. On ordonne les
+quatre-vingts numéros par `S_t` décroissant, on prend les vingt premiers, on compte
+le recouvrement avec le tirage réel. **C'est une prédiction**, faite en marche avant.
+
+### La nulle est exacte, et la loi entière avec elle
+
+Le recouvrement de deux sous-ensembles de vingt parmi quatre-vingts est
+hypergéométrique : moyenne `5`, variance `20·(20/80)·(60/80)·(60/79) = 2,8481`,
+écart-type `1,6876` par tirage. Sur `70 555` tirages, l'écart-type de la moyenne
+vaut `0,00635`. Aucune simulation n'est nécessaire — ni pour le centre, ni pour
+la loi complète, qui est `P[k] = C(20,k)·C(60,20−k)/C(80,20)`.
+
+### La fuite
+
+La première version donnait `5,00164`, soit `z = +0,26` : rien. Mais j'ai regardé
+la **loi** et non seulement son centre :
+
+| `k` | observé | attendu |
+|---|---|---|
+| `≥ 10` | `555` | `334,6` |
+
+soit **`+12,08` écarts-types**. Quatre des douze couples avaient `g₂ = 0`, donc
+faisaient entrer `m[t]` — le tirage que le score prétend prédire — **dans son
+propre score**. La mesure était fausse et l'entrée de registre est retirée.
+
+> Une fuite ne déplace pas forcément le centre d'une loi ; elle en **épaissit les
+> queues**. Vérifier la moyenne ne suffit pas. C'est la troisième fois dans ce
+> dossier qu'un défaut de mon propre instrument est trouvé par un contrôle que
+> rien n'obligeait à faire, et la troisième fois qu'il changeait un chiffre publié.
+
+### La mesure, une fois la fuite fermée
+
+Dix couples `g₁ ≥ g₂ ≥ 1`, marche avant stricte :
+
+| | recouvrement | `z` |
+|---|---|---|
+| **archive**, `70 555` tirages | `5,00300` | `+0,473` (`p = 0,64`) |
+| queue `≥ 10` | `309` contre `334,6` | `−1,40` |
+
+Sur générateurs **plantés** (3 000 tirages), le même prédicteur : SRS `4,9960`
+(`−0,11`), additif `(3,7)` `5,0827` (`+2,19`), `(1,15)` `5,0060`, `(3,31)`
+`5,0316`, soustractif `(24,55)` `5,0481`. Le prédicteur sans fuite est nettement
+plus faible que le prédicteur avec fuite — ce qui est exactement attendu : le
+signal que portaient les couples `(g,0)` était le tirage lui-même.
+
+**Lignes de registre.** `h170.predicteur_energie`, **RETIRÉ (fuite)** ;
+`h170b.predicteur_energie`, piste B, conforme.
+
+---
+
+## 186. Le **balayage d'autocorrélation exact** : la question la plus élémentaire, posée 6 889 050 fois (`h171_autocorrelation_exacte.py`)
+
+Tous les tests précédents supposent quelque chose du générateur : une famille, un
+échantillonneur, une relation. Le §144 balaye bien tous les décalages, mais sur un
+seul scalaire par tirage — le contraste de parité — et contre une nulle simulée.
+
+Ici on ne suppose **rien**. Pour chaque numéro `v` et chaque décalage `d` :
+
+> *le numéro `v` revient-il plus, ou moins, souvent `d` tirages après lui-même que
+> le hasard ne le voudrait ?*
+
+C'est la seule question dont une réponse positive donne **immédiatement** une règle
+de pari : « `v` est sorti au tirage `t−d`, donc joue (ou évite) `v` au tirage `t` ».
+
+La nulle est exacte, et c'est un petit théorème (§7.29) : la covariance des termes
+qui partagent un tirage **s'annule identiquement**, donc
+
+    Var(C_v(d)) = (n − d) · (3/16)²      exactement,      C_v(d) = Σ_t x[t,v]·x[t+d,v]
+
+avec `x = m − 1/4`. La somme sur les quatre-vingts numéros redonne le recouvrement
+du §185, de variance exacte `2,8481` — les deux familles se contrôlent l'une l'autre.
+
+### Quatre familles, deux horloges
+
+| famille | décalage | cases | max `\|z\|` |
+|---|---|---|---|
+| **A** numéro × décalage | indice de tirage, `d ≤ 35 280` | `2 822 400` | `−5,278` (n° 12, `d = 22 148`) |
+| **B** somme | indice | `35 280` | `−4,026` |
+| **C** numéro × décalage | **horloge**, pas de `300 s` | `3 981 600` | `+5,240` (n° 21, `d = 8 489`) |
+| **D** somme | horloge | `49 770` | `+4,203` |
+
+A et C ne coïncident pas : l'archive a `343` coupures de nuit de `25 500 s`, et la
+grille d'horloge compte `99 540` créneaux dont `70,9 %` sont pleins. Un générateur
+réensemencé sur l'heure laisserait une trace en horloge et aucune en indice ; un
+générateur qui coule sans interruption fait l'inverse. **Les deux sont muets.**
+
+Le seuil de Bonferroni sur `6 889 050` cases vaut `5,785`, et le maximum observé
+est `5,278`. Le maximum *attendu* de `6 889 050` normales centrées réduites vaut
+`5,32` : l'archive rend donc exactement le maximum du bruit pur, à `0,04` près.
+
+*Puissance.* Un excès de répétition de `1 %` en valeur relative —
+`P(v en t | v en t−d) = 0,2525` au lieu de `0,25` — donnerait `z = 35` au décalage
+le plus peuplé. Le balayage voit un excès relatif de `0,46 %`.
+
+**Ligne de registre.** `h171.autocorrelation_exacte`, piste B, conforme,
+`m_extra = 6 889 049`.
+
+---
+
+## 187. **La nuit est-elle un budget ?** — l'attaque du protocole, pas du générateur (`h172_budget_de_nuit.py`)
+
+Le §186 ferme la question du générateur par son bout le plus élémentaire. Reste
+l'autre cible, et c'est historiquement la bonne : les loteries qui ont été cassées
+ne l'ont presque jamais été par leur RNG, mais parce que **l'exploitant
+contraignait le résultat**. La forme la plus banale de cette contrainte est le
+budget — « il sortira exactement tant de multiplicateurs cette nuit ».
+
+Un budget est **invisible dans les marges** : la fréquence globale reste juste. Il
+est **parfaitement visible dans la dispersion** : une source sans mémoire fait
+varier le compte d'une nuit à l'autre, un budget ne le fait pas. Et il est
+**exploitable** : quand la nuit avance et que le quota est consommé, ce qui reste
+devient prévisible.
+
+Pour un symbole de fréquence globale `π_s`, sur les `346` nuits de l'archive
+(`345` de `204` tirages, une de `180`) :
+
+    D_s = Σ_k (X_ks − n_k π_s)² / (n_k π_s (1 − π_s))
+
+La nulle est une **permutation** de l'ordre des `70 560` tirages : c'est la nulle
+exacte de l'hypothèse testée — l'affectation des symboles aux nuits est
+échangeable — et elle conserve les fréquences globales, donc aucune fréquence
+n'est estimée puis réutilisée. Le **signe** est l'objet de la chasse : `z` très
+négatif = sous-dispersion = budget.
+
+| famille | symboles | `z` min | max `\|z\|` |
+|---|---|---|---|
+| **A** les 80 numéros | `80` | `−3,33` | `3,333` |
+| **B** les valeurs du multiplicateur | `6` | `−1,33` | `1,335` |
+| **C** les 20 rangs du bonus | `20` | `−0,97` | `1,556` |
+| **D** uniformité globale des rangs | `1` | — | `1,392` |
+
+Seuil de Bonferroni sur `107` statistiques : `3,499`. Maximum observé `3,333`,
+`p = 0,092`. **Aucune sous-dispersion, donc aucun budget.**
+
+*Puissance.* Un budget **parfait** sur un symbole rendrait `D_s = 0`, soit
+`z = −346/26 = −13,3`. Un budget **partiel** ne retirant que `20 %` de la variance
+donnerait déjà `z = −4,8`, au-delà du seuil. L'autotest le vérifie sur données
+plantées : budget parfait `z = −8,6` sur `120` nuits, plafond sur un seul symbole
+`z = −7,6`, et la nulle SRS sur la géométrie réelle rend moyenne `−0,016` et
+écart-type `0,878` sur les quatre-vingts numéros.
+
+*Au passage.* Le rang du bonus est **uniforme** sur les vingt : `χ² = 27,46` pour
+`19` degrés de liberté (`z = +1,39`), rang le plus fréquent `5,156 %` contre
+`5,000 %`. La lecture `bonus = triés[⌊20u⌋]` du §175 est donc confirmée par la
+loi du rang, et non seulement par l'appartenance. Il s'ensuit que connaître les
+vingt numéros fait passer la prédiction du bonus de `1/80` à `1/20` — un facteur
+**quatre**, exact, vérifié sur `70 560` tirages sur `70 560` — et **pas mieux**.
+
+**Ligne de registre.** `h172.budget_de_nuit`, piste B, conforme, `m_extra = 106`.
+
+---

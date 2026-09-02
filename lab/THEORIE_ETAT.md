@@ -5489,3 +5489,108 @@ n'est pas une forme linéaire, et le tri ne publie rien de linéaire du tout.
 
 > Tant qu'on n'a que l'ensemble trié, la voie model-free est la seule. Dès qu'on
 > a l'ordre, elle est **cent fois** la plus lente.
+
+### 7.29 L'**autocorrélation exacte** — pourquoi la variance se calcule sans une seule simulation
+
+Soit `m[t,v] ∈ {0,1}` l'indicatrice « le numéro `v` est sorti au tirage `t` », et
+`x[t,v] = m[t,v] − 1/4` sa version centrée (`E[m] = 20/80 = 1/4`). Pour un décalage
+`d ≥ 1`, on pose
+
+        C_v(d) = Σ_t  x[t,v] · x[t+d,v]  .
+
+> **Théorème.** Sous SRS `20/80` indépendants d'un tirage à l'autre,
+>
+>     E[C_v(d)] = 0        et        Var(C_v(d)) = (n − d) · (3/16)²
+>
+> **exactement**, pour tout `v` et tout `d ≥ 1`.
+
+*Démonstration.* En trois points.
+
+**(i) L'espérance.** Les tirages `t` et `t+d` sont indépendants et `x` est centré,
+donc `E[x_t x_{t+d}] = E[x_t]·E[x_{t+d}] = 0`. La somme est nulle terme à terme.
+
+**(ii) La variance d'un terme.** Toujours par indépendance,
+`Var(x_t x_{t+d}) = E[x²_t]·E[x²_{t+d}] = (3/16)²`, puisque
+`Var(m) = (1/4)(3/4) = 3/16`.
+
+**(iii) L'annulation identique de la covariance.** Deux termes ne partagent un
+tirage que si leurs indices diffèrent de `d`. Dans ce cas
+
+    Cov(x_t x_{t+d}, x_{t+d} x_{t+2d}) = E[x_t · x²_{t+d} · x_{t+2d}]
+                                       = E[x_t] · E[x²] · E[x_{t+2d}] = 0 ,
+
+la factorisation étant licite par indépendance des trois tirages, et le résultat
+nul parce que `x` est **centré**. Les termes sont donc deux à deux non corrélés et
+les variances s'ajoutent. ∎
+
+C'est le point (iii) — et lui seul — qui rend la nulle exacte. Il tombe parce que
+le centrage est fait avec la valeur **vraie** `1/4` et non avec une moyenne
+estimée ; centrer sur la moyenne empirique réintroduirait une covariance d'ordre
+`1/n` et détruirait l'exactitude.
+
+**Corollaire (la somme redonne le recouvrement).**
+
+    Σ_v C_v(d) = Σ_t ( |A_t ∩ A_{t+d}| − 5 )
+
+car `Σ_v m[t,v] = 20` pour tout `t`, donc les termes croisés valent
+`−(1/4)·20 − (1/4)·20 + 80/16 = −5`. La variance de cette somme est
+`(n−d) · 20·(20/80)·(60/80)·(60/79) = (n−d)·2,8481`, la variance hypergéométrique
+du recouvrement. Les deux familles de statistiques se contrôlent donc l'une
+l'autre : la seconde est la projection de la première sur la direction constante,
+et sa nulle se calcule par un chemin entièrement différent.
+
+**Version masquée.** Si les tirages sont posés sur une grille d'horloge à trous
+(l'archive a `343` coupures de nuit), on annule `x` hors du masque et l'on compte
+les paires réellement présentes par autocorrélation du masque. Les deux
+autocorrélations se calculent par une seule paire de transformées de Fourier, et
+la formule de variance devient `n_d · (3/16)²` avec `n_d` = nombre de paires
+présentes. Rien d'autre ne change : les points (i) à (iii) ne dépendent pas de la
+régularité des indices.
+
+**Ce que cela coûte.** Quatre-vingts transformées de longueur `2¹⁸` par famille,
+soit quelques secondes pour `6 889 050` statistiques — contre `286` milliards de
+nœuds pour le crible de classes du §172, qui ne couvre que les degrés `≤ 7`.
+
+---
+
+### 7.30 Le **budget** — ce qu'une contrainte comptable laisse comme trace, et pourquoi c'est le seul défaut qui rend prévisible sans casser le générateur
+
+Les §7.1 à §7.29 attaquent toutes le **générateur**. Il existe une seconde cible,
+et c'est historiquement celle qui cède : le **protocole**. Un exploitant qui
+contraint le résultat pour des raisons comptables — un quota de gros
+multiplicateurs par nuit, un plafond de gains, un rééquilibrage des numéros —
+laisse une trace d'un type que **tous** les tests de générateur manquent par
+construction.
+
+**Pourquoi les tests de générateur la manquent.** Un budget conserve les
+fréquences globales : la marge est juste, le `χ²` d'ajustement est juste,
+l'autocorrélation est nulle au premier ordre. Ce qu'il change est la **variance
+inter-blocs**, et aucune statistique du dossier ne la regarde.
+
+**La signature.** Soit `X_k` le compte d'un symbole dans le bloc `k` de taille
+`n_k`, et `π` sa fréquence globale. L'indice de dispersion
+
+        D = Σ_k (X_k − n_k π)² / (n_k π (1 − π))
+
+vaut en moyenne `K` (le nombre de blocs) sous une source sans mémoire. Un budget
+**parfait** — exactement `n_k π` exemplaires par bloc — donne `D = 0` exactement.
+Un budget **partiel**, qui ne retire qu'une fraction `ρ` de la variance, donne
+`E[D] = K(1 − ρ)`, donc `z = −ρ·K/√(2K) = −ρ√(K/2)`.
+
+> **Le budget est le seul défaut qui rend prévisible sans casser le générateur.**
+> Sous budget, la loi conditionnelle du tirage `t` sachant le début de la nuit
+> n'est plus la loi marginale : le quota consommé retire de la masse. En fin de
+> nuit, un quota épuisé rend un symbole **impossible** — probabilité exactement
+> nulle, prédiction certaine — sans qu'aucun bit du générateur n'ait été deviné.
+
+**La nulle correcte est une permutation, pas une binomiale.** Tester la
+sous-dispersion contre une binomiale `Bin(n_k, π̂)` avec `π̂` estimé sur les mêmes
+données mélange deux questions et biaise le résultat. La permutation de l'ordre
+des tirages conserve exactement les fréquences globales et teste précisément
+l'hypothèse voulue — *l'affectation des symboles aux blocs est échangeable* — sans
+estimer quoi que ce soit.
+
+**Sens du test.** La sous-dispersion est **impossible à produire par hasard** à
+grande taille : c'est une contrainte, pas une fluctuation. C'est pourquoi le signe
+compte autant que la taille, et pourquoi un `z` négatif est une découverte alors
+qu'un `z` positif du même module ne serait qu'un regroupement.
