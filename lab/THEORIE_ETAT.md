@@ -1991,6 +1991,295 @@ ordonnés elle l'est — cinq tirages pour TYPE_1, huit pour TYPE_2, l'état
 entier et le tirage suivant en minutes — et les douze que l'on a disent
 non.
 
+### 7.14 Les relations de poids 3 sur `Z/4` (§162) — le plan 1 sans deviner le plan 0 : TYPE_3 à shift 1 en `2^{31}` au lieu de `2^{62}`
+
+Le 7.13 s'arrête devant une porte : à shift 1 (`x = r >> 1`, la
+`random()` de la glibc), le bit publié par chaque mot pair est le **plan 1**
+de `r`, et le plan 1 n'est pas linéaire dans l'état — il porte les retenues
+du plan 0. Décoder le plan 1 par la transformée de Walsh–Hadamard du 7.13
+exigeait de **deviner le plan 0** (`2^L` hypothèses) et, pour chacune, de
+décoder le plan 1 (`2^L`) : `2^{2L}`, soit `2^{62}` pour TYPE_3 — hors de
+portée, et c'est la case que le §160 laisse ouverte. Cette section la
+ferme. L'idée est de ne jamais deviner le plan 0 : sur `Z/4`, le plan 1
+est **linéaire dans le plan 1 de l'état et quadratique dans son plan 0**,
+et sur trois positions bien choisies la partie linéaire s'annule
+exactement. Ce qui reste est une fonction du seul plan 0 — `2^{31}` états —
+dont le signe, pour un état candidat, est une somme de quatre caractères :
+la statistique de vraisemblance sur **toutes** les hypothèses de plan 0 est
+de nouveau une seule transformée de Walsh–Hadamard, et le plan 1 suit
+linéairement une fois le plan 0 connu.
+
+La section établit (i) l'algèbre des deux plans bas sur `Z/4` — le lemme
+des plans, avec sa preuve ; (ii) le théorème des relations de poids 3 et
+l'énumération par le logarithme de Zech ; (iii) la statistique, l'identité
+qui la rend transformable, sa variance nulle **exacte** et indépendante de
+l'état, la condition (une relation par triple de tirages) qui la garantit,
+le `z` attendu ; (iv) le cas `L > 28` par un `χ²` par morceaux ; (v) le
+plan suivant, la cohérence, et le shift 0 comme cas particulier ; (vi) le
+coût et les témoins ; (vii) ce qui reste hors de portée. Le résultat sur
+l'archive est au §162.
+
+**(i) Le lemme des plans.** Soit `r_i = r_{i−K} + r_{i−L} mod 2^{32}`,
+`p ∈ F₂^L` le plan 0 des `L` mots initiaux, `y ∈ F₂^L` leur plan 1, et
+`r⁰_i, r¹_i` les plans 0 et 1 de `r_i`. Mod 4, l'addition s'écrit
+
+    r⁰_i = r⁰_{i−K} ⊕ r⁰_{i−L},        r¹_i = r¹_{i−K} ⊕ r¹_{i−L} ⊕ (r⁰_{i−K} ∧ r⁰_{i−L})
+
+— le terme `∧` est la retenue du bit 0. Le plan 0 est l'`m`-suite du trinôme
+`(K, L)` — `x^L + x^K + 1` dans la notation du 7.7, `x^L + x^{L−K} + 1` pour
+son polynôme caractéristique, la même suite : `r⁰_i = <α_i, p>` avec
+`α_i = e_i` (`i < L`) et `α_i = α_{i−K} ⊕ α_{i−L}`. Notons `e₂(w) = C(|w|, 2) mod 2 =
+(popcount(w) >> 1) & 1` la deuxième fonction symétrique élémentaire des
+bits de `w` (la retenue de la somme des bits de `w`).
+
+> **Lemme des plans.** *`r¹_i = <α_i, y> ⊕ <α'_i, p> ⊕ e₂(α_i ∧ p)`, où
+> `α'_i = 0` pour `i < L` et `α'_i = α'_{i−K} ⊕ α'_{i−L} ⊕ (α_{i−K} ∧ α_{i−L})`.*
+>
+> *Preuve.* Pour deux mots `u, v` et `m = |u ∧ v|`,
+> `C(|u| + |v| − 2m, 2) ≡ C(|u|,2) + C(|v|,2) + |u||v| + m (mod 2)`
+> (développer `(n)(n−1)/2` en `n = |u| + |v| − 2m`), soit
+>
+>     e₂(u ⊕ v) = e₂(u) ⊕ e₂(v) ⊕ |u||v| ⊕ |u ∧ v|      (mod 2).
+>
+> Avec `u = α_{i−K} ∧ p`, `v = α_{i−L} ∧ p` : `|u| = <α_{i−K}, p>`,
+> `|v| = <α_{i−L}, p>`, `u ∧ v = (α_{i−K} ∧ α_{i−L}) ∧ p`, `u ⊕ v = α_i ∧ p`,
+> donc la retenue `<α_{i−K},p><α_{i−L},p> = e₂(α_i ∧ p) ⊕ e₂(α_{i−K} ∧ p) ⊕
+> e₂(α_{i−L} ∧ p) ⊕ <α_{i−K} ∧ α_{i−L}, p>`. Par récurrence sur `i`, la
+> partie quadratique `q_i(p)` de `r¹_i` vérifie `q_i = q_{i−K} ⊕ q_{i−L} ⊕
+> (retenue)` avec `q_i = 0` pour `i < L` (`e₂(e_i ∧ p) = 0`), d'où
+> `q_i = <α'_i, p> ⊕ e₂(α_i ∧ p)` avec la récurrence annoncée pour `α'`. La
+> partie en `y` est la même récurrence linéaire que le plan 0. ∎
+
+Vérifié sur `400 077` positions d'un flux planté : `0` violation. Le lemme
+dit exactement ce qu'il en coûte de lire le plan 1 : `L` inconnues `y`
+linéaires et `L` inconnues `p` **quadratiques** — la forme quadratique
+`e₂(α_i ∧ p)` est de rang plein dès que `α_i` a plusieurs bits, et c'est
+elle qui interdit une élimination gaussienne directe. Une remarque en
+passant : le plan 0 est périodique de période `P = 2^L − 1`, donc
+`α_{i+P} = α_i` et `r¹_i ⊕ r¹_{i+P} = <α'_i ⊕ α'_{i+P}, p>` est **linéaire**
+en `p` (la partie `y` et le `e₂` s'annulent) ; deux mots à `P` d'écart
+suffiraient à lire `p` linéairement. Pour `L ≤ 20`, `P < 1,05·10^6` est plus
+court que l'archive sous le flux (`1,41·10^6` positions) ; pour TYPE_3,
+`P = 2,1·10^9` ne l'est pas. Il faut annuler `y` autrement.
+
+**(ii) Les relations de poids 3.** Trois positions `a, b, c` sont une
+*relation* si `α_a ⊕ α_b ⊕ α_c = 0` — c'est-à-dire `x^a + x^b + x^c ≡ 0
+mod (x^L + x^K + 1)`.
+
+> **Théorème des relations de poids 3.** *Si `α_a ⊕ α_b ⊕ α_c = 0`, alors*
+>
+>     r¹_a ⊕ r¹_b ⊕ r¹_c = <β, p> ⊕ maj(<α_a, p>, <α_b, p>, <α_c, p>),
+>     β = α'_a ⊕ α'_b ⊕ α'_c ⊕ maj(α_a, α_b, α_c)      (maj bit à bit)
+>
+> *— une fonction du seul plan 0.*
+>
+> *Preuve.* Par le lemme, la partie en `y` vaut `<α_a ⊕ α_b ⊕ α_c, y> = 0`.
+> Avec `α_c = α_a ⊕ α_b` et l'identité de `e₂` : `e₂(α_c ∧ p) = e₂(α_a ∧ p)
+> ⊕ e₂(α_b ∧ p) ⊕ <α_a,p><α_b,p> ⊕ <α_a ∧ α_b, p>`, donc la somme des trois
+> `e₂` vaut `<α_a,p><α_b,p> ⊕ <α_a ∧ α_b, p>`. Enfin, pour `x ⊕ y ⊕ z = 0`,
+> `maj(x, y, z) = x ∨ y = x ⊕ y ⊕ xy`, soit `xy = maj ⊕ z` avec `x = <α_a,p>`,
+> `y = <α_b,p>`, `z = <α_c,p>` ; et bit à bit, `α_c ⊕ (α_a ∧ α_b) = maj(α_a,
+> α_b, α_c)` puisque `α_c = α_a ⊕ α_b`. ∎
+
+Vérifié sur `500 587` relations d'un flux planté : `0` violation. Le
+théorème remplace `2^{2L}` par `2^L` : le plan 1 de l'état a disparu, il
+ne reste que `p`, et l'observable est **exacte** — pas une approximation
+linéaire comme la linéarisation cubique du 7.11, qui devinait un plan pour
+linéariser les deux autres.
+
+*Énumération.* Par invariance de translation, `(a, a + d, a + j)` est une
+relation pour tout `a` dès que `x^j + x^d + 1 ≡ 0`, c'est-à-dire
+`d = Z(j)`, le **logarithme de Zech** de `j` dans `F_{2^L}` (`x^{Z(j)} =
+x^j + 1`). L'outil marche `j = 1 … Σ − 1` sur l'étendue `Σ = S(N − 1) + 80 +
+L` du flux, lit `d = log(α_j ⊕ 1)` dans une table de hachage des `α_d`,
+`d < Σ`, garde `0 < d < j` (triple canonique), puis tout `a` tel que les
+trois positions soient des mots pairs observés (`k = 0, 2, …, 18`) de
+**trois tirages distincts**. Les couples `(j, d)` sont de deux sortes :
+les **structurels** `(j, d) = (L·2^m, (L−K)·2^m)` — la récurrence elle-même,
+`α_i ⊕ α_{i−K} ⊕ α_{i−L} = 0`, et ses puissances de deux (Frobenius :
+`(u + v)^{2^m} = u^{2^m} + v^{2^m}` dans `F_{2^L}`) — et les **fortuits**,
+`Z(j) < Σ` pour un `j < Σ` pris au hasard, au nombre de `≈ Σ²/(2P)` : pour
+TYPE_3 sur l'archive `≈ 460` (mesuré `414`), pour `L = 17` tout `j` en
+fournit. Chaque couple donne jusqu'à `10 N` triples ; pour un pas `S` pair,
+`d` et `j` doivent être pairs (les mots pairs sont aux positions paires) ;
+pour `S = 79` chaque décalage tombe sur un mot pair observé avec
+probabilité `10/79`. Au plafond `M_max = 2·10^7` la marche s'arrête : les
+relations les plus courtes viennent d'abord.
+
+**(iii) La statistique.** Chaque mot pair `(t, k)` livre le bit mou du
+7.13, sous la forme `t_{t,k} = (n_0 − n_1)/n ∈ [−1, 1]` — la moyenne a
+posteriori de `(−1)^{r¹}` sur l'ensemble trié (`n_0` numéros admissibles
+de résidu pair, `n_1` impair). Pour une relation `R = (a, b, c)` et un
+état candidat `p`, le signe prédit est `ε_R(p) = (−1)^{<β_R, p> ⊕ maj(…)}` et
+
+    u_R = t_a t_b t_c,        Λ(p) = Σ_R u_R ε_R(p),        z(p) = Λ(p)/√V.
+
+*L'identité.* Pour `x ⊕ y ⊕ z = 0` (et seulement là, ce que le théorème
+garantit), `(−1)^{maj(x,y,z)} = ½[(−1)^x + (−1)^y + (−1)^z − 1]` — les
+quatre triplets pairs se vérifient. Donc `ε_R(p)` est la somme de **quatre
+caractères** de `p`, et
+
+    Λ(p) = Σ_w g[w] (−1)^{<w, p>},   g[β⊕α_a] += u/2,  g[β⊕α_b] += u/2,  g[β⊕α_c] += u/2,  g[β] −= u/2 :
+
+`Λ` sur les `2^L` états est **une** transformée de Walsh–Hadamard de `g`,
+en `L·2^L` opérations, après une passe sur les `M` relations. C'est le
+même geste qu'au 7.13, mais sur une observable cubique dont on a montré
+qu'elle ne dépend que du plan 0.
+
+> **Lemme (variance nulle exacte, indépendante de l'état).** *Sous `H0`
+> (l'archive n'a pas de rapport avec l'hypothèse : tirages indépendants,
+> `E t_{t,k} = 0`), si deux relations distinctes ne portent jamais sur le
+> même triple de tirages, alors pour tout `p` : `E Λ(p) = 0` et*
+>
+>     Var Λ(p) = V = Σ_R τ₀²(k_a) τ₀²(k_b) τ₀²(k_c),      τ₀²(k) = E₀[t_{t,k}²].
+>
+> *Preuve.* `E t = 0` est exact : à `k` fixé, la fenêtre `{k+1, …, 80}`
+> (FY) ou `{1, …, 80−k}` (shuffle) est de cardinal pair et la réflexion
+> `v ↦ 81 + k − v` (resp. `81 − k − v`) la préserve en changeant la parité
+> du résidu ; conditionnellement au nombre de numéros du tirage dans la
+> fenêtre, ceux-ci sont un sous-ensemble uniforme, invariant par la
+> réflexion — donc `E[n_0 − n_1] = 0` (mesuré : `|E₀ t| ≤ 3·10^{−4}` sur
+> `400 000` tirages). Les trois positions d'une relation sont dans trois
+> tirages distincts, donc `E u_R = 0` et `E u_R² = ∏ τ₀²`. Pour `R ≠ R'`,
+> `E[u_R u_{R'}]` est un produit sur les tirages ; un tirage qui ne porte
+> qu'un seul des six facteurs contribue `E t = 0`. Comme les triples de
+> tirages diffèrent, l'un des deux triples contient un tirage absent de
+> l'autre : `E[u_R u_{R'}] = 0`. Les `ε_R(p) = ±1` sont des constantes :
+> `Var Λ(p) = Σ_R E u_R² = V` pour tout `p`. ∎
+
+La condition est essentielle et elle n'est pas gratuite : les dix bits mous
+d'un même tirage sont corrélés à `0,9` (7.13 (ii) — ils comptent la même
+parité du même ensemble), et une relation `(a, b, c)` a neuf sœurs `(a+2m,
+b+2m, c+2m)` dans les **mêmes** trois tirages, dont les `u` sont presque
+égaux. Les compter toutes donnerait une variance qui dépend de l'état —
+la faute du 7.13 (ii) sous une autre forme. L'outil garde, par famille
+décalée, celle qui touche le mot `0`, puis une seule relation par triple
+de tirages trié (table de hachage des `M` triples). Sous la condition, le
+`z` est un `z` pour tout état, et — `u` étant borné — de queue gaussienne :
+la borne d'union sur les `2^L` plans 0 donne le seuil
+
+    Z₁ = Φ^{−1}(1 − 10^{−7}/2^L) :    6,88 (L = 15),  7,07 (17),  8,31 (31),
+
+et le maximum nul attendu est `√(2 ln 2^L) ≈ 4,6` (`L = 15`), `6,6`
+(`L = 31`) — mesurés `4,4–4,8` et `6,3`. La borne porte sur `2^L` états et
+non `2^{2L}` : `y` n'est pas énuméré, il est **déduit**.
+
+*Sous `H1`.* Pour l'état vrai `p*`, chaque relation a le signe prédit :
+`u_R ε_R(p*) = ∏ t (−1)^{r¹}`. Le bit mou est la moyenne a posteriori de
+`(−1)^{r¹}` sur l'ensemble trié, donc `E[t (−1)^{r¹}] = E[t · E[(−1)^{r¹}
+∣ ensemble]] = E[t²] = τ₀²` — la même quantité qui fait la variance nulle.
+D'où
+
+    E Λ(p*) = Σ_R ∏ τ₀² = V,        z_attendu = √V ≈ τ₀³ √M,
+
+`τ₀² = 0,038 … 0,050` selon le mot (`k = 0 … 18`, table `CALIB`), soit
+`z_attendu ≈ 38` au plafond `M = 2·10^7` et `≈ 15–25` pour `M = 4–8·10^6`.
+Mesuré sur flux plantés (`N = 20 000`, `M = 2·10^7`) : `z = 35,0–40,3`
+pour `38,0` attendu. La détection est donc à `4,5` écarts-types au-dessus
+du seuil au plafond, et la marge reste large tant que `M ≳ 10^6`.
+
+**(iv) `L > 28` : le `χ²` par morceaux.** Le tableau `g` d'un `L = 31` fait
+`2^{31}` entiers ; la WHT complète tient en mémoire (`8` Go en `int32`)
+mais pas à côté du reste, et surtout la même transformée sert ensuite au
+plan `y`. On écrit `w = (w_bas, w_haut)`, `p = (p_bas, p_haut)` avec
+`CB = 28` bits bas :
+
+    Λ(p) = Σ_h (−1)^{<h, p_haut>} G_h(p_bas),        G_h = WHT_{CB}(g_h)
+
+— `2^{L−CB} = 8` transformées de `2^{28}` (les tranches `g_h` de bits
+hauts `h`). Reconstituer `Λ` pour tous les `p_haut` coûterait `4^{L−CB}`
+tranches ; on les combine de façon **incohérente** :
+
+    χ²(p_bas) = Σ_h G_h(p_bas)²,
+
+qui ne dépend pas de `p_haut`. Par Cauchy–Schwarz, `χ²(p*_bas) ≥
+Λ(p*)²/2^{L−CB}` : au bon `p_bas`, `χ²/(V/8) ≥ z²` (`≈ 1 440` pour
+`z = 38`, `≈ 86` pour `z = 9,3`), contre, ailleurs, une somme de huit
+carrés de variance `≈ V/8` dont le maximum sur `2^{28}` valeurs vaut
+`≈ 65` (le `256`-ième, `≈ 43`). Le vrai `p_bas` est donc parmi les
+`NCAND = 256` premiers avec probabilité `≈ 1` dès `z ≥ Z₁ + 1` ; pour ces
+`256` candidats, `Λ(p_bas, p_haut)` est calculé **exactement** pour les
+`2^{L−CB}` valeurs de `p_haut` par une passe sur les relations
+(histogramme des `u` par motif de Walsh des quatre mots, `2^{L−CB}`
+caractères). Le maximum sur ce sous-ensemble est `≤` celui sur `2^L` : le
+seuil `Z₁` reste **conservatif** (la borne d'union sur `2^L` majore la
+probabilité de fausse détection, quel que soit le sous-ensemble examiné) ;
+seule la puissance dépend du classement `χ²`, et elle est `≈ 1`. Sur le
+témoin TYPE_3 (`N = 70 560`, `M = 2·10^7`) : `rang_χ² = 0`, `z = 40,3`
+(`37,9` attendu), `p` exact ; sur le flux nul, `z_max = 6,28 < 8,31`.
+
+**(v) Le plan suivant, la cohérence, le shift 0.** `p` trouvé, le lemme
+des plans se lit à l'envers : pour chaque mot pair `i`,
+
+    <α_i, y> = r¹_i ⊕ <α'_i, p> ⊕ e₂(α_i ∧ p)
+
+est **linéaire** en `y`, et l'observation molle `t_i` signée par la
+correction connue donne `Λ_y(y) = Σ_i s_i (−1)^{<α_i, y>}`, une WHT des
+`10 N` mots (`g_y[α_i] += s_i`), `z_y = Λ_y/√Σ t_i²` d'espérance
+`√Σ τ₀² ≈ 0,66 √N` — `94` pour `20 000` tirages, `175` pour l'archive
+(témoin TYPE_3 : `176,1`). La confirmation est ainsi bien plus forte que
+la détection : elle porte sur `10 N` observations linéaires et non sur `M`
+produits triples. Pour `L > CB`, `y_bas` vient des mots dont `α_i` a ses
+bits hauts nuls (un huitième d'entre eux, `z_y ≈ 60`), puis `y_haut` d'une
+petite WHT de `2^{L−CB}`. Enfin `(p, y)` prédit la parité de chaque mot
+pair de chaque tirage ; un mot dont la classe prédite est **vide** dans
+l'ensemble trié est une contradiction — `0` pour l'état vrai, quelques-unes
+(`7` sur le flux nul TYPE_3) pour un état faux.
+
+*Shift 0.* Si la sortie est `x = r` (plan 0 observé), la même WHT des mots
+avec `p = 0` — `s_i = t_i`, adresse `α_i` — est le test **exact** du plan
+0 sur `2^L` états (`z_lin`, `p_lin`), sans relation. Un flux à shift 0
+apparaît aussi dans le test des relations, en `p̂ = 0` (aucune retenue :
+`ε_R(0) = +1` pour toute relation), avec un `z` **plus grand** que
+`√V` — `134` contre `38` sur le même témoin. La raison est instructive :
+au plan 0, les neuf relations sœurs `(a+2m, b+2m, c+2m)` d'une relation
+sont satisfaites avec le **même** signe `+1`, et le bit mou de chaque mot,
+qui compte les parités de tout l'ensemble, les porte toutes ; au plan 1,
+chaque sœur a son propre `ε_{R+2m}(p*)`, décorrélé du premier, et seule
+la relation propre est cohérente. L'amplification n'est pas exploitable
+au plan 1 ; elle est un signe de plus qu'un flux linéaire se reconnaît de
+loin.
+
+**(vi) Le coût et les témoins.** Énumération : une passe par couple
+`(j, d)` sur les `Σ` positions, `≈ 10^9` tests pour l'archive, plus `M`
+insertions dans la table des triples ; `g` : `4·2^{CB}` octets par tranche
+; `χ²` : `2^{L−CB}` WHT de `2^{CB}` (`≈ 15` s chacune sur deux fils) ; les
+candidats : `256` passes sur `M` relations. Sur la machine du dossier
+(quatre cœurs partagés), un décodage complet — relations, `χ²`, candidats,
+`y`, cohérence, `z_lin` — prend `≈ 4` min pour TYPE_3 (`2,3` Go), une
+minute ou moins pour `L ≤ 28`. Témoins plantés puis flux nuls, avec le
+binaire compilé par le script (`identifié` = `p` exact, `y` exact, `0`
+contradiction) :
+
+| trinôme | pas, schéma | shift | `N` | `Z₁` | `z` attendu | `z` | `z_y` | identifié | nul `z_max` |
+|---|---|---|---|---|---|---|---|---|---|
+| `(3, 17)` | 20, FY | 1 | 20 000 | 7,07 | 38,0 | 36,4–38,7 | 93 | oui | 4,4–4,8 |
+| `(3, 17)` | 79, shuffle | 1 | 8 000 | 7,07 | 38,0 | 35,0 | 59 | oui | < 5 |
+| `(1, 15)` TYPE_2 | 80, shuffle | 1 | 8 000 | 6,88 | 38,1 | 40,2 | — | oui | < 5 |
+| `(3, 17)` | 20, FY | 0 | 20 000 | 7,07 | — | `z_lin` 93,5 (`z` 134,5 en `p̂ = 0`) | — | oui | < 5 |
+| `(3, 31)` TYPE_3 | 20, FY | 1 | 70 560 | 8,31 | 37,9 | 40,3 | 176 | oui | 6,28 |
+
+Le chemin par morceaux (`WHT_CB = 14` forcé sur `L = 17`) rend le même
+`p`, le même `y` et le même `z` que la WHT directe.
+
+**(vii) Ce qui reste hors de portée.** *TYPE_4* `(1, 63)` : les relations
+de poids 3 dans l'étendue de l'archive se réduisent aux structurelles
+(`Σ²/(2P) ≈ 10^{−7}` à `2·10^{−6}` fortuites selon le pas), soit `14` à
+`17` couples `(63·2^m, 62·2^m)`, `M ≈ 2·10^5` (pas 79) à `10^6` (pas 20),
+`z_attendu ≈ 4` à `8,5` contre `Z₁(63) = 10,6`, et surtout `2^{63}` plans
+0 sans WHT possible : le théorème réduit `2^{126}` à `2^{63}`, ce qui ne
+suffit pas. *Réamorçage
+nocturne* : par nuit (`204` tirages, `Σ ≈ 4 000`), il ne reste que les
+structurels courts — `M ≈ 10^3` pour TYPE_3, `z_attendu ≈ 0,3` — le
+flux continu est ce qui donne des relations, et sans lui cette section ne
+dit rien (le 7.13 couvre la nuit à shift 0 seulement). *Shift `≥ 2`* : le
+plan 2 porte les retenues des retenues, cubiques en `p` et quadratiques
+en `y` ; les relations de poids 3 n'annulent que la partie linéaire en
+`y`, et l'identité de `maj` n'a pas d'analogue de degré 3 en quatre
+caractères — il faudrait des relations de poids supérieur, dont la
+variance croît comme `τ₀^{−2}` par facteur. *Rejet, troncature, pas
+variable, Fibonacci soustractif* : non couverts, comme au 7.13.
+
 ---
 
 ## 8. Application à ce dossier
@@ -2055,6 +2344,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état **entier** TYPE_1 (224 bits) par des tirages ordonnés à pas constant | 5 ordonnés, plan 0 par crible linéaire puis LLL (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
+| état bas TYPE_2, TYPE_3 et 42 trinômes (degré 15 à 31) sous flux continu à pas constant, **shift 1** (`random()` de la glibc), par les relations de poids 3 sur `Z/4` (§7.14) | `2^L` plans 0 par une WHT (`L ≤ 28`) ou un `χ²` par morceaux (`L = 31`), plan 1 déduit linéairement | **archive — §162 : 396 décodages (fy 20–24, 79, 80 ; shuffle 79, 80 ; shifts 1 et 0), pré-enregistré, en cours** |
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
