@@ -16841,3 +16841,207 @@ au registre — de ce que cette fermeture a coûté.
 `h141_selftest_archive_70k.log`, `h141_selftest_archive_70k_b.log`.
 
 ---
+
+## 163. Le distingueur structurel : le plan 0 de tout Fibonacci retardé testé sans état — 126 trinômes × 9 variantes, sous le flux et par nuit (`h143_distingueur_structurel.py`, `tools/lfg_struct_flux.c`)
+
+**La question d'avant le décodage.** Les §157, §160 et §162 cherchent
+l'état : `2^L` hypothèses de plan 0, et c'est ce `2^L` qui les arrête à
+`L = 31`. TYPE_4 `(1, 63)` de la glibc, les retards classiques `89`,
+`100`, `127`, `250` (R250), `258`, `521` (R521), `1279`, et les
+trinômes primitifs de degré `32` à `63` n'avaient été touchés par
+aucune section. Le §7.15 renverse la question : *l'archive est-elle
+engendrée par un Fibonacci retardé de retard `L`, quel qu'en soit
+l'état ?* — et y répond **sans état**, en temps linéaire en la taille de
+l'archive. Le plan 0 de `r_i = r_{i−K} ∘ r_{i−L}` (`∘ = +`, `−` mod
+`2^{32}` à shift 0 ; `⊕` à tout shift) est l'`m`-suite de `f = x^L +
+x^{L−K} + 1` ; chaque **relation de poids 3** `x^j + x^d + 1 ≡ 0 (mod
+f)` est une équation de parité `b_a ⊕ b_{a+d} ⊕ b_{a+j} = 0` vraie pour
+**tout** état ; et l'archive triée livre pour chaque mot pair `k ≤ 18`
+un bit mou — `T = (impairs − pairs)/20`, `E[T · (−1)^{b_k}] = C = 3/79`
+exactement (le lemme du numéro désigné, §7.15 (ii)). La somme des
+produits `T_{t_a} T_{t_a+d_1} T_{t_a+d_2}` sur tous les triples de
+tirages qu'une relation atteint est d'espérance **nulle** si
+l'hypothèse est fausse et vaut `C³ × (nombre de triples)` si elle est
+vraie. Cette section applique ce test à l'archive entière : **110
+trinômes primitifs de degré 7 à 63** (les deux orientations de chaque
+polynôme ; TYPE_1 `(3, 7)`, TYPE_2 `(1, 15)`, TYPE_3 `(3, 31)`, TYPE_4
+`(1, 63)` compris ; degrés représentés `7, 9, 10, 11, 15, 17, 18, 20,
+21, 22, 23, 25, 28, 29, 31, 33, 35, 36, 39, 41, 47, 49, 52, 55, 57, 58,
+60, 63`) **et 16 retards classiques** (`89`, `100`, `127`, `250`,
+`258`, `521`, `1279`, deux orientations), sous **neuf variantes**
+(Fisher–Yates partiel par modulo aux pas 20 à 24, 79 et 80 ;
+`Collections.shuffle` des vingt dernières cases aux pas 79 et 80) et
+**deux cibles** — le flux continu (un état pour 70 560 tirages) et le
+bloc de nuit (370 blocs, un état par nuit, la statistique sommée sur
+les blocs) — soit `126 × 9 × 2 = 2 268` statistiques.
+
+**L'outil.** `tools/lfg_struct_flux.c` (compilé par le script) enchaîne,
+pour un trinôme, un pas, un schéma et une cible : (1) `CALIB` — sur
+`400 000` tirages nuls, `E₀ = E[T]`, `τ₀² = E[T²]` et `C(k') = E[(T −
+E₀)(−1)^{b_{k'}}]` pour les dix mots pairs, qui retrouvent le `3/79 =
+0,03797` exact du §7.15 (ii) (`τ₀² = 0,03793`, `C(k')` de `0,0378` à
+`0,0383`, `|E₀| ≤ 4·10^{−4}`) ; (2) l'**énumération** de toutes les
+relations de poids 3 à portée — les puissances `x^j mod f` pour `j`
+jusqu'à l'étendue de la cible sont triées, et chaque paire `x^j = x^d +
+1` en donne une, plafond `400 000` ; (3) les **motifs** — une relation
+`(d, j)` posée sur le mot pair `k` du tirage `t_a` retombe sur les mots
+`k + d`, `k + j` de deux autres tirages, et n'est retenue que si ces
+deux mots sont pairs et de rang `≤ 18` ; le motif `(d_1, d_2) =
+(⌊(k + d)/S⌋, ⌊(k + j)/S⌋)` reçoit `w_p += C(k) C(k_1) C(k_2)` ; (4) la
+**statistique** — `Λ = Σ_p w_p Σ_{t_a} T_{t_a} T_{t_a+d_1} T_{t_a+d_2}`
+(`T` centré par sa moyenne empirique), `V = τ⁶ Σ_p w_p² n_p` avec `τ²`
+la variance empirique de `T` et `n_p` le nombre de triples du motif,
+`z = Λ/√V`, et en forme close `z_att = √(Σ_p w_p² n_p)/τ³` (le `z`
+qu'aurait la relation exacte plantée : `E[Λ] = Σ_p w_p² n_p` sous
+`H₁`, §7.15 (iii)) ; sous `H₀` (tirages indépendants, `T` centrés)
+deux triples de tirages distincts sont non corrélés, `E Λ = 0` et `Var Λ
+= V` **exactement** (§7.15 (iii)), sans borne d'union sur `2^L` ; par
+bloc, les triples sont pris à l'intérieur de chaque nuit et sommés.
+Seuil : `Z_c = Q^{−1}(10^{−7}/2 268) = 6,49`, une seule valeur pour
+toute la grille.
+
+**Témoins.** Avant l'archive, le script plante un état, engendre `N`
+tirages (fenêtre, schéma et tri exacts), calcule `z`, puis fait de même
+sur `N` tirages nuls avec le **même** binaire :
+
+| `K` | `L` | pas | schéma | `∘` | shift | `N` | blocs | `z_att` | `z` | attendu | détecté | faux positif nul | s |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 63 | 20 | fy | `+` | 0 | 70 560 | 1 | `102,25` | `104,54` | 1 | 1 | 0 | 2,7 |
+| 1 | 63 | 20 | fy | `+` | **1** | 70 560 | 1 | `101,33` | `−1,60` | **0** | **0** | 0 | 2,5 |
+| 24 | 55 | 22 | fy | `−` | 0 | 70 560 | 1 | `51,82` | `52,70` | 1 | 1 | 0 | 2,9 |
+| 37 | 100 | 20 | fy | `⊕` | 3 | 70 560 | 1 | `51,97` | `51,07` | 1 | 1 | 0 | 2,5 |
+| 1 | 63 | 20 | fy | `+` | 0 | 70 560 | **370** | `14,63` | `14,57` | 1 | 1 | 0 | 0,2 |
+| 3 | 31 | 79 | shuffle | `+` | 0 | 20 000 | 1 | `15,04` | `15,78` | 1 | 1 | 0 | 3,2 |
+| 103 | 250 | 80 | shuffle | `⊕` | 1 | 70 560 | 1 | `8,62` | `8,23` | 1 | 1 | 0 | 15,5 |
+
+Sept témoins, `z` observé à `±4 %` du `z_att` en forme close, dont le
+**témoin négatif** : TYPE_4 additif à **shift 1** — la `random()` de la
+glibc — donne `z = −1,60` pour `101` attendu si le plan 0 était lu :
+c'est la proposition de la retenue du §7.15 (v), le plan 1 d'un
+Fibonacci additif est équilibré sur les relations de poids 3, et le
+distingueur structurel est **aveugle par construction** à `random()` à
+shift 1 ; le §162 (relations de poids 3 sur `Z/4`) est l'outil qui la
+voit. `0` faux positif sur les flux nuls, `0` témoin raté.
+
+**Pré-enregistrement** (jeton `41ecee5ef9a14660`, scellé le
+`2026-09-02T08:47:07Z`, avant tout décodage de l'archive). Hypothèse :
+l'archive triée n'est engendrée, ni sous le flux continu ni par bloc de
+nuit, par aucun Fibonacci retardé lu à pas constant dont le plan 0 est
+observé (`+` ou `−` à shift 0 ; `⊕` à tout shift), pour les 110
+trinômes primitifs de degré 7 à 63 et les 16 retards classiques, sous
+les neuf schémas. Statistique : `D` = nombre de statistiques (trinôme ×
+variante × cible) détectées, `z ≥ Z_c = 6,49`. Nul : `E Λ = 0`, `Var Λ
+= V` exactement, `P(z ≥ Z_c) ≤ 10^{−7}` par statistique, `E[D] ≤ 2 268 ×
+10^{−7}`. Décision : conforme si `D = 0` ; détection sinon (le trinôme,
+la variante et la cible détectés deviennent le point de départ d'un
+décodage de l'état).
+
+**La grille.** Sur l'archive, `E[T] = −0,00031` et `Var T = 0,03787`
+(calibrage `0,03793`, exact `0,03797`). Les neuf variantes du flux
+prennent `291` à `896` s pour les `126` trinômes (l'énumération des
+puissances domine aux pas 79 et 80), celles du bloc `8` à `12` s ; par
+variante, le nombre de trinômes dont aucune relation ne retombe sur
+deux mots pairs (statistique **vide**, `0` motif), le `z_att` des
+statistiques pleines si l'hypothèse était vraie, et les `z` extrêmes
+observés :
+
+| cible | schéma | pas | vides | `z_att` (pleines) | `z` max | `z` min | trinôme du max |
+|---|---|---|---|---|---|---|---|
+| flux | fy | 20 | 0 | `35,8` – `5 007` | `+2,19` | `−3,37` | `x^17+x^14+1` |
+| flux | fy | 21 | 0 | `11,2` – `5 012` | `+2,71` | `−3,20` | `x^127+x^97+1` |
+| flux | fy | 22 | 0 | `33,3` – `5 010` | `+2,44` | `−2,12` | `x^31+x^28+1` |
+| flux | fy | 23 | 0 | `15,7` – `5 010` | `+2,65` | `−2,19` | `x^89+x^51+1` |
+| flux | fy | 24 | 0 | `34,2` – `5 009` | `+2,66` | `−2,61` | `x^55+x^31+1` |
+| flux | fy | 79 | 22 | `1,3` – `1 669` | `+1,72` | `−3,11` | `x^15+x^7+1` |
+| flux | fy | 80 | 14 | `3,9` – `1 647` | `+2,12` | `−3,38` | `x^21+x^2+1` |
+| flux | shuffle | 79 | 22 | `1,3` – `1 704` | `+1,72` | `−3,11` | `x^15+x^7+1` |
+| flux | shuffle | 80 | 14 | `4,0` – `1 682` | `+2,12` | `−3,38` | `x^21+x^2+1` |
+| bloc | fy | 20 | 0 | `8,0` – `1 516` | `+2,40` | `−2,86` | `x^47+x^20+1` |
+| bloc | fy | 21 | 0 | `5,1` – `1 517` | `+2,27` | `−2,51` | `x^47+x^27+1` |
+| bloc | fy | 22 | 0 | `5,9` – `1 516` | `+2,33` | `−2,65` | `x^49+x^27+1` |
+| bloc | fy | 23 | 2 | `2,6` – `1 516` | `+3,14` | `−2,93` | `x^63+x^31+1` |
+| bloc | fy | 24 | 0 | `6,8` – `1 516` | `+2,81` | `−2,96` | `x^55+x^31+1` |
+| bloc | fy | 79 | 72 | `0,9` – `1 258` | `+1,47` | `−2,24` | `x^17+x^6+1` |
+| bloc | fy | 80 | 22 | `0,6` – `1 248` | `+2,73` | `−2,60` | `x^47+x^20+1` |
+| bloc | shuffle | 79 | 72 | `0,9` – `1 285` | `+1,47` | `−2,24` | `x^17+x^6+1` |
+| bloc | shuffle | 80 | 22 | `0,6` – `1 274` | `+2,73` | `−2,60` | `x^47+x^20+1` |
+
+Aux pas 79 et 80 les relations d'un trinôme de haut degré sont rares à
+portée et retombent presque toutes sur des mots impairs (TYPE_4 : `117`
+relations, `4` motifs, `z_att = 8,5` sous le flux ; `18` relations et
+`0` motif par nuit) — c'est là que les statistiques vides et les
+`z_att` de l'ordre de `1` se concentrent, et la couverture y est dite
+telle quelle. Aux pas 20 à 24 tout est plein et fort : TYPE_4 `87`
+relations, `166` motifs, `8,5 · 10^6` triples, `z_att = 102,9` ; TYPE_3
+`764`, `694`, `2,3 · 10^7`, `153,4` ; TYPE_2 et TYPE_1 `400 000`
+relations (plafond), `65 536` motifs, `4,5 · 10^9` triples, `2 137` et
+`4 999` ; par nuit, `14,9`, `28,6`, `81,6` et `1 516`. Les seize
+classiques et les quatre types de la glibc, sur les dix-huit variantes :
+
+| trinôme | `z_att` flux fy 20 | `z` max (18 variantes) | où |
+|---|---|---|---|
+| `x^1279+x^1063+1` | `35,8` | `−2,16` | flux fy 23 |
+| `x^1279+x^861+1` | `36,9` | `+1,86` | flux fy 24 |
+| `x^1279+x^418+1` | `36,9` | `−1,69` | bloc fy 23 |
+| `x^1279+x^216+1` | `35,8` | `−2,53` | bloc fy 20 |
+| `x^521+x^489+1` | `39,6` | `+1,68` | bloc fy 80 |
+| `x^521+x^32+1` | `39,6` | `−1,46` | bloc fy 23 |
+| `x^258+x^175+1` | `48,2` | `−1,53` | flux fy 21 |
+| `x^258+x^83+1` | `48,2` | `−2,01` | flux fy 80 |
+| `x^250+x^147+1` (R250) | `49,1` | `−3,37` | flux fy 20 |
+| `x^250+x^103+1` | `49,1` | `+2,02` | flux fy 80 |
+| `x^127+x^97+1` | `51,4` | `+2,71` | flux fy 21 |
+| `x^127+x^30+1` | `51,4` | `+0,92` | flux fy 24 |
+| `x^100+x^63+1` | `52,1` | `+1,85` | flux fy 24 |
+| `x^100+x^37+1` | `52,1` | `−1,59` | bloc fy 21 |
+| `x^89+x^51+1` | `44,1` | `+2,65` | flux fy 23 |
+| `x^89+x^38+1` | `44,1` | `−1,29` | bloc fy 21 |
+| `x^63+x^62+1` (TYPE_4) | `102,9` | `+1,80` | flux fy 80 |
+| `x^31+x^28+1` (TYPE_3) | `153,4` | `+2,44` | flux fy 22 |
+| `x^15+x^14+1` (TYPE_2) | `2 136,6` | `−1,39` | flux fy 20 |
+| `x^7+x^4+1` (TYPE_1) | `4 999,0` | `−1,99` | bloc fy 23 |
+
+**Résultat.** `2 268` statistiques, dont `262` vides ; sur les `2 006`
+pleines, **`D = 0`** : `z` max `= 3,14` (`x^63+x^31+1`, FY pas 23, par
+nuit), `z` min `= −3,38`, moyenne `−0,016`, écart-type `1,022` (`1`
+attendu sous `H₀`) — la grille entière se comporte comme du bruit
+gaussien de variance un, et le maximum de `2 006` gaussiennes vaut
+`≈ 3,5`. Si l'hypothèse était vraie pour l'un quelconque des `2 006`
+couples pleins, le `z` attendu allait de `1,3` (`x^47+x^14+1`, pas 79)
+à `5 012` (degré `7`, pas 21) sous le flux et de `0,6` à `1 516` par
+nuit. La puissance n'est pas totale partout : `z_att < Z_c` pour `64`
+statistiques pleines sous le flux (toutes aux pas `79` et `80` : `24 +
+24` au pas 79, `8 + 8` au pas 80) et `172` par nuit (`144` aux pas 79
+et 80, `28` aux pas 21–23 en FY, où un haut degré ne laisse que
+quelques motifs dans une nuit de `204` tirages) — soit `236` cases sur
+`2 006`, comptées ci-dessus dans les journaux, qui restent **ouvertes**
+comme les `262` vides. Partout ailleurs (`1 770` cases, dont toutes les
+cases des pas 20–24 sous le flux et tout ce qui est de degré `≤ 20`)
+la puissance est totale. `84,5` min de calcul, `85,2` min en tout.
+
+**Ce que cela ferme.** Sous le flux continu comme par nuit, et sans
+supposer d'état : aucun Fibonacci retardé additif ou soustractif lu à
+shift 0, et aucun Fibonacci xor à quelque shift que ce soit, de retard
+`7` à `63` (trinôme primitif) ou classique jusqu'à `1 279`, n'engendre
+l'archive sous les neuf schémas — TYPE_4 `(1, 63)` compris, que le
+§160 laissait à `2^{63}`. Ce que cela **ne** ferme pas, dit tel quel :
+`random()` de la glibc à **shift 1** (invisible par construction, témoin
+négatif ci-dessus ; c'est le domaine du §162 jusqu'à `L = 31`, et de
+`h144` pour la période du plan 1 de TYPE_1 et TYPE_2) ; les `262`
+cases vides et les `236` cases faibles (`z_att < Z_c`), presque toutes
+aux pas 79 et 80 et de degré `≥ 21`, plus `28` cases de nuit aux pas
+21–23 ; les
+polynômes à plus de trois termes (`std::mt19937`, `xorshift`, WELL —
+d'autres sections), le rejet des doublons, la troncature et le pas
+variable.
+
+**Ligne de registre** : `h143.distingueur_structurel`, piste B,
+`observé D = 0`, `p = 1`, verdict **conforme** ; puissance : sept témoins
+plantés (`+`, `−`, `⊕`, flux et bloc, FY et shuffle, dont le témoin
+négatif à shift 1), tous conformes, `0` faux positif sur les flux nuls ;
+Holm sur `60 366` lignes, non significatif. Fichiers :
+`lab/experiments/h143_distingueur_structurel.py`,
+`tools/lfg_struct_flux.c` ; journaux `/tmp/h143.log`,
+`/tmp/h143_journal.txt`, jeton `/tmp/h143_jeton.json`.
+
+---

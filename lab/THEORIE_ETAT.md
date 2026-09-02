@@ -2351,7 +2351,7 @@ supérieurs — la proposition de la retenue, qui dit exactement pourquoi la
 `random()` de la glibc est invisible ici et pourquoi c'est le 7.14 qui
 la voit ; (vi) la cible par nuit ; (vii) les témoins, la troncature à `L
 ≤ 20` ; (viii) le chemin vers l'état si le test détecte, et les limites.
-Le résultat sur l'archive est au §163.
+Le résultat sur l'archive est au §163 : `D = 0` sur `2 006` statistiques pleines (`z` max `3,14`, écart-type `1,022`), conforme ; `236` cases faibles et `262` vides restent ouvertes, presque toutes aux pas 79–80 et de degré `≥ 21`.
 
 **(i) Les relations sans état.** Soit `r_i = r_{i−K} ⊕ r_{i−L}` (xor),
 `r_i = r_{i−K} + r_{i−L}` ou `r_i = r_{i−L} − r_{i−K} mod 2^{32}`, et
@@ -2427,10 +2427,11 @@ finale par un détour, et l'échangeabilité n'est plus exacte ; le
 calibrage Monte Carlo de l'outil (`10^6` tirages du schéma nourri de
 mots uniformes) donne `C(k') = 0,0378 … 0,0383` pour les dix mots pairs,
 FY comme shuffle, contre `3/79 = 0,0380` — la formule vaut pour tous à
-un pour cent près, et `τ₀² = 0,0379` mesuré. Sur l'archive, `Var T =
-0,0387` et `E[T] = −0,0009` (`N = 70 560`, écart-type de la moyenne
-`0,0007`) ; l'outil centre `T` sur sa moyenne empirique et prend `τ²`
-empirique, ce qui ne suppose rien de l'archive.
+un pour cent près, et `τ₀² = 0,03793` mesuré. Sur l'archive, `Var T =
+0,03787` et `E[T] = −0,00031` (`N = 70 560`, écart-type de la moyenne
+`0,00073`) — à `0,5` écart-type de `3/79` l'un et l'autre ; l'outil
+centre `T` sur sa moyenne empirique et prend `τ²` empirique, ce qui ne
+suppose rien de l'archive.
 
 Autrement dit, `T_t ≈ Σ_{k pair} C · β_{t,k} + bruit` : un seul nombre par
 tirage porte, avec le même poids `C = 3/79`, les dix bits du plan 0 des
@@ -2712,7 +2713,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
 | état bas TYPE_2, TYPE_3 et 42 trinômes (degré 15 à 31) sous flux continu à pas constant, **shift 1** (`random()` de la glibc), par les relations de poids 3 sur `Z/4` (§7.14) | `2^L` plans 0 par une WHT (`L ≤ 28`) ou un `χ²` par morceaux (`L = 31`), plan 1 déduit linéairement | **archive — §162 : 396 décodages (fy 20–24, 79, 80 ; shuffle 79, 80 ; shifts 1 et 0), pré-enregistré, en cours** |
-| plan 0 de tout Fibonacci retardé (`+`, `−` à shift 0 ; `xor` à tout shift), 110 trinômes primitifs de degré 7 à 63 + 16 retards classiques jusqu'à 1279, sous flux continu et par nuit, **sans état** (§7.15) | linéaire en `N` : 2 268 statistiques, ≈ 1–3 h | **archive — §163 : pré-enregistré, en cours** |
+| plan 0 de tout Fibonacci retardé (`+`, `−` à shift 0 ; `xor` à tout shift), 110 trinômes primitifs de degré 7 à 63 + 16 retards classiques jusqu'à 1279, sous flux continu et par nuit, **sans état** (§7.15) | linéaire en `N` : 2 268 statistiques, ≈ 1–3 h | **archive — §163 : `D = 0` sur 2 268 statistiques (2 006 pleines), conforme** |
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
