@@ -3749,7 +3749,32 @@ davantage. Pour l'atteindre il faudrait un canal plus riche (le nibble du
 un tirage ordonné (les douze du §159), ou une autre statistique que la
 parité.
 
-**(iii) Ce que le §168 balaie.** Les cinq séquences **nommées** de la
+**(iii) L'autre axe : à quelle fréquence peut-on réamorcer ?** La même
+arithmétique borne une hypothèse voisine — non plus l'excédent, mais le
+**réamorçage**. Si le générateur repart d'un état neuf tous les `k`
+tirages, chaque bloc doit payer `log₂ N` d'inconnue et le seuil de Ville
+augmenté du nombre de blocs, avec `1,09` bit par tirage pour tout revenu :
+
+    k · débit  ≥  log₂(10⁷) + log₂(70 560 / k) + log₂ N
+
+| séquence | `N` | `k` minimal, canal **parité** | `k` minimal, canal **mod 4** |
+|---|---|---|---|
+| `x⁷ + x³ + 1` plan 0 | `127` | `38` tirages (`3,2` h) | `9` (`0,8` h) |
+| `x¹⁵ + x + 1` plan 0 | `32 767` | `45` (`3,8` h) | `10` (`0,8` h) |
+| `x⁷ + x³ + 1` plan 1 | `16 256` | `44` (`3,7` h) | `10` (`0,8` h) |
+| `x¹⁵ + x + 1` plan 1 | `1,07·10⁹` | `59` (`4,9` h) | `13` (`1,1` h) |
+| `x³¹ + x³ + 1` plan 0 | `2³¹ − 1` | `60` (`5,0` h) | `13` (`1,1` h) |
+
+Autrement dit : **un opérateur qui réamorce plus souvent que toutes les
+cinq heures échappe au canal de parité** — et les nuits de l'archive
+comptant `204` tirages, l'hypothèse « un état par nuit » des §165, §166 et
+§170 est confortablement dans le domaine détectable, mais « un état par
+heure » (`12` tirages) ne l'est pour aucune des cinq. Le canal mod 4 du
+7.21 ramène la barre à `9`-`13` tirages, soit **moins d'une heure et
+demie** : c'est la seconde raison, après l'entrelacement, de payer l'état
+carré.
+
+**(iv) Ce que le §168 balaie.** Les cinq séquences **nommées** de la
 glibc — plans 0 et 1 de `x⁷ + x³ + 1` (TYPE_1) et de `x¹⁵ + x + 1`
 (TYPE_2), plan 0 de `x³¹ + x³ + 1` (TYPE_3) — sous les deux
 échantillonneurs (`M = 80` et `M = 128`) et vingt excédents `δ ∈ {1 … 12,
