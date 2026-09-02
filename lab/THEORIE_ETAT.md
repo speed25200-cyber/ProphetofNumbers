@@ -4350,6 +4350,65 @@ hors ordre, qui doit brancher les frontières et propager la clôture dans les
 deux sens, est un second outil — il porterait la lecture par troncature
 jusqu'à TYPE_2, et c'est la suite naturelle de cette section.
 
+#### (xii) Ce que le crible de classes tolère : l'excédent, et la limite exacte
+
+Le 7.20 a établi, pour le canal de **parité**, une limite sévère : un
+excédent **variable** — le générateur consomme `δ_t` mots de plus par
+tirage, pour habiller une page, servir un second jeu, ou brouiller — noie
+le signal dès que `H(δ) ≥ 1,09` bit, c'est-à-dire dès **deux valeurs**. Le
+canal de classes est d'un autre ordre de grandeur, et il vaut la peine de
+dire exactement pourquoi.
+
+Un mot **publié** coûte `+1` bit (le `δ` du quasi-morphisme) et rapporte
+`−2` bits (sa classe est parmi les vingt) : **`−1` bit net**. Un mot
+**d'excédent** est engendré par la même récurrence — il coûte donc lui aussi
+`+1` bit de branchement — mais sa classe n'est **pas** publiée : il ne
+rapporte rien. Le bilan par tirage devient
+
+`décroissance = E[N] − δ̄ − H(δ) = 22,85 − δ̄ − H(δ)` bits,
+
+où `δ̄` est le nombre moyen de mots d'excédent et `H(δ)` l'entropie de sa
+loi (nulle si l'excédent est fixe).
+
+> **Théorème (limite d'excédent du canal de classes).** *Le crible reste
+> auto-entretenu tant que `δ̄ + H(δ) < E[N] = 22,85`. Pour un excédent
+> **fixe**, cela autorise jusqu'à `δ = 22` mots muets par tirage ; pour un
+> excédent **uniforme sur `[0, D−1]`**, jusqu'à `D = 36` valeurs.*
+
+| excédent | reste par tirage | tirages nécessaires |
+|---|---|---|
+| aucun | `+22,85` | `0,19 L` |
+| fixe `δ = 10` | `+12,85` | `0,34 L` |
+| fixe `δ = 20` | `+2,85` | `1,52 L` |
+| fixe `δ = 22` | `+0,85` | `5,09 L` |
+| fixe `δ = 23` | `−0,15` | **le crible diverge** |
+| uniforme sur `[0, 15]` | `+11,35` | `0,38 L` |
+| uniforme sur `[0, 31]` | `+2,35` | `1,84 L` |
+| uniforme sur `[0, 35]` | `+0,18` | `24 L` |
+| uniforme sur `[0, 37]` | `−0,90` | **le crible diverge** |
+
+Autrement dit : **un générateur qui consomme jusqu'à deux fois plus de mots
+qu'il n'en publie, et dont le surplus est tiré au hasard parmi trente-six
+valeurs, reste lisible.** Là où la parité s'arrêtait à deux valeurs, la
+classe en tolère trente-six — le rapport des deux canaux, `45,7` contre
+`1,02` bit par tirage, se lit directement dans cette limite.
+
+Deux remarques pour être exact. D'abord, ce compte suppose l'excédent
+**entre** les tirages ou **dedans**, peu importe : seul le nombre de mots
+non publiés compte. Ensuite, il suppose le crible en ordre de flux, où
+l'alignement est déduit ; l'excédent y est alors une inconnue de plus à
+brancher à chaque frontière, et c'est bien `H(δ)` qu'on paie, pas
+`log₂` du nombre de valeurs — car la frontière suivante se **vérifie**
+(vingt classes distinctes acceptées), ce qui élague les mauvaises valeurs
+au lieu de les porter.
+
+*Note sur le (xi).* Le même argument allège le `log₂ 41 = 5,358` bits par
+tirage qui y est facturé à l'alignement du crible hors ordre : c'est une
+**borne supérieure**, car les classes déjà posées contraignent les
+frontières (un tirage se ferme exactement quand vingt classes distinctes
+ont été acceptées). Une mise en œuvre qui propage cette contrainte paierait
+moins, et les pics du tableau (xi) sont donc pessimistes.
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
