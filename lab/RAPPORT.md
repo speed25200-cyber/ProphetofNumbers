@@ -18149,6 +18149,36 @@ ici pour la graine `151` :
     prédit : 7 9 14 19 22 25 30 33 36 38 39 46 49 56 57 65 70 71 75 77
     réel   : 7 9 14 19 22 25 30 33 36 38 39 46 49 56 57 65 70 71 75 77
 
+### Avec combien de données ? Et sous quel seuil ?
+
+En faisant varier le nombre de tirages donnés à la chaîne (mêmes trois
+graines) :
+
+| tirages | mots | crible : vrai état bas retenu | relèvement : état exact | prédiction |
+|---|---|---|---|---|
+| `12` | `262`-`278` | `3/3` | **`0/3`** | — |
+| `16` | `352`-`369` | `3/3` | `2/3` | `2/3` |
+| `20` | `446`-`459` | `3/3` | **`3/3`** | **`3/3`** |
+| `25` | `557`-`581` | `3/3` | **`3/3`** | **`3/3`** |
+
+La contrainte qui mord n'est ni la détection ni le crible : c'est le
+**réseau**. Le §154 mesure `n* ≈ 380` mots pour TYPE_1 (`380` réussit
+`10/10`, `360` échoue `8/10`) ; à `12` tirages on n'en a que `270`, et le
+CVP rend un vecteur faux. À `20` tirages — `450` mots, **une heure et
+demie de jeu** — il rend l'état, chaque fois.
+
+Et un détail qui compte : **la chaîne a réussi avec des facteurs de Bayes
+de `9,8`, `10,4` et `17,2` bits**, tous **sous** le seuil de Ville de
+`23,25`. Ce n'est pas une contradiction, c'est une remarque de méthode :
+le seuil de `23,25` gouverne la **déclaration** d'une détection à partir
+de la DP seule ; le relèvement, lui, **s'auto-vérifie** — un état qui
+régénère exactement `20` tirages triés est juste avec une probabilité
+`1 − C(80, 20)^{−20}`. On peut donc tenter le relèvement sur les `K`
+meilleures positions d'une DP sous-critique **sans aucun coût de test
+multiple**, et c'est la voie la moins chère pour les petits états. Ce qui
+la borne alors n'est plus le seuil, c'est le prix du crible : `2^{3L}`
+candidats, soit `2^{21}` pour TYPE_1 (fait ici) mais `2^{45}` pour TYPE_2.
+
 ### Ce que ce témoin établit
 
 **Sur cette famille, la détection suffit.** Tout ce qui suit — l'alignement
