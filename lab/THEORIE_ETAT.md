@@ -3942,9 +3942,19 @@ réamorçage, que le mode « par nuit » des §165, §166 et §170 teste
 séparément. Ce n'est pas « améliorer un peu les chances » : c'est
 connaître le tirage.
 
+**Ce qui n'est pas fait, et il faut le dire.** Le témoin de **bout en
+bout** — planter un TYPE_1, le détecter par la DP, relever ses `224` bits
+d'état par la recherche jointe ci-dessus, puis prédire le tirage suivant
+exactement — n'est pas fait ici. Chaque maillon a son témoin séparé (§154
+pour le réseau, §155 pour le crible, §165-§169 pour la DP), la jonction
+est chiffrée (`45,7` contre `2,85` bits par tirage), mais la jonction
+elle-même n'a pas été programmée. C'est le prochain pas naturel de cette
+série, et l'affirmer faite serait faux.
+
 **Ce qui rend le résultat négatif significatif.** La chaîne
-détection → alignement → relèvement → état → prédiction est **entière** :
-chacun de ses maillons existe, a son témoin positif, et le maillon qui
+détection → alignement → relèvement → état → prédiction est **complète en
+principe** :
+chacun de ses maillons existe et a son témoin positif, et le maillon qui
 manquait — l'alignement sous pas variable — est celui que cette série a
 construit. Que `D = 0` sur toutes les grilles ne dit donc pas « nous
 n'avons pas su chercher » : cela dit que le premier maillon ne se ferme
