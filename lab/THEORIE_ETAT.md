@@ -5205,6 +5205,30 @@ L'ordre de grandeur suit `1/√\|S\|`, ce qui est exactement ce qu'on attend d'u
 comptage : le signal est le même, le bruit croît comme la racine du nombre de
 cases comptées.
 
+**(iii bis) La robustesse au masquage — et pourquoi elle est structurelle.** Le
+§7.24 (xii) donne la limite du *crible* face à un excédent de mots muets :
+`δ̄ + H(δ) < 22,85`. Le détecteur, lui, s'en moque presque. Mesuré sur générateurs
+plantés, `2 500` tirages, `z` ramené aux `70 560` de l'archive :
+
+| masquage par tirage | `(3,7)` | `(1,15)` | `(3,31)` |
+|---|---|---|---|
+| aucun | `+158` | `+108` | `+118` |
+| fixe `10` | `+164` | `+76` | `+146` |
+| fixe `40` | `+153` | `+77` | `−19` |
+| aléatoire `0..10` | `+162` | `+66` | `+145` |
+| aléatoire `0..40` | `+162` | `+65` | `+68` |
+| **aléatoire `0..200`** | `+156` | `+75` | `−22` |
+
+Deux cents mots muets tirés au hasard à chaque tirage — dix fois la consommation
+utile — et le signal tient encore à `|z| ≥ 19`, là où le seuil de Bonferroni est à
+`3,5`. La raison est structurelle et se lit sur la règle de portée : quand le
+masquage brouille l'alignement *entre* tirages, le couple gagnant **retombe sur
+`(0,0)`**, c'est-à-dire sur la part de la relation qui vit *à l'intérieur* d'un
+tirage — et celle-là, aucun mot muet inséré entre les tirages ne peut l'atteindre.
+
+C'est l'inverse exact de la faiblesse du crible : le crible a besoin de traverser
+les frontières, le détecteur non.
+
 **(iv) Ce que la forme ne couvre pas.** Elle demande un quasi-morphisme, donc :
 
 - **un LCG à grand multiplicateur** n'en a pas — `c(a·x)` n'est pas
