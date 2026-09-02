@@ -18316,8 +18316,17 @@ Jeton `c7b3095602e2e126`, scellé le `2026-09-02T19:23:13Z`, piste B. **Hypothè
 | `(5  6)` | `1` | flux | `1` | `318 576 044` | `3 840 000` | `0` | `2` |
 | `(1  7)` | `1` | flux | `1` | `5 863 702 640` | `76 800 000` | `0` | `28` |
 | `(3  7)` | `1` | flux | `1` | `5 984 163 188` | `76 800 000` | `0` | `38` |
+| `(4  7)` | `1` | flux | `1` | `6 065 399 528` | `76 800 000` | `0` | `32` |
+| `(6  7)` | `1` | flux | `1` | `6 240 843 171` | `76 800 000` | `0` | `28` |
+| `(1  2)` | `0` | nuit | `37` | `174 346` | `16 404` | `0` | `0` |
+| `(1  3)` | `0` | nuit | `37` | `7 357 049` | `894 133` | `0` | `0` |
+| `(2  3)` | `0` | nuit | `37` | `26 923 947` | `3 675 667` | `0` | `0` |
+| `(1  4)` | `0` | nuit | `37` | `78 824 390` | `11 028 528` | `0` | `1` |
+| `(3  4)` | `0` | nuit | `37` | `91 859 131` | `12 637 787` | `0` | `1` |
+| `(2  5)` | `0` | nuit | `37` | `723 855 934` | `79 579 751` | `0` | `4` |
+| `(3  5)` | `0` | nuit | `37` | `655 877 572` | `65 987 261` | `0` | `4` |
 
-*Grille en cours : `24` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h155_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `33` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h155_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
