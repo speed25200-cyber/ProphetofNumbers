@@ -18856,6 +18856,10 @@ dont deux et demie pour simuler la nulle.
 `|z|` max `= 2,435` au couple `(4,1)`, `p = 0,223` après Bonferroni sur les
 quinze. **Rien.** Quinze statistiques, quinze valeurs dans le bruit.
 
+*Contrôle croisé.* Le couple `(0,0)` doit redonner la somme des deux statistiques du
+§177, calculées par un code écrit séparément : `100,03722 + 100,06573 = 200,1030`
+contre `200,1029` ici. Les deux implémentations coïncident à la quatrième décimale.
+
 ### Ce que cela ferme
 
 C'est la fermeture la plus large de ce dossier sur la famille qui l'a occupé le
