@@ -18023,8 +18023,19 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 | `128` | 0 | `x^7 + x^6 + 1` | `127` | `0,20` @ `2` | `0` | `0` | 0 | 21 |
 | `128` | 0 | `x^9 + x^4 + 1` | `511` | `0,16` @ `2` | `0` | `0` | 0 | 81 |
 | `128` | 0 | `x^9 + x^5 + 1` | `511` | `0,32` @ `2` | `0` | `0` | 0 | 83 |
+| `128` | 0 | `x^10 + x^3 + 1` | `1 023` | `0,52` @ `73` | `0` | `0` | 0 | 184 |
+| `128` | 0 | `x^10 + x^7 + 1` | `1 023` | `0,33` @ `3` | `0` | `0` | 0 | 182 |
+| `128` | 0 | `x^11 + x^2 + 1` | `2 047` | `0,14` @ `2` | `0` | `0` | 0 | 187 |
+| `128` | 0 | `x^11 + x^9 + 1` | `2 047` | `0,29` @ `3` | `0` | `0` | 0 | 186 |
+| `128` | 0 | `x^15 + x^1 + 1` (TYPE_2) | `32 767` | `0,09` @ `1` | `0` | `0` | 0 | 190 |
+| `128` | 0 | `x^15 + x^4 + 1` | `32 767` | `0,15` @ `2` | `0` | `0` | 0 | 198 |
+| `128` | 0 | `x^15 + x^7 + 1` | `32 767` | `0,15` @ `2` | `0` | `0` | 0 | 185 |
+| `128` | 0 | `x^15 + x^8 + 1` | `32 767` | `0,11` @ `2` | `0` | `0` | 0 | 196 |
+| `128` | 0 | `x^15 + x^11 + 1` | `32 767` | `1,61` @ `45` | `0` | `0` | 0 | 201 |
+| `128` | 0 | `x^15 + x^14 + 1` | `32 767` | `0,09` @ `1` | `0` | `0` | 0 | 196 |
+| `128` | 0 | `x^17 + x^3 + 1` | `131 071` | `0,10` @ `1` | `0` | `0` | 0 | 217 |
 
-*Grille en cours : `103` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `114` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18270,8 +18281,11 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 | `(1  7)` | `1` | flux | `1` | `5 929 104 301` | `76 800 000` | `0` | `239` |
 | `(3  7)` | `1` | flux | `1` | `6 067 119 823` | `76 800 000` | `0` | `312` |
 | `(4  7)` | `1` | flux | `1` | `6 108 155 150` | `76 800 000` | `0` | `285` |
+| `(6  7)` | `1` | flux | `1` | `6 267 171 264` | `76 800 000` | `0` | `217` |
+| `(1  2)` | `0` | nuit | `37` | `47 719 313` | `8 140 752` | `0` | `1` |
+| `(1  3)` | `0` | nuit | `37` | `29 827 396 843` | `4 442 690 036` | `0` | `494` |
 
-*Grille en cours : `25` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `28` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18282,5 +18296,94 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 *à écrire à la fin de la grille.*
 
 **Ligne de registre.** `h152.troncature`, piste B, en cours (rien n'est consigné avant la fin des `52` configurations).
+
+---
+
+## 173. Le relèvement de la troncature : des classes à l'état complet, puis aux vingt numéros du tirage suivant (`h153_releve_troncature.py`, `lab/lll_exact.py`)
+
+### Ce que le §172 laissait ouvert
+
+Le crible de classes rend un `L`-uplet de **classes** — `log₂ 80 = 6,32`
+bits par mot — et laisse les `25,68` bits bas de chacun. Le §7.24 (vii)
+affirmait que les `δ` du quasi-morphisme les rendent par un réseau. Une
+affirmation n'est pas une mesure ; ce §173 la remplace par une mesure, et
+au passage il **corrige d'un facteur cinq** le compte de tirages annoncé.
+
+### L'équation
+
+Écrivons `r_i = M_i + s_i`, où `M_i = ⌈c_i · 2³²/80⌉` est le bas de la
+classe (connu) et `s_i ∈ [0, W)` avec `W = 2³²/80` (inconnu). La récurrence
+`r_i = r_{i−K} + r_{i−L} − 2³² e_i` donne
+
+`s_i = s_{i−K} + s_{i−L} + D_i`,  `D_i = M_{i−K} + M_{i−L} − M_i − 2³² e_i`,
+
+et **`e_i` est déterminé** : une seule des deux valeurs met `D_i` dans
+`(−2W, W)`. C'est le `δ` que le crible branchait — non pas un artefact,
+mais la retenue des parties fractionnaires. Les `s_i` sont alors des formes
+**affines entières** des `L` premières, et « `0 ≤ s_i < W` pour tout
+`i < T` » est un problème de **vecteur le plus proche** dans un réseau de
+rang `L` plongé dans `Z^T`, résolu exactement par `lab/lll_exact.py`.
+
+### Ce qui était faux, et que la mesure corrige
+
+Le §7.24 (vii) annonçait `T ≥ 25,68 L` mots — `8` tirages pour TYPE_1. Le
+compte confondait le nombre de **bits** à trouver avec le nombre de
+**coordonnées** qui les donnent. Le bon critère est
+
+`log₂ det Λ ≥ L · (32 − log₂ 80) = 25,68 L`,
+
+et `det Λ` croît à la vitesse de la **racine dominante** du trinôme
+`x^L = x^{L−K} + 1` — qui dépend du trinôme, pas seulement de son degré, et
+qui tend vers `1` quand le degré monte. Il faut donc le calculer trinôme par
+trinôme, et **exactement** : les colonnes de la matrice des coefficients
+sont presque parallèles (elles suivent toutes la racine dominante), de sorte
+qu'un déterminant flottant n'en garde aucun chiffre — mesuré : le calcul
+`float64` rend un pivot nul ou une valeur fausse d'un facteur `10` sur la
+moitié des tailles essayées. L'élimination de **Bareiss** sur la matrice de
+Gram entière, elle, est exacte et coûte moins d'une seconde.
+
+| `(K, L)` | | mots nécessaires | tirages |
+|---|---|---|---|
+| `(2, 5)` | | `311` | `13,6` |
+| `(1, 6)` | | `362` | `15,8` |
+| **`(3, 7)`** | **TYPE_1** | `399` | `17,5` |
+| `(2, 11)` | | `634` | `27,7` |
+| `(1, 15)` | TYPE_2 | `848` | `37,1` |
+| `(3, 17)` | | `965` | `42,2` |
+| `(3, 31)` | TYPE_3 | `1 739` | `76,1` |
+
+Tous tiennent dans **une seule nuit** — une nuit compte `204` tirages.
+
+### La mesure
+
+Suite plantée, lue par troncature avec rejet, tirages **triés** comme ceux
+de l'archive ; le crible du §172 fournit les classes, ce §173 fait le reste.
+
+| `(K, L)` | décalage | mots | état de `32L` bits | tirage suivant | secondes |
+|---|---|---|---|---|---|
+| `(2, 5)` | `0` | `311` | **exact** | **20/20** | `0,2` |
+| `(2, 5)` | `1` | `311` | **exact** | **20/20** | `0,2` |
+| `(1, 6)` | `0` | `362` | **exact** | **20/20** | `0,5` |
+| `(1, 6)` | `1` | `362` | **exact** | **20/20** | `0,5` |
+| **`(3, 7)` TYPE_1** | `0` | `399` | **exact** | **20/20** | `1,1` |
+| **`(3, 7)` TYPE_1** | `1` | `399` | **exact** | **20/20** | `1,0` |
+
+Six cas sur six : l'état complet est retrouvé **au mot près**, et les vingt
+numéros du tirage suivant sont prédits **juste**, en une seconde.
+
+### Ce que cela établit
+
+La chaîne de la troncature est **entière** : classes (§172) → retenues →
+réseau → état de `32L` bits → tirage suivant. Elle a la même forme que celle
+du §171 pour l'échantillonneur à modulo, et elle est vérifiée de la même
+manière — sur suite plantée, vérité connue.
+
+Ce qu'elle n'établit pas : rien sur l'archive. C'est un témoin de
+**puissance**. Et le maillon amont — le crible — reste borné au degré `7` en
+ordre de flux (`20^L`), le relèvement, lui, ne l'étant pas : il traite le
+degré `31` en `1 739` mots.
+
+**Ligne de registre.** Aucune : témoin synthétique, aucune donnée réelle
+n'est lue, rien n'est consigné.
 
 ---
