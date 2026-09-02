@@ -5106,6 +5106,104 @@ maintenant, pour cette famille précise, **combien de tirages** il en faut, et q
 c'en est un seul dès le degré `6`.
 
 
+### 7.28 La famille des **détecteurs d'énergie** — un principe, et sa règle de portée
+
+Le §7.27 démontre le théorème du tirage unitaire et, au (iv bis), en tire un
+détecteur. Les §177 à §182 en construisent six. Ils ont tous la même forme, et il
+vaut la peine de l'écrire une fois pour toutes — parce que la forme dit
+exactement ce qu'ils couvrent, et surtout ce qu'ils ne couvrent pas.
+
+**(i) Le principe.** Soit un générateur dont l'état évolue par une récurrence à
+deux termes dans un groupe `(G, ⋆)` :
+
+```
+    r_i = (α · r_{i−K}) ⋆ (β · r_{i−L}) .
+```
+
+Soit `φ` la lecture — ce que le tirage publie du mot. Si `φ` est un
+**quasi-morphisme** de `(G, ⋆)` vers un groupe fini `(H, ⊙)`, c'est-à-dire si
+
+```
+    φ(x ⋆ y) = φ(x) ⊙ φ(y) ⊙ δ ,     δ dans un support S petit,
+```
+
+alors *tout triplet de mots liés par la récurrence laisse une coïncidence dans
+`H`*, et cette coïncidence se compte par une **convolution dans `H`** :
+
+```
+    T(α, β, g₁, g₂) = # { (u,v) ∈ C_{t−g₁} × C_{t−g₂} : (α·u) ⊙ (β·v) ⊙ δ ∈ C_t , δ ∈ S } .
+```
+
+Les deux instanciations utilisées :
+
+| `(G, ⋆)` | lecture `φ` | `(H, ⊙)` | `S` | convolution | section |
+|---|---|---|---|---|---|
+| `Z/2³²`, `+` | troncature `⌊x·80/2³²⌋` | `Z/80`, `+` | `{0,1}` | circulaire | §177–§179 |
+| `Z/2³²`, `+` | modulo `x mod 80` | `Z/80`, `+` | `{0,−16}` | circulaire | §180 |
+| `Z/2³²`, `⊕` | six bits de tête | `F₂⁶`, `⊕` | `{0}` | Walsh-Hadamard | §182 |
+
+La ligne du milieu mérite un mot : `2³² mod 80 = 16`, d'où `δ ∈ {0,−16}` au
+décalage `0` et `{0,1,−48,−47}` au décalage `1`. La ligne du bas est la plus
+propre — le `XOR` n'a pas de retenue, donc `S = {0}` exactement — mais elle paye
+ailleurs : la classe ne détermine les six bits de tête qu'à une ambiguïté de deux
+près, puisque l'intervalle d'une classe est large de `2^{25,68}` contre `2^{26}`
+par case.
+
+**(ii) La règle de portée.** Le couple de décalages qui porte le signal se lit
+sur le générateur, sans rien calculer :
+
+```
+    g₁ ≈ L / E[N] ,     g₂ ≈ K / E[N] ,     E[N] = 22,85 mots par tirage.
+```
+
+C'est *tout* le contenu du balayage : un retard de `L` mots est un retard de
+`L/22,85` tirages. TYPE_3 `(3,31)` sort en `(1,0)` parce que `31/22,85 = 1,36` et
+`3/22,85 = 0,13` ; TYPE_4 `(1,63)` en `(3,0)` ; `(31,63)` en `(3,1)`.
+
+Et la règle dit aussi **où sont les angles morts**, ce qui a servi deux fois :
+
+- si `K` dépasse un tirage, `g₂ ≥ 1` : un balayage limité à `g₂ = 0` manque
+  `(13,31)` et `(31,63)` — c'est ce que le §178 a dû corriger ;
+- si la récurrence est **soustractive**, la somme tombe dans un tirage *antérieur*
+  aux opérandes, donc l'un des décalages est **négatif** : un balayage positif
+  manque le `ran_array` de Knuth `(24,55)` — c'est ce que le §179 a dû corriger.
+
+Les deux fois, l'angle mort a été trouvé en posant la même question : *quelle
+forme de la relation ce balayage ne peut-il pas voir ?*
+
+**(iii) La loi de dégradation.** La puissance décroît quand le support `S`
+grandit — une coïncidence est d'autant plus banale que `δ` a plus de valeurs.
+Mesuré, sur `(1,15)` planté, `z` ramené aux `70 560` tirages :
+
+| lecture | `\|S\|` | `z` |
+|---|---|---|
+| troncature | `2` | `+119` |
+| modulo décalage `0` | `2` | `+130` |
+| coefficients `(1,2)` | `≤ 3` | `+92` |
+| modulo décalage `1` | `4` | `+87` |
+
+L'ordre de grandeur suit `1/√\|S\|`, ce qui est exactement ce qu'on attend d'un
+comptage : le signal est le même, le bruit croît comme la racine du nombre de
+cases comptées.
+
+**(iv) Ce que la forme ne couvre pas.** Elle demande un quasi-morphisme, donc :
+
+- **un LCG à grand multiplicateur** n'en a pas — `c(a·x)` n'est pas
+  `a·c(x) + petit` dès que `a` est grand — et reste traité par le réseau (§144) ;
+- **Mersenne Twister** n'est pas une récurrence à deux termes sur des *mots* : son
+  pas décale d'un bit, ce qui casse l'alignement des têtes (le tempering, lui, est
+  `F₂`-linéaire et ne gêne pas) ;
+- **un CSPRNG** n'a par construction aucun quasi-morphisme lisible, et le §7.26
+  dit pourquoi aucun test ne peut en avoir un.
+
+**(v) Ce que la famille a coûté, et ce qu'elle a rapporté.** Le crible exact du
+§172 couvre le degré `≤ 7` pour `286` milliards de nœuds. Les six détecteurs
+couvrent, ensemble, les récurrences à deux termes additives et soustractives, à
+coefficients `±1, ±2`, aux degrés `7` à `100`, sous cinq échantillonneurs
+différents — pour une vingtaine de minutes de calcul au total. Le crible reste
+irremplaçable pour ce qu'un détecteur ne fait pas : **rendre un état**. Mais pour
+*écarter*, il n'y a aucune raison de le payer.
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
