@@ -4194,10 +4194,47 @@ décroît d'un bit par mot : le parcours entier coûte `≈ 2,5 · 20^L` nœuds.
 | `15` | `2^{64,8}` | `6·10¹⁹` | hors de portée | |
 | `31` | `2^{134}` | | hors de portée | |
 
-La mesure confirme le modèle au chiffre près : sur `400` tirages tirés sous
-`H₀`, la configuration `(3, 7)` visite `2 564 985 164` nœuds — contre
-`2,5 · 20⁷ = 3,2·10⁹` prédits — en `69` s, soit `27` ns par nœud, et rend
-**zéro survivant**.
+Sur `400` tirages tirés sous `H₀`, la configuration `(3, 7)` visite
+`2 564 985 164` nœuds — contre `2,5 · 20⁷ = 3,2·10⁹` prédits — en `69` s,
+soit `27` ns par nœud, et rend **zéro survivant**. Le modèle a l'air juste.
+Il ne l'est pas.
+
+> **Le modèle est une moyenne, pas une borne — et la queue est lourde.**
+> *Le facteur de branchement `2 × P(classe publiée) = 0,50` est
+> sous-critique **en moyenne** (mesuré sur `2 000` tirages de l'archive :
+> moyenne `0,500`, minimum `0,318`, maximum `0,705`, jamais au-dessus de
+> `1`). Mais un tirage qui contient des classes **consécutives** — `25, 26,
+> 27, 28` par exemple — crée des **poches surcritiques** : les deux valeurs
+> de `δ` y sont publiées à la fois, et le nœud a deux successeurs vivants.
+> Un arbre sous-critique en moyenne peut y grossir sans fin.*
+
+C'est une mesure, pas une crainte : au degré `3`, l'ancrage de la **nuit 20**
+de l'archive coûte `2,4·10⁹` nœuds contre `2·10⁴` prédits — **dix mille fois
+le modèle** —, là où les nuits `0`, `10`, `30`, `40` et `60` coûtent
+`1,5·10⁴` à `2,0·10⁴` comme annoncé. C'est ce qui a rendu la partie « par
+nuit » de la première grille infaisable.
+
+**Deux corrections suffisent, et elles sont exactes ou nommées.**
+
+1. *Un élagage exact, qui manquait.* Clôturer un tirage demande encore
+   `20 − nacc` mots acceptants, donc au moins autant de mots : tout chemin
+   vérifiant
+
+   `wd + (20 − nacc) > N_max`
+
+   est **mort**. Le chemin vrai vérifie `wd + (20 − nacc) ≤ N ≤ N_max` à
+   chaque instant, donc l'élagage ne perd rien. **Facteur `6` mesuré.**
+2. *Le plafond par tirage, de `60` à `45` mots.* `P(N > 45) = 1,3·10⁻¹¹` par
+   tirage, soit `3,2·10⁻⁷` sur les `≈ 24 700` tirages qu'une grille
+   parcourt : la perte de puissance est **nommée** et négligeable.
+   **Facteur `67` mesuré.**
+
+Ensemble, l'ancrage pathologique passe de `2,4·10⁹` à `5,6·10⁶` nœuds au
+degré `3`, et le degré `6` n'y coûte que `2,2·10⁹` nœuds — sept secondes. La
+morale est générale et vaut pour tout crible dur de ce type : **le coût d'un
+parcours sous-critique en moyenne n'est pas borné par sa moyenne**, et il
+faut un plafond de nœuds *et* l'exigence d'un parcours complet — une
+configuration coupée au plafond n'exclut rien.
 
 #### (vii) Le relèvement : les `δ` lus sur la solution donnent le réseau (§173)
 

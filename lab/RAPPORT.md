@@ -18210,8 +18210,10 @@ Et — c'est le point qui distingue ce crible de tout le reste du dossier —
 des classes acceptées depuis le début du bloc. Le pas variable, qui coûtait
 `H(N) = 2,846` bits par tirage aux §165-§170 et qui a imposé toute la
 machinerie de synchronisation, coûte ici **zéro**. Seule précaution, un
-plafond de `60` mots par tirage : `P(N > 60) = 1,8·10⁻²⁰`, soit `1,3·10⁻¹⁵`
-sur l'archive entière — la probabilité est nommée, pas cachée.
+plafond de `45` mots par tirage : `P(N > 45) = 1,3·10⁻¹¹`, soit `3,2·10⁻⁷`
+sur les tirages que la grille parcourt — la probabilité est nommée, pas
+cachée. (La première version en avait `60` ; le paragraphe suivant dit
+pourquoi il a fallu descendre.)
 
 Coût : front `20^L`, parcours `≈ 2,5 · 20^L` nœuds. C'est ce qui borne la
 grille au degré `7` (`2^{30,3}`, vingt secondes) ; le degré `9` vaut
@@ -18246,6 +18248,35 @@ milliers, voire en millions. Le crible **exclut** ; il n'identifie pas. C'est
 le relèvement (les `δ` lus sur la solution donnent `T` demi-espaces sur les
 parties fractionnaires, LLL, 7.24 (vii)) qui ne laisse passer qu'un point.
 
+### La conception a dû être refaite, et il faut dire pourquoi
+
+La première version de cette section a été pré-enregistrée avec un plafond
+de `60` mots par tirage et le modèle de coût « `2,5 · 20^L` nœuds ». **Le
+modèle était une moyenne, pas une borne**, et la mesure l'a démenti. Le
+facteur de branchement vaut `0,50` en moyenne — sous-critique, mesuré sur
+`2 000` tirages de l'archive : minimum `0,318`, maximum `0,705`, jamais
+au-dessus de `1`. Mais un tirage contenant des classes **consécutives**
+(`25, 26, 27, 28`) crée des **poches surcritiques**, les deux valeurs de `δ`
+y étant publiées à la fois. Au degré `3`, l'ancrage de la **nuit 20** coûte
+`2,4·10⁹` nœuds contre `2·10⁴` prédits — dix mille fois le modèle — quand
+les nuits `0, 10, 30, 40, 60` coûtent `1,5` à `2,0·10⁴` comme annoncé.
+
+La partie « par nuit » de la première grille en est devenue infaisable, et
+deux configurations y ont été **coupées** au plafond de nœuds — elles
+n'excluent rien, et c'est le garde-fou décrit ci-dessous qui les a
+signalées. Deux corrections ont suffi, l'une **exacte**, l'autre **nommée** :
+
+| correction | nature | gain mesuré |
+|---|---|---|
+| un chemin vérifiant `wd + (20 − nacc) > N_max` ne peut plus clôturer son tirage : il est mort | **exacte** — le chemin vrai vérifie `wd + (20 − nacc) ≤ N ≤ N_max` | `×6` |
+| plafond par tirage de `60` à `45` mots | `P(N > 45) = 1,3·10⁻¹¹` par tirage, `3,2·10⁻⁷` sur la grille | `×67` |
+
+Ensemble : l'ancrage pathologique passe de `2,4·10⁹` à `5,6·10⁶` nœuds au
+degré `3`, et le degré `6` n'y coûte plus que `2,2·10⁹` — sept secondes. La
+grille est reprise entière sous jeton neuf (`h155`), et la première (`h152`)
+reste **non consignée** : sa grille n'a pas pu être menée à son terme, et
+c'est dit ici plutôt que caché.
+
 *Et une garde qu'il faut nommer.* Le parcours est borné par un plafond de
 nœuds. Une configuration **coupée** à ce plafond n'exclut **rien** — son
 parcours n'est pas complet — et le script refuse alors de consigner quoi que
@@ -18255,44 +18286,38 @@ partout pour que le `D = 0` veuille dire quelque chose.
 
 ### Pré-enregistrement
 
-Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothèse** : l'archive triée n'est engendrée par aucun Fibonacci retardé additif lu par l'échantillonneur à **troncature** avec rejet, aux deux décalages, sur les `13` trinômes primitifs de degré `≤ 7` en flux continu, ceux de degré `≤ 6` par nuit (`1` nuit sur `10`) et ceux de degré `7` par nuit (`1` nuit sur `37`) — `52` configurations. **Statistique** : `D` = nombre de configurations laissant au moins un survivant, c'est-à-dire un `L`-uplet de classes dont l'automate clôture `25` tirages consécutifs. **Nulle** : crible **dur**, pas de martingale — zéro survivant exclut la configuration à `1,3·10⁻¹⁵` près (le plafond de `60` mots par tirage). **Verdict** : conforme si `D = 0`.
+Jeton `c7b3095602e2e126`, scellé le `2026-09-02T19:23:13Z`, piste B. **Hypothèse** : l'archive triée n'est engendrée par aucun Fibonacci retardé additif lu par l'échantillonneur à **troncature** avec rejet, aux deux décalages, sur les `13` trinômes primitifs de degré `≤ 7` en flux continu, ceux de degré `≤ 6` par nuit (`1` nuit sur `10`) et ceux de degré `7` par nuit (`1` nuit sur `37`) — `52` configurations. **Statistique** : `D` = nombre de configurations laissant au moins un survivant, c'est-à-dire un `L`-uplet de classes dont l'automate clôture `25` tirages consécutifs. **Nulle** : crible **dur**, pas de martingale — zéro survivant exclut la configuration à `1,3·10⁻¹⁵` près (le plafond de `60` mots par tirage). **Verdict** : conforme si `D = 0`.
 
 ### La grille
 
 | `(K, L)` | décalage | mode | ancrages | nœuds visités | pic du front | survivants | secondes |
 |---|---|---|---|---|---|---|---|
-| `(1  2)` | `0` | flux | `1` | `1 031` | `22` | `0` | `0` |
-| `(1  3)` | `0` | flux | `1` | `20 056` | `440` | `0` | `0` |
-| `(2  3)` | `0` | flux | `1` | `21 422` | `440` | `0` | `0` |
-| `(1  4)` | `0` | flux | `1` | `383 649` | `8 800` | `0` | `0` |
-| `(3  4)` | `0` | flux | `1` | `393 794` | `8 800` | `0` | `0` |
-| `(2  5)` | `0` | flux | `1` | `7 564 597` | `176 000` | `0` | `0` |
-| `(3  5)` | `0` | flux | `1` | `7 616 087` | `176 000` | `0` | `0` |
-| `(1  6)` | `0` | flux | `1` | `149 408 626` | `3 520 000` | `0` | `4` |
-| `(5  6)` | `0` | flux | `1` | `154 466 087` | `3 520 000` | `0` | `4` |
-| `(1  7)` | `0` | flux | `1` | `2 973 089 263` | `70 400 000` | `0` | `75` |
-| `(3  7)` | `0` | flux | `1` | `2 962 818 531` | `70 400 000` | `0` | `101` |
-| `(4  7)` | `0` | flux | `1` | `2 978 845 646` | `70 400 000` | `0` | `90` |
-| `(6  7)` | `0` | flux | `1` | `3 078 412 821` | `70 400 000` | `0` | `76` |
-| `(1  2)` | `1` | flux | `1` | `2 480` | `24` | `0` | `0` |
-| `(1  3)` | `1` | flux | `1` | `29 904 401` | `2 692 550` | `0` | `1` |
-| `(2  3)` | `1` | flux | `1` | `54 266` | `480` | `0` | `0` |
-| `(1  4)` | `1` | flux | `1` | `808 904` | `9 600` | `0` | `0` |
-| `(3  4)` | `1` | flux | `1` | `828 624` | `9 600` | `0` | `0` |
-| `(2  5)` | `1` | flux | `1` | `15 916 234` | `192 000` | `0` | `1` |
-| `(3  5)` | `1` | flux | `1` | `52 833 265` | `3 328 514` | `0` | `2` |
-| `(1  6)` | `1` | flux | `1` | `301 863 348` | `3 840 000` | `0` | `13` |
-| `(5  6)` | `1` | flux | `1` | `319 742 855` | `3 840 000` | `0` | `13` |
-| `(1  7)` | `1` | flux | `1` | `5 929 104 301` | `76 800 000` | `0` | `239` |
-| `(3  7)` | `1` | flux | `1` | `6 067 119 823` | `76 800 000` | `0` | `312` |
-| `(4  7)` | `1` | flux | `1` | `6 108 155 150` | `76 800 000` | `0` | `285` |
-| `(6  7)` | `1` | flux | `1` | `6 267 171 264` | `76 800 000` | `0` | `217` |
-| `(1  2)` | `0` | nuit | `37` | `47 719 313` | `8 140 752` | `0` | `1` |
-| `(1  3)` | `0` | nuit | `37` | `29 827 396 843` | `4 442 690 036` | `0` | `494` |
-| `(2  3)` | `0` | nuit | `37` | `60 011 692 052` | `6 559 920 471` | `0` | `986` |
-| `(1  4)` | `0` | nuit | `37` | `57 737 846 037` | `5 967 540 967` | `0` | `948` |
+| `(1  2)` | `0` | flux | `1` | `997` | `22` | `0` | `0` |
+| `(1  3)` | `0` | flux | `1` | `19 766` | `440` | `0` | `0` |
+| `(2  3)` | `0` | flux | `1` | `21 388` | `440` | `0` | `0` |
+| `(1  4)` | `0` | flux | `1` | `383 615` | `8 800` | `0` | `0` |
+| `(3  4)` | `0` | flux | `1` | `393 760` | `8 800` | `0` | `0` |
+| `(2  5)` | `0` | flux | `1` | `7 564 530` | `176 000` | `0` | `0` |
+| `(3  5)` | `0` | flux | `1` | `7 616 000` | `176 000` | `0` | `0` |
+| `(1  6)` | `0` | flux | `1` | `149 404 546` | `3 520 000` | `0` | `0` |
+| `(5  6)` | `0` | flux | `1` | `154 462 915` | `3 520 000` | `0` | `0` |
+| `(1  7)` | `0` | flux | `1` | `2 973 024 814` | `70 400 000` | `0` | `9` |
+| `(3  7)` | `0` | flux | `1` | `2 962 766 608` | `70 400 000` | `0` | `12` |
+| `(4  7)` | `0` | flux | `1` | `2 978 781 718` | `70 400 000` | `0` | `10` |
+| `(6  7)` | `0` | flux | `1` | `3 078 366 694` | `70 400 000` | `0` | `9` |
+| `(1  2)` | `1` | flux | `1` | `2 050` | `24` | `0` | `0` |
+| `(1  3)` | `1` | flux | `1` | `55 915` | `1 234` | `0` | `0` |
+| `(2  3)` | `1` | flux | `1` | `52 173` | `480` | `0` | `0` |
+| `(1  4)` | `1` | flux | `1` | `798 958` | `9 600` | `0` | `0` |
+| `(3  4)` | `1` | flux | `1` | `818 361` | `9 600` | `0` | `0` |
+| `(2  5)` | `1` | flux | `1` | `15 860 838` | `192 000` | `0` | `0` |
+| `(3  5)` | `1` | flux | `1` | `15 895 631` | `192 000` | `0` | `0` |
+| `(1  6)` | `1` | flux | `1` | `300 490 901` | `3 840 000` | `0` | `2` |
+| `(5  6)` | `1` | flux | `1` | `318 576 044` | `3 840 000` | `0` | `2` |
+| `(1  7)` | `1` | flux | `1` | `5 863 702 640` | `76 800 000` | `0` | `28` |
+| `(3  7)` | `1` | flux | `1` | `5 984 163 188` | `76 800 000` | `0` | `38` |
 
-*Grille en cours : `30` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `24` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h155_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18302,7 +18327,7 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 
 *à écrire à la fin de la grille.*
 
-**Ligne de registre.** `h152.troncature`, piste B, en cours (rien n'est consigné avant la fin des `52` configurations).
+**Ligne de registre.** `h155.troncature_v2`, piste B, en cours (rien n'est consigné avant la fin des `52` configurations).
 
 ---
 ## 173. Le relèvement de la troncature : des classes à l'état complet, puis aux vingt numéros du tirage suivant (`h153_releve_troncature.py`, `lab/lll_exact.py`)
