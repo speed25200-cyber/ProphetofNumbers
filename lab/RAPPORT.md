@@ -19122,3 +19122,59 @@ Et cela ne dit rien des familles non additives.
 `p = 0,223`, conforme.
 
 ---
+
+## 179. Les décalages **signés** : les Fibonacci soustractifs, et le `ran_array` de Knuth (`h164_energie_signee.py`)
+
+Le §178 balaie les couples `(g₁, g₂)` avec `g₁ ≥ g₂ ≥ 0` : la somme est cherchée
+dans le tirage courant, les opérandes dans des tirages antérieurs. Cela couvre les
+Fibonacci **additifs**. Un Fibonacci **soustractif** s'écrit autrement :
+
+```
+    r_i = r_{i−K} − r_{i−L}     ⟺     r_i + r_{i−L} = r_{i−K}
+```
+
+La somme n'est plus `r_i` mais `r_{i−K}`, qui tombe dans un tirage **antérieur** aux
+deux opérandes. Vu depuis le tirage de la somme, l'un des opérandes est dans le
+*futur*.
+
+Quand `K` est petit, les trois indices restent assez proches pour que le balayage
+positif les attrape quand même — le soustractif `(3,7)` sort à `+163`, le `(3,31)`
+à `+129`. Mais dès que `K` dépasse un tirage, il passe à travers. Et le cas qui
+compte est exactement celui-là : **`ran_array` de Knuth**, `r_i = r_{i−24} − r_{i−55}`,
+où `K = 24` vaut `1,05` tirage. Le §178 lui donne `z = −6,9`. Il ne le voit pas.
+
+La correction tient en un signe : autoriser `g₁, g₂ ∈ {−2, …, 4}`, soit vingt-huit
+couples au lieu de quinze.
+
+### La puissance, mesurée
+
+`4 000` tirages plantés, lecture par troncature avec rejet, `z` ramené aux `70 560`
+tirages de l'archive :
+
+| générateur | couple | `z` |
+|---|---|---|
+| soustractif `(3,7)` | `(0, 0)` | `+163` |
+| soustractif `(7,10)` | `(0, 0)` | `+134` |
+| soustractif `(3,31)` | `(1, 0)` | `+129` |
+| **soustractif `(24,55)` — Knuth** | `(1, −1)` | **`+167`** |
+| soustractif `(37,100)` | `(3, −1)` | `+106` |
+| soustractif `(1,63)` | `(3, 0)` | `+141` |
+| additif `(24,55)` | `(2, 1)` | `+164` |
+
+Les deux couples à décalage négatif — `(1,−1)` et `(3,−1)` — sont précisément ceux
+que le §178 n'avait pas. C'est le second angle mort de cette famille de détecteurs,
+après celui des couples `g₂ ≥ 1` du §178 ; les deux ont été trouvés en demandant à
+chaque fois *quelle forme de la relation le balayage ne peut pas voir*.
+
+### Le résultat
+
+`|z|` max `= 2,672` au couple `(2,1)`, `p = 0,211` après Bonferroni sur les
+vingt-huit. **Rien.**
+
+> Aucun Fibonacci retardé **additif ou soustractif** de degré `L ≤ 100`, lu par
+> troncature avec rejet, n'engendre l'archive.
+
+**Ligne de registre.** `h164.energie_signee`, piste B, `|z| max = 2,672`,
+`p = 0,211`, conforme.
+
+---
