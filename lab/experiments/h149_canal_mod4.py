@@ -127,7 +127,7 @@ if __name__ == "__main__" and "--selftest" in sys.argv:
     say("h149 selftest (données synthétiques)")
     assert os.path.exists(OUTIL)
     T = int(sys.argv[sys.argv.index("--T") + 1]) if "--T" in sys.argv else 150
-    K, L = 1, 15
+    K, L = (1, 15) if "--gros" in sys.argv else (2, 11)
     res = {}
     for jv in (0, 1):
         ecrire("/tmp/h149_self.txt", planter(K, L, 0, T, 1490 + jv, jv))
@@ -137,9 +137,6 @@ if __name__ == "__main__" and "--selftest" in sys.argv:
             res[(jv, jl)] = fin["gmax"]
             say(f"   planté jumeau={jv}, lu jumeau={jl} : max log2 BF = {fin['gmax']:9.2f} @ "
                 f"{fin['tmax']} ; pic {pic[0]},{pic[1]} masse {pic[2]:.3f} ; {fin['sec']:.0f} s")
-    ecrire("/tmp/h149_self.txt", [ac_de(sorted(int(v) + 1 for v in
-                                               np.random.default_rng(7).choice(POOL, DRAWN, replace=False)))
-                                  for _ in range(T)])
     rng = np.random.default_rng(77)
     ecrire("/tmp/h149_self.txt", [ac_de(sorted(int(v) + 1 for v in rng.choice(POOL, DRAWN, replace=False)))
                                   for _ in range(T)])
