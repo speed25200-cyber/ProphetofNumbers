@@ -18562,3 +18562,136 @@ sur l'archive est une application des grilles déjà consignées (§172), pas un
 hypothèse nouvelle.
 
 ---
+
+## 176. Les tirages **ordonnés** portés en C : ce que l'ordre vaut, et un élagage qui était faux (`h161_ordonne_c.py`)
+
+Le §175 a montré que l'exclusion, sur l'archive triée, se joue à l'intérieur d'un
+seul tirage — et le théorème du tirage unitaire donne pourquoi : `37,0043` bits
+par tirage trié contre `5,3219` bits par mot d'état libre, d'où un seuil de degré
+`6,95`. La même formule, appliquée à un tirage **ordonné**, donne `98,0817` bits
+et un seuil de **`18,43`**. Cette section en tire les conséquences sur les douze
+tirages ordonnés des vidéos.
+
+### Ce que h158 n'avait pas vu, et ce qu'il ne comptait pas
+
+h158 avait criblé les deux groupes de tirages consécutifs — un de deux, un de
+quatre — en Python, jusqu'au degré `21`. Deux défauts :
+
+1. **Il ne testait pas les tirages isolés.** Six des douze tirages ne sont dans
+   aucun groupe consécutif, et h158 les ignorait, faute de pouvoir enchaîner. Le
+   théorème dit que c'est inutile : *un seul* tirage ordonné porte jusqu'au degré
+   `18`. Les douze donnent donc douze tests indépendants.
+2. **Il ne comptait pas les coupes.** Son plafond était de `20` millions de
+   nœuds, et une configuration coupée n'exclut rien. Le compte-rendu disait
+   « aucun survivant » sans dire combien de parcours étaient incomplets.
+
+### L'outil
+
+Le crible du §172 accepte désormais `ordonne=1`. Le changement tient en une
+ligne de logique : en lecture ordonnée, la classe du prochain mot **accepté**
+n'est plus à deviner parmi les vingt publiées — elle est **lue**. Il ne reste
+qu'un choix par mot, « accepter la suivante ou refuser en dupliquant une classe
+déjà sortie », soit `1 + a` valeurs au lieu de `20`.
+
+Deux réglages l'accompagnent. `delta=` fixe le jeu du quasi-morphisme —
+`0,1` pour la troncature, `0,-16` pour le modulo au décalage `0`,
+`0,1,-48,-47` au décalage `1`. `rmax=` plafonne le nombre de refus parmi les `L`
+premiers mots : c'est ce qui rend les hauts degrés accessibles, puisque le front
+de ces mots vaut `Π_j (1 + a_j)`. La probabilité de perdre ainsi le vrai chemin
+n'est pas bornée mais **calculée**, par une programmation dynamique sur l'état
+`(a, r)` — classes acceptées, refus comptés — avec `P(refus) = a/80` :
+
+| `L` | `rmax` | perte exacte |
+|---|---|---|
+| `7` | `4` | `1,90·10⁻⁸` |
+| `11` | `5` | `8,35·10⁻⁷` |
+| `15` | `7` | `1,89·10⁻⁷` |
+| `17` | `8` | `1,08·10⁻⁷` |
+| `21` | `10` | `4,73·10⁻⁸` |
+| `31` | `14` | `3,63·10⁻⁷` |
+
+### L'élagage qui était faux
+
+Le témoin a failli passer inaperçu : `15` cas sur `16`. Le cas manquant —
+`(1, 6)`, décalage `1`, deux tirages plantés — perdait le chemin vrai **sur son
+dernier mot**. La donnée était pourtant irréprochable : aucun `δ` hors `{0,1}`
+sur les `56` mots, un seul refus parmi les six premiers contre un plafond de
+trois.
+
+Le coupable était le budget global, hérité du §172 :
+
+```
+    si   prof + 1 + (ntir − tirages_clos) · 20  >  budget   →  chemin mort
+```
+
+Il compte **vingt** mots pour le tirage courant, même quand dix-neuf de ses
+classes y sont déjà acceptées. Le reste minimal est `(20 − nacc)`, puis vingt par
+tirage encore à ouvrir. La surestimation — jusqu'à dix-neuf mots — rabote
+d'autant le budget et rend l'élagage **trop agressif** : elle tue des chemins que
+le budget autorisait.
+
+Sur les grilles à `ntir = 25` (§172, §175), l'effet se chiffre : le budget passait
+de `8` à `6,78` écarts-types, soit `6·10⁻¹²` de perte par ancrage au lieu de
+`10⁻¹⁵`. C'est *plus petit* que la perte déjà nommée du plafond de `45` mots par
+tirage (`3,2·10⁻¹⁰` par ancrage) — aucun verdict n'en dépend — mais le chiffre
+annoncé était faux, et il est ici corrigé. Après correction, le témoin passe
+`16/16`.
+
+*La leçon, la même qu'au §172 :* un élagage « évidemment sûr » qui n'est pas
+dérivé ligne à ligne finit par couper ce qu'il ne devait pas. Le seul moyen de
+s'en apercevoir est un témoin planté qui exige que le vrai chemin **survive**, et
+non seulement que les faux meurent.
+
+### Le témoin, en parcours libre
+
+`16` sur `16`, sans aucun mot forcé — l'état vrai est **retrouvé**, pas seulement
+retenu :
+
+| `(K, L)` | lecture | `T` | survivants | état vrai | nœuds |
+|---|---|---|---|---|---|
+| `(3,7)` | troncature `s0` | `2` | `1` | oui | `1 140` |
+| `(1,6)` | troncature `s1` | `2` | `2` | oui | `345` |
+| `(2,11)` | modulo `s1` | `3` | `6` | oui | `613 394` |
+| `(1,15)` **TYPE_2** | troncature `s0` | `3` | `2` | oui | `455 055 919` |
+| `(1,15)` **TYPE_2** | modulo `s1` | `3` | `3` | oui | `690 617 520` |
+
+**TYPE_2 est donc à portée** : trois tirages ordonnés suffisent à retrouver
+exactement l'état d'un `random()` de glibc à état de 64 octets, en dix à
+dix-sept secondes. C'est la première fois dans ce dossier qu'un générateur de
+degré `15` est reconstruit de bout en bout sous une lecture avec rejet.
+
+### Le jeton abandonné
+
+Le premier jeton (`h161`, groupe de quatre jusqu'au degré `17`) est **abandonné
+sans consignation**. La raison est prosaïque et vaut d'être écrite : au degré `17`
+une configuration du groupe de quatre dépasse dix minutes, et le conteneur de ce
+laboratoire redémarre toutes les quinze à vingt minutes — la grille ne pouvait pas
+finir, et une grille inachevée ne se consigne pas. Elle est rejouée sous `h161b`
+avec un plafond que le calcul termine (`≤ 13` seuls, `≤ 15` par deux, `≤ 15` par
+quatre). C'est le même traitement que `h152` et `h155` au §172, pour une raison
+différente : là des configurations coupées, ici une grille inachevée. Dans les deux
+cas, ce qui n'a pas été mené au bout n'exclut rien.
+
+### Le résultat
+
+`276` configurations — `76` tirages seuls, `100` sur le groupe de deux, `100` sur
+le groupe de quatre — `21 413 968 004` nœuds, `0,11` heure-cœur, **`0` coupée** et
+**`D = 0` survivant**. (Le journal en porte `278` : deux configurations de degré
+`17` menées avant l'abandon du premier jeton, hors grille.)
+
+Aucun Fibonacci retardé additif de trinôme primitif, lu par troncature ou par modulo
+avec rejet, n'engendre les tirages ordonnés des vidéos : ni un seul d'entre eux
+(degré `≤ 13`), ni le groupe de deux consécutifs (degré `≤ 15`), ni celui de quatre
+(degré `≤ 15`). Les plafonds sont ceux du **calcul**, pas de l'information : le
+théorème du tirage unitaire porterait le groupe de quatre jusqu'au degré `73`, et
+c'est le front `Π_j (1 + a_j)` des `L` premiers mots qui s'y oppose.
+
+Sous la troncature, les décalages `0` et `1` donnent le **même** crible — même jeu de
+`δ`, mêmes comptes de nœuds au dernier chiffre (`428 750 009` des deux côtés sur le
+groupe de deux, degré `15`). La configuration reste dans la grille, son résultat est
+recopié plutôt que recalculé, et le décalage `1` ne s'en distingue qu'à la
+probabilité `3,7·10⁻⁸` par mot déjà nommée au §172.
+
+**Ligne de registre.** `h161b.ordonne_c`, piste B, `D = 0`, `p = 1,0`, conforme.
+
+---

@@ -60,9 +60,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import h158_ordonnes_troncature as O                                    # noqa: E402
 
 POOL, DRAWN = 80, 20
-EXP_ID = "h161.ordonne_c"
+EXP_ID = "h161b.ordonne_c"
 JOURNAL = "/tmp/h161_journal.txt"
-FJETON = "/tmp/h161_jeton.json"
+FJETON = "/tmp/h161b_jeton.json"
 NMAXD = 45
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTIL = os.path.join(RACINE, "tools_bin", "lfg_crible_ord")
@@ -213,13 +213,17 @@ def selftest(lmax=17):
 
 # ------------------------------------------------------------------ la grille
 
-def grille(lmax_seul=13, lmax_2=15, lmax_4=17):
+def grille(lmax_seul=13, lmax_2=15, lmax_4=15):
     """le theoreme fixe la portee en INFORMATION ; le calcul fixe le reste.
 
     Un tirage ordonne porte jusqu'au degre 18,43 ; deux jusqu'a 36,9 ; quatre jusqu'a 73,7.
     Les plafonds ci-dessous sont ceux du CALCUL, bien plus bas, et ils sont nommes comme tels :
     le front des L premiers mots vaut produit_j (1 + a_j), et il double environ tous les
-    demi-degres. Mesures sur les donnees reelles, troncature, decalage 0 :
+    demi-degres. Le degre 17 sur le groupe de quatre depasse dix minutes par configuration, et
+    le conteneur de ce laboratoire redemarre toutes les quinze a vingt minutes : le premier
+    jeton (h161, degre <= 17 par quatre) est donc ABANDONNE sans consignation, comme h152 et
+    h155 l'ont ete pour leurs coupes, et rejoue sous h161b a un plafond que le calcul finit.
+    Mesures sur les donnees reelles, troncature, decalage 0 :
 
         douze tirages seuls, (1,15) : 5 695 367 827 noeuds, 94 s
         groupe de quatre,    (1,15) :   422 720 567 noeuds,  9 s
@@ -359,7 +363,7 @@ def archive():
                "tirage contre 37,0043 pour l'archive triee (§7.27 (iii)), d'ou un seuil de "
                "degre 18,43 pour UN SEUL tirage : les douze tirages donnent douze tests "
                "independants. NON COUVERT : les degres au-dela des plafonds de CALCUL "
-               "(13 seuls, 15 par deux, 17 par quatre), alors que l'information porterait "
+               "(13 seuls, 15 par deux, 15 par quatre), alors que l'information porterait "
                "jusqu'a 73 sur le groupe de quatre."))
     say(f"   consigne : D = {D}")
 
