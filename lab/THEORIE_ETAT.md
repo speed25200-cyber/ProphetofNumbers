@@ -968,7 +968,11 @@ structure est là (récurrence à deux termes, plan 0 linéaire, plans 1 et 2
 linéaires d'ordre `527` et `41 478`), mais aucun algorithme du dossier ne
 convertit des **comptes** par classe en équations sur ces plans — la parité
 d'un mot, seule quantité linéaire bon marché, n'est jamais contrainte par un
-ensemble trié, qui contient toujours les deux parités.
+ensemble trié, qui contient toujours les deux parités. *(Révisé au 7.10 :
+la conversion existe dès que les plans `0..2` sont devinés — chaque plan
+suivant est affine en `L` inconnues et les mots sûrs le contraignent ; la
+frontière passe de `2^{5L}` à `2^{3L}`. La phrase ci-dessus reste vraie
+du solveur générique, qui ne devine pas.)*
 
 **Ce que les tirages ordonnés donnent, et ce que le §154 en a fait.** Des
 tirages **ordonnés** sous rejet changent tout : chaque mot accepté donne
@@ -1186,7 +1190,10 @@ régénération.
   la convertit (§153) ; il faut **énumérer** `2^{5L}` états bas contre la
   fenêtre : `2^35` pour TYPE_1 — faisable, et c'est le §155 — ; `2^75` pour
   TYPE_2 et `2^155` pour TYPE_3, hors de portée. C'est là, et là seulement,
-  que passe la frontière.
+  que passe la frontière. *(Révisé au 7.10 : `2^{3L}` hypothèses suffisent
+  — `2^{45}` pour TYPE_2, une identification d'une heure de carte graphique
+  ou de quelques années-cœur ; `2^{93}` pour TYPE_3, toujours hors de
+  portée.)*
 - *Relèvement.* Les bits bas connus, `n*` mots **triés consécutifs**
   suffisent : `17` tirages pour TYPE_1, `35` pour TYPE_2, `72` pour TYPE_3 —
   et l'état entier régénère l'archive et **prédit** le tirage suivant. Pour
@@ -1308,6 +1315,265 @@ court, et « décalé » se lit modulo sa période.
 
 ---
 
+### 7.10 Les trois plans muets (§156) — `2^{3L}` au lieu de `2^{5L}`, le mot 16 à six bits, les mots sûrs gradués
+
+Le 7.7 disait que la frontière était **algorithmique** : « aucun algorithme
+du dossier ne convertit des comptes par classe en équations sur ces plans »,
+et le 7.8 plaçait la frontière à l'énumération des `2^{5L}` états bas —
+« c'est là, et là seulement, que passe la frontière ». Les deux phrases sont à
+**réviser** : l'algorithme existe, il est écrit (`tools/lfg_trois_plans.c`,
+témoin `h136`, §156), et la frontière passe à `2^{3L}`. Il ne va pas jusqu'à
+TYPE_3, et il **identifie** sans relever ; mais il déplace la borne d'un
+facteur `2^{2L}` et change le statut de TYPE_2. Voici le théorème, ses
+nombres exacts, deux lemmes nouveaux sur les mots sûrs, la mesure, et ce
+qui reste fermé.
+
+**Le principe.** Le 7.7 mesurait la complexité linéaire de chaque plan de
+bits *comme fonction de l'état entier* : `2L + C(L,2)` pour le plan 1,
+`41 478` pour le plan 2 de la glibc, des produits de poids huit et seize
+au-delà. C'est le bon objet si l'on veut des équations **sans rien deviner**.
+Mais si l'on **devine** les plans bas, les retenues deviennent des
+constantes, et chaque plan est affine en `L` inconnues seulement. La
+question n'est plus « quel est l'ordre du plan `p` » mais « combien de plans
+faut-il deviner avant que l'archive triée ne fournisse assez d'équations pour
+les suivants ». La réponse est **trois**.
+
+> **Théorème des trois plans muets.** *Soit `r_i = r_{i−K} + r_{i−L} mod
+> 2^32`, sortie `x_i = r_i >> 1`, et notons `b^p_i` le bit `p` de `r_i`.
+> Les plans `0..p−1` des `L` mots initiaux étant fixés, les plans `0..p−1`
+> de **tous** les mots sont connus (autonomie mod `2^p`), et le plan `p` de
+> tout mot est une forme **affine** sur `F₂` du plan `p` initial
+> `x_p ∈ F₂^L` :*
+>
+>     b^p_i = ⟨α_i, x_p⟩ ⊕ γ_i,
+>     α_i = α_{i−K} ⊕ α_{i−L}   (α_j = e_j pour j < L),
+>     γ_i = γ_{i−K} ⊕ γ_{i−L} ⊕ c^p_i,   γ_j = 0 pour j < L,
+>     c^p_i = [ (r_{i−K} mod 2^p) + (r_{i−L} mod 2^p) ≥ 2^p ].
+>
+> *Un mot sûr (lemme du 7.6) dont le masque, sachant ses bits `1..p−1`, ne
+> permet **aucun** bit `p` tue l'hypothèse ; qui n'en permet qu'**un** donne
+> l'équation linéaire `⟨α_i, x_p⟩ = b ⊕ γ_i` ; qui permet les deux ne dit
+> rien. Les plans `0..2` énumérés (`2^{3L}` hypothèses), les plans `3, 4`
+> (mot lu mod 16) et `3..6` (mot lu mod 64) se résolvent par Gauss sur
+> `F₂^L`, plan après plan.*
+>
+> *Preuve.* `r_i mod 2^{p+1} = (r_{i−K} + r_{i−L}) mod 2^{p+1}` ; le bit `p`
+> de la somme est `b^p_{i−K} ⊕ b^p_{i−L} ⊕ c^p_i`, où `c^p_i` est la retenue
+> sortant des `p` bits bas, fonction des seuls `r mod 2^p`, donc connue.
+> Par récurrence sur `i`, `b^p_i` est une combinaison affine des `b^p_j`,
+> `j < L`, de partie linéaire `α_i` (la récurrence de `α` est celle du LFSR
+> de `x^L + x^K + 1`) et de constante `γ_i`. Le reste est la définition d'une
+> équation sur `F₂`. ∎
+
+Le théorème est banal ; ce qui ne l'est pas, c'est le nombre de plans à
+deviner, et il vient des taux exacts. Notons `hyp(m) = C(80−m,20)/C(80,20)`
+la probabilité qu'un ensemble donné de `m` numéros soit **entièrement
+absent** d'un tirage de vingt, et `hyp*(m) = C(79−m,19)/C(79,19)` la même
+sachant qu'un numéro hors de ces `m` est tiré (le cas du vrai état, dont le
+résidu est toujours permis).
+
+**Pourquoi trois.** Le plan 0 n'est jamais publié — `x = r >> 1` — et
+n'agit que par ses retenues : aucune équation ne le concerne, il faut le
+deviner. Le plan 1 (bit 0 de `x`) est forcé, au mot 0, quand une **parité
+entière** des seize classes est absente du tirage : `2 · hyp(40) ≈ 8·10⁻⁸`
+par mot — jamais. Le plan 2, sachant le plan 1, est forcé quand une
+demi-classe de quatre résidus (vingt numéros) est absente : `2 · hyp(20) ≈
+0,0024` par mot au mot 0, `≈ 0,011` au mot 16 lu mod 64 — soit **trois
+équations** par fenêtre de 204 tirages pour `L` inconnues, et le plan 2 se
+devine aussi. Au plan 3 les demi-classes n'ont plus que dix numéros
+(mot 0) ou huit (mot 16 mod 64), et les équations arrivent :
+
+| canal | plan | classe morte (faux) | équation (faux) | équation (vrai) |
+|---|---|---|---|---|
+| mot 0, mod 16 | 3 | 0,00119 | 0,0893 | 0,0523 |
+| mot 0, mod 16 | 4 | — | 0,3802 | 0,2423 |
+| mot 16, mod 64 | 3 | 0,00555 | 0,1664 | 0,0981 |
+| mot 16, mod 64 | 4 | — | 0,4827 | 0,3245 |
+| mot 16, mod 64 | 5 | — | 0,7281 | 0,5745 |
+| mot 16, mod 64 | 6 | — | 0,8633 | 0,7595 |
+
+Par mot sûr et par plan. Pour un **faux** état (résidu au hasard) : mort si
+sa classe est vide, `hyp(classe)` ; équation, sachant la classe vivante,
+`2 (hyp(demi) − hyp(classe)) / (1 − hyp(classe))`. Pour le **vrai** (résidu
+toujours permis) : équation si l'autre demi-classe est vide, `hyp*(demi)`.
+Au plan `p ≥ 4` la classe est vivante par construction — le plan `p−1`
+résolu a choisi une moitié non vide — et seule la colonne « équation »
+s'applique. Sur 204 tirages le vrai état reçoit au plan 3 **21,4
+équations** au canal 4 (408 mots) et **30,7** au canal 6 ; un faux en
+reçoit 36,4 ou 52,2 — et sur `L = 7` inconnues elles se contredisent vite :
+le témoin du §156 voit un faux état de TYPE_1 mourir après `108` mots sûrs
+en moyenne sur `408` (`85` au canal 6), presque toujours par
+**contradiction de Gauss** (`2 097 149` sur `2^21`) et non par classe vide
+(`2`, contre `758 086` sur le contrôle : la classe vide est un événement
+rare — `0,0012` par mot — dont le compte dépend de l'endroit où il tombe,
+et n'est pas le moteur du crible). Au plan 4 le vrai reçoit `99` équations
+(canal 4) ou `116` (canal 6) : le plan 3 résolu, tout le reste est
+sur-déterminé.
+
+**Le rang.** `21,4` équations pour `L` inconnues suffisent à `L = 7` et
+`L = 15`, pas à `L = 31` : le système du plan 3 est alors de rang `< L`
+pour le vrai état comme pour ses voisins. Ce n'est **pas fatal** : les
+solutions sont énumérées (`2^{L − rang}`, borné à `4096`) et chacune est
+portée au plan 4, où `99` équations la tranchent — le témoin TYPE_3 du §156
+compte `128 384` rejets au plan 4 pour `2^21` hypothèses, contre `0` à
+`L ≤ 15`. À `L = 63` (TYPE_4) il faudrait `≈ 340` tirages au canal 6
+(`≈ 490` au canal 4) pour que `2^{L − rang}` repasse sous la borne, et
+`≈ 420` (`600`) pour le rang plein ; TYPE_4 est de toute façon à `2^{189}`.
+
+> **Lemme du mot 16 à six bits.** *Dans le Fisher-Yates partiel par modulo
+> au pas constant, `j_{16} = 16 + x_{16} mod 64` et `j_{16} + 1` est tiré
+> (lemme des deux mots sûrs) : donc `x_{16} mod 64 ∈ {v − 17 : v tiré,
+> v ≥ 17}`. Chaque résidu mod 64 correspond à **un seul** numéro de
+> `17..80`, tiré avec probabilité `20/80 = 1/4` : le mot 16 publie
+> **exactement `log₂ 4 = 2` bits** par tirage, contre `log₂(1/ρ) = 0,372`
+> pour sa lecture mod 16.*
+>
+> *Preuve.* `80 − 16 = 64` ; le lemme du 7.6 donne `j_{16} + 1 ∈ tirage`
+> et `j_{16} ≡ x_{16} (mod 64)`, ce qui est plus fort que la congruence
+> mod 16 qu'il retenait. Les `64` numéros `17..80` sont en bijection avec
+> les résidus, et un `20`-sous-ensemble de `80` en contient chacun avec
+> probabilité `1/4`. ∎
+
+C'est le **canal 6** : l'état bas devient `7L` bits (`r mod 128`) au lieu
+de `5L`, et la fenêtre de 204 tirages en dit `204 · (0,372 + 2) = 484` bits
+au lieu de `152`. Le canal 4 n'identifie que `5L ≤ 152`, soit `L ≤ 30`
+d'information brute (`L ≤ 15` avec marge) ; le canal 6 identifie `7L ≤
+484`, `L ≤ 69` — TYPE_3 (`217` bits) est **identifiable en principe**,
+TYPE_4 (`441`) à la limite. Le témoin du §156 le montre à petite fenêtre :
+TYPE_2, `50` tirages, cinq mots libres (`2^15 · 2^{2·15} = 2^45` états bas
+au canal 4, `37` bits d'information) : **`1 663` survivants** dont le
+planté — deux cents attendus par le compte de bits, mais les survivants
+viennent en familles : le plan 3 n'y reçoit que cinq équations pour quinze
+inconnues — ; au canal 6 (`119` bits) : **le planté seul**. Le même lemme
+se **gradue** :
+
+> **Lemme des mots sûrs gradués.** *Pour tout `k ≤ 19`, `x_k mod (80 − k) ∈
+> {v − 1 − k : v tiré, v > k}` exactement ; donc `x_k mod 2^{e_k}` est
+> contraint, avec `e_k = v₂(80 − k)` : `e = 4` au mot 0, `6` au mot 16,
+> **`3` au mot 8**, `2` aux mots 4 et 12, `1` aux autres mots pairs, `0`
+> aux mots impairs.*
+>
+> *Preuve.* Le lemme du 7.6 dit que `j_k + 1` est tiré pour tout `k ≤ 19`,
+> avec `j_k = k + x_k mod (80−k)` ; et `x mod (80−k)` détermine `x mod
+> 2^e` pour tout `2^e | 80 − k`. ∎
+
+Le mot 8 (`80 − 8 = 72 = 8 · 9`) publie donc `x_8 mod 8` : un résidu mod 8
+permis avec probabilité `1 − hyp(9) ≈ 0,94`, `0,095` bit par tirage — et,
+plan par plan, une équation au plan 3 avec probabilité `0,123` (faux) ou
+`0,072` (vrai) par tirage. L'outil du §156 ne lit que les mots 0 et 16 ;
+le mot 8 vaudrait de moitié à deux tiers d'équations en plus au plan 3
+(`0,072` contre `0,105` au canal 4, `0,150` au canal 6) et une mort plus
+précoce des faux — un facteur `1,3` à `1,7` sur le coût, non mesuré, non
+exploité. Les autres mots (`e ≤ 2`) ne contraignent que les plans 1 et 2,
+devinés.
+
+**L'algorithme et sa mesure.** `lfg_trois_plans.c` parcourt `(Z/8)^L`
+mots initiaux ; pour chaque hypothèse il engendre `r mod 8` et `γ`
+**paresseusement**, tirage par tirage, et ajoute à un Gauss incrémental
+sur `F₂^L` (une ligne par pivot, `L` mots de 64 bits) l'équation de chaque
+mot sûr forcé — un faux état est abandonné à la première contradiction ou
+classe vide, sans engendrer la suite. Les hypothèses vivantes ont leur plan
+3 énuméré (`g_solutions`, au plus `4096`), puis le plan 4 et, au canal 6,
+les plans 5 et 6 par le même Gauss (`etage`), chaque survivant vérifié mot
+par mot mod `2^{PFIN}`. Mesuré (§156, 204 tirages, graine `20260902`,
+`2^21` hypothèses par ligne, une machine à quatre cœurs **chargée** par
+deux autres balayages — les nanosecondes sont des majorants ; « planté » :
+masques d'un état planté, tout `(Z/8)^7` parcouru pour TYPE_1, sous-cube
+de sept mots libres autour du planté pour `L > 7` ; « contrôle » : mêmes
+hypothèses contre des tirages de vingt numéros au hasard) :
+
+| générateur | canal | mots sûrs lus, planté / contrôle | ns/hypothèse, planté / contrôle | survivants |
+|---|---|---|---|---|
+| TYPE_1 `(3,7)` | 4 | `108` / `65` | `1 741` / `1 082` | le bas planté seul / `0` |
+| TYPE_1 | 6 | `85` / `52` | `1 385` / `832` | idem / `0` |
+| TYPE_2 `(1,15)` | 4 | `88` / `185` | `2 392` / `4 843` | idem / `0` |
+| TYPE_2 | 6 | `55` / `125` | `1 585` / `3 620` | idem / `0` |
+| TYPE_3 `(3,31)` | 4 | `229` / `377` | `5 598` / `185 126` | idem / `0` |
+| TYPE_3 | 6 | `152` / `217` | `3 764` / `4 768` | idem / `0` |
+
+Autotest du §156 : `13/13`. Le coût par hypothèse est celui des mots
+engendrés avant la mort, et la mort vient de deux sources : la **classe
+vide**, rare (`0,0012`–`0,0056` par mot) mais qui, tombant tôt, emporte un
+quart des hypothèses d'un coup — d'où les écarts planté/contrôle, qui ne
+tiennent qu'à l'endroit où tombent ces cellules — ; et la **contradiction
+de Gauss**, qui n'arrive qu'une fois le rang atteint, soit `≈ L/0,179`
+tirages au canal 4 (`L/0,256` au canal 6) : `84` tirages, `168` mots pour
+TYPE_2 au canal 4, mesuré `185`. Le coût croît donc **linéairement en
+`L`**, et le contrôle est la valeur à retenir. À `L = 31` au canal 4
+s'ajoute le rang déficient du plan 3 : `73` solutions en moyenne par
+hypothèse vivante (`797 322` vivantes, `58,5` millions de rejets au
+plan 4), d'où `185` µs ; le
+canal 6, dont les `30,7` équations suffisent, reste à `4,8` µs. Sur
+l'archive (fenêtre du §155, `1309794..1309997`, description des masques et
+non test) : aucune classe mod 4 vide au mot 0 (`0,97` attendue), huit au
+mot 16 lu mod 64 (`4,5` attendues), la première au tirage `43` ;
+`16,05` numéros `≥ 17` par tirage (`16` attendus). Le sous-cube ne mesure
+que le coût par hypothèse et la présence du planté ; il **ne remplace pas**
+le parcours de `2^{3L}`. D'où les coûts :
+
+- **TYPE_1** : `2^21` hypothèses, **trois secondes**. Il n'y a rien à
+  relancer sur l'archive : le crible du §155 (mode 0, pas 20, canal 4)
+  énumère `2^{35}` états bas et n'en garde aucun ; tout survivant du
+  crible à trois plans est un état bas mod 32 compatible avec les mêmes
+  masques, donc un survivant du §155 — l'ensemble est vide **par
+  corollaire**, pas par expérience nouvelle. Le canal 6 ne peut que
+  restreindre davantage.
+- **TYPE_2** : `2^45` hypothèses à `3,6`–`4,8` µs (contrôle), soit **`4`
+  à `5,4` années-cœur**, plus d'un an sur cette machine, `1,8` à `2,7`
+  années-cœur si les cellules vides de l'archive tombent bien (planté) ;
+  `≈ 3,5·10^{16}` opérations élémentaires, **de l'ordre de l'heure à la
+  journée sur une carte graphique** (les hypothèses sont indépendantes,
+  l'état tient dans des registres). C'est une identification, pas un
+  relèvement (ci-dessous), et elle n'a pas été lancée : elle est hors de
+  ce dossier, non hors de portée.
+- **TYPE_3** : `2^93` à `5` µs, `≈ 5·10^{22}` secondes, `10^{15}` ans.
+  Hors de portée, et de loin ; l'information (`484` bits pour `217`) y
+  est, l'algorithme non. TYPE_4 : `2^{189}`.
+
+**Ce que le solveur générique en fait, encore rien.** `h135` encode le
+même problème pour CryptoMiniSat (XOR natifs) et CaDiCaL : `36 665`
+variables, `86 904` clauses, `20 350` XOR pour TYPE_1 à 204 tirages ; CMS
+n'a pas répondu en `300` s, sur le planté comme sur le contrôle, et CaDiCaL
+(`233 424` clauses, XOR développés) a épuisé un budget de trois millions
+de conflits sans répondre, `1 825` s sur le planté et `1 505` s sur le
+contrôle — là où l'énumération à trois plans répond en trois secondes. La
+raison est celle
+du 7.7 : une contrainte d'appartenance ne propage rien avant que les deux
+antécédents ne soient fixés, et le solveur ne « voit » pas que trois plans
+devinés rendent le reste linéaire — il faut le lui dire, et le lui dire,
+c'est l'algorithme ci-dessus.
+
+**Ce qui reste fermé — et pourquoi c'est une identification.** Le crible
+à trois plans rend `r mod 32` ou `r mod 128` : `5L` ou `7L` bits sur `32L`.
+Sous le tirage par modulo au pas constant, le relèvement du 7.8 n'existe
+pas — la chaîne mod 5 lit `v − 1 = 16 (H mod 5) + q`, ce que le
+Fisher-Yates ne publie pas. Les contraintes exactes du relèvement sont
+pourtant écrites par le lemme gradué : pour chaque mot `k ≤ 19` de chaque
+tirage, `x_k mod (80 − k) ∈ {v − 1 − k}` — vingt congruences à modules
+mixtes (`80, 79, …, 61`), `≈ 2` bits chacune, `≈ 40` bits par tirage pour
+`32L` bits d'état plus un bit de débordement par mot. En information, huit
+tirages suffiraient à TYPE_1, trente à TYPE_2. Mais un résidu mod `79`
+n'est pas un plan de bits, les ensembles permis ne sont pas des intervalles
+(pas de CVP), et le passage de `r mod 128` à `r mod 2^32` par ces
+congruences est une programmation dynamique à modules mixtes que le
+dossier **n'a pas développée** : c'est la frontière nouvelle, au-dessus
+de l'identification. Sous le **rejet**, le filtre des classes vides
+(`0,0012`–`0,0056` par mot) est trop faible pour fixer l'alignement des
+mots perdus : le crible à cinq plans du 7.9, qui branche sur `σ`, reste
+l'outil, et un crible à trois plans avec un Gauss par alignement est une
+extension non écrite.
+
+> Le 7.10 déplace la frontière du 7.8 de `2^{5L}` à `2^{3L}` : trois plans
+> devinés, les autres résolus sur `F₂^L` par les mots sûrs, et le mot 16 lu
+> mod 64 publie deux bits par tirage. TYPE_1 était exclu, il le reste par
+> corollaire ; TYPE_2 devient un calcul d'une heure de carte graphique ou
+> de deux cents jours de cette machine — une **identification**, `7L` bits
+> sur `32L`, sans relèvement ni prédiction tant que les congruences à
+> modules mixtes du lemme gradué n'ont pas leur algorithme ; TYPE_3 reste
+> hors de portée par le coût, non par l'information.
+
+---
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
@@ -1363,7 +1629,9 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état bas TYPE_3 (155 bits) | 3 ordonnés | **jour B (4) — atteint, réponse 0** |
 | état bas TYPE_1 par l'archive triée | énumération `2^35` | **archive — §155** |
 | état entier TYPE_1 (224 bits) | 17 triés | **archive — §155** |
-| état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas | bits bas hors de portée par l'archive |
+| état bas TYPE_2 par l'archive triée, pas constant | `2^45` hypothèses à trois plans (§7.10) | archive — calcul **non lancé** (une heure de carte graphique, des années-cœur ici) |
+| état bas TYPE_3 par l'archive triée | `2^93` (§7.10) | hors de portée |
+| état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`

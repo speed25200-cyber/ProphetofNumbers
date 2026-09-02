@@ -16174,3 +16174,163 @@ quatorze témoins. Fichiers : `lab/experiments/h134_lfg_archive_crible.py`,
 reprise `/tmp/h134_journal.txt`.
 
 ---
+
+## 156. Les trois plans muets : `2^{3L}` hypothèses au lieu de `2^{5L}`, le mot 16 lu sur six bits, le solveur SAT devant le même problème (`h136_trois_plans_temoin.py`, `tools/lfg_trois_plans.c`, `h135_lfg_sat_temoin.py`)
+
+**Ce que le §155 laissait, et ce que le §7.7 affirmait.** Le crible du
+§155 énumère les `2^{5L}` états bas d'un Fibonacci retardé additif contre
+les masques mod 16 des mots sûrs — `2^35` pour TYPE_1, fait ; `2^75` pour
+TYPE_2 et `2^155` pour TYPE_3, « hors de portée, la frontière chiffrée au
+§7.8 ». Et le §7.7 disait pourquoi aucun solveur ne faisait mieux : « aucun
+algorithme du dossier ne convertit des comptes par classe en équations sur
+ces plans ». Cette section écrit l'algorithme qui le fait, le mesure sur
+témoins plantés, et oppose au même problème deux solveurs SAT — le tout sur
+**générateurs plantés, sans regarder l'archive**, à une exception
+descriptive près, dite plus bas. La théorie est au §7.10 de
+THEORIE_ETAT.md ; voici les faits.
+
+**Le théorème, en une phrase.** Les plans de bits `0..p−1` des `L` mots
+initiaux étant devinés, tous les mots sont connus mod `2^p`, les retenues
+vers le bit `p` sont des constantes, et le bit `p` de tout mot est une
+forme **affine sur `F₂`** des `L` bits du plan `p` initial : `b^p_i = ⟨α_i,
+x_p⟩ ⊕ γ_i`, `α` suivant le LFSR de `x^L + x^K + 1`, `γ` la récurrence des
+retenues. Un mot sûr dont le masque, sachant ses bits `1..p−1`, ne permet
+qu'un bit `p` donne une **équation linéaire** ; qui n'en permet aucun tue
+l'hypothèse. Pourquoi trois plans devinés et non un : le plan 0 n'est
+jamais publié, le plan 1 n'est forcé qu'avec probabilité `8·10⁻⁸` par mot,
+le plan 2 avec `0,0024` (mot 0) ou `0,011` (mot 16 lu mod 64) — trois
+équations par fenêtre de 204 tirages. Au plan 3, hypergéométrique exacte
+(`hyp(m) = C(80−m,20)/C(80,20)`) : le vrai état reçoit une équation par
+mot avec probabilité `0,0523` (mot 0) et `0,0981` (mot 16 mod 64), un faux
+`0,0893` et `0,1664` ; sur 204 tirages, `21,4` (canal 4) ou `30,7`
+(canal 6) équations pour `L` inconnues, et au plan 4 `99` ou `116`. Le
+rang déficient à `L = 31` n'est pas fatal — les solutions du plan 3 sont
+énumérées (borne `4096`) et le plan 4 tranche.
+
+**Le mot 16 à six bits.** Le lemme des deux mots sûrs (§7.6) retenait du
+mot 16 que `j_{16} = 16 + x_{16} mod 64` et `j_{16} + 1` est tiré, donc
+`x_{16} ≡ v − 17 (mod 16)`. Mais `80 − 16 = 64` : c'est `x_{16} mod 64 =
+v − 17` **exactement**, pour un `v ≥ 17` tiré ; les `64` numéros `17..80`
+sont en bijection avec les résidus, chacun tiré avec probabilité `1/4`, et
+le mot 16 publie **deux bits** par tirage au lieu de `0,372`. La fenêtre de
+204 tirages en dit `484` bits au lieu de `152` ; l'état bas identifiable
+passe de `5L` à `7L` (`r mod 128`). Le lemme se gradue : pour tout `k ≤
+19`, `x_k mod (80 − k) ∈ {v − 1 − k}`, donc `x_k mod 2^{v₂(80−k)}` —
+`4` bits au mot 0, `6` au mot 16, **`3` au mot 8** (non exploité par
+l'outil : `0,072` équation de plus par tirage au plan 3, un facteur `1,3`
+à `1,7` sur le coût), `2` aux mots 4 et 12, `1` aux mots pairs, rien aux
+impairs.
+
+**L'outil.** `tools/lfg_trois_plans.c` parcourt `(Z/8)^{nlibre}` sur les
+`nlibre` premiers mots initiaux (les autres fixés, pour mesurer un
+sous-cube autour d'un planté à grand `L`) ; par hypothèse, mots et `γ`
+engendrés paresseusement tirage par tirage, Gauss incrémental sur `F₂^L`
+avec abandon à la première contradiction ou classe vide ; plan 3 résolu et
+énuméré, plans 4 (canal 4) ou 4..6 (canal 6, mot 16 mod 64) résolus de
+même par récursion, survivants vérifiés mot par mot. Le script `h136`
+compile l'outil, imprime les taux exacts, puis douze lignes de mesure et un
+témoin de comparaison des canaux. Deux réparations *sur témoins, avant
+toute mesure consignée* : la récursion lisait les antécédents dans le
+tableau des `L` mots initiaux au lieu du tableau engendré (hors bornes,
+corrigé) ; la table des taux affichait une « classe morte » aux plans `≥
+4`, où la classe est vivante par construction (affichée « — », note
+ajoutée) ; l'exécution partielle faite avec la première table a été tuée
+et relancée.
+
+**Mesure** (204 tirages, Fisher-Yates par modulo au pas 20, graine
+`20260902`, `2^21` hypothèses par ligne ; « planté » : masques d'un état
+planté — tout `(Z/8)^7` pour TYPE_1, sous-cube de sept mots libres pour
+`L > 7` — ; « contrôle » : mêmes hypothèses contre vingt numéros au hasard
+par tirage ; machine à quatre cœurs partagée avec `h130` et `h135`, les
+nanosecondes sont des majorants) :
+
+| générateur | canal | cas | classes vides | Gauss plan 3 | Gauss plan 4 | survivants | mots sûrs lus | s | ns/hyp. |
+|---|---|---|---|---|---|---|---|---|---|
+| TYPE_1 `(3,7)` | 4 | planté | 2 | 2 097 149 | 0 | **1 = le planté** | 107,6 | 3,65 | 1 741 |
+| | 4 | contrôle | 758 086 | 1 339 066 | 0 | 0 | 64,7 | 2,27 | 1 082 |
+| | 6 | planté | 25 | 2 097 126 | 0 | **1 = le planté** | 84,7 | 2,90 | 1 385 |
+| | 6 | contrôle | 970 397 | 1 126 755 | 0 | 0 | 51,5 | 1,75 | 832 |
+| TYPE_2 `(1,15)` | 4 | sous-cube | 917 504 | 1 179 615 | 34 | **1 = le planté** | 88,0 | 5,02 | 2 392 |
+| | 4 | contrôle | 0 | 2 096 502 | 769 | 0 | 184,5 | 10,16 | 4 843 |
+| | 6 | sous-cube | 1 608 463 | 488 688 | 0 | **1 = le planté** | 54,9 | 3,33 | 1 585 |
+| | 6 | contrôle | 6 205 | 2 090 947 | 0 | 0 | 124,7 | 7,59 | 3 620 |
+| TYPE_3 `(3,31)` | 4 | sous-cube | 910 184 | 1 162 352 | 128 384 | **1 = le planté** | 228,9 | 11,74 | 5 598 |
+| | 4 | contrôle | 0 | 1 299 830 | 58 542 832 | 0 | 377,0 | 388,24 | 185 126 |
+| | 6 | sous-cube | 1 112 581 | 984 553 | 21 | **1 = le planté** | 151,8 | 7,89 | 3 764 |
+| | 6 | contrôle | 745 484 | 1 350 991 | 1 338 | 0 | 216,7 | 10,00 | 4 768 |
+
+Puis la même petite fenêtre aux deux canaux — TYPE_2, `50` tirages, cinq
+mots libres, soit `2^45` états bas au canal 4 pour `37` bits publiés et
+`2^75` au canal 6 pour `119` : canal 4, **`1 663` survivants** dont le
+planté (`69,7` s : le plan 3 n'y reçoit que cinq équations pour quinze
+inconnues, `22` millions de solutions portées au plan 4) ; canal 6, **le
+planté seul** (`9,9` s). Verdict prévu avant l'exécution — « conforme si
+le canal 4 laisse plus d'un survivant, planté compris, et le canal 6 le
+planté seul » — : conforme. **Autotest : 13/13, tous conformes**, `534` s.
+
+**Lecture.** (i) Un faux état meurt par **contradiction de Gauss**, non
+par classe vide : la classe vide est rare (`0,0012`–`0,0056` par mot) et
+son compte dépend de l'endroit où elle tombe — tôt, elle emporte un quart
+des hypothèses d'un coup, d'où les écarts planté/contrôle. (ii) La
+contradiction n'arrive qu'au rang atteint, `≈ L/0,179` tirages au canal 4
+et `L/0,256` au canal 6 : le coût par hypothèse croît **linéairement en
+`L`**, et la valeur à retenir est celle du contrôle. (iii) À `L = 31` au
+canal 4 le rang du plan 3 est déficient : `73` solutions par hypothèse
+vivante, `185` µs ; le canal 6 (`30,7` équations) reste à `4,8` µs. (iv)
+Sur la fenêtre de l'archive du §155 (`1309794..1309997`), **statistique
+descriptive des masques, pas un test** : aucune classe mod 4 vide au mot 0
+(`0,97` attendue), huit au mot 16 lu mod 64 (`4,5` attendues, la première
+au tirage `43`), `16,05` numéros `≥ 17` par tirage (`16` attendus). Le coût
+sur l'archive serait donc celui du contrôle.
+
+**Ce que cela coûte, générateur par générateur.** TYPE_1 : `2^21`
+hypothèses, trois secondes — et rien à relancer : tout survivant du crible
+à trois plans est un état bas mod 32 compatible avec les mêmes masques,
+donc un survivant du crible du §155 en mode 0 au pas 20, qui est vide ;
+l'exclusion de TYPE_1 sur l'archive est un **corollaire**, pas une
+expérience nouvelle, et aucune ligne de registre n'est ajoutée pour un
+verdict acquis d'avance. TYPE_2 : `2^45` hypothèses à `3,6`–`4,8` µs,
+**quatre à cinq années-cœur**, plus d'un an sur cette machine, de l'ordre
+de l'heure à la journée sur une carte graphique (`3,5·10^{16}` opérations
+indépendantes) — calcul **non lancé**, hors de ce dossier, non hors de
+portée. TYPE_3 : `2^93`, `10^{15}` ans ; l'information (`484` bits pour
+`217`) y est, l'algorithme non. TYPE_4 : `2^{189}`.
+
+**Le solveur SAT devant le même problème (`h135`).** Le script encode le
+crible à pas constant en CNF — cinq variables par mot (`r mod 32`),
+retenues en clauses, les XOR de la récurrence en XOR natifs pour
+CryptoMiniSat ou développés pour CaDiCaL, masques des mots 0 et 16 en
+clauses de blocage — : TYPE_1, 204 tirages, `36 665` variables, `86 904`
+clauses, `20 350` XOR. **CryptoMiniSat : `timeout` à 300 s** sur le planté
+(`301,7` s) comme sur le contrôle (`301,3` s, attendu `unsat`). CaDiCaL :
+la première exécution a tourné **42 minutes sans réponse** et a été tuée —
+l'interruption par minuterie (`threading.Timer` + `interrupt()`) est
+inopérante, l'extension gardant le GIL pendant `solve_limited` ; le script
+a été réparé par un **budget de conflits** (`conf_budget`, `H135_CONF`,
+`3·10⁶`) et relancé sur CaDiCaL seul (`233 424` clauses, XOR développés) :
+**budget épuisé sans réponse** sur le planté (`1 825` s) comme sur le
+contrôle (`1 505` s), `3 331` s en tout. Là où
+l'énumération à trois plans répond en trois secondes, le solveur ne
+« voit » pas que trois plans devinés rendent le reste linéaire — la raison
+du §153 : une appartenance ne propage rien avant que les deux antécédents
+ne soient fixés.
+
+**Ce que cela n'est pas.** Une **identification** de `5L` ou `7L` bits sur
+`32L`, sous le tirage par modulo au pas constant, où le relèvement du §7.8
+n'existe pas (pas de chaîne mod 5). Les contraintes exactes du relèvement
+sont écrites — `x_k mod (80 − k) ∈ {v − 1 − k}` pour les vingt mots, `≈ 40`
+bits par tirage — mais leur algorithme, une programmation dynamique à
+modules mixtes `80, 79, …, 61`, n'est pas développé : c'est la frontière
+nouvelle. Sous le rejet, le filtre des classes vides est trop faible pour
+fixer l'alignement des mots perdus ; le crible à cinq plans du §155 reste
+l'outil.
+
+**Pas de ligne de registre** : témoins d'outil sur générateurs plantés ;
+la seule lecture de l'archive est la statistique descriptive des masques
+au point (iv), sans verdict. Fichiers : `tools/lfg_trois_plans.c`,
+`lab/experiments/h136_trois_plans_temoin.py`,
+`lab/experiments/h135_lfg_sat_temoin.py` ; journaux `/tmp/h136.log`,
+`/tmp/h135a.log` (CMS, CaDiCaL tué), `/tmp/h135b.log` (CaDiCaL avec
+budget).
+
+---
