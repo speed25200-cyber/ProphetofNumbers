@@ -3697,6 +3697,67 @@ on le paie une fois.
 Sur l'archive (§167) : grille de `181` chaînes de flux (`M = 100` et `128` sur les `63` trinômes du plan 0 et les `25` du plan 1, `M = 256` sur les types nommés) — RESULTAT_719.
 
 
+
+### 7.20 L'excédent par tirage (§168) — ce que le procédé tolère, et la limite exacte où il s'arrête
+
+Tout le §7.17 suppose que le générateur ne sert **qu'à** tirer les vingt
+numéros : la fenêtre du tirage `t` est exactement ce qu'il consomme. Un
+programme réel en consomme souvent plus — l'ordre d'affichage, une
+animation, un « numéro chance », une seconde partie servie par le même
+générateur. Soit `delta` mots de plus par tirage. La transition devient
+
+    α_t[(q + n + δ) mod Pi] += α_{t−1}[q] · C(80, 20) · P(A_t, n | bits q … q+n−1)
+
+— **la fenêtre de vraisemblance ne bouge pas, seule la cible se décale.**
+Dans le passage en flot, cela se lit d'une ligne : on décale le registre
+glissant de `δ` bits (`V' = V >> δ`) et on lit la source `δ` positions
+plus tôt. Le coût est nul.
+
+**(i) Un excédent fixe ne coûte qu'un mélange.** `δ` est inconnu mais
+constant : on balaie `|Δ|` valeurs, une chaîne par valeur, et le mélange
+uniforme (lemme du 7.18 (iii), même preuve) monte le seuil de
+`log₂|Δ|` — `4,3` bits pour les vingt valeurs balayées au §168, contre un
+gain de `1,09` bit **par tirage**. Autant dire rien.
+
+Témoin (planté `x¹⁵ + x + 1`, plan 0, `7` mots muets par tirage, `300`
+tirages) : lu à `δ = 7`, `360` bits ; à `δ = 6`, `309` bits — une fenêtre
+peut absorber un mot de plus, le modèle est légèrement dégénéré, ce qui
+ne fait qu'aider ; à `δ = 0, 3, 8, 12`, respectivement `0,4`, `1,5`,
+`13,6`, `2,5` bits. Le balayage trouve, et ne trouve que, le bon excédent.
+
+**(ii) Un excédent variable : la limite, et elle est exacte.** Si `δ`
+change d'un tirage à l'autre, il faut le mélanger **à chaque pas** : la
+vraisemblance devient `Σ_δ π(δ) P(A_t, n | …)` et le gain moyen par
+tirage tombe de `1,09` à `1,09 − H(π)` bits, où `H` est l'entropie du
+mélange (au premier ordre : mélanger `D` valeurs équiprobables divise la
+masse par `D`).
+
+> **Critère.** *La synchronisation du 7.17 dérive vers le haut sous `H₁`
+> si et seulement si `H(π) < 1,09` bit par tirage — c'est-à-dire pour un
+> excédent variable prenant au plus **deux** valeurs. Au-delà,
+> l'alignement consomme plus d'information que le canal n'en apporte, et
+> aucune longueur de flux n'y change quoi que ce soit : le facteur de
+> Bayes dérive vers zéro.*
+
+C'est la limite exacte de toute la série 7.17-7.20, et elle mérite d'être
+dite en clair : **un générateur partagé avec un autre jeu**, dont
+l'entrelacement varie librement d'un tirage à l'autre, est hors de portée
+de ce procédé — non par manque de puissance de calcul, mais parce que le
+canal ne porte que `1,09` bit par tirage et que l'alignement en coûte
+davantage. Pour l'atteindre il faudrait un canal plus riche (le nibble du
+7.7 vaut `23,5` bits par tirage, mais son état caché est `2^{3L−3}`), ou
+un tirage ordonné (les douze du §159), ou une autre statistique que la
+parité.
+
+**(iii) Ce que le §168 balaie.** Les cinq séquences **nommées** de la
+glibc — plans 0 et 1 de `x⁷ + x³ + 1` (TYPE_1) et de `x¹⁵ + x + 1`
+(TYPE_2), plan 0 de `x³¹ + x³ + 1` (TYPE_3) — sous les deux
+échantillonneurs (`M = 80` et `M = 128`) et vingt excédents `δ ∈ {1 … 12,
+14, 16, 20, 24, 30, 40, 59, 79}`, soit `200` chaînes de flux au seuil
+`log₂(10⁷) + log₂ 64 + log₂ 20 = 33,57`.
+
+Sur l'archive (§168) : RESULTAT_720.
+
 ---
 
 ## 8. Application à ce dossier
@@ -3768,6 +3829,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | la synchronisation sous le **rejet** (pas variable, `E[N] = 22,85` mots par tirage) : plan 0 des 31 trinômes de degré `≤ 17`, plan 1 des 19 de degré `≤ 11` (TYPE_1 compris), suite alternée (TYPE_0), sous le flux et par nuit, par la **position absolue** dans la suite du bit lu (§7.17) | `21 · N` par tirage, `N = 2^L − 1` (plan 0) ou `(2^L − 1) 2^L` (plan 1) ; surmartingale de Ville, seuil `23,25` (flux) / `31,78` (nuit), valable à tout instant | **archive — §165 : en cours (jeton `f11c611488262d18`)** |
 | la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
 | le rejet **masqué** — `v = 1 + (x mod M)`, refusé si `v > 80` (`M = 100, 128, 256`), l'écriture recommandée d'un tirage sans biais : mêmes trinômes, plan 0 (`L ≤ 31`) et plan 1 (`L ≤ 15`), sous le flux (§7.19) | la vraisemblance garde la même forme, `F` et `G` étalés par la binomiale du masque ; `n` jusqu'à `176`, fenêtre de 128 bits ; `1,02 → 0,092` bit par tirage de `M = 80` à `256` ; Ville au seuil `29,25` | **archive — §167 : à lancer** |
+| l'**excédent** par tirage : le générateur consomme `δ` mots de plus (habillage, seconde partie, autre jeu) — cinq séquences nommées, deux échantillonneurs, `δ` dans vingt valeurs de 1 à 79 (§7.20) | la cible se décale, la fenêtre ne bouge pas : coût nul en calcul, `log₂ 20` de seuil ; limite exacte — un excédent VARIABLE d'entropie `≥ 1,09` bit par tirage noie le signal, quelle que soit la longueur du flux | **archive — §168 : à lancer** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
