@@ -2322,6 +2322,333 @@ question de calcul.
 
 ---
 
+### 7.15 Le distingueur structurel (§163) — le plan 0 sans état, à tout retard : les relations de poids 3 comme test d'hypothèse
+
+Les 7.11, 7.13 et 7.14 **décodent** : ils cherchent l'état parmi `2^L`
+hypothèses, et c'est ce `2^L` qui les arrête à `L = 31`. Cette section
+pose la question d'avant : *l'archive est-elle engendrée par un Fibonacci
+retardé de retard `L`, quel qu'en soit l'état ?* — et y répond sans
+état, en temps **linéaire** en la taille de l'archive, pour tout retard
+jusqu'à `1 279`. L'outil est le même objet qu'au 7.14, les relations de
+poids 3 du trinôme, mais employé autrement : non plus comme les contrôles
+d'un décodeur, mais comme un **test d'hypothèse** dont la statistique ne
+dépend d'aucun état. Le plan 0 d'un Fibonacci additif, soustractif ou
+xor est l'`m`-suite du trinôme ; chaque relation `x^j + x^d + 1 ≡ 0 (mod
+f)` est une équation de parité vraie pour **tout** état ; et l'archive
+triée, par le bit mou du 7.13, livre pour chaque mot pair une estimation
+bruitée de ce plan. La somme des produits de trois bits mous sur toutes
+les relations à portée est une variable dont l'espérance est nulle si
+l'hypothèse est fausse, et vaut un multiple connu de `(3/79)^{3/2}` fois
+la racine du nombre de triples si elle est vraie.
+
+La section établit (i) le théorème des relations sans état, et ce qu'il
+couvre ; (ii) le bit mou d'un tirage entier et son calibrage **exact**,
+`C = τ₀² = 3/79` ; (iii) la statistique, sa variance nulle exacte, le
+`z` attendu en forme close, et l'optimalité des poids ; (iv)
+l'énumération de **toutes** les relations à portée, et pourquoi la
+famille structurelle n'en est qu'une partie ; (v) ce que voient les plans
+supérieurs — la proposition de la retenue, qui dit exactement pourquoi la
+`random()` de la glibc est invisible ici et pourquoi c'est le 7.14 qui
+la voit ; (vi) la cible par nuit ; (vii) les témoins, la troncature à `L
+≤ 20` ; (viii) le chemin vers l'état si le test détecte, et les limites.
+Le résultat sur l'archive est au §163.
+
+**(i) Les relations sans état.** Soit `r_i = r_{i−K} ⊕ r_{i−L}` (xor),
+`r_i = r_{i−K} + r_{i−L}` ou `r_i = r_{i−L} − r_{i−K} mod 2^{32}`, et
+`f(x) = x^L + x^{L−K} + 1` son polynôme caractéristique (`r_{a+L} =
+r_{a+L−K} ± r_a`). Notons `b_i` le bit 0 de `r_i` (plan 0), `b^s_i` son
+bit `s`.
+
+> **Théorème (relations sans état).** *Pour `+` et `−`, le plan 0 vérifie
+> `b_{a+L} = b_{a+L−K} ⊕ b_a` pour tout `a` ; pour xor, tout plan `s` le
+> vérifie. Par conséquent, pour tout polynôme `g = Σ g_e x^e` multiple de
+> `f`, `Σ_e g_e b_{a+e} = 0` pour tout `a` — en particulier, pour toute
+> relation de poids 3, `x^j + x^d + 1 ≡ 0 (mod f)`, `0 < d < j` :*
+>
+>     b_a ⊕ b_{a+d} ⊕ b_{a+j} = 0        pour tout a ≥ 0,
+>
+> *quel que soit l'état initial, que `f` soit primitif ou non.*
+>
+> *Preuve.* Le bit 0 d'une somme ou d'une différence est le xor des bits
+> 0 : aucune retenue n'entre dans le bit 0. La suite `b` est donc dans le
+> noyau de `f(E)`, `E` l'opérateur de décalage, et `g(E) = h(E) f(E)`
+> l'annule aussi. ∎
+
+Le théorème ne suppose rien de l'état — ni sa valeur, ni qu'il soit
+« aléatoire » ; il ne suppose pas non plus `f` primitif : si `f` est
+réductible, la suite est plus courte, mais toujours annulée par `f`. Ce
+qu'il suppose, c'est le **pas constant** (`S` mots par tirage, les
+positions `S·t + k`), comme tout le 7.11–7.14 : sous le rejet, la
+position d'un mot n'est plus connue et le théorème n'a plus de prise.
+
+**(ii) Le bit mou d'un tirage entier, et `C = τ₀² = 3/79`.** Le 7.13
+lit, mot pair par mot pair, un bit mou `t_{t,k}` fondé sur les résidus
+modulo `80 − k`. Ici une seule variable par tirage suffit, et elle est
+plus simple : `T_t = (n_impairs − n_pairs)/20`, le déséquilibre de parité
+des vingt numéros tirés. Sa liaison avec les mots pairs tient à un fait
+combinatoire des deux échantillonneurs.
+
+> **Lemme (le numéro désigné).** *Dans le Fisher–Yates partiel (`j_k = k +
+> (r_k mod (80 − k))`, échange `k ↔ j_k`, tirés = positions `0…19`) comme
+> dans le `Collections.shuffle` (`i = 79…60`, `k = 79 − i`, `j_k = r_k mod
+> (i + 1)`, échange `i ↔ j_k`, tirés = positions `60…79`), pour tout `k =
+> 0…19` le numéro `j_k + 1` appartient à l'ensemble tiré ; et pour `k`
+> pair, `j_k ≡ r_k (mod 2)`, donc la parité de ce numéro est `1 ⊕ b_{t,k}`.*
+>
+> *Preuve.* Au pas `k`, l'élément en position `j_k` passe en position
+> `k` (FY) ou `i` (shuffle), position finale qui n'est plus touchée : les
+> pas suivants échangent des positions `k' > k` avec des `j' ≥ k'` (FY)
+> ou des `i' < i` avec des `j' ≤ i'`. Si la position `j_k` n'a pas encore
+> été visitée, elle contient encore `j_k + 1` ; si elle l'a été au pas
+> `k'' < k`, c'est que `j_{k''} = j_k`, et `j_k + 1` est alors passé en
+> position `k''` (FY) ou `i''` (shuffle), finale. Dans les deux cas
+> `j_k + 1` est tiré. Enfin `80 − k` et `i + 1 = 80 − k` sont pairs pour
+> `k` pair, donc `r_k mod (80 − k) ≡ r_k (mod 2)` et `j_k ≡ k + r_k ≡
+> r_k`. ∎
+
+Le numéro désigné par un mot pair est donc toujours dans l'ensemble, avec
+la parité du bit 0 du mot. Posons `ε(n) = (−1)^{n+1}` (`+1` impair), `T_t
+= (1/20) Σ_{n tiré} ε(n)`, et pour `k` pair `β_{t,k} = (−1)^{b_{t,k}} =
+ε(j_k + 1)`.
+
+> **Proposition (calibrage exact).** *Sous des mots uniformes, `E[T] = 0`,
+> `τ₀² = Var T = 3/79 = 0,037975`, et pour le mot `0` du Fisher–Yates
+> `C(0) = E[T · β_{t,0}] = 3/79` exactement.*
+>
+> *Preuve.* L'ensemble tiré est un `20`-sous-ensemble uniforme de `{1…80}`
+> (les deux échantillonneurs sont exacts sous des mots uniformes) :
+> `n_impairs` est hypergéométrique `(80, 40, 20)`, de variance `20 · ½ · ½
+> · 60/79 = 300/79`, et `T = (2 n_impairs − 20)/20` donne `Var T = 3/79`.
+> Pour `k = 0` (FY), `j_0 + 1 = arr[0]` est l'un des vingt numéros tirés,
+> échangeable avec les dix-neuf autres, donc `Cov(T, ε(arr[0])) = Var T`. ∎
+
+Pour les autres mots pairs le numéro désigné peut être arrivé en position
+finale par un détour, et l'échangeabilité n'est plus exacte ; le
+calibrage Monte Carlo de l'outil (`10^6` tirages du schéma nourri de
+mots uniformes) donne `C(k') = 0,0378 … 0,0383` pour les dix mots pairs,
+FY comme shuffle, contre `3/79 = 0,0380` — la formule vaut pour tous à
+un pour cent près, et `τ₀² = 0,0379` mesuré. Sur l'archive, `Var T =
+0,0387` et `E[T] = −0,0009` (`N = 70 560`, écart-type de la moyenne
+`0,0007`) ; l'outil centre `T` sur sa moyenne empirique et prend `τ²`
+empirique, ce qui ne suppose rien de l'archive.
+
+Autrement dit, `T_t ≈ Σ_{k pair} C · β_{t,k} + bruit` : un seul nombre par
+tirage porte, avec le même poids `C = 3/79`, les dix bits du plan 0 des
+mots pairs, à un rapport signal sur bruit `C/τ₀ = √(3/79) = 0,195` par
+bit. Il n'est pas besoin de savoir lequel des dix parle : les relations
+le disent.
+
+**(iii) La statistique, sa variance exacte, le `z` attendu.** Une
+relation `(d, j)` et un mot pair `k = 2m` d'un tirage `t_a` désignent les
+positions `p₁ = 2m + d`, `p₂ = 2m + j` — soit les tirages `t_a + δ₁`,
+`t_a + δ₂` (`δ = p div S`) et les mots `k₁ = p₁ mod S`, `k₂ = p₂ mod S`.
+Le triplet est **valide** si `k₁, k₂` sont pairs `≤ 18` et `1 ≤ δ₁ <
+δ₂` (trois tirages distincts). Deux relations ou deux mots qui tombent sur
+le même **motif** `(δ₁, δ₂)` se cumulent : `c_p` est le nombre de
+triplets valides `(m, d, j)` du motif `p`, `w_p = C(m) C(k₁/2) C(k₂/2)`
+sommé sur eux (`≈ c_p C³`), et `n_p` le nombre de `t_a` tels que `t_a +
+δ₂ < N` (cible flux) ou `BLOC(t_a) = BLOC(t_a + δ₂)` (cible bloc). La
+statistique est
+
+    Λ = Σ_p w_p Σ_{t_a} T_{t_a} T_{t_a+δ₁} T_{t_a+δ₂},      z = Λ / √V,
+    V = τ⁶ Σ_p w_p² n_p.
+
+> **Proposition (variance nulle exacte, `z` attendu, optimalité).**
+> *Sous `H₀` — les `T_t` indépendants, centrés, de variance `τ²` —,
+> `E[Λ] = 0` et `Var Λ = V` exactement. Sous `H₁` — l'archive engendrée par
+> le schéma sur le plan 0 de `f` —, `E[Λ] = Σ_p w_p² n_p`, donc*
+>
+>     z_attendu = √(Σ_p w_p² n_p) / τ³ ≈ (3/79)^{3/2} √(Σ_p c_p² n_p) = 0,0074 √(Σ_p c_p² n_p),
+>
+> *et, parmi toutes les combinaisons linéaires des sommes de motifs, les
+> poids `w_p` maximisent `E[Λ]/√(Var Λ)`.*
+>
+> *Preuve.* Un même triple de tirages `{t_a, t_a + δ₁, t_a + δ₂}` ne
+> provient que d'un seul motif (son plus petit élément fixe `t_a`, les
+> deux écarts fixent `p`) ; deux produits de triples distincts ont pour
+> covariance un produit contenant un `E[T] = 0` — même s'ils partagent
+> deux tirages. Les produits sont donc deux à deux non corrélés, de
+> variance `τ⁶`, d'où `Var Λ = Σ_p w_p² n_p τ⁶`. Sous `H₁`,
+> `E[T_{t_a} T_{t_a+δ₁} T_{t_a+δ₂}]` se développe sur les `10³` triplets de
+> mots pairs ; par le théorème (i) les `c_p` triplets qui sont des
+> relations valent `+C(m)C(k₁/2)C(k₂/2)`, les autres portent `(−1)^{<v,p>}`
+> avec un `v ≠ 0` qui change avec `t_a`, de somme `O(√n_p)` — du bruit,
+> pas du signal. Donc `E[Σ_{t_a} T T T] = w_p n_p` et `E[Λ] = Σ w_p² n_p`.
+> Pour l'optimalité, `Λ_u = Σ_p u_p Σ TTT` a `E = Σ u_p w_p n_p` et
+> `Var = τ⁶ Σ u_p² n_p` ; Cauchy–Schwarz donne `E/√Var ≤ √(Σ w_p² n_p)/τ³`
+> avec égalité pour `u = w`. ∎
+
+L'outil rapporte aussi `z_p = Λ_p/√(n_p τ⁶)` par motif et son maximum
+`zmax_motif` — un diagnostic, non un test ; et la détection est déclarée
+sur `z ≥ Z_c = Q⁻¹(10⁻⁷/n_tests)` unilatéral, le signal étant positif par
+construction. Sans état à énumérer, il n'y a pas de borne d'union sur
+`2^L` : `n_tests` est le nombre de statistiques de la grille, `2 268` au
+§163, `Z_c = 6,49`.
+
+**(iv) Toutes les relations à portée.** L'outil énumère `x^e mod f` pour
+`e = 0 … j_max = S(N − 1) + 18` (la position du dernier mot pair
+observé), par décalages successifs dans `F₂[x]/(f)` — `⌈L/64⌉` mots de
+64 bits, clé exacte si `L ≤ 64`, hachage `GF(2)`-linéaire sinon avec
+vérification par exponentiation — et retient tout `(d, j)` tel que `x^j +
+1 = x^d`, `0 < d < j`. C'est le logarithme de Zech du 7.14 poussé jusqu'à
+`1,41 · 10^6`, et **sans hypothèse de primitivité**. Le compte est
+instructif :
+
+| trinôme | relations à portée (`j ≤ 1 411 198`) | structurelles `((L−K)2^m, L2^m)` | autres |
+|---|---|---|---|
+| `x^63 + x^62 + 1` (TYPE_4) | 87 | 15 | 72, à partir de `j = 4 029 ≈ (L+1)²` |
+| `x^63 + x^32 + 1`, `x^63 + x^31 + 1` | 90 | 15 | 75 |
+| `x^63 + x^58 + 1`, `x^63 + x^5 + 1` | 15 | 15 | 0 |
+| `x^60 + x^59 + 1` | 33 | 15 | 18, à partir de `j = 3 835` |
+| `x^31 + x^28 + 1` (TYPE_3) | 764 | 21 | 743 (fortuites, `≈ j_max²/2P = 463` attendues, plus une famille à `j = 980, 1 023`) |
+| `x^127 + x^97 + 1`, `x^250 + x^147 + 1`, … `x^1279 + x^1063 + 1` | 14, 13, … 11 | toutes | 0 |
+
+La famille structurelle — la récurrence et ses images par Frobenius,
+`(u + v)^{2^m} = u^{2^m} + v^{2^m}` en caractéristique 2, valable dans
+toute `F₂`-algèbre — n'est donc pas tout : certains trinômes (`K = 1`,
+`K = L − 1`, `(31, 63)`, `(32, 63)`, `(1, 60)`…) ont d'autres multiples de
+poids 3 dès `j ≈ L²`, d'autres non (`(5, 63)`, `(24, 55)`, tous les
+retards classiques à portée). Nous ne caractérisons pas ces familles
+algébriquement — c'est précisément ce que l'énumération brute dispense
+de faire : toutes les relations à portée sont trouvées, vérifiées
+exactes (arithmétique polynomiale sans hachage pour `L ≤ 64`), et
+comptées dans `z_attendu`. Pour `L ≥ 40`, les fortuites (`j_max²/2^{L+1}`)
+disparaissent ; pour `L ≤ 20`, la période `2^L − 1` est plus courte que
+`j_max` et les relations pullulent — l'outil plafonne à `400 000`
+relations et `65 536` motifs (drapeaux « tronquées », « plein »), et le
+test reste exact sur le sous-ensemble retenu (toute sous-famille de
+relations est un test valide ; seule la prédiction `z_attendu` devient
+approximative, voir (vii)). Le coût total est `O(j_max · L/64)` pour
+l'énumération et `O(Σ_p n_p)` pour la statistique : `1` à `2` secondes
+par trinôme au pas 20 sur l'archive entière, `15` au pas 80 avec
+shuffle. Aucun `2^L`, nulle part.
+
+**(v) Ce que voient les plans supérieurs — la proposition de la
+retenue.** Le théorème (i) porte sur le plan 0 pour `+` et `−`. Le shift
+1 de la `random()` de la glibc publie le plan 1. Que valent les relations
+de poids 3 sur les plans `s ≥ 1` ?
+
+> **Proposition (la retenue).** *Pour `r_i = r_{i−K} ± r_{i−L} mod 2^{32}`
+> et la relation de base `(d, j) = (L − K, L)` :*
+>
+>     b¹_a ⊕ b¹_{a+L−K} ⊕ b¹_{a+L} = b_a ∧ b_{a+L−K}      (la retenue du bit 0),
+>
+> *de biais `E[(−1)^{…}] = 1/2` sous des mots uniformes, et le plan `s`
+> y a le biais `2^{−s}`. Pour toute autre relation de poids 3 — les
+> doubles de Frobenius `m ≥ 1` comme les familles supplémentaires —, la
+> parité du plan 1 est `<β_a, p> ⊕ maj(<α_a, p>, <α_{a+d}, p>, <α_{a+j},
+> p>)` (théorème du 7.14), d'espérance sur l'état*
+>
+>     ½ [ 1(β_a = α_a) + 1(β_a = α_{a+d}) + 1(β_a = α_{a+j}) − 1(β_a = 0) ],
+>
+> *nulle dès que `β_a` n'est ni nul ni l'un des trois vecteurs — ce qui
+> est le cas mesuré : sur un flux planté `(1, 63)` de `3 · 10^5`
+> positions, `57` relations, biais `+0,500` (plan 1) et `+0,252` (plan
+> 2) pour `(62, 63)`, `|biais| < 0,006` pour les 56 autres sur les deux
+> plans.*
+>
+> *Preuve.* Pour la base, `r_{a+L} = r_{a+L−K} ± r_a` et le bit 1 d'une
+> somme est le xor des bits 1 et de la retenue du bit 0, `b_a ∧
+> b_{a+L−K}` (pour la différence, l'emprunt `¬b_{a+L} ∧ b_{a+L−K}`, de
+> même loi) ; la retenue entrant au bit `s` d'une somme de deux mots
+> uniformes vaut 1 avec probabilité `½ − 2^{−(s+1)}`, d'où le biais
+> `2^{−s}`. Pour la base encore, on vérifie `β_a = α_{a+L}` (le 7.14
+> donne `β = α'_a ⊕ α'_{a+L−K} ⊕ α'_{a+L} ⊕ maj(α_a, α_{a+L−K}, α_{a+L})`,
+> et la récurrence de `α'` réduit les trois premiers à `α_a ∧ α_{a+L−K}`,
+> tandis que `maj(u, v, u ⊕ v) = u ⊕ v ⊕ (u ∧ v)`), ce qui redonne `½`.
+> Pour une relation quelconque, avec `x ⊕ y ⊕ z = 0` : `(−1)^{maj(x,y,z)} =
+> ½[(−1)^x + (−1)^y + (−1)^z − 1]`, et l'espérance sur `p` uniforme de
+> `(−1)^{<β_a, p>}` fois chaque terme est l'indicatrice annoncée. ∎
+
+La conséquence est exacte et elle est double. *D'un côté*, la seule
+relation qui parle sur les plans supérieurs est la récurrence elle-même
+`(L − K, L)`, et elle **ne tombe jamais** sur trois mots pairs de trois
+tirages distincts dans la grille : au pas pair, `d` et `j` doivent être
+pairs, or un trinôme primitif a `L` impair, ou `L` pair et `L − K` impair
+(sinon `f` serait un carré) ; au pas `79`, il faudrait `L − K ≥ 61` et
+`L ≤ 97` avec les bonnes parités après franchissement, ce qu'aucun trinôme
+de la grille ne satisfait (vérifié cas par cas sur les 126 : `(2, 63)`
+conviendrait, il n'est pas primitif). Donc **le distingueur structurel
+est aveugle, par construction, à la `random()` de la glibc** (shift 1) et
+à tout Fibonacci additif publiant un plan `≥ 1` : le témoin `(1, 63)` add
+shift 1 donne `z = −1,60` pour `z_attendu(plan 0) = 101`, comme il se
+doit. *De l'autre*, c'est cette même retenue que le 7.14 exploite —
+non pas son biais sur trois positions, mais sa valeur exacte, fonction
+du seul plan 0, décodée par une WHT sur `2^L` — et c'est pourquoi les
+deux sections sont complémentaires : le 7.15 couvre le plan 0 de tout
+retard sans état, le 7.14 le plan 1 de `L ≤ 31` avec `2^L`. Pour `xor`,
+il n'y a pas de retenue, tous les plans sont des `m`-suites, et le test
+voit tout shift : les témoins `(37, 100)` xor shift 3 et `(103, 250)`
+xor shift 1 le confirment.
+
+**(vi) La cible par nuit.** Si chaque nuit part d'un état neuf (le 7.4),
+seules valent les relations dont `j` tient dans la nuit : `j ≤ S(l_max −
+1) + 18`, `≈ 4 000` au pas 20 — pour `(1, 63)`, `18` relations et `23`
+motifs au lieu de `87` et `166`, et `n_p` compte les `t_a` dont le triple
+reste dans le même bloc (`BLOC(t_a) = BLOC(t_a + δ₂)`). Le `z_attendu`
+tombe de `103` à `14,6` : moins de relations, et les longues sont
+perdues. Il reste très au-dessus de `Z_c = 6,49` pour `L ≤ 63` au pas
+20 ; pour les retards classiques, `L · 2^m ≤ 4 000` ne laisse que
+quelques relations et la cible bloc perd sa puissance — la table du §163
+la donne ligne à ligne. Les deux cibles sont deux hypothèses distinctes
+(un état pour l'année ; un état par nuit), et le §163 les teste toutes
+deux.
+
+**(vii) Les témoins, et la troncature.** Sept flux plantés, décodés par
+le binaire du §163 puis remplacés par des tirages nuls (`Z_c = 6,49`, `0`
+faux positif) :
+
+| trinôme | op, shift | variante | `N`, blocs | relations, motifs | `z_attendu` | `z` |
+|---|---|---|---|---|---|---|
+| `(1, 63)` | add 0 | fy 20 | 70 560, 1 | 87, 166 | 102,3 | **104,5** |
+| `(1, 63)` | add 1 | fy 20 | 70 560, 1 | 87, 166 | 101,3 | −1,6 (aveugle, (v)) |
+| `(24, 55)` | sub 0 | fy 22 | 70 560, 1 | 15, 26 | 51,8 | **52,7** |
+| `(37, 100)` | xor 3 | fy 20 | 70 560, 1 | 14, 26 | 52,0 | **51,1** |
+| `(1, 63)` | add 0 | fy 20, **bloc** | 70 560, 370 | 18, 23 | 14,6 | **14,6** |
+| `(3, 31)` | add 0 | shuffle 79 | 20 000, 1 | 887, 32 | 15,0 | **15,8** |
+| `(103, 250)` | xor 1 | shuffle 80 | 70 560, 1 | 15, 5 | 8,6 | **8,2** |
+
+`z` suit `z_attendu` à `3 %` près partout — la formule close de (iii) est
+une prédiction, pas un ajustement. Deux remarques. *Au pas 79/80*, les
+relations doivent faire tomber `2m + d` et `2m + j` sur des mots pairs `≤
+18` après réduction modulo `79` ou `80` : la plupart n'y arrivent pas,
+`887` relations ne font que `32` motifs pour TYPE_3, et pour bien des
+trinômes **aucun** — la statistique est alors *vide* (`z = 0`, elle ne
+teste rien, et le §163 les compte à part). *Pour `L ≤ 20`*, la période
+`2^L − 1` est plus courte que le flux : sous `H₁` les `T_t` sont
+périodiques, les produits de triples ne sont plus indépendants, et la
+variance sous `H₁` dépasse celle sous `H₀` — `(3, 7)` donne `z = 1 715`
+pour `z_attendu = 5 054` : le test reste valide (sa variance sous `H₀`
+est exacte) et la détection écrasante, seule la prédiction est
+optimiste ; `(1, 15)` donne `2 160` pour `2 133`.
+
+**(viii) Le chemin vers l'état, et les limites.** Si le §163 détectait —
+un `z ≥ Z_c` pour un `(K, L)` et une variante —, le plan 0 s'ensuivrait
+sans `2^L` : les relations sont un code LDPC de poids 3 sur `≈ 700 000`
+bits mous de rapport signal sur bruit `0,195`, et la propagation de
+croyances (l'attaque par corrélation rapide de Meier–Staffelbach, dont
+c'est exactement le cadre) converge en temps linéaire dès que le nombre
+de relations par bit dépasse quelques unités — `87` relations sur `1,4 ·
+10^6` positions en donnent `≈ 0,6 × 10` par mot pair pour `(1, 63)`, `764
+× 10/S` pour TYPE_3 : assez au pas 20, juste au pas 79. Les plans
+suivants viendraient ensuite par le relèvement du 7.12 sur des tirages
+ordonnés, ou par le `Z/4` du 7.14. Ce chemin n'est pas construit : il
+n'a de sens qu'après une détection.
+
+Ce que le test **ne couvre pas** : les plans `≥ 1` des Fibonacci `+`/`−`
+(la proposition (v) : c'est le 7.14, à `2^L`) ; le Fibonacci
+multiplicatif (bit 0 constant) et la soustraction avec emprunt de
+Marsaglia–Zaman (l'emprunt entre dans le bit 0) ; le rejet et le pas
+variable (les positions ne sont plus `S·t + k`) ; et MT19937 — non parce
+qu'il n'est pas un trinôme, mais parce que ses multiples de poids 3 les
+plus courts ont `j ≈ 2^{L/2} = 2^{9 968}` : le théorème (i) vaut pour
+tout polynôme, l'archive n'est simplement pas assez longue, et le
+polynôme lui-même (poids `135`) donnerait un signal `C^{135}`. C'est le
+sens de la borne du 7.14 (viii) vue de l'autre côté : le budget
+d'information suffit, ce sont les relations courtes qui manquent.
+
+---
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
@@ -2385,6 +2712,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
 | état bas TYPE_2, TYPE_3 et 42 trinômes (degré 15 à 31) sous flux continu à pas constant, **shift 1** (`random()` de la glibc), par les relations de poids 3 sur `Z/4` (§7.14) | `2^L` plans 0 par une WHT (`L ≤ 28`) ou un `χ²` par morceaux (`L = 31`), plan 1 déduit linéairement | **archive — §162 : 396 décodages (fy 20–24, 79, 80 ; shuffle 79, 80 ; shifts 1 et 0), pré-enregistré, en cours** |
+| plan 0 de tout Fibonacci retardé (`+`, `−` à shift 0 ; `xor` à tout shift), 110 trinômes primitifs de degré 7 à 63 + 16 retards classiques jusqu'à 1279, sous flux continu et par nuit, **sans état** (§7.15) | linéaire en `N` : 2 268 statistiques, ≈ 1–3 h | **archive — §163 : pré-enregistré, en cours** |
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
