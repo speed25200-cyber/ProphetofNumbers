@@ -5648,3 +5648,48 @@ générateur cryptographique et un générateur faible dont le défaut n'a aucun
 correspondant donnent la même borne. La valeur d'une borne se lit donc **au
 nombre et à la variété des témoins qui l'accompagnent**, jamais au nombre de
 tirages.
+
+---
+
+### 7.32 Le **maximum permuté** — pourquoi un Bonferroni gaussien sur des khi² est faux des deux côtés
+
+Soit `M` statistiques `T_1..T_M`, chacune normalisée en `z_i = (T_i − μ_i)/σ_i` où
+`μ_i` et `σ_i` viennent d'une nulle simulée. La lecture habituelle compare
+`max_i |z_i|` au quantile gaussien de Bonferroni `Φ⁻¹(1 − α/2M)`. Cette lecture est
+fausse dès que les `T_i` sont des `khi²`, et elle est fausse **dans les deux sens à
+la fois**.
+
+**(i) La dissymétrie.** Un `khi²` à `d` degrés de liberté a pour asymétrie
+`√(8/d)`. Sa version centrée-réduite garde cette asymétrie : la queue droite est
+plus lourde qu'une gaussienne, et d'autant plus que `d` est petit. Le maximum de
+`M` telles variables dépasse donc systématiquement le quantile gaussien. Avec les
+`1 971` statistiques du §189, la médiane du maximum vaut `5,33` là où le seuil de
+Bonferroni gaussien vaut `4,212` : **une lecture gaussienne déclarerait un écart
+une fois sur deux sur des données parfaitement conformes**.
+
+**(ii) La dépendance.** Les `M` statistiques partagent les mêmes tirages. Le
+nombre de tests *effectivement indépendants* est inférieur à `M`, donc Bonferroni
+est conservateur — dans l'autre sens. Les deux effets ne se compensent pas : ils
+portent sur des aspects différents de la loi du maximum, et leur somme est
+imprévisible.
+
+**La correction, qui ne suppose rien.** On dispose déjà des `R` réplicats de la
+nulle. Il suffit de calculer, pour chaque réplicat `r`, sa propre statistique de
+maximum en le **laissant de côté** dans l'estimation de `μ` et `σ` :
+
+    μ_i^{(-r)} = (Σ_s T_i^{(s)} − T_i^{(r)}) / (R−1) ,     idem pour σ ,
+    m_r = max_i | (T_i^{(r)} − μ_i^{(-r)}) / σ_i^{(-r)} |
+
+et à comparer `max_i |z_i|` observé à la loi empirique des `m_r`. Le `p` vaut
+`(1 + #{r : m_r ≥ observé}) / (1 + R)`. Cette lecture est **exacte sous la nulle de
+permutation**, pour tout `M`, toute dissymétrie et toute dépendance.
+
+**Le laissé-de-côté n'est pas cosmétique.** Sans lui, `T_i^{(r)}` entre dans sa
+propre moyenne et dans son propre écart-type, ce qui rétrécit `m_r` d'un facteur
+`√(1 − 1/R)` et biaise le `p` vers la découverte — exactement le sens qu'on
+cherche à éviter.
+
+**Le prix.** La résolution du `p` est `1/(R+1)`. Avec `R = 200`, on peut conclure
+« conforme » (`p > 0,05`) mais pas proclamer une découverte forte. C'est le bon
+compromis : un test de balayage sert à **écarter**, et une découverte se chasse
+ensuite sur sa propre statistique, où l'on peut se payer bien plus de réplicats.

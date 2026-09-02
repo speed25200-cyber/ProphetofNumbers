@@ -19622,3 +19622,192 @@ dix écarts-types de marge.
 **Ligne de registre.** `h173.predicteur_appris`, piste B, conforme.
 
 ---
+## 189. L'**indépendance interne** du tirage : un champ contre un autre, et non un numéro contre un numéro (`h174_independance_interne.py`)
+
+L'archive publie **trois** choses par tirage : les vingt numéros, le numéro bonus
+— toujours l'un des vingt, donc un **rang** — et le multiplicateur, porté par la
+grille `1/80` en six secteurs. Le §175 a montré que le bonus est un **indice tiré**
+et le §106 que le boost partage le modulus `80` : les trois champs sortent du
+**même flux de mots**, à quelques positions d'écart.
+
+C'est la **plus courte fenêtre d'observation du dossier**. Deux tirages consécutifs
+sont à vingt-trois mots l'un de l'autre ; le bonus et le boost sont à une ou deux
+positions du dernier numéro. Et aucune section n'avait testé cela : toutes testent
+les numéros contre les numéros, aucune un champ contre un autre.
+
+### Neuf familles, 1 971 khi²
+
+| famille | | statistiques | max `\|z\|` |
+|---|---|---|---|
+| **A** | boost × rang, même tirage | `1` | `0,868` |
+| **B** | boost × « `v` sorti », même tirage | `80` | `2,751` |
+| **D** | boost × cinq fonctionnelles | `5` | `1,339` |
+| **F** | boost auto-corrélé, `d ≤ 100` | `100` | `2,975` |
+| **H** | boost × numéros de `t+1..t+10` | `800` | `4,758` |
+| **C** | rang × « `v` sorti » | `80` | `2,200` |
+| **E** | rang × cinq fonctionnelles | `5` | `0,945` |
+| **G** | rang auto-corrélé, `d ≤ 100` | `100` | `2,637` |
+| **I** | rang × numéros de `t+1..t+10` | `800` | `5,764` |
+
+La nulle est la **permutation de colonne** : permuter le boost conserve exactement
+sa marge, exactement la loi jointe de tout le reste, et détruit exactement le lien
+entre les deux. C'est la nulle exacte de l'hypothèse testée.
+
+### Et voici pourquoi le seuil de Bonferroni aurait menti
+
+Le seuil de Bonferroni sur `1 971` statistiques vaut `4,212`, et le maximum observé
+vaut `5,764`. Un lecteur pressé y verrait quatre écarts. **Il n'y en a aucun.**
+
+Sous permutation, le maximum de ces mêmes `1 971` statistiques a pour **médiane
+`5,33`**, pour neuvième décile `6,52` et pour maximum `9,87`. La valeur observée est
+strictement ordinaire : `p = 0,343`.
+
+> Un `khi²` est **dissymétrique** : son `z` normalisé a une queue droite bien plus
+> lourde qu'une normale, et `1 971` statistiques partageant les mêmes tirages sont
+> fortement corrélées. Un Bonferroni gaussien se trompe donc **des deux côtés à la
+> fois**, et le maximum permuté corrige les deux d'un coup, sans rien supposer.
+
+C'est le quatrième défaut d'instrument trouvé dans ce dossier, et le seul qui
+aurait produit une fausse découverte plutôt qu'un chiffre faux.
+
+**Ligne de registre.** `h174.independance_interne`, piste B, conforme,
+`m_extra = 1 970`.
+
+---
+
+## 190. **Les trois champs prédits** : ce que l'archive concède exactement (`h175_trois_champs_predits.py`)
+
+### Ce qui est acquis, et qui ne s'ajuste pas
+
+> **Théorème du bonus.** Le numéro bonus est toujours l'un des vingt numéros du
+> tirage — **`70 560` fois sur `70 560`**. Connaître les vingt fait donc passer la
+> prédiction du bonus de `1/80 = 1,250 %` à `1/20 = 5,000 %` : un facteur
+> **quatre**, exact, sans une seule hypothèse sur le générateur.
+
+Et le §187 ferme le facteur suivant : le rang du bonus parmi les vingt est
+**uniforme**. Jouer le rang majoritaire de la tranche d'apprentissage (le rang `9`)
+rend `4,912 %` sur la tranche de mesure, soit `z = −0,67` : rien de plus que `1/20`.
+
+### Ce qu'un modèle ajouté ne gagne pas
+
+Régression softmax à poids partagés, ajustée sur les tirages `2 000..43 136`,
+mesurée sur `43 136..70 560` :
+
+| champ | justesse | nulle | `z` | gain de vraisemblance |
+|---|---|---|---|---|
+| bonus, mode **temporel** | `4,963 %` | `5,000 %` | `−0,28` | `−6,15·10⁻⁴` |
+| bonus, mode **interne** | `4,941 %` | `5,000 %` | `−0,45` | `−6,27·10⁻⁴` |
+| boost, mode temporel | `51,207 %` | `51,160 %` | `+0,16` | `−2,76·10⁻⁵` |
+
+Le **mode interne** est le plus intéressant des trois : il laisse le modèle voir
+les vingt numéros du tirage lui-même — leurs valeurs, l'écart au numéro précédent,
+l'écart au suivant. Sous la lecture `bonus = triés[⌊20u⌋]` du §175, le rang est
+indépendant de la forme du tirage ; s'il devenait prévisible à partir des valeurs,
+c'est la **lecture** qui serait fausse. Elle ne l'est pas.
+
+*Puissance.* L'autotest plante une copie du rang d'il y a deux tirages un tirage
+sur quatre : le même modèle la rend à `z = +135`. Sur les `27 424` tirages de
+mesure, l'écart-type de la justesse du bonus vaut `0,132` point de pourcentage.
+
+### Les bornes
+
+À `95 %` de confiance unilatérale :
+
+* la prédiction du bonus ne dépasse pas **`5,18 %`**, soit au plus `3,6 %` de mieux
+  que le `1/20` que le théorème donne déjà gratuitement ;
+* la prédiction du boost ne dépasse pas **`51,70 %`**, soit au plus `0,54` point de
+  pourcentage de mieux que de jouer toujours le secteur majoritaire.
+
+**Ligne de registre.** `h175.trois_champs_predits`, piste B, conforme.
+
+---
+## 191. **La réponse** : ce qui se reconstitue, ce qui se prédit, et ce qui ne se prédit pas
+
+Ce dossier a une question et il faut y répondre en clair.
+
+### 1. La théorie de reconstitution existe, et elle fonctionne
+
+Elle est écrite aux §7.1 à §7.32 et elle n'est pas une esquisse : elle donne des
+**équations exactes** et des **bornes démontrées**.
+
+* **L'équation d'observation** (§7.11-§7.12) : un numéro émis se convertit en bits
+  exacts du mot qui l'a produit, et sous flux continu un tirage absent est un
+  décalage *connu*, pas une rupture — ce qui porte la contrainte de `359` à `987`
+  équations sans une donnée de plus (§164).
+* **Le théorème du tirage unitaire** (§7.27) : la portée exacte d'un crible de
+  classes vaut `E = (80/n_δ)^L · (Π_a m_a/(80/n_δ − a))^T`, avec son **point
+  critique** — au décalage `1`, le produit vaut `1` et le crible ne converge
+  jamais.
+* **La famille des détecteurs d'énergie** (§7.28) et sa **règle de portée**
+  vérifiée sur cinq échantillonneurs.
+* **Les nulles exactes** (§7.29, §184) et la **borne de prédiction** (§7.31).
+* **Le maximum permuté** (§7.32), sans lequel un balayage de `khi²` produit de
+  fausses découvertes à la chaîne.
+
+Et la chaîne complète — *détecter → relever l'état → prédire les vingt numéros
+suivants* — **a été exécutée de bout en bout** sur générateurs plantés (§173,
+§174), avec relèvement exact par réseau et prédiction `20/20`. La théorie n'est
+pas conditionnelle : elle a produit des numéros justes. Simplement pas sur cette
+archive-ci.
+
+### 2. Ce qui se prédit vraiment dans l'archive
+
+Une seule chose, et elle est exacte :
+
+> **Le bonus.** Il est toujours l'un des vingt numéros — `70 560` sur `70 560`.
+> Connaître les vingt fait passer sa prédiction de `1/80` à `1/20` : facteur
+> **quatre**, démontré, sans hypothèse sur le générateur. Et il n'y a pas de
+> facteur suivant : le rang est uniforme (§187), et aucun modèle ajusté ne dépasse
+> `5,18 %` à `95 %` de confiance (§190).
+
+### 3. Ce qui ne se prédit pas, avec les chiffres
+
+| ce qui a été mesuré | borne à `95 %` |
+|---|---|
+| numéros, prédicteur appris à `14` traits, hors échantillon (§188) | **`+0,0113` numéro par tirage** sur `20`, soit `0,23 %` |
+| bonus, modèles temporel et interne (§190) | **`5,18 %`** au lieu de `5,00 %` |
+| boost, modèle temporel (§190) | **`51,70 %`** au lieu de `51,16 %` |
+
+Ces bornes valent ce que valent leurs témoins, et les témoins sont là : main
+chaude `30 %` vue à `z = +27,8`, Fibonacci retardé `(3,7)` vu à `z = +10,7`, copie
+du rang à `25 %` vue à `z = +135`, budget de nuit vu à `z = −8,6`, fuite de champ
+à champ vue à `z = +418`. Le défaut du témoin additif vaut **dix fois** la borne
+sur les numéros.
+
+### 4. Le compte du registre
+
+`6 952 111` tests, toutes voies confondues. Le plus petit `p` de tout le dossier
+vaut `1,8·10⁻⁴`, et le seuil de Holm au premier rang vaut `7,2·10⁻⁹` :
+
+> **il manque un facteur `25 000`.**
+
+Aucune anomalie ne survit. Et les deux seuls `ECART` jamais consignés se sont
+tous deux **dissous à l'examen** — l'un par un contrôle SRS (§175), l'autre par le
+calcul exact de sa nulle (§184).
+
+### 5. Ce que l'archive ne peut pas fermer
+
+Il reste exactement une classe d'attaques, et il faut la nommer honnêtement :
+celles qui **ne laissent aucune trace dans les résultats publiés**.
+
+* le résultat consultable avant l'heure officielle ;
+* un initié ;
+* toute fuite hors bande.
+
+Aucune de ces trois ne se teste sur une archive de résultats — par construction,
+elles n'y laissent rien. Elles demandent un accès au service en direct, et
+`jeux.loro.ch` est bloqué par la politique réseau de ce dépôt. **C'est la seule
+frontière du dossier, et elle est méthodologique, pas statistique.**
+
+### En un paragraphe
+
+La théorie est complète et opérationnelle : elle reconstitue un état et prédit
+vingt numéros, démontré. Appliquée à cette archive, elle rend une prédiction
+exacte — le bonus, facteur quatre — et **ferme tout le reste avec des bornes
+chiffrées** : au plus `0,23 %` d'avantage sur les numéros, au plus `3,6 %` sur le
+bonus, au plus un demi-point sur le boost. Ce n'est pas un échec de méthode, c'est
+un **résultat mesuré**, et il a exigé d'être aussi dur avec mes propres
+instruments — quatre défauts trouvés et corrigés, dont une fuite qui n'apparaissait
+que dans la queue d'une loi — qu'avec le générateur.
+
+---
