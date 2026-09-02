@@ -724,6 +724,43 @@ daté (§132) et **1 232 352 352** contre les 346 journées de l'archive (§133)
 zéro. Probabilité de faux positif `2,8·10⁻¹⁹` par graine sur l'ensemble trié,
 `10⁻³⁷` sur l'ordre.
 
+**Addendum (§161, h141) — la graine de `random()` elle-même, quelle que soit sa
+source.** Les quatre balayages ci-dessus ont chacun un angle mort, et c'est le
+même : ils balaient soit **une graine quelconque contre un seul tirage** (§120,
+§121 : familles brouillées, premier tirage), soit **une graine dérivée d'une
+quantité publiée** contre les journées (§133 : six formes, sept familles
+brouillées) ou l'ordre daté (§132). Aucun n'a balayé les 2³² amorçages de
+**`random()`** — la famille du §7.1, celle dont l'état bas a été rejeté sur
+l'archive entière — contre **tous** les blocs ou **tous** les tirages, pour
+une graine dont on ne suppose **rien** : `getpid()`, une adresse, `getrandom`,
+un compteur de processus, une horloge d'un autre fuseau.
+
+L'attaque tient en deux index sur l'archive triée :
+
+- **une graine par bloc** : les 370 premiers ensembles de bloc forment un index
+  bitmap `M[v] ⊂ {blocs}` (`v = 1..80`) ; l'émission `x₀, x₁, …` d'une graine
+  est intersectée numéro par numéro, `M[x₀] ∩ M[x₁] ∩ …`, et meurt en ~5
+  numéros pour une graine fausse. Fausse touche `1/C(80,20) = 2,8·10⁻¹⁹` par
+  (graine, combinaison, bloc), donc `2³² · 149 · 370 · 2,8·10⁻¹⁹ = 6,6·10⁻⁴`
+  par balayage complet ;
+- **une graine par tirage** : index **inverse des 5-sous-ensembles**. Chaque
+  tirage inscrit ses `C(20,5) = 15 504` sous-ensembles au rang combinatoire
+  `r(a<b<c<d<e) = C(a,1)+C(b,2)+C(c,3)+C(d,4)+C(e,5) < C(80,5) = 24 040 016`
+  (bijection de Lehmer), soit `1,09·10⁹` entrées ; une émission lit le rang de
+  ses cinq plus petits numéros et ne compare ses vingt numéros qu'aux ~45
+  tirages de la liste, filtrés d'abord par une empreinte 15 bits de leur masque.
+  Fausse touche `70 560/C(80,20) = 2·10⁻¹⁴` par (graine, combinaison), `3·10⁻³`
+  par balayage de 2³² × 32.
+
+Quatre amorçages (glibc `srandom`/`initstate` TYPE_1..4, FreeBSD/macOS, 4.4BSD,
+musl — 16 variantes), 21 échantillonneurs, décalages de mots avant le tirage,
+et une **confirmation** indépendante : `--suite` doit rendre le tirage
+**suivant** du même bloc (fausse continuation `2,8·10⁻¹⁹`), ou deux touches
+doivent partager une convention. Témoins : 0 écart contre la libc réelle,
+149/149 plantes × 16 variantes, 4/4 plantes noyées dans 70 000 tirages, 0
+fausse touche. Résultat et couverture au §161 (balayage en cours, journalisé
+segment par segment).
+
 ---
 
 ### 7.5 L'espace des designs, et non le catalogue (§146, §147)
@@ -2018,6 +2055,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état **entier** TYPE_1 (224 bits) par des tirages ordonnés à pas constant | 5 ordonnés, plan 0 par crible linéaire puis LLL (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
+| la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`

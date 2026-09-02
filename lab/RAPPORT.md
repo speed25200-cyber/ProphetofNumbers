@@ -16618,3 +16618,219 @@ continu.py`, `lab/reseau_ordonne.py` ; journaux `/tmp/h139.log`,
 `/tmp/h139_journal.json`. Durée : `233` s en tout (autotests `128` s, grille `104` s), un cœur partagé avec `h130` et `h137`.
 
 ---
+
+## 161. La graine de `random()` elle-même : les 2³² amorçages contre les 370 blocs et les 70 560 tirages, quatre libc, vingt-et-un échantillonneurs (`h141_graine_journee.py`, `tools/lfg_graine_journee.c`)
+
+**L'angle mort commun aux §63, §120, §121, §132 et §133.** Le dossier a
+balayé la graine quatre fois, et chaque fois sous une hypothèse sur sa
+**source** ou sur sa **cible**. Le §63 (`sweep_time.c`) prend la graine
+dans ce que l'archive publie — `ts+d`, `id+d`, `ts/300+d`, `(ts^id)+d`,
+`(ts+id)+d`, `ts·1000+d`, `|d| ≤ 3` — pour huit familles dont `random()`,
+quatre échantillonneurs, décalage de mots `0`. Le §120 balaie bien les
+`2³²` graines, mais pour les **sept familles brouillées** (xoshiro,
+xoroshiro, PCG32, splitmix64), pas `random()`, et contre le **premier
+tirage seulement** ; le §121 fait de même en millisecondes. Le §132 oppose
+douze familles à l'**ordre d'émission daté** de trois tirages. Le §133
+prend six formes de graine **dérivées de la journée** (horodatage, ±3 600
+s, millisecondes, identifiant, date, indice) pour les sept familles
+brouillées, contre les 346 journées. Reste donc exactement ceci, et c'est
+le cas le plus banal de tous : `srandom(g)` avec une graine `g` **dont on
+ne sait rien** — `getpid()`, l'adresse d'une variable, quatre octets de
+`getrandom`, un compteur de processus, l'horloge d'un autre fuseau ou
+d'une autre machine, un `hash` de la date —, une fois par processus (donc
+par bloc de cadence) ou une fois par tirage, sur la famille dont le §7.1
+a exclu l'**état bas** sur toute l'archive (§155, §157, §159) mais dont
+la **graine** n'a jamais été énumérée contre elle. À `2³²` graines par
+variante et `2,8·10⁻¹⁹` de fausse touche par bloc, la réponse est
+décisive dans les deux sens : une touche confirmée rend les 204 tirages du
+bloc et, la source de la graine étant alors identifiable, les blocs
+suivants.
+
+**Quatre libc, seize variantes, vingt-et-un échantillonneurs, des
+décalages.** La glibc amorce `random()` par `srandom` (TYPE_3, `r_i =
+r_{i−3} + r_{i−31}`, `x = r ≫ 1` : table remplie par le Park–Miller
+`16807·x mod (2³¹−1)` en arithmétique de Schrage sur entier **signé**,
+graine `0 → 1`, puis `10·31 = 310` mots jetés) et `initstate` de même
+avec TYPE_1, TYPE_2, TYPE_4 selon la taille du tampon (32, 64, 256
+octets ; 128 pour TYPE_3). FreeBSD moderne (`bsd_new`) applique le même
+Schrage à `(x mod (2³¹−2)) + 1` sur entier non signé et range `x − 1`,
+`10·L` mots jetés. 4.4BSD et macOS (`bsd_old`, `long` de 64 bits)
+appliquent Schrage à la graine telle quelle (`0 → 123459876`) — ce qui
+**coïncide avec la glibc** pour toute graine non nulle `< 2³¹` (les
+sorties ne dépendent que des 32 bits bas de l'état), et n'en diffère
+qu'en `0` et sur `[2³¹, 2³²)`, où la glibc lit la graine négative :
+`bsd_old` n'est donc balayé que sur `{0} ∪ [2³¹, 2³²)`. musl remplit la
+table par le LCG 64 bits `s ← 6364136223846793005·s + 1` (mot = `s ≫
+32`, `x₀ |= 1`), sans rien jeter, et lit avec ses propres indices (`i =
+3, j = 0` pour `L = 31, 7`). Quatre amorçages × quatre tables = seize
+variantes. Vingt-et-un échantillonneurs sur la sortie de 31 bits : rejet
+modulo, flottant (`(r·80) ≫ 31`) et K&R (`r / 26 843 546`) ; Fisher–Yates
+partiel depuis le début, modulo ou flottant ; depuis la fin (« dos »,
+`Collections.shuffle`), vingt pas lus en queue ou mélange complet lu en
+tête ; `std::random_shuffle` complet, tête ou queue ; mélange naïf (`j = r
+mod 80`) partiel ou complet, tête ou queue ; sélection de Knuth
+(algorithme S) flottante ou modulo, qui rend l'ensemble **trié** comme
+l'archive — onze **partiels** (le tirage consomme ~20 à 27 mots) et dix
+**complets** (79 ou 80 mots). Un décalage `o` = nombre de mots consommés avant le
+tirage : `0..OP` pour les partiels, `0..OC` pour les complets ; les
+combinaisons sont `11·(OP+1) + 10·(OC+1)`, `149` à `(8, 4)`. Un
+échantillonneur à rejet a un **alias** naturel — un mot rejeté fait
+coïncider les décalages `o` et `o+1` un quart du temps — que l'autotest
+compte à part.
+
+**Deux index, une émission contre toute l'archive d'un coup.** L'émission
+d'une (graine, combinaison) n'est pas comparée bloc par bloc.
+
+- *Une graine par bloc* (`--balaye`). Les 370 premiers ensembles de bloc
+  (l'archive a `369` ruptures de la cadence de 300 s : `345` pauses `> 1`
+  h et `24` sauts de `±1` à `±5` s) forment un index bitmap `M[v]`, `v =
+  1..80`, de 370 bits chacun. L'émission est intersectée numéro par numéro
+  : `M[x₀] ∩ M[x₁] ∩ …` ; pour une graine fausse, l'intersection est vide
+  après `≈ 5` numéros et la chaîne meurt. Fausse touche `1/C(80,20)` par
+  (graine, combinaison, bloc), soit `2³² · 149 · 370 · 2,8·10⁻¹⁹ = 6,6·10⁻⁴`
+  par balayage complet d'une variante. Mesure : `12,5` µs par graine pour
+  `149` combinaisons (`0,084` µs par combinaison), `≈ 15` h-cœur par
+  variante.
+- *Une graine par tirage* (`--archive`). Index **inverse des
+  5-sous-ensembles** : chacun des `70 560` tirages inscrit ses `C(20,5) =
+  15 504` sous-ensembles au rang combinatoire de Lehmer `r(a<b<c<d<e) =
+  C(a,1) + C(b,2) + C(c,3) + C(d,4) + C(e,5) < C(80,5) = 24 040 016`, soit
+  `1,09·10⁹` entrées (`4,4` Go, construites en `52` s), `≈ 45` tirages par
+  rang. Une émission lit ses cinq **plus petits** numéros — et non les
+  cinq premiers émis, qui ne sont pas ordonnés —, ce qui oblige à engendrer
+  les vingt numéros (`0,65` µs par combinaison au lieu de `0,084`) ; elle
+  saute au rang, parcourt la liste, et ne compare les vingt numéros
+  (inclusion de deux masques de 64 bits) qu'aux entrées dont l'**empreinte
+  15 bits** du masque, rangée dans les 15 bits hauts de chaque entrée
+  (`t | h ≪ 17`, `h = ((m₀·φ₆₄) ⊕ (m₁·ψ₆₄)) ≫ 49`), coïncide : `45`
+  accès aléatoires évités sur `46`. Fausse touche `70 560/C(80,20) =
+  2·10⁻¹⁴` par (graine, combinaison), `3·10⁻³` par balayage de `2³² × 32`.
+  Mesure : `20,6` µs par graine pour `32` combinaisons sur `70 000`
+  tirages (un fil, machine chargée), `≈ 24` h-cœur par variante à `OP = 1,
+  OC = 0`.
+- *Les conventions* (`--horloge`, `--pid`), ce que l'exhaustif ne couvre
+  pas : par tirage, `ts+d` et `id+d` pour `|d| ≤ 300` (le §63 s'arrêtait à
+  `3`), les six mélanges du §63 plus `id·1000+d` et `ts·id+d` (`|d| ≤ 3`),
+  tous échantillonneurs, décalages `0..8` ; et `pid`, `ts ⊕ pid`, `ts +
+  pid` pour `1 ≤ pid < 32 768`. La cible est le tirage lui-même (masque),
+  la chaîne meurt en `1,33` numéro : `0,06` µs par combinaison.
+
+**Confirmation.** Une touche est un quadruplet (graine, échantillonneur,
+décalage, bloc ou tirage). Elle est **confirmée** si `--suite` — qui
+rejoue l'amorçage et l'échantillonneur — rend le tirage **suivant** du
+même bloc (fausse continuation `2,8·10⁻¹⁹`), ou si deux touches sur deux
+tirages distincts partagent une convention (même `g − ts`, même `g − id`,
+même `g ⊕ ts`, même `g`). Une touche non confirmée est rapportée
+**isolée**, telle quelle : on en attend `≈ 3·10⁻³` par balayage exhaustif
+par tirage, et elle ne vaut alors rien.
+
+**Témoins.** (i) *La libc réelle* : les cinq amorçages de la glibc de la
+machine (`srandom`, `initstate` 32/64/128/256 octets) comparés à la
+transcription, 12 graines — dont `0`, `2³¹−1`, `2³¹`, `2³²−1` — × 300
+sorties chacun : **0 écart**. Les amorçages BSD et musl
+sont transcrits de leurs sources (`random.c` de FreeBSD, `random.c` de
+musl) et **ne peuvent pas** être vérifiés ici contre une libc réelle — pas
+de `musl-gcc`, pas de BSD sur la machine ; c'est dit tel quel et consigné
+comme non couvert. (ii) *Plantes* : par variante, `149` (graine,
+échantillonneur, décalage) tirées au sort engendrent 149 ensembles noyés
+dans un fichier de blocs ; `--balaye` sur `[g − 5, g + 5]` doit les rendre
+tous : **149/149 × 16 variantes, 0 fausse touche**, les alias comptés à
+part (`14` à `37` par variante) et **vérifiés** comme tels (`--suite`
+rend le même ensemble : `emission_coherente = 149/149`). (iii) *L'index
+inverse* : `32` plantes noyées dans `70 000` tirages aléatoires,
+retrouvées par `--archive` : **32/32 × 4 amorçages, 0 fausse touche**
+(`20 000` tirages dans l'expérience elle-même, `70 000` dans
+`h141_selftest_archive_70k_b.log`). (iv) *La confirmation* : un bloc
+synthétique (graine `987654321`, échantillonneur 4, décalage 2) placé en
+tête du fichier de blocs est touché **exactement une fois** par `--balaye
+0 [g−5, g+5]` avec la bonne graine, le bon échantillonneur, le bon
+décalage, `jour = 0`, aucune autre graine ; `--suite` en rend les trois
+tirages. Le chemin de confirmation est donc exercé de bout en bout avant
+la première graine réelle.
+
+**Protocole.** Pré-enregistrement **avant tout balayage** (`h141.graine_journee`,
+piste B, jeton scellé `1d8317a814f63224` le `2026-09-02T06:06:34Z`, persisté
+dans `/tmp/h141_jeton.json` et repris tel quel à chaque relance) :
+hypothèse « aucun bloc et aucun tirage n'a son ensemble produit par
+`random()` amorcé par `srandom(graine 32 bits)` sous l'une des seize
+variantes, les vingt-et-un échantillonneurs et les décalages balayés, ni
+par les conventions » ; statistique = nombre de touches confirmées (et
+isolées, rapportées) ; nulle = `6,6·10⁻⁴` fausse touche par balayage par
+bloc, `3·10⁻³` par balayage par tirage ; décision : `conforme` si `0`
+confirmée, `ETAT TROUVE` sinon, `TOUCHE ISOLEE` si une isolée subsiste ;
+la **couverture** consignée est celle du journal au moment de la
+consignation. Le plan est une liste de segments `(mode, variante, [lo,
+hi), OP, OC)` de `2²⁸` graines, journalisés (`/tmp/h141_journal.txt`,
+`FAIT … | FIN …`) et repris ; les touches sont écrites au fil de l'eau
+(`/tmp/h141_touches.txt`). Ordre : conventions (glibc, FreeBSD, 4.4BSD,
+musl, `D = 300`, décalages `0..8`) → `2³²` graines glibc **par tirage**
+(`OP = 1, OC = 0`) → `2³²` glibc **par bloc** (`8, 4`) → `pid < 32 768` →
+FreeBSD et musl par tirage (`0, 0`) → 4.4BSD `{0} ∪ [2³¹, 2³²)` par tirage
+→ `initstate` TYPE_1/2/4 par bloc (`2, 2`) → FreeBSD, musl, 4.4BSD par
+bloc (`8, 4`). Deux fils (`/tmp/h141_fils` se relit avant chaque
+segment), sur une machine qui porte en même temps `h130`, `h138` et
+`h140`.
+
+**Ce qui est fait au moment où ceci est écrit.**
+
+Le plan compte **167 segments** : 4 segments de conventions (`--horloge`,
+variantes glibc, FreeBSD, 4.4BSD, musl : `1 251` graines par tirage, soit
+`ts + d` et `id + d` pour `|d| ≤ 300`, puis `ts/60`, `ts/300`, `ts ⊕ id`,
+`ts + id`, `ts·1000`, `id·1000`, `ts·id` à `±3`, chacune essayée contre le
+tirage sous `189` couples (échantillonneur, décalage)), 16 segments glibc
+par tirage, 16 glibc par bloc, 1 segment `pid`, 32 segments FreeBSD et
+musl par tirage, 9 segments 4.4BSD par tirage, 48 segments `initstate`
+TYPE_1/2/4 par bloc, 32 FreeBSD et musl par bloc, 9 4.4BSD par bloc.
+Journal (`/tmp/h141_journal.txt`) au `2026-09-02T06:23Z` :
+
+| segment | variante | graines | couples (éch., déc.) | touches | durée | fils |
+|---|---|---|---|---|---|---|
+| `--horloge 0 300 0 8 8` | 0 glibc TYPE_3 | `88 270 560` (`70 560` tirages × `1 251`) | `189` | **0** | `782,2 s` (`0,22 h` mur) | 2 |
+
+Soit `17,7 µs` par graine et par fil à `189` couples. En cours au moment
+où ceci est écrit : `--horloge 4 300 0 8 8` (FreeBSD, lancé
+`06:19:37Z`) ; suivent 4.4BSD et musl, puis les `2³²` graines glibc par
+tirage (`16 × 2²⁸`, `OP = 1, OC = 0`, `≈ 20 µs` par graine et par fil,
+soit `≈ 12 h` mur à deux fils), les `2³²` par bloc (`≈ 7,5 h`), et le
+reste du plan (`≈ 50 h`). Le tableau ci-dessus est **celui du journal à
+l'instant de l'écriture** ; il est repris tel quel, ligne par ligne, à
+chaque segment terminé, et la ligne de registre (§ « Ligne de registre »
+ci-dessous) n'est écrite qu'à la fin du plan, ou au moment où le plan est
+arrêté, avec la couverture atteinte à cet instant.
+
+**Résultat.**
+
+**0 touche** sur les `88 270 560` graines de convention glibc : aucun des
+`70 560` tirages n'a son ensemble de vingt numéros produit par `random()`
+amorcé par `srandom(ts + d)`, `srandom(id + d)` (`|d| ≤ 300`) ni par les sept
+autres conventions, sous aucun des `189` couples (échantillonneur,
+décalage). Le §63 avait fermé `d ∈ {−1, 0, 1}` sur quatre échantillonneurs
+et un décalage ; ceci ferme `|d| ≤ 300`, vingt-et-un échantillonneurs et
+neuf décalages, pour la libc qui compte. Les segments suivants s'ajoutent
+ici au fil du journal.
+
+**Ce que cela ferme, et ce que cela ne ferme pas.** Fermé, à hauteur de la
+couverture ci-dessus : `random()` amorcé une fois par bloc ou une fois par
+tirage par une graine de 32 bits **quelconque**, sous seize variantes de
+libc et de table, vingt-et-un échantillonneurs et les décalages balayés ;
+et les conventions du §63 étendues à `|d| ≤ 300`, aux décalages `0..8` et
+au `pid`. Non couvert, dit tel quel au registre : `pid ≥ 32 768` dans les
+mélanges (`pid_max` moderne vaut `4 194 304`) ; `initstate` BSD et musl aux
+décalages non balayés ; un premier tirage **publié** qui serait le deuxième
+**engendré** au-delà des décalages balayés (`OP` mots partiels, mais un
+tirage complet en consomme 79) ; les amorçages BSD et musl non vérifiés
+contre une libc réelle ; les graines de plus de 32 bits (`srandom48`,
+`std::mt19937` amorcé par `std::random_device`, `java.util.Random` à 48
+bits — §34, §120 en couvrent une part sous leurs propres hypothèses) ; et,
+bien sûr, tout générateur qui n'est pas `random()`. Ce que le §161 ajoute
+au §7.4 n'est pas une famille de plus : c'est la **fermeture de la source
+de la graine** pour la famille qui compte, et la mesure — en heures-cœur,
+au registre — de ce que cette fermeture a coûté.
+
+`m` et verdict : **en cours**, consignés à la fin du plan (ou à son arrêt, avec la couverture atteinte) ; aucune ligne de registre n'est écrite avant. Fichiers : `tools/lfg_graine_journee.c`,
+`lab/experiments/h141_graine_journee.py` ; journaux `/tmp/h141.log`,
+`/tmp/h141_journal.txt`, `/tmp/h141_touches.txt`, autotests
+`h141_selftest.log`, `h141_selftest_archive.log`,
+`h141_selftest_archive_70k.log`, `h141_selftest_archive_70k_b.log`.
+
+---
