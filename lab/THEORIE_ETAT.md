@@ -4431,6 +4431,66 @@ leur bit zéro (xorshift128+ de Firefox et Safari).
 Ces trois hypothèses sont **indistinguables des données publiées**. Ce n'est pas
 un échec de recherche : c'est un résultat, et il a la forme d'une borne.
 
+### 8.1 Et l'échantillonneur à **rejet** — celui dont le pas varie (§165-§170)
+
+Tous les cribles ci-dessus lisent un générateur à **pas fixe** : vingt mots
+par tirage, ou soixante-dix-neuf, ou quatre-vingts. Chacune de ces sections
+disait explicitement ne pas lire le plus naïf des échantillonneurs, celui du
+programmeur pressé — `v = 1 + (x mod 80)`, **recommencer si le numéro est
+déjà sorti** —, dont le pas varie (`E[N] = 22,85` mots par tirage,
+`H(N) = 2,846` bits). C'est ce que la série des §165 à §170 lit, par une
+programmation dynamique de synchronisation (7.17), élaguée en faisceau
+(7.18), au sens fort d'une **martingale de Ville** : valable à tout instant,
+sans hypothèse de distribution, avec témoin positif à chaque fois.
+
+| § | canal | échantillonneur | plan 0 | plan 1 | état |
+|---|---|---|---|---|---|
+| 165 | parité | rejet `mod 80` | `L ≤ 17` | `L ≤ 11` | flux **et** `370` nuits |
+| 166 | parité | rejet `mod 80` | `18 ≤ L ≤ 31` (**TYPE_3**) | `L = 15` (**TYPE_2**) | flux ; nuits `L ≤ 25` |
+| 167 | parité | rejet **masqué** (`M = 100, 128, 256`) | `L ≤ 31` | `L ≤ 15` | flux |
+| 168 | parité | + **excédent** fixe `δ ∈ [1, 79]` | types nommés | types nommés | flux |
+| 169 | **mod 4** | rejet `mod 80`, seul ou **entrelacé** avec un autre jeu | `L ≤ 15` | `L ≤ 10` | flux |
+| 170 | parité | rejet **masqué**, **par nuit** | `L ≤ 18` | `L ≤ 11` | `370` nuits |
+| **172** | **classes `mod 80`** | **troncature `(x·80) >> 32`** avec rejet | `L ≤ 7` | — | flux **et** nuits |
+
+Soit, en une phrase : **le plan 0 de tous les trinômes primitifs de degré
+`≤ 31` et le plan 1 de tous ceux de degré `≤ 15` — TYPE_1, TYPE_2, TYPE_3
+compris — sous les quatre écritures usuelles d'un tirage à rejet, avec un
+excédent quelconque, et même partagé avec un autre jeu.**
+
+Le §172 est d'une autre nature et il faut le dire : la troncature n'admet
+**aucun état fini déterministe** (lemme de la retenue, 7.24 (ii)), donc
+aucune martingale. Elle admet en revanche un **automate non déterministe**
+sur `(Z/80)^L` — la classe est additive à un bit près — et le crible qui en
+sort rend un verdict **dur** : zéro survivant *exclut*, exactement. Deux
+régimes complémentaires, à citer séparément.
+
+### 8.2 Ce qu'une trouvaille vaudrait — vérifié, pas supposé (§171)
+
+Sur un TYPE_1 planté, la chaîne entière a été parcourue : détection
+(`0,2` s), crible des plans `2-4` (`24` s, `2^{21}` candidats), relèvement
+par réseau LLL exact (`2` à `16` s), puis **prédiction du tirage suivant —
+ses vingt numéros exacts, trois fois sur trois** — à partir de `20` à `25`
+tirages publiés et triés, soit moins de deux heures de jeu. Le `D = 0`
+ci-dessus n'est donc pas un aveu d'impuissance : c'est le **premier maillon**
+d'une chaîne complète et vérifiée qui ne se ferme pas sur l'archive.
+
+### 8.3 Ce que cette série laisse ouvert, et il faut le nommer
+
+- le **plan 1 de TYPE_3** (`2^{62}` positions : hors de portée du parcours,
+  et le décodage souple à alignement inconnu n'a pas de seuil — 7.18) ;
+- **TYPE_4** (`2^{63} − 1` au plan 0) ;
+- la **troncature** au-delà du degré `7` : le crible en ordre de flux coûte
+  `20^L` ; l'ordre en cascade (7.24 (xi)) le ramène à `2^{37}` pour TYPE_2 —
+  c'est une conception, pas encore une mesure — et laisse TYPE_3 (`2^{82}`)
+  et TYPE_4 (`2^{130}`) dehors ;
+- un **excédent variable** d'entropie supérieure au débit du canal : `1,09`
+  bit pour la parité, `5,37` pour le mod 4 (7.20, 7.21) — mais il faut
+  `δ̄ + H(δ) ≥ 22,85` pour noyer le canal de **classes**, soit trente-six
+  valeurs au lieu de deux (7.24 (xii)) ;
+- et, toujours, les trois hypothèses de fond ci-dessus : graine de plus de
+  `32` bits, état jamais réamorcé, matériel.
+
 ---
 
 ## 9. Ce qu'il faudrait collecter
