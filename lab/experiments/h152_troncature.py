@@ -51,7 +51,8 @@ SRC = os.path.normpath(os.path.join(os.path.dirname(RACINE), "tools", "lfg_cribl
 TMP = "/tmp"
 JOURNAL = os.path.join(TMP, "h152_journal.txt")
 FJETON = os.path.join(TMP, "h152_jeton.json")
-NMAXD = 60          # plafond de mots par tirage : P(N > 60) = 1,8e-20
+NMAXD = 45          # plafond de mots par tirage : P(N > 45) = 1,3e-11 (h155 ; h152
+                    # avait 60, et sa partie par nuit s'est revelee infaisable)
 NTIR = 25           # tirages qu'un chemin doit cloturer pour compter comme survivant
 def plafond(L):
     """jamais atteint sous H0 (ou le parcours vaut 2,5 x 20^L) : seize fois la marge."""

@@ -28,9 +28,19 @@
  * seuil).  Un survivant = un L-uplet de classes a relever (les delta lus sur la solution
  * donnent T demi-espaces sur les parties fractionnaires : CVP resolu par LLL, §7.24 (vii)).
  *
- * LE PLAFOND PAR TIRAGE.  Un chemin degenere — toutes les classes egales, donc des refus a
- * l'infini — ne cloturerait jamais un tirage et survivrait a tort.  On coupe donc tout chemin
- * dont le tirage courant depasse NMAXD mots.  Ce n'est pas une approximation gratuite :
+ * LE PLAFOND PAR TIRAGE, ET L'ELAGAGE QUI COMPTE.  Un chemin degenere — beaucoup de refus —
+ * ne cloturerait jamais son tirage.  On coupe donc tout chemin dont le tirage courant depasse
+ * NMAXD mots, et — c'est le point qui change tout — tout chemin qui ne PEUT PLUS le cloturer :
+ * il faut encore 20 - nacc mots acceptants, donc au moins 20 - nacc mots, et
+ *
+ *      wd + (20 - nacc) > NMAXD   =>   chemin mort.
+ *
+ * Sans cet elagage le parcours explose sur certains tirages : le facteur de branchement moyen
+ * vaut 0,50 (sous-critique) mais un tirage contenant des classes CONSECUTIVES — 25, 26, 27, 28
+ * par exemple — cree des poches SURCRITIQUES ou les deux valeurs de delta sont publiees, et un
+ * arbre sous-critique en moyenne peut y grossir sans fin.  Mesure : la nuit 20 de l'archive
+ * coutait 2,4e9 noeuds au degre 3 contre 2e4 predits.  L'elagage est EXACT — le chemin vrai
+ * verifie wd + (20 - nacc) <= N <= NMAXD a chaque instant.  Ce n'est pas une approximation gratuite :
  * P(N > 60) = 1,8e-20, soit 1,3e-15 sur les 70 560 tirages de l'archive.  Le crible reste
  * exact a cette probabilite pres, qui est nommee.
  *
@@ -192,7 +202,8 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
             nacc++;
             if (nacc == DRAWN) { d++; nacc = 0; wd = 0; a0 = a1 = 0; }
         }
-        if (wd > R->nmaxd) continue;             /* tirage interminable : chemin mort */
+        /* tirage interminable, ou deja hors d'atteinte : chemin mort */
+        if (wd + (DRAWN - nacc) > R->nmaxd) continue;
 
         int prochain = prof + 1;
         if (prochain >= nmax || d >= R->tfin || d - t0 >= R->ntir) {     /* survivant */
