@@ -2280,6 +2280,46 @@ caractères — il faudrait des relations de poids supérieur, dont la
 variance croît comme `τ₀^{−2}` par facteur. *Rejet, troncature, pas
 variable, Fibonacci soustractif* : non couverts, comme au 7.13.
 
+**(viii) Le budget d'information de l'archive triée, et ce qu'il dit du
+reste du catalogue.** Le théorème est un décodeur ; il vaut la peine de
+compter ce qu'il y a à décoder. Un mot pair `k` d'un tirage trié ne livre
+que le bit mou `t_k` de son plan observé, et l'information qu'il porte sur
+ce bit est `I_k = 1 − E[H_b((1 + t_k)/2)]`, calculable exactement par la
+loi hypergéométrique de `(n_0, n_1)` dans la fenêtre de `80 − k` numéros
+(qui rend aussi `τ₀²(k) = 0,0380 … 0,0499`, la table `CALIB` au
+dix-millième près) : `0,0280` bit pour `k = 0`, `0,0370` pour `k = 18`,
+`0,321` bit par tirage en sommant les dix. Les dix bits d'un même tirage
+sont dépendants, et la somme des informations individuelles **minore**
+l'information conjointe (`H(bits ∣ ensemble) = Σ_k H(bit_k ∣ ensemble,
+bits_{<k}) ≤ Σ_k H(bit_k ∣ ensemble)`) ; celle-ci se calcule par Monte
+Carlo, l'ensemble trié fixé et ses `20!` ordres équiprobables (le
+Fisher–Yates est une bijection entre suites de `j` et arrangements) :
+`0,45` bit par tirage sous FY, `0,36` sous le shuffle. L'archive entière
+porte donc, sur les plans observés des mots pairs à pas constant, **`≈ 32
+000` bits (FY) ou `26 000` (shuffle)** — et rien de linéaire sur les mots
+impairs, dont le module est impair.
+
+Trois conséquences. *TYPE_3 à shift 1* demande `62` bits (plans 0 et 1) :
+le budget est cinq cents fois plus grand, et la difficulté n'a jamais été
+l'information mais le décodeur — c'est ce que (ii)–(v) fournissent, et le
+`z_y = 176` du témoin est la mesure de l'excédent. *Par nuit* (`204`
+tirages), le budget est `92` bits (FY) : le plan 0 de TYPE_3 (`31` bits) y
+tient trois fois — c'est le 7.13 nuit par nuit, à `z ≈ 9,4` pour `Z₁ =
+8,31`, une marge courte — ; ses plans 0 et 1 (`62` bits) y tiennent à
+peine, sans marge pour un décodeur de longueur finie, et le décodeur
+manque (`2^{62}`). *MT19937* : `19 937` bits contre un budget de `26 000` à
+`32 000` sur toute l'archive, à la condition d'un flux ininterrompu de
+346 nuits ; le rapport `1,3` à `1,6` est celui d'un code lu au voisinage
+de sa capacité — pas d'exclusion possible par l'information seule, mais
+aucun décodeur : le bit 0 de chaque sortie tempérée est une forme de
+poids `6` du mot non tempéré, la récurrence est creuse, et décoder
+`19 937` inconnues sur `700 000` contrôles mous à ce rapport signal sur
+bruit est un problème de code aléatoire, sans la structure de poids 3 qui
+fait ici la WHT. L'archive triée exclut MT19937 par une autre voie, le
+rang du bonus sous la troncature (§114) ; sous le modulo elle ne le peut
+pas, et le compte ci-dessus dit pourquoi ce n'est pas seulement une
+question de calcul.
+
 ---
 
 ## 8. Application à ce dossier
