@@ -4028,12 +4028,14 @@ troncature `(x · 80) >> 32` sous pas variable, dont le bit lu n'est pas un
 plan bas ». C'est l'écriture *sans biais de modulo* — celle que recommande
 tout manuel — et c'est le seul des quatre échantillonneurs usuels qu'aucune
 section ne lit quand le pas varie. Cette section la lit. Elle établit (i)
-ce que la troncature publie, (ii) un théorème d'**inapplicabilité** —
-aucune DP à état fini n'existe ici, et ce n'est pas faute d'ingéniosité —,
-(iii) le **lemme de la classe**, qui donne `2` bits d'élagage par mot sans
-permutation ni alignement, (iv) le crible à précision `t` et son **seuil
-d'auto-entretien**, (v) l'ordre de fermeture, (vi) le relèvement des bits
-bas par les retenues, et (vii) ce que tout cela ouvre — TYPE_1 à `2³⁵`.
+ce que la troncature publie, (ii) un théorème d'**inapplicabilité** — aucun
+état fini *déterministe* n'existe ici, et ce n'est pas faute d'ingéniosité
+—, (iii) le **lemme du quasi-morphisme**, qui rend la classe additive à un
+bit près et donne un automate **non déterministe** sur `(Z/80)^L`, (iv) le
+**lemme de la classe** (`2` bits d'élagage par mot), (v) le fait que
+l'alignement **ne se branche pas**, (vi) la comptabilité du crible et son
+coût `20^L`, (vii) le relèvement par les `δ`, et (viii-x) ce que tout cela
+ouvre — **TYPE_1 en vingt secondes** — et ce qu'il laisse dehors.
 
 #### (i) Ce qu'un tirage trié publie sous troncature
 
@@ -4075,158 +4077,214 @@ les deux valeurs de `γ_i` sont réalisables. ∎
 
 > **Corollaire (inapplicabilité).** *Pour tout `t < 32`, la suite des `t`
 > bits hauts n'est pas autonome : aucun quotient de l'état de cardinal `<
-> 2^{32L}` ne détermine la sortie de l'échantillonneur par troncature.*
+> 2^{32L}` ne **détermine** la sortie de l'échantillonneur par troncature.*
 
 Il n'y a donc **ni plan `0`, ni orbite `Z/P`, ni position absolue, ni
 faisceau** : la chaîne cachée du 7.17, la DP en flot du 7.18, le canal
 `mod 4` du 7.21 — toute la machinerie des §165-§170 — sont *inapplicables*
 à la troncature. Ce n'est pas un aveu : c'est la raison pour laquelle il
-fallait un autre outil, et le voici.
+fallait un autre outil. Noter le mot **détermine** : le corollaire interdit
+un état fini *déterministe*, et rien de plus. Le (iii) passe par la porte
+qu'il laisse ouverte.
 
-#### (iii) Le lemme de la classe — `2` bits par mot, sans permutation ni alignement
+#### (iii) Le lemme du quasi-morphisme — la classe est additive **à un bit près**
 
-> **Lemme de la classe.** *Sous la troncature avec rejet, **tout** mot
-> consommé — accepté comme refusé — a sa classe `c(r)` parmi les **vingt**
-> valeurs `v − 1` publiées par le tirage qui le contient.*
+Le corollaire (ii) interdit un état fini **déterministe**. Il n'interdit
+pas un automate **non déterministe**, et c'est par là que la chose passe.
+
+> **Lemme du quasi-morphisme de classe.** *Pour tous `a, b ∈ Z/2³²`,*
+>
+> `c(a + b mod 2³²) = c(a) + c(b) + δ (mod 80)`,  `δ ∈ Δ`, `|Δ| = 2`,
+>
+> *avec `Δ = {0, 1}` pour la troncature `c(r) = ⌊80r/2³²⌋` et `Δ = {0, −16}`
+> pour le modulo `c(r) = r mod 80` (où `−16 ≡ −2³² (mod 80)`).*
+
+*Preuve.* Posons `u = 80r/2³² ∈ [0, 80)`, de sorte que `c(r) = ⌊u⌋`. La
+somme `s = a + b` vérifie `u_s = u_a + u_b`, et `⌊x + y⌋ ∈ {⌊x⌋+⌊y⌋,
+⌊x⌋+⌊y⌋+1}` ; la réduction `mod 2³²` retranche `80` à `u`, donc rien
+`mod 80`. D'où `Δ = {0,1}`. Pour le modulo, `(a+b) mod 80` vaut
+`(a mod 80 + b mod 80) mod 80`, ou cela moins `2³² mod 80 = 16` selon qu'il
+y a eu débordement. ∎
+
+*Vérification.* Sur `400 000` couples uniformes : exactement deux écarts
+observés, `{0, 1}` pour la troncature (`50,1 % / 49,9 %`) et `{0, 64}` pour
+le modulo (`49,9 % / 50,1 %`) — jamais un troisième. Et sur `3 993` pas
+d'une vraie suite `(3, 7)` : `0` écart hors de l'ensemble prédit.
+
+> **Corollaire (l'automate de classes).** *La suite des classes d'un
+> Fibonacci retardé additif est engendrée par un automate **non
+> déterministe** d'état `(Z/80)^L` : `c_i = c_{i−K} + c_{i−L} + δ_i`, un
+> **bit** de non-déterminisme par mot.*
+
+Au décalage `1` (`x = r >> 1`, l'écriture de `random()`), le bit perdu
+ajoute une unité au mot avant la classe : `Δ = {0, 1, 2}`, la troisième
+valeur n'étant atteinte qu'avec probabilité `80/2³¹ = 3,7·10⁻⁸`. On la
+garde pour rester **exact**.
+
+#### (iv) Le lemme de la classe — deux bits d'élagage par mot
+
+> **Lemme de la classe.** *Sous le rejet, **tout** mot consommé — accepté
+> comme refusé — a sa classe parmi les **vingt** valeurs `v − 1` publiées
+> par le tirage qui le contient.*
 
 *Preuve.* Un mot accepté publie sa classe, qui est donc dans le tirage. Un
 mot refusé l'est parce que sa classe a **déjà** été acceptée dans le même
 tirage : elle y est aussi. ∎
 
-C'est une contrainte **dure** et **invariante par permutation** : elle ne
-dit pas *quel* mot porte *quelle* classe, seulement que la classe est
-publiée. Sous `H₀` un mot la satisfait avec probabilité `20/80 = 1/4` :
+Sous `H₀`, un mot satisfait la contrainte avec probabilité `20/80 = 1/4` :
+**deux bits d'élagage par mot**, contre **un bit** de non-déterminisme. Le
+front décroît. C'est toute la section en une ligne.
 
-**`2` bits d'élagage par mot**, soit `2 × 22,85 = 45,70` bits par tirage,
+*Ce qu'on gagne à passer par la classe plutôt que par un réseau.* Les deux
+autres statistiques invariantes par permutation — la somme de fenêtre
+`Σ_{i∈A} r_i = (2³²/80)(Σ_j (v_j − 1) + U)`, connue à `2^{26,05}` près,
+soit `3,91` bits par tirage, et les bandes extrêmes `(v₍₁₎−1)/80 ≤ r/2³² <
+v₍₂₀₎/80`, soit `0,1255` bit par mot ou `2,87` par tirage — sont
+**linéaires**, donc utilisables par un réseau, mais elles ne totalisent que
+`6,78` bits par tirage, et un réseau sous-déterminé ne rend **aucun verdict
+partiel** : il faudrait `32L/6,78` tirages (`33` pour TYPE_1, `146` pour un
+degré `31`) avant le premier test, en portant `2,85` bits d'alignement par
+tirage sans jamais les élaguer. La règle de classe donne `45,70` bits par
+tirage et un test **à chaque mot**. C'est pourquoi le crible, et non le
+réseau, mène la marche — le réseau ne servant qu'au relèvement (vii).
 
-contre `H(N) = 2,846` bits d'alignement — **débit net `42,85` bits par
-tirage**, quarante fois le canal de parité. C'est exactement la règle qui
-sert au relèvement des plans hauts au 7.23, transportée ici du bas vers le
-haut du mot, et devenue l'outil **principal** faute de plan `0`.
+#### (v) Et l'alignement ne se branche pas
 
-#### (iv) Ce que la permutation coûte, et ce qui reste linéaire
+C'est le point qui distingue ce crible de tout ce que les §165-§170 ont
+fait. Le tirage courant n'est pas une inconnue : il se **déduit** des
+classes posées. On tient le compte des classes distinctes acceptées depuis
+le début du bloc ; dès qu'il atteint `20`, le tirage est clos et le suivant
+commence. Un mot dont la classe est déjà acceptée est un **refus**, et il
+ne clôt rien.
 
-Deux autres statistiques invariantes par permutation sont, elles,
-**linéaires** en l'état — donc utilisables par un réseau :
+Le pas variable, qui coûtait `H(N) = 2,846` bits par tirage aux §7.17-§7.21
+et qui a imposé toute la machinerie de synchronisation, **coûte ici zéro**.
 
-| statistique | contenu | rendement |
-|---|---|---|
-| somme de fenêtre `p₁ = Σ_{i∈A} r_i` | `(2³²/80)(Σ_j (v_j − 1) + U)`, `U` somme de `20` uniformes, `σ = 1,291` : connue à `2^{26,05}` près | `3,91` bits/tirage |
-| bandes extrêmes | tout mot de la fenêtre vérifie `(v₍₁₎ − 1)/80 ≤ r/2³² < v₍₂₀₎/80` — `2N` demi-espaces | `2,87` bits/tirage |
-| **total linéaire** | | **`6,78` bits/tirage** |
+Une seule précaution : un chemin dégénéré — toutes ses classes égales,
+donc des refus à l'infini — ne clôturerait jamais un tirage. On coupe donc
+tout chemin dont le tirage courant dépasse `60` mots. Ce n'est pas une
+approximation gratuite : le calcul exact de la loi de `N` (chaîne du
+collectionneur, arithmétique rationnelle) donne
 
-`6,78` dépasse l'alignement (`2,85`), donc l'état est identifiable ; mais
-le système reste **sous-déterminé** pendant les `32L / 6,78` premiers
-tirages (`33` pour TYPE_1, `146` pour TYPE_3), et *un réseau
-sous-déterminé ne rend aucun verdict partiel*. De ce côté il n'y a donc
-aucun élagage incrémental : pendant ces tirages, les `2,85` bits
-d'alignement par tirage s'accumulent sans être testés (`94` bits pour
-TYPE_1, `416` pour TYPE_3). C'est la **règle de classe**, et elle seule,
-qui donne un test **à chaque mot**.
+`P(N > 40) = 8,3·10⁻⁹`,  `P(N > 50) = 1,7·10⁻¹⁴`,  **`P(N > 60) = 1,8·10⁻²⁰`**,
 
-#### (v) Le crible à précision `t` et son seuil d'auto-entretien
+soit `1,3·10⁻¹⁵` sur les `70 560` tirages de l'archive. Le crible reste
+exact à cette probabilité près, qui est **nommée**.
 
-On pose les mots un par un en ne suivant que leurs `t` bits de poids fort.
-Trois postes, tous en bits :
+#### (vi) La comptabilité, et ce qu'elle coûte
 
-- un mot **libre** (ses `t` bits sont choisis) coûte `+t` ;
-- un mot **déterminé** par la relation coûte `+1` — la retenue du lemme (ii) ;
-- **tout** mot posé rapporte `−p(t)`, et l'alignement coûte `+H(N)/E[N] = +0,1246`,
+| poste | bits |
+|---|---|
+| mot **libre** (les `L` premiers) : sa classe est choisie parmi les `20` publiées | `+log₂ 20 = +4,3219` |
+| mot **déterminé** : `+1` bit de `δ`, `−2` bits de classe | `−1` |
+| alignement | `0` |
 
-où `p(t) = −log₂(1 − P₀(t))` et `P₀(t)` est la probabilité qu'**aucune** des
-classes rencontrées par un intervalle de largeur `80/2^t` ne soit publiée
-(un tel intervalle rencontre `⌊w⌋+1` classes avec probabilité `1 − {w}` et
-`⌊w⌋+2` avec probabilité `{w}`, et `k` classes fixées sont toutes absentes
-avec probabilité `C(60,k)/C(80,k)`) :
+Le front culmine donc à `20^L` juste après le `L`-ième mot libre, puis
+décroît d'un bit par mot : le parcours entier coûte `≈ 2,5 · 20^L` nœuds.
 
-| `t` | largeur (classes) | `P₀(t)` | `p(t)` | mot libre `t−p+α` | mot déterminé `1−p+α` |
-|---|---|---|---|---|---|
-| `4` | `5,000` | `0,1666` | `0,263` | `+3,86` | `+0,86` |
-| `5` | `2,500` | `0,3624` | `0,649` | `+4,48` | `+0,48` |
-| `6` | `1,250` | `0,5242` | `1,072` | `+5,05` | `+0,05` |
-| **`7`** | `0,625` | `0,6313` | `1,440` | `+5,69` | **`−0,32`** |
-| `8` | `0,3125` | `0,6907` | `1,693` | `+6,43` | `−0,57` |
-| `10` | `0,0781` | `0,7352` | `1,917` | `+8,21` | `−0,79` |
-| `∞` | `0` | `0,75` | `2,000` | — | `−0,875` |
+| `L` | `20^L` | nœuds | mesuré (1 fil) | sur `4` fils |
+|---|---|---|---|---|
+| `4` | `2^{17,3}` | `3,2·10⁵` | `< 0,1` s | — |
+| `5` | `2^{21,6}` | `6,4·10⁶` | `0,3` s | — |
+| `6` | `2^{25,9}` | `1,3·10⁸` | `3,5` s | `1` s |
+| **`7`** | `2^{30,3}` | `2,6·10⁹` | **`69` s** | `20` s |
+| `8` | `2^{34,6}` | `6,4·10¹⁰` | `29` min | `7` min |
+| `9` | `2^{38,9}` | `1,3·10¹²` | `9,7` h | `2,4` h |
+| `10` | `2^{43,2}` | `2,6·10¹³` | `8` j | `2` j |
+| `15` | `2^{64,8}` | `6·10¹⁹` | hors de portée | |
+| `31` | `2^{134}` | | hors de portée | |
 
-> **Théorème (seuil d'auto-entretien).** *Le front du crible décroît à
-> chaque mot déterminé si et seulement si `p(t) > 1 + H(N)/E[N] = 1,1246`,
-> c'est-à-dire si et seulement si `t ≥ 7`.*
+La mesure confirme le modèle au chiffre près : sur `400` tirages tirés sous
+`H₀`, la configuration `(3, 7)` visite `2 564 985 164` nœuds — contre
+`2,5 · 20⁷ = 3,2·10⁹` prédits — en `69` s, soit `27` ns par nœud, et rend
+**zéro survivant**.
 
-En deçà de `7` bits, la retenue coûte plus que la classe ne rapporte et le
-crible **diverge** ; au-delà, `p(t) ↑ 2` et la décroissance tend vers
-`0,875` bit par mot déterminé. Le seuil `t = 7` n'est pas arbitraire :
-c'est `⌈log₂ 80⌉`, la précision à partir de laquelle la classe d'un mot
-est presque toujours **exacte**.
+#### (vii) Le relèvement : les `δ` lus sur la solution donnent le réseau
 
-#### (vi) L'ordre de fermeture — la relation se lit dans les deux sens
+Le crible ne rend que les classes ; il reste `32 − log₂ 80 = 25,68` bits
+par mot à trouver. Ils se lisent sur les `δ`. Posons `u_i = 80 r_i / 2³²`
+et `f_i = u_i − c_i ∈ [0, 1)`. Comme `u_i ≡ u_{i−K} + u_{i−L} (mod 80)`
+exactement, et comme `f_{i−K} + f_{i−L} ∈ [0, 2)` :
 
-`r_i = r_{i−K} + r_{i−L} (mod 2³²)` : connaître **deux** des trois indices
-donne le troisième, en avant (`r_i`) comme **en arrière** (`r_{i−L} = r_i −
-r_{i−K}`, `r_{i−K} = r_i − r_{i−L}`, avec un bit d'emprunt au lieu d'un bit
-de retenue — même coût). La clôture d'un ensemble d'indices est donc bien
-plus riche qu'une récurrence en avant, et **l'ordre dans lequel on pose les
-mots libres décide du pic du front** : pour `(3, 31)`, l'ordre naïf
-`0, 1, …, 30` donne un pic de `125` bits, l'ordre glouton `96`. Le pic vaut
+`f_i = f_{i−K} + f_{i−L} − δ_i`,  `δ_i = ⌊f_{i−K} + f_{i−L}⌋ ∈ {0, 1}`.
 
-`max_k [ k(t − p + α) + d(k)(1 − p + α) ]`
+Autrement dit **le `δ` que le crible a branché n'est pas un artefact : c'est
+la retenue des parties fractionnaires**, et une fois la solution en main il
+se lit par `δ_i = (c_i − c_{i−K} − c_{i−L}) mod 80`. Chaque `δ_i` est alors
+une inégalité **exacte** :
 
-où `d(k)` est le nombre de mots que la clôture donne après `k` mots libres
-— une quantité purement combinatoire, calculable exactement par saturation
-de la relation à trois termes sur `[0, T)`.
+`f_{i−K} + f_{i−L} ≥ 1` si `δ_i = 1`,  `< 1` sinon,
 
-#### (vii) Le relèvement des bits bas par les retenues
+où chaque `f_i` est une forme `Z`-linéaire connue des `L` fractions
+initiales. On obtient `T` demi-espaces sur `L` inconnues de `25,68` bits :
+un problème de vecteur le plus proche que LLL résout exactement, comme au
+7.8 et au 7.23. Il faut `T ≥ 25,68 L` mots, soit `1,124 L` tirages —
+**`8` tirages pour TYPE_1**, `35` pour un degré `31`.
 
-Le crible ne pince que les `t` bits hauts, et la classe **sature** à `2`
-bits par mot : elle ne dira jamais rien des `32 − t` bits bas. Elle n'a pas
-à le faire. Une fois les `h_i` connus, la retenue se **lit** sur la
-solution, `γ_i = h_i − h_{i−K} − h_{i−L} (mod 2^t)`, et chaque `γ_i` est
-une inégalité **exacte** sur les parties basses `ℓ_i = r_i mod 2^{32−t}` :
+#### (viii) Ce que le crible rend, et ce qu'il ne rend pas
 
-`ℓ_{i−K} + ℓ_{i−L} ≥ 2^{32−t}` si `γ_i = 1`, `< 2^{32−t}` sinon.
+Les témoins plantés (une suite `(K, L)` engendrée, lue par troncature avec
+rejet, triée) confirment les deux moitiés :
 
-Les `ℓ_i` étant des formes linéaires connues des `L` parties basses
-initiales, on obtient `T` demi-espaces sur `(32 − t)L` inconnues : un
-problème de vecteur le plus proche que LLL résout exactement, comme au 7.8
-et au 7.23. Il faut `T ≥ (32 − t)L` mots, soit `(32 − t)L / 22,85` tirages.
+- **sous `H₀`** — `400` tirages uniformes — le crible rend **`0` survivant**
+  pour toutes les configurations essayées, et son coût suit exactement
+  `2,5 · 20^L`. C'est le verdict que l'archive doit produire ;
+- **sous `H₁`** — l'archive plantée — l'état vrai est **toujours retenu**
+  (vérifié classe par classe), mais il n'est pas seul : le crible rend une
+  **famille**, parfois vaste, de `L`-uplets compatibles. C'est attendu : les
+  tirages publiés étant *engendrés par la suite elle-même*, les chemins
+  voisins du vrai survivent aussi. La famille se réduit au relèvement (vii),
+  qui, lui, ne laisse passer qu'un point.
 
-#### (viii) Ce que cela ouvre, en chiffres
+Il faut donc dire les choses exactement : **le crible est un test
+d'exclusion, pas un identificateur.** Zéro survivant exclut la
+configuration — exactement, pas au seuil près. Un survivant ne l'établit
+pas : il faut le relever et rejouer.
 
-| `(K, L)` | | `t*` | pic du front | mots posés | tirages (crible) | tirages (relèvement) |
-|---|---|---|---|---|---|---|
-| `(1, 4)` | | `7` | `2^{21,8}` | `73` | `3,2` | `4,2` |
-| `(2, 5)` | | `7` | `2^{26,5}` | `89` | `3,9` | `5,3` |
-| `(1, 6)` | | `7` | `2^{31,0}` | `104` | `4,6` | `6,3` |
-| **`(3, 7)`** | **TYPE_1** | `7` | **`2^{35,1}`** | `118` | `5,2` | `7,4` |
-| `(4, 9)` | | `8` | `2^{42,0}` | `83` | `3,6` | `9,5` |
-| `(3, 10)` | | `8` | `2^{43,9}` | `87` | `3,8` | `10,5` |
-| `(2, 11)` | | `8` | `2^{45,2}` | `91` | `4,0` | `11,6` |
-| `(1, 15)` | TYPE_2 | `8` | `2^{50,5}` | `104` | `4,5` | `15,8` |
-| `(3, 17)` | | `8` | `2^{60,5}` | `123` | `5,4` | `17,9` |
-| `(3, 31)` | TYPE_3 | `8` | `2^{96,0}` | `200` | `8,7` | `32,6` |
-| `(1, 63)` | TYPE_4 | `8` | `2^{213,7}` | `439` | `19,2` | `66,2` |
+#### (ix) La variante par plans de bits, et pourquoi on ne la retient pas
 
-Trois lectures de ce tableau.
+On peut aussi cribler les `t` bits de poids fort, avec un élagage `p(t) =
+−log₂(1 − P₀(t))` où `P₀(t)` est la probabilité qu'aucune des classes
+rencontrées par un intervalle de largeur `80/2^t` ne soit publiée
+(`P₀ = 0,524` à `t = 6`, `0,631` à `t = 7`, `0,750` à la limite). Un mot
+libre coûte alors `t − p(t)`, un mot déterminé `1 − p(t)`, et l'alignement
+`H(N)/E[N] = 0,1246` par mot puisqu'il n'est plus déduit :
 
-**Ce que le compte en tirages dit.** Il est dérisoire : `5` tirages pour le
-crible de TYPE_1, `8` de plus pour le relèvement — **moins d'une heure de
-jeu**. Ce qui coûte ici, ce n'est pas la donnée : c'est le front. Le canal
-par troncature est quarante fois plus large que le canal de parité et
-demande quarante fois moins de tirages ; il demande en revanche un parcours
-que la parité n'exigeait pas.
+> **Théorème (seuil d'auto-entretien).** *Le front décroît si et seulement
+> si `p(t) > 1 + H(N)/E[N] = 1,1246`, c'est-à-dire si et seulement si
+> `t ≥ 7 = ⌈log₂ 80⌉`.*
 
-**Ce qui est à portée.** Les trinômes de degré `L ≤ 7` — **TYPE_1
-compris** — au pic `2^{35}`, c'est-à-dire quelques minutes de calcul ; et
-`L ≤ 11` au pic `2^{45}`, quelques heures. C'est l'objet du §172.
+Le seuil est le bon — c'est la précision à laquelle la classe devient
+presque toujours exacte — mais le pic vaut `2^{6,43 L}` au mieux (`t = 8`)
+contre `2^{4,32 L}` pour l'automate de classes : `2^{45}` au lieu de
+`2^{30}` pour TYPE_1. L'automate de classes le domine partout, et il est la
+bonne lecture : **la classe, et non le bit, est l'observable.**
 
-**Ce qui reste dehors, et il faut le nommer.** TYPE_2 (`2^{50,5}`) est à la
-limite ; TYPE_3 (`2^{96}`) et TYPE_4 (`2^{214}`) sont hors de portée du
-parcours, et **rien dans cette section ne les réduit**. Par ailleurs le
-crible rend un verdict **dur** — survivant ou pas — et non une martingale :
-un survivant se vérifie en rejouant la suite (c'est plus fort qu'un seuil),
-mais l'absence de survivant ne se convertit pas en « borne de couverture »
-au sens de Ville pour les configurations *non parcourues*. Les deux régimes
-sont complémentaires, et il faut les citer séparément.
+#### (x) Ce que cela ouvre, et ce que cela laisse dehors
+
+**Ce qui est à portée** : les trinômes primitifs de degré `L ≤ 8`
+en quelques minutes, `L = 9` en deux heures, `L = 10` en deux jours —
+**TYPE_1 `(3, 7)` compris, en vingt secondes**. Sous les deux décalages, en
+flux continu comme par nuit (chaque nuit est un ancrage indépendant, donc
+le mode « par nuit » couvre *aussi* le réamorçage quotidien). C'est l'objet
+du §172.
+
+**Ce qui reste dehors, et il faut le nommer** : TYPE_2 (`2^{64,8}`),
+TYPE_3 (`2^{134}`), TYPE_4 (`2^{272}`) — hors de portée du parcours, et
+rien ici ne les réduit. Le crible rend par ailleurs un verdict **dur** et
+non une martingale : l'absence de survivant *exclut* une configuration
+parcourue, mais ne se convertit pas en borne de couverture au sens de
+Ville pour les configurations **non** parcourues. Les deux régimes sont
+complémentaires et doivent être cités séparément.
+
+**Deux remarques pour finir.** D'abord, le lemme du quasi-morphisme vaut
+aussi pour l'échantillonneur à **modulo** (`Δ = {0, −16}`) au décalage `0`
+— c'est-à-dire un canal à **deux bits par mot** là où les §7.17-§7.21 n'en
+lisaient qu'un par *tirage* ; au décalage `1`, `2³¹ mod 80 = 48` double
+l'ensemble (`Δ = {0, 1, −48, −47}`, deux bits) et le crible n'est plus
+auto-entretenu. Ensuite, le compte en tirages est dérisoire : `25` tirages
+suffisent au crible, `8` au relèvement. Ce qui coûte ici n'est pas la
+donnée — c'est le front.
 
 
 ## 8. Application à ce dossier
@@ -4299,7 +4357,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
 | le rejet **masqué** — `v = 1 + (x mod M)`, refusé si `v > 80` (`M = 100, 128, 256`), l'écriture recommandée d'un tirage sans biais : mêmes trinômes, plan 0 (`L ≤ 31`) et plan 1 (`L ≤ 15`), sous le flux (§7.19) | la vraisemblance garde la même forme, `F` et `G` étalés par la binomiale du masque ; `n` jusqu'à `176`, fenêtre de 128 bits ; `1,02 → 0,092` bit par tirage de `M = 80` à `256` ; Ville au seuil `29,25` | **archive — §167 : à lancer** |
 | l'**excédent** par tirage : le générateur consomme `δ` mots de plus (habillage, seconde partie, autre jeu) — cinq séquences nommées, deux échantillonneurs, `δ` dans vingt valeurs de 1 à 79 (§7.20) | la cible se décale, la fenêtre ne bouge pas : coût nul en calcul, `log₂ 20` de seuil ; limite exacte — un excédent VARIABLE d'entropie `≥ 1,09` bit par tirage noie le signal, quelle que soit la longueur du flux | **archive — §168 : à lancer** |
-| la lecture par **troncature** `v = 1 + ((x·80) >> 32)` sous **pas variable** (rejet) — l'échantillonneur sans biais de modulo, le seul des quatre que les §165-§170 ne lisent pas (§7.24) | aucun quotient fini n'existe (lemme de la retenue) : la DP est inapplicable, et c'est un théorème. Le remplaçant est un crible dur — le **lemme de la classe** donne `2` bits par mot posé, `45,7` bits par tirage contre `2,85` d'alignement — auto-entretenu dès `t ≥ 7` bits de précision, puis un relèvement des bits bas par les retenues (LLL). Pic du front : `2^{35}` au degré `7` (TYPE_1), `2^{45}` au degré `11`, `2^{96}` au degré `31` | **archive — §172 : à lancer (`L ≤ 11`) ; TYPE_2, TYPE_3, TYPE_4 hors de portée du parcours** |
+| la lecture par **troncature** `v = 1 + ((x·80) >> 32)` sous **pas variable** (rejet) — l'échantillonneur sans biais de modulo, le seul des quatre que les §165-§170 ne lisent pas (§7.24) | aucun état fini DÉTERMINISTE n'existe (lemme de la retenue) ; mais la classe est additive à un bit près (quasi-morphisme `c(a+b) = c(a)+c(b)+δ`, `δ ∈ {0,1}`), d'où un automate NON DÉTERMINISTE sur `(Z/80)^L` : `1` bit de branchement contre `2` bits d'élagage par mot (lemme de la classe), et l'alignement se DÉDUIT des classes acceptées — coût nul. Front `20^L`, puis relèvement des fractions par LLL | **archive — §172 : à lancer. `L ≤ 8` en minutes, `L = 9` en 2 h, `L = 10` en 2 j, TYPE_1 `(3,7)` en 20 s ; TYPE_2 `2^{64,8}`, TYPE_3 `2^{134}`, TYPE_4 `2^{272}` hors de portée** |
 | le canal **mod 4** : `v − 1 = x mod 80` donne `x mod 4`, deux bits par mot — plan 0 des trinômes `L ≤ 15` (`N = (2^L − 1)2^L`), plan 1 des `L ≤ 10` (état mod 8), avec ou sans **jumeau entrelacé** (§7.21) | vraisemblance `Π_c F₂₀(w_c, a_c) · G₂₀` (normalisation vérifiée) ; `5,37` bits par tirage contre `1,31` ; l'entrelacement d'un jumeau coûte `2,85` bits : net `+2,53` au lieu de `−1,54` | **archive — §169 : en cours (jeton `06785fcaa1f3e711`)** |
 | le rejet **masqué par nuit** (§7.19 × §7.4) : le générateur réamorcé chaque soir ET lu au masque — plan 0 des trinômes `L ≤ 18`, plan 1 des `L ≤ 11`, `M = 100` et `128`, les 370 nuits | une phase pleine par nuit (`370 · N`) ; une chaîne par bloc, seuil `31,78`, plus la chaîne des blocs cumulés au seuil `23,25` | **archive — §170 : à lancer (chaîné après le §169)** |
 
