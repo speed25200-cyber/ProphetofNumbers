@@ -19547,3 +19547,78 @@ vingt numéros fait passer la prédiction du bonus de `1/80` à `1/20` — un fa
 **Ligne de registre.** `h172.budget_de_nuit`, piste B, conforme, `m_extra = 106`.
 
 ---
+## 188. Le **prédicteur appris** : on cesse de deviner la forme du défaut (`h173_predicteur_appris.py`)
+
+Tous les tests du dossier — et il y en a bien plus de six cents — partagent une
+faiblesse : **chacun suppose la forme du défaut**. Le crible de classes suppose un
+Fibonacci retardé ; les détecteurs d'énergie supposent une relation à deux ou trois
+termes ; le §186 suppose une autocorrélation ; le §187 suppose un quota. Un défaut
+d'une forme non prévue passe entre tous.
+
+La parade est de ne plus rien supposer : on **ajuste** un prédicteur sur une
+première tranche de l'archive et on le mesure sur une seconde qu'il n'a jamais
+vue. C'est la seule construction qui teste d'un coup toute une classe de défauts,
+y compris ceux auxquels je n'ai pas pensé — et c'est, littéralement, une tentative
+de prédiction.
+
+### Quatorze traits, tous causaux
+
+Une régression logistique donne `P(v sort au tirage t) = σ(β·f(t,v))`, où `f` ne
+contient que des quantités calculables sur les tirages d'indice `< t` : écart
+depuis la dernière sortie, chaleur sur `20`/`100`/`1000` tirages, marge de long
+terme, sorties aux tirages `t−1`/`t−2`/`t−3`, voisins `v±1`, position dans la
+nuit, quota consommé depuis le début de la nuit (le §187 en forme prédictive),
+fréquence au même créneau des nuits précédentes, bonus précédent, **et le score
+d'énergie du §185 lui-même**. Ce dernier trait rend le modèle **sur-ensemble** du
+prédicteur du §185 : s'il existe une trace de Fibonacci, ce modèle peut au moins
+faire aussi bien, et il choisit le poids lui-même au lieu qu'on le pose à la main.
+
+`β` est ajusté sur les tirages `2 000..43 136` et mesuré sur `43 136..70 560`.
+Aucune fuite n'est possible : ni du futur vers le passé (traits causaux), ni de la
+mesure vers l'ajustement (tranches disjointes).
+
+### Un contrôle et deux témoins — et pourquoi il en faut deux
+
+| source | recouvrement | `z` | gain de log-vraisemblance |
+|---|---|---|---|
+| **contrôle** SRS | `5,00365` | `+0,36` | `+2,7·10⁻⁶` |
+| **témoin** main chaude `30 %` | `5,28304` | `+27,77` | `+1,73·10⁻⁴` |
+| **témoin** additif `(3,7)` | `5,10888` | `+10,68` | `+4,51·10⁻⁵` |
+| **archive** | `4,99449` | **`−0,54`** | `−1,35·10⁻⁶` |
+
+La première écriture de ce fichier n'avait pas le trait d'énergie : le témoin
+additif rendait alors `z = −1,07`, c'est-à-dire **rien**. Un modèle qui apprend la
+main chaude peut être totalement aveugle au générateur additif, et réciproquement.
+**Il faut les deux témoins**, et c'est le témoin qui a révélé le trou, pas
+l'intuition.
+
+Le contrôle SRS rend `5,00365` et un gain de vraisemblance nul : la chaîne complète
+— construction des traits, ajustement, mesure — **ne fuit pas**.
+
+### La loi entière, et pas seulement la moyenne
+
+| `k` | `1` | `3` | `5` | `7` | `9` | `11` |
+|---|---|---|---|---|---|---|
+| `z` | `+0,10` | `−0,83` | `+0,91` | `−0,48` | `−1,26` | `−1,20` |
+
+Aucune case au-delà de `1,3` écart-type. Il n'y a ni excès au centre ni excès en
+queue : la leçon du §185 est appliquée.
+
+### Ce que cela donne comme **borne**, et c'est le résultat
+
+Sur `27 424` tirages de mesure, l'écart-type de la moyenne vaut `0,010191`. L'écart
+mesuré est `−0,00551`. Donc, à `95 %` de confiance unilatérale :
+
+> **Aucun prédicteur de cette classe ne gagne plus de `0,0113` numéro par tirage
+> sur les vingt** — soit un avantage relatif de `0,23 %`.
+
+Et la classe n'est pas étroite : elle contient la mémoire courte, la chaleur à
+trois échelles, le biais de long terme par numéro, la structure de nuit, le quota,
+le créneau horaire, le lien au bonus, **et toute la famille des détecteurs
+d'énergie**. Pour comparaison, le défaut du témoin additif `(3,7)` vaut `0,109`
+numéro par tirage — **dix fois** la borne. Un Fibonacci retardé aurait été vu avec
+dix écarts-types de marge.
+
+**Ligne de registre.** `h173.predicteur_appris`, piste B, conforme.
+
+---

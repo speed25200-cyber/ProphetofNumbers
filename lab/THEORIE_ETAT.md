@@ -5594,3 +5594,57 @@ estimer quoi que ce soit.
 grande taille : c'est une contrainte, pas une fluctuation. C'est pourquoi le signe
 compte autant que la taille, et pourquoi un `z` négatif est une découverte alors
 qu'un `z` positif du même module ne serait qu'un regroupement.
+
+---
+
+### 7.31 La **borne de prédiction** — comment un test négatif se convertit en garantie chiffrée
+
+Un test qui ne trouve rien ne dit rien, tant qu'on n'a pas dit **ce qu'il aurait
+trouvé**. Voici la conversion, et elle est exacte.
+
+**La mesure.** Un prédicteur produit vingt numéros par tirage ; on compte le
+recouvrement `R_t` avec le tirage réel. Sous SRS, `R_t` est hypergéométrique de
+moyenne `5` et de variance `σ² = 20·(20/80)·(60/80)·(60/79) = 2,8481`. Sur `n`
+tirages **hors échantillon** — donc indépendants de l'ajustement — la moyenne `R̄`
+a pour écart-type exact `σ/√n = 1,6876/√n`.
+
+**L'avantage.** Définissons l'avantage d'un prédicteur comme
+`ε = E[R_t] − 5`, en numéros par tirage. C'est la seule quantité qui compte
+économiquement : le gain d'un billet est une fonction croissante du nombre de
+numéros justes, donc un prédicteur d'avantage `ε` déplace l'espérance de gain de
+`ε · ∂(gain)/∂(numéro juste)` et de rien d'autre.
+
+> **Borne.** Si la moyenne mesurée vaut `R̄` sur `n` tirages hors échantillon,
+> alors, au niveau de confiance `1 − α` unilatéral,
+>
+>     ε  <  (R̄ − 5) + z_{1−α} · σ/√n .
+
+**Deux conditions, et elles ne sont pas décoratives.**
+
+  * **Hors échantillon.** Si l'ajustement a vu les tirages de mesure, `R̄` est
+    biaisé vers le haut d'une quantité inconnue et la borne est fausse dans le
+    mauvais sens. C'est pourquoi la tranche de mesure doit être disjointe.
+  * **Causalité stricte.** Si un trait lit le tirage qu'il prédit, le biais peut
+    ne pas se voir sur `R̄` du tout et se loger dans la **queue** de la loi — c'est
+    exactement ce qui s'est produit au §185, où une fuite invisible au centre
+    (`z = +0,26`) valait `+12,08` écarts-types sur les tirages à dix numéros ou
+    plus. **Vérifier la loi entière fait partie de la vérification de la borne**,
+    pas d'un raffinement facultatif.
+
+**La portée de la borne est celle de la classe.** Une borne obtenue sur un
+prédicteur donné ne vaut que pour lui. Elle ne vaut pour une **classe** que si le
+prédicteur mesuré est le meilleur de la classe *sur les données d'ajustement* —
+ce qui est exactement ce que fait une régression logistique ajustée par maximum de
+vraisemblance sur les traits de la classe. D'où la règle de construction :
+
+> Pour borner une classe de défauts, il faut mettre **un trait par forme de
+> défaut** dans le modèle, et vérifier par un **témoin planté par forme** que le
+> trait correspondant s'allume. Un témoin manquant est un trou dans la borne, et
+> il ne se voit pas : le §188 a d'abord donné `z = −1,07` sur un Fibonacci planté
+> parce qu'il n'avait aucun trait capable de le lire.
+
+**Ce qu'une borne ne dit pas.** Elle ne dit rien des défauts hors de la classe. Un
+générateur cryptographique et un générateur faible dont le défaut n'a aucun trait
+correspondant donnent la même borne. La valeur d'une borne se lit donc **au
+nombre et à la variété des témoins qui l'accompagnent**, jamais au nombre de
+tirages.
