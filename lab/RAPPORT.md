@@ -17359,3 +17359,180 @@ nulles ; Holm sur tout le registre : `p = 1`, non rejeté (`m_total = 60 367`, s
 `/tmp/h144_jeton.json` ; durée totale `29,8 min` (témoins et flux nuls compris, machine à charge ≈ 17).
 
 ---
+
+## 165. La synchronisation sous le rejet : le pas variable lu par la position absolue — vraisemblance exacte d'une fenêtre, chaîne cachée sur `Z/P`, martingale de Ville — 31 trinômes au plan 0, 19 au plan 1, la suite alternée, sous le flux et par nuit (`h145_sync_rejet.py`, `tools/lfg_sync_rejet.c`)
+
+**La question.** Tout ce qui précède, du §157 au §164, lit le générateur à
+**pas fixe** : `20` à `24`, `79` ou `80` mots par tirage, le mot `k` du
+tirage `t` étant le mot `S t + k` du flux. L'échantillonneur à **rejet** —
+`v = 1 + (x mod 80)`, refusé s'il est déjà tiré — n'a pas de pas : il
+consomme `N` mots par tirage, `E[N] = 80 (H₈₀ − H₆₀) = 22,85`, écart-type
+`1,85`, `P(N > 40) = 8,3·10⁻⁹`, et l'alignement dérive de `1,85 √t` mots —
+`26` en une nuit, `490` sur l'archive. Aucun crible à pas fixe ne le voit
+(§7.17 (i)) : c'est l'angle mort nommé au §164. Ici on ne le contourne plus,
+on le lit : la variable cachée est la **position absolue** `q ∈ Z/P` du
+bit lu dans sa suite au début de chaque tirage, et on la suit comme une
+chaîne de Markov cachée, avec la vraisemblance **exacte** de chaque tirage
+sous chaque position.
+
+**L'outil.** Le bit lu est le bit `0` de `x` (plan `0` du Fibonacci
+retardé à shift 0, plan `1` à shift 1, `random()` de la glibc) ; il
+décide la **parité** du numéro `v = 1 + (x mod 80)`. Sous une position
+donnée, la fenêtre de `n` mots qui produit un tirage `A` a `w_b` bits
+égaux à `b` et le tirage a `a_b` numéros de parité `b` ; les résidus
+`x mod 80` étant uniformes sous chaque bit (7.17 (i)), la vraisemblance
+de la fenêtre est le produit de deux comptages de surjections (§7.17,
+théorème) : `P(A, n | bits) = F(w_{1−b}, a_{1−b}) · G(w_b, a_b)`, `b` la
+parité du dernier mot, `F(w, a) = a! S(w, a)/40^w` (les `w` mots de
+l'autre parité tombent tous dans les `a` numéros tirés, chacun atteint),
+`G(w, a) = a! S(w − 1, a − 1)/40^w` (le dernier mot est un nouveau), `S`
+les nombres de Stirling de seconde espèce ; `F(w, a) = 0` si `w < a` ou
+`a = 0 < w`. La somme sur `A` et `n` vaut `1` pour toute suite de bits
+(corollaire de normalisation, vérifié à `6·10⁻¹⁷`) ; tronquée à `n ≤ 40`,
+c'est une sous-probabilité. Seul compte `a₀`, le nombre de numéros
+impairs du tirage — statistique suffisante, d'entropie `3,010` bits sous
+`H₀` (`3,007` sur l'archive, moyenne `9,997`). La chaîne avance de `n`
+positions par tirage ; la DP avant `α_t(q) = Σ_n α_{t−1}(q − n) · P(A_t, n
+| bits de `q − n` à `q − 1`)`, `21` valeurs de `n` par position, avec une
+évasion `ε = 10⁻³` (coût `≤ 0,0014` bit par tirage) ; `BF_t = C(80, 20)^t ·
+Σ_q α_t(q)` est le rapport de vraisemblance du mélange uniforme des
+positions contre `H₀`. Sous `H₀` c'est une surmartingale positive de
+moyenne `≤ 1`, et l'inégalité de **Ville** donne `P₀(sup_t BF_t ≥ 10⁷) ≤
+10⁻⁷` **à tout instant** : le seuil `log₂ BF ≥ 23,25` sur le maximum
+courant est valable quel que soit le moment où on regarde, sans
+distribution, sans permutation. Deux chaînes par configuration : le
+**flux** (un seul état sur les `70 560` tirages, jamais remis) et la
+**nuit** (remise à l'uniforme au début de chacun des `370` blocs, `BF`
+cumulé — surmartingale, même seuil — et `BF` par bloc, seuil `23,25 +
+log₂ 370 = 31,78` pour « une nuit au-dessus »). États : `N = 2^L − 1`
+positions au plan `0` ; au plan `1`, les `2^{L−1}` orbites de période
+`2(2^L − 1)` du Fibonacci mod `4` (Brent), `N = (2^L − 1) 2^L` — les
+orbites à plan `0` nul, dont le plan `1` est une `m`-suite, sont déjà
+dans la grille du shift `0` ; la suite alternée (TYPE_0, tout LCG mod
+`2^k` à incrément impair) a `N = 2`. Outil C (`tools/lfg_sync_rejet.c`) :
+les deux chaînes en un passage, `21 · N` lectures de table par tirage,
+`7·10⁸` par seconde sur la machine chargée, journal par bloc ; il est
+croisé avec la DP numpy du script à `5·10⁻⁵` bit près. Grille : les `31`
+trinômes primitifs de degré `≤ 17` au shift `0`, les `19` de degré `≤ 11`
+au shift `1` (TYPE_1 compris ; le plan `1` de TYPE_2, `N = 1,07·10⁹`, et
+tout TYPE_3 restent hors de portée de la DP pleine), la suite alternée
+: `51` configurations, `102` chaînes à `10⁻⁷` et `51` maxima de nuit à
+`10⁻⁷`, `E₀[D] ≤ 1,53·10⁻⁵`.
+
+**Témoins.** Le script plante un Fibonacci **réel** à 32 bits (`r_i =
+r_{i−K} + r_{i−L} mod 2^{32}`, sortie brute ou `>> 1`), le fait lire par
+le rejet exact (`v = 1 + (x mod 80)`, refus des répétitions, la fenêtre
+entière consommée), suit la trace pour connaître la vraie position, puis
+passe les tirages dans la DP — et, après remise à zéro, autant de
+tirages uniformes. Le modèle `H₁` y est **mal spécifié** : les plans `1`
+à `3` et le résidu modulo `5` d'un vrai Fibonacci ne sont pas uniformes
+(`r_i mod 80 = (r_{i−K} + r_{i−L} − 16·[retenue]) mod 80`), le canal
+idéal de 7.17 (i) rendrait `1,31` bit par tirage (Monte-Carlo, écart-type
+`1,33`, `−5,0` bits par tirage à position fausse, `E₀[LR] = 1,002`), le
+réel en rend `0,5` à `1,0` :
+
+| témoin | plan | `N` (orbites × période) | `T` | blocs | `log₂ BF` final (max) | seuil au tirage | masse du pic / de la vraie position | nul : `log₂ BF` final (max courant) | ms/tirage |
+|---|---|---|---|---|---|---|---|---|---|
+| `x³ + x + 1` | 0 | `1 × 7` | 60 | — | `30,2` (`30,2`) | 33 | `0,219` / `0,052` | `-249,1` (`1,36`) | 0,3 |
+| `x⁷ + x³ + 1` | 0 | `1 × 127` | 100 | — | `94,6` (`94,6`) | 32 | `0,180` / `0,180` | `-174,4` (`0,44`) | 0,3 |
+| `x⁷ + x³ + 1` = TYPE_1 | 1 | `64 × 254` | 120 | — | `87,4` (`87,4`) | 40 | `0,213` / `0,128` | `-61,9` (`0,50`) | 1,9 |
+| `x¹⁵ + x + 1` = plan 0 de TYPE_2 | 0 | `1 × 32 767` | 150 | — | `116,1` (`116,4`) | 39 | `0,226` / `0,226` | `-78,2` (`0,20`) | 4,0 |
+| `x¹⁷ + x³ + 1` | 0 | `1 × 131 071` | 150 | — | `156,2` (`156,2`) | 33 | `0,184` / `0,099` | `-84,5` (`0,93`) | 32 |
+| `x⁹ + x⁴ + 1` | 1 | `256 × 1 022` | 150 | — | `117,5` (`117,5`) | 48 | `0,129` / `0,075` | `-60,2` (`2,09`) | 45 |
+| TYPE_1, un générateur neuf par bloc | 1 | `64 × 254` | 612 | 204 | `489,7` (`489,7`) | 40 | `0,174` / `0,122` | `-382,0` (`-0,17`) | 2,0 |
+| `x¹⁵ + x + 1`, un générateur neuf par bloc | 0 | `1 × 32 767` | 612 | 204 | `566,7` (`566,7`) | 39 | `0,164` / `0,155` | `-370,3` (`2,32`) | 4,1 |
+| suite alternée (LCG mod `2^k`) | — | `1 × 2` | 60 | — | `59,8` | — | — | — | — |
+
+Le pic est jugé sur la bonne orbite s'il est à moins de `N_T` mots de la
+vraie position : la DP filtre, elle ne lisse pas, et les rejets du dernier
+tirage n'étant pas observés, la position finale reste floue de `N_T`. Puis
+l'outil C et la DP numpy sont croisés sur les mêmes données (`croise.py`,
+un générateur neuf par bloc, puis des tirages nuls) :
+
+| configuration | `T` | blocs | planté : flux / nuit cumulée / meilleure nuit | nul : flux / cumulée / meilleure nuit | nul : max courant | écart C − numpy | numpy ms/t | C ms/t |
+|---|---|---|---|---|---|---|---|---|
+| TYPE_1 `(3, 7)` shift 1 | 612 | 204 | `490,7` / `508,2` / `185,8` | `-375,9` / `-373,1` / `-115,7` | `0,19` | `4,5·10⁻⁵` | 3,4 | 0,26 |
+| `(1, 15)` shift 0 | 612 | 204 | `525,5` / `543,4` / `193,2` | `-441,4` / `-434,8` / `-134,8` | `0,00` | `3,3·10⁻⁵` | 7,4 | 0,57 |
+| `(3, 7)` shift 0 | 300 | 100 | `234,4` / `243,4` / `88,2` | `-403,4` / `-392,9` / `-120,2` | `0,00` | `4,9·10⁻⁵` | 0,43 | 0,008 |
+| suite alternée | 300 | 150 | `326,6` / `326,6` / `166,3` | `-714,5` / `-714,5` / `-348,2` | `0,00` | `4,9·10⁻⁵` | 0,40 | 0,007 |
+
+**Lecture des témoins.** Les huit témoins plantés franchissent le seuil
+entre le `32`ᵉ et le `48`ᵉ tirage — `≈ log₂ N / 6,3` tirages pour que la
+vraie position domine, puis `0,5` à `1,0` bit par tirage : `156` bits en
+`150` tirages à `L = 17`, `116` à `L = 15`, `95` en `100` à `L = 7` ; au plan
+`1`, où `2^{L−1}` orbites se partagent la masse, `87` en `120` (TYPE_1) et
+`118` en `150` (`(4, 9)`) — une **nuit** de `204` tirages vaut `160` à
+`190` bits, cinq à six fois le seuil de nuit `31,78`, et le pic du postérieur
+est sur la bonne orbite, à portée de `N_T` de la vraie position, qui porte
+`0,05` à `0,23` de la masse. Les huit témoins nuls descendent, comme
+Jensen l'impose (`E₀[log LR] < 0`) : `−4,2` bits par tirage à `L = 3`,
+`−1,7` à `L = 7`, `−0,5` à `L = 15` et `17`, `−0,4` à `−0,5` au plan `1`, et
+leur maximum courant ne dépasse jamais `2,3` bits — le seuil `23,25` est
+à `21` bits au-dessus du pire témoin nul, `10⁻⁷` par Ville. Outil C et
+DP numpy coïncident à `5·10⁻⁵` bit près, aux mêmes instants de maximum,
+l'outil `13` fois plus rapide ; les seuls tirages « impossibles » (`F = 0`)
+apparaissent où la théorie les place (7.17 (vi)) : `a₀ ≥ 15` tue
+`x² + x + 1` (`w₀ ≤ 14` sur une fenêtre de `≤ 40` mots alternés par
+tiers), `a₀ ≥ 19` tue `L = 3`.
+
+**Pré-enregistrement.** Jeton `f11c611488262d18` (2026-09-02T12:41:06Z), scellé avant toute
+lecture de l'archive, le design, les seuils et les témoins fixés sur des
+générateurs plantés ; hypothèse : *ni le flux continu de l'archive triée
+(un seul état) ni ses `370` blocs de nuit (générateur réamorcé chaque
+nuit) ne sont engendrés par un Fibonacci retardé additif lu par
+l'échantillonneur à rejet, plan `0` des `31` trinômes de degré `≤ 17`,
+plans `0`–`1` (`random()`) de ceux de degré `≤ 11`, ni par un LCG mod
+`2^k` à incrément impair de sortie `x = état`* ; statistique : `D` =
+nombre de chaînes (flux, nuit cumulée) dont le maximum courant de `log₂
+BF` atteint `23,25`, plus le nombre de configurations dont une nuit
+atteint `31,78` ; nul : Ville, `E₀[D] ≤ 1,5·10⁻⁵` ; décision : `D = 0`
+conforme, **état trouvé** si une chaîne dépasse le seuil et que son pic
+se confirme (position stable, `≈ 1` bit par tirage ensuite), détection
+non confirmée sinon. Piste B.
+
+**La grille.** Pour chaque configuration, `N` états, le `log₂ BF` final
+du flux et son maximum courant (avec l'instant), ceux de la chaîne de
+nuit cumulée, la meilleure nuit (et son bloc), la moyenne et l'écart-type
+du `log₂ BF` par nuit, les tirages impossibles sous le flux et par nuit
+(`F = 0` : la chaîne meurt — plus exactement, elle ne survit que par
+l'évasion, à `−∞` en pratique), la détection et le temps de calcul :
+
+| plan | trinôme | `N` | flux `log₂ BF` | flux max @ `t` | nuit cumulée | cumulée max @ `t` | meilleure nuit (bloc) | par nuit, moy. ± é.-t. | impossibles f / n | dét. | s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | `x^2 + x^1 + 1` | `3` | `−∞` | `0,00` @ `0` | `−∞` | `0,00` @ `0` | `3,12` (`68`) | `298` nuits tuées ; autres `-2 115,0 ± 1 086,4` | `666` / `666` | 0 | 0 |
+| 0 | `x^3 + x^1 + 1` | `7` | `−∞` | `0,00` @ `0` | `−∞` | `0,00` @ `0` | `1,44` (`15`) | `1` nuits tuées ; autres `-777,3 ± 209,3` | `1` / `1` | 0 | 0 |
+| 0 | `x^3 + x^2 + 1` | `7` | `−∞` | `0,00` @ `0` | `−∞` | `0,00` @ `0` | `1,44` (`15`) | `1` nuits tuées ; autres `-777,2 ± 209,3` | `1` / `1` | 0 | 0 |
+| 0 | `x^4 + x^1 + 1` | `15` | `-155 135,3` | `0,00` @ `0` | `-154 871,8` | `0,00` @ `0` | `0,99` (`15`) | `-418,6 ± 121,3` | `0` / `0` | 0 | 0 |
+| 0 | `x^4 + x^3 + 1` | `15` | `-155 174,9` | `0,00` @ `0` | `-154 929,6` | `0,00` @ `0` | `0,99` (`15`) | `-418,7 ± 121,4` | `0` / `0` | 0 | 0 |
+| 0 | `x^5 + x^2 + 1` | `31` | `-116 605,2` | `0,00` @ `0` | `-116 019,1` | `0,00` @ `0` | `0,66` (`192`) | `-313,6 ± 93,7` | `0` / `0` | 0 | 0 |
+| 0 | `x^5 + x^3 + 1` | `31` | `-116 617,9` | `0,00` @ `0` | `-116 042,3` | `0,00` @ `0` | `0,66` (`192`) | `-313,6 ± 93,3` | `0` / `0` | 0 | 0 |
+| 0 | `x^6 + x^1 + 1` | `63` | `-108 279,6` | `0,00` @ `0` | `-107 451,8` | `0,00` @ `0` | `0,31` (`15`) | `-290,4 ± 79,2` | `0` / `0` | 0 | 0 |
+| 0 | `x^6 + x^5 + 1` | `63` | `-108 152,6` | `0,25` @ `2` | `-107 333,3` | `0,25` @ `2` | `0,31` (`15`) | `-290,1 ± 79,9` | `0` / `0` | 0 | 0 |
+| 0 | `x^7 + x^1 + 1` | `127` | `-95 818,0` | `0,00` @ `0` | `-94 588,8` | `0,00` @ `0` | `0,42` (`88`) | `-255,6 ± 68,2` | `0` / `0` | 0 | 0 |
+| 0 | `x^7 + x^3 + 1` | `127` | `-96 796,9` | `1,18` @ `2` | `-95 584,1` | `1,18` @ `2` | `0,44` (`15`) | `-258,3 ± 69,2` | `0` / `0` | 0 | 0 |
+| 0 | `x^7 + x^4 + 1` | `127` | `-96 466,9` | `1,36` @ `2` | `-95 385,7` | `1,36` @ `2` | `0,44` (`15`) | `-257,8 ± 68,5` | `0` / `0` | 0 | 0 |
+| 0 | `x^7 + x^6 + 1` | `127` | `-95 681,7` | `0,68` @ `2` | `-94 528,6` | `0,68` @ `2` | `0,42` (`88`) | `-255,5 ± 67,5` | `0` / `0` | 0 | 0 |
+| 0 | `x^9 + x^4 + 1` | `511` | `-79 005,0` | `0,03` @ `2` | `-77 541,3` | `0,03` @ `2` | `0,49` (`15`) | `-209,6 ± 55,1` | `0` / `0` | 0 | 0 |
+| 0 | `x^9 + x^5 + 1` | `511` | `-78 169,3` | `0,00` @ `0` | `-76 875,1` | `0,00` @ `0` | `0,49` (`15`) | `-207,8 ± 54,4` | `0` / `0` | 0 | 0 |
+| 0 | `x^10 + x^3 + 1` | `1 023` | `-66 671,2` | `0,70` @ `3` | `-65 267,6` | `0,70` @ `3` | `0,33` (`88`) | `-176,4 ± 46,8` | `0` / `0` | 0 | 1 |
+| 0 | `x^10 + x^7 + 1` | `1 023` | `-66 444,6` | `1,28` @ `4` | `-65 039,4` | `1,28` @ `4` | `0,33` (`88`) | `-175,8 ± 46,3` | `0` / `0` | 0 | 1 |
+| 0 | `x^11 + x^2 + 1` | `2 047` | `-58 815,5` | `0,73` @ `3` | `-57 373,2` | `0,73` @ `3` | `0,30` (`88`) | `-155,1 ± 41,7` | `0` / `0` | 0 | 2 |
+| 0 | `x^11 + x^9 + 1` | `2 047` | `-59 146,6` | `1,46` @ `4` | `-57 730,4` | `1,46` @ `4` | `0,30` (`88`) | `-156,0 ± 42,2` | `0` / `0` | 0 | 2 |
+| 0 | `x^15 + x^1 + 1` | `32 767` | `-43 361,1` | `0,13` @ `1` | `-41 897,3` | `0,13` @ `1` | `0,16` (`88`) | `-113,2 ± 31,0` | `0` / `0` | 0 | 30 |
+| 0 | `x^15 + x^4 + 1` | `32 767` | `-42 156,3` | `0,17` @ `1` | `-40 658,6` | `0,17` @ `1` | `0,20` (`88`) | `-109,9 ± 30,4` | `0` / `0` | 0 | 30 |
+| 0 | `x^15 + x^7 + 1` | `32 767` | `-41 241,4` | `0,23` @ `1` | `-39 868,9` | `0,23` @ `1` | `0,18` (`88`) | `-107,8 ± 29,0` | `0` / `0` | 0 | 34 |
+| 0 | `x^15 + x^8 + 1` | `32 767` | `-41 538,0` | `0,23` @ `1` | `-40 143,2` | `0,23` @ `1` | `0,18` (`88`) | `-108,5 ± 29,2` | `0` / `0` | 0 | 30 |
+| 0 | `x^15 + x^11 + 1` | `32 767` | `-42 334,8` | `0,17` @ `1` | `-40 861,9` | `0,17` @ `1` | `0,20` (`88`) | `-110,4 ± 29,8` | `0` / `0` | 0 | 32 |
+| 0 | `x^15 + x^14 + 1` | `32 767` | `-43 361,9` | `0,13` @ `1` | `-42 013,1` | `0,13` @ `1` | `0,16` (`88`) | `-113,5 ± 31,1` | `0` / `0` | 0 | 31 |
+| 0 | `x^17 + x^3 + 1` | `131 071` | `-36 415,1` | `0,13` @ `1` | `-35 011,6` | `0,13` @ `1` | `0,14` (`88`) | `-94,6 ± 26,0` | `0` / `0` | 0 | 271 |
+| 0 | `x^17 + x^5 + 1` | `131 071` | `-36 493,9` | `0,14` @ `1` | `-35 045,1` | `0,14` @ `1` | `0,15` (`88`) | `-94,7 ± 26,2` | `0` / `0` | 0 | 272 |
+
+*Grille en cours : `27` configurations lues sur `51` (jeton `f11c611488262d18`) ; le tableau et les paragraphes qui suivent sont complétés à la fin de la grille.*
+
+**Résultat.** en cours — voir le statut de la grille ci-dessus.
+
+**Ce que cela ferme.** à écrire à la fin de la grille.
+
+**Ligne de registre** : `h145.sync_rejet`, piste B, en cours (rien n'est consigné avant la fin des `51` configurations).
+
+---

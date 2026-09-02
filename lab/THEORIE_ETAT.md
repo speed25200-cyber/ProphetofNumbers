@@ -3083,6 +3083,317 @@ Fibonacci) ; s'il ne détecte pas, aucun générateur de la couverture
 (viii) n'a engendré l'archive à pas constant, quels que soient ses
 paramètres. Sur l'archive (§164, jeton `381e09440a2b6e25`) : `D = 0` sur `32 673 251` statistiques, max `|z| = 5,07` (flux, pas 21, C `187 227`) à la place d'un maximum de gaussiennes, `z_D = -0,53`, `τ² = 0,03787` — aucun bit lu de l'archive n'a de période, d'anti-période ni de décalage corrélé à portée, sous aucun pas, ni sous le flux ni par nuit : toute la couverture (viii) est fermée.
 
+### 7.17 La synchronisation sous le rejet (§165) — le pas variable lu par la position absolue : vraisemblance exacte d'une fenêtre, chaîne cachée sur `Z/P` et martingale de Ville
+
+Tout ce qui précède depuis le 7.11 lit le générateur **à pas constant** :
+le tirage `t` consomme `S` mots (`S = 20…24, 79, 80`), l'alignement
+mot–tirage est connu à une constante près, et c'est cet alignement qui
+fait des relations de récurrence des équations entre tirages. Or
+l'échantillonneur le plus naïf de tous, celui du programmeur pressé,
+
+    tant que |A| < 20 :  x = suivant() ;  v = 1 + (x mod 80) ;  si v ∉ A, A ← A ∪ {v}
+
+consomme un nombre **variable** de mots : `N = 20` acceptés plus les
+rejets, `E[N] = 80 (H_80 − H_60) = 22,85`, écart-type `1,85`, `P(N > 40)
+= 8,3·10⁻⁹`. Après `t` tirages l'alignement a dérivé de `1,85 √t` mots —
+`26` en une nuit, `490` sur l'archive — et un seul mot de décalage suffit
+à fausser une relation `r_i = r_{i−K} + r_{i−L}` : les `868` cribles du
+7.11 (§157, §158), le décodage mou du 7.13 (§160), les relations de poids
+3 du 7.14 et du 7.15 et le balayage du 7.16 sont **aveugles** à cet
+échantillonneur, et chacune de ces sections l'a dit — « le rejet est
+explicitement hors des cribles ». Cette section le lit. L'idée est de
+changer d'inconnue : non plus l'état de `L` bits, mais la **position
+absolue** `q ∈ Z/P` dans la suite périodique du bit lu, `P = 2^L − 1` ;
+cette position, augmentée du nombre de mots consommés, suit le
+générateur à travers les rejets, et le nombre de mots consommés est une
+variable cachée que l'on **somme** au lieu de la deviner.
+
+La section établit (i) le canal — ce que l'échantillonneur fait du bit
+lu, et la variable cachée ; (ii) la vraisemblance **exacte** d'une
+fenêtre de `n` mots, en nombres de Stirling, et son identité de
+normalisation ; (iii) la statistique suffisante, le nombre de numéros
+impairs, et sa capacité ; (iv) la programmation dynamique de
+synchronisation, une chaîne cachée sur `Z/P` à pas variable, et son coût
+; (v) le plan 1 pour la sortie décalée de la glibc : les `2^{L−1}`
+orbites de période `2P` du Fibonacci modulo 4 ; (vi) les tirages
+impossibles, qui sont des exclusions **exactes** ; (vii) le rapport de
+vraisemblance du mélange, martingale sous `H₀`, l'inégalité de Ville et
+le seuil valable **à tout instant**, sous le flux et par nuit ; (viii) le
+taux d'information sous `H₁` et les témoins ; (ix) la couverture, les
+angles morts, et la voie qui les ouvre — la DP élaguée, dont on montre
+qu'elle reste une surmartingale. Le résultat sur l'archive est au §165.
+
+**(i) Le canal et la variable cachée.** Soit `(β_i)_{i ∈ Z/P}` la suite
+périodique du bit que lit l'échantillonneur : le bit 0 du mot `x = r >>
+shift`, donc le plan `shift` du générateur. Le mot `x` désigne le numéro
+`v = 1 + (x mod 80)`, et `(v − 1) mod 2 = x mod 2 = β` : un mot de bit
+`β` désigne un numéro de la **classe** `β` — pair ou impair de `v − 1`,
+quarante numéros par classe. Le modèle `H₁` de cette section retient du
+générateur **ce seul bit** et tient le reste du mot pour uniforme : un
+mot de classe `β` est uniforme sur les `40` numéros de sa classe,
+indépendamment des autres mots. Le tirage `t` commence au mot de position
+`q_t`, consomme `N_t` mots `q_t, …, q_t + N_t − 1`, et `q_{t+1} = q_t +
+N_t (mod P)`. On n'observe ni `q_t` ni `N_t`, seulement l'ensemble
+`A_t` — et, pour l'archive triée, seulement `A_t` sans ordre, ce qui ne
+perd rien ici (le canal est symétrique dans l'ordre des acceptés). Sous
+`H₀`, les `A_t` sont des `20`-sous-ensembles uniformes indépendants, `P₀(A)
+= 1/C(80, 20)`.
+
+**(ii) La vraisemblance exacte d'une fenêtre.** Fixons une fenêtre de `n`
+mots de bits `β_q, …, β_{q+n−1}`, dont `w₁` valent `1` et `w₀ = n − w₁`
+valent `0`, et notons `b = β_{q+n−1}` le bit du dernier mot. Pour un
+ensemble `A` de `20` numéros, soit `a₀` (resp. `a₁`) le nombre de ses
+numéros de classe `0` (resp. `1`), `a₀ + a₁ = 20`. `S(w, a)` désigne le
+nombre de Stirling de seconde espèce.
+
+> **Théorème (vraisemblance d'une fenêtre).** *La probabilité que
+> l'échantillonneur à rejet, lancé au mot `q` sur la suite `β`, accepte
+> exactement l'ensemble `A` et s'arrête au `n`-ième mot vaut*
+>
+>     P(A, n | β_q … β_{q+n−1}) = F(w_{1−b}, a_{1−b}) · G(w_b, a_b),
+>
+>     F(w, a) = a! S(w, a) / 40^w,        G(w, a) = a! S(w − 1, a − 1) / 40^w,
+>
+> *avec `F(w, a) = 0` si `w < a` ou si `a = 0 < w`, et `G(w, a) = 0` si `a
+> = 0` ou `w < a`. Elle ne dépend de `A` que par `a₀`.*
+>
+> *Preuve.* Un mot est rejeté si et seulement si son numéro a déjà été
+> vu ; la suite des numéros désignés détermine donc tout, et
+> l'événement « `A` accepté, arrêt au mot `n` » est exactement :
+> l'ensemble des numéros désignés par les `n` premiers mots est `A`, et
+> le `n`-ième désigne un numéro qu'aucun mot précédent ne désignait. Les
+> mots de classe `0` et ceux de classe `1` sont indépendants et ne
+> peuvent désigner que des numéros de leur classe. Les `w_{1−b}` mots de
+> la classe `1 − b` doivent couvrir exactement les `a_{1−b}` numéros de
+> `A` de cette classe : `a_{1−b}! S(w_{1−b}, a_{1−b})` surjections sur
+> `40^{w_{1−b}}` suites, soit `F`. Les `w_b` mots de la classe `b`
+> doivent couvrir exactement les `a_b` numéros de `A` de la classe `b`, le
+> dernier étant une première occurrence : on choisit ce dernier numéro
+> (`a_b` façons), et les `w_b − 1` premiers mots couvrent exactement les
+> `a_b − 1` autres, `(a_b − 1)! S(w_b − 1, a_b − 1)` façons ; au total `a_b!
+> S(w_b − 1, a_b − 1)` sur `40^{w_b}`, soit `G`. Le produit ne dépend de `A`
+> que par `(a₀, a₁)`, donc par `a₀`. ∎
+
+> **Corollaire (normalisation).** *Pour toute suite de bits `β` et toute
+> position `q`, `Σ_A Σ_{n ≥ 20} P(A, n | β_q…) = 1`. En moyenne sur des
+> bits uniformes indépendants, `Σ_A Σ_β 2^{−n} P(A, n | β) = P₀(N = n) =
+> 20! S(n − 1, 19) / 80^n · C(80, 20)`, terme à terme.*
+>
+> *Preuve.* L'échantillonneur s'arrête presque sûrement sur toute suite
+> `β` (chaque mot désigne un numéro nouveau avec probabilité `≥ 21/40`
+> tant que `|A| < 20`), et les événements `{(A, N) = (A, n)}` forment une
+> partition de l'espace des suites de numéros. La seconde identité est le
+> théorème appliqué à des bits marginalisés : `v` est alors uniforme sur
+> `80` et `N` est le temps de collection de `20` numéros distincts. ∎
+
+Vérifié numériquement à `6·10⁻¹⁷` près. La troncature `n ≤ 40` retenue
+par le calcul (`P₀(N > 40) = 8,3·10⁻⁹`, soit `6·10⁻⁴` tirage attendu sur
+l'archive) fait de `H₁` une **sous-**probabilité : c'est ce qui rend le
+rapport de (vii) une surmartingale plutôt qu'une martingale, et
+l'inégalité de Ville n'y perd rien.
+
+**(iii) La statistique suffisante.** Le théorème ne lit de `A_t` que
+`a₀(A_t)`, le **nombre de numéros impairs** du tirage (`v` impair ⇔ `v −
+1` pair ⇔ classe `0`) : c'est la statistique suffisante du canal, et le
+test entier tient dans les `70 560` entiers `a₀(A_t) ∈ {0, …, 20}`. Sous
+`H₀`, `a₀ ~ Hypergéométrique(80, 40, 20)`, d'entropie `H(a₀) = 3,010`
+bits ; l'archive en donne la moyenne `9,997` et l'entropie empirique
+`3,007`. C'est la **capacité** du canal : aucune synchronisation ne peut
+apprendre plus de `3,01` bits par tirage sur la position, quel que soit
+l'algorithme ; le taux réalisé est en (viii). On notera ce que ce canal
+n'est pas : il ne voit ni les plans `1` à `3` du mot (qui, avec le
+plan 0, fixent `x mod 16`) ni son résidu modulo `5` — le 7.14 et le 7.15
+lisent le plan 1 par ses relations, le rejet les leur cache ; ici, tout
+passe par la parité et par la longueur des fenêtres.
+
+**(iv) La programmation dynamique de synchronisation.** Soit `C(i) =
+Σ_{j<i} β_j` les sommes cumulées de la suite périodique (prolongée sur
+deux périodes), de sorte que `w₁(q, n) = C(q + n) − C(q)` et `b(q, n) =
+β_{q+n−1}` s'obtiennent en temps constant. La chaîne cachée est `(q_t)`
+sur `Z/P`, à transitions `q → q + n` de probabilité conditionnelle
+`P(A_t, n | β_q, …, β_{q+n−1})`, `n ∈ [20, 40]`, prior uniforme `α₀(q) =
+1/P` (le générateur a tourné un nombre inconnu de mots avant le premier
+tirage), et **évasion** `ε = 10⁻³` par tirage — avec probabilité `ε` la
+position est retirée uniformément, ce qui autorise une
+resynchronisation après une rupture non modélisée (réamorçage, tirage
+sauté, sortie de la troncature). La récurrence avant est
+
+    α_t(q + n) += α_{t−1}(q) · T_{a₀(A_t)}[n][b(q, n)][w₁(q, n)],        puis    α_t ← (1 − ε) α_t + ε Σα_t / P,
+
+avec `T_{a₀}` la table du théorème (ii), `21 × 2 × 41` réels par valeur
+de `a₀`, et `Σ_q α_t(q) = P_mél(A_1, …, A_t)`, la vraisemblance du
+mélange. Le facteur de Bayes est
+
+    BF_t = P_mél(A_1 … A_t) / P₀(A_1 … A_t) = Σ_q α_t(q) · C(80, 20)^t,
+
+que le calcul porte en `log₂` après normalisation de `α` à chaque
+tirage. L'évasion coûte au plus `log₂ 1/(1 − ε) = 0,0014` bit par tirage
+sous `H₁` synchronisée. Le coût est `21 · N` évaluations de table par
+tirage, `N = P` pour le plan 0 : `L = 11` en `2` s, `L = 15` en `30` s, `L
+= 17` en `271` s sur les `70 560` tirages (outil C, machine chargée). Deux
+chaînes sont menées : sous le **flux** (une seule position, jamais
+remise à zéro — un générateur jamais réamorcé), et par **nuit** (`α`
+remis à l'uniforme au début de chacun des `370` blocs — un générateur
+réamorcé chaque jour), dont on garde le `log₂ BF` cumulé sur l'archive et
+le `log₂ BF` de **chaque** bloc.
+
+**(v) Le plan 1 : la sortie décalée de la glibc.** `random()` rend `(r_i)
+>> 1` : le bit lu est le **plan 1** du Fibonacci, `r_i ≡ r_{i−K} + r_{i−L}
+(mod 4)`. La suite `(r_i mod 4)` vit sur `(Z/4)^L` ; la récurrence y est
+une bijection (`r_{i−L} = r_i − r_{i−K}`), et les `(2^L − 1) 2^L` états de
+plan 0 non nul se répartissent en **orbites**. Le plan 0 y est une
+`m`-suite de période `P`, et le plan 1 a la période exacte `2P` (Brent,
+1994 : `2^{w−1}(2^L − 1)` modulo `2^w` pour un trinôme primitif et un
+plan 0 non nul, ici `w = 2`) : chaque orbite compte `2P` états, il y en a
+donc `(2^L − 1) 2^L / 2P = 2^{L−1}`, et la variable cachée est le couple
+(orbite, position), `N = 2^{L−1} · 2P = (2^L − 1) 2^L` positions —
+`16 256` pour TYPE_1, `1,07·10⁹` pour TYPE_2, `4,6·10¹⁸` pour TYPE_3. Les
+orbites sont énumérées par épuisement des états, et le calcul vérifie
+qu'elles ont toutes la période `2P`. Le cas du plan 0 nul est couvert
+par la grille du plan 0 : le plan 1 y est alors lui-même une `m`-suite
+(ou zéro). La chaîne (iv) court sur `Z/2P` dans chaque orbite ; `L = 9`
+coûte `8` ms par tirage, `L = 10` `34` ms, `L = 11` `150` ms (`3` h par
+trinôme). Une troisième suite est lue en sus : la suite **alternée**
+`0101…` (`N = 2`), qui est le bit 0 de tout générateur congruentiel
+linéaire à module `2^k` et incrément impair rendant son état (TYPE_0 de
+la glibc, `rand()` naïfs) — le 7.16 (i) en donne la période `2`.
+
+**(vi) Les tirages impossibles sont des exclusions exactes.** `F(w, a) = 0`
+pour `w < a` : une fenêtre qui contient moins de mots de classe `b` que
+`A` n'a de numéros de cette classe ne peut pas produire `A`. Si pour un
+tirage `a_b(A_t) > max_{q,n} w_b(q, n)`, **aucune** position ne l'explique
+: `Σα_t = 0`, `log₂ BF = −∞`, et la configuration (trinôme, shift) est
+exclue — non par un seuil, mais par une incompatibilité : le modèle ne
+peut produire ce tirage à aucune position, à aucun pas. Le calcul le
+consigne comme tel (`−∞`, compteur des tirages impossibles), garde le
+maximum courant atteint avant la mort de la chaîne, et par nuit
+recommence au bloc suivant. Ainsi `x² + x + 1` (période `3`, deux `1`
+pour un `0`) a `w₀ ≤ 14` dans toute fenêtre de `40` mots : tout tirage à
+`a₀ ≥ 15` numéros impairs le tue — l'archive en compte `666`, contre
+`662,3` attendus sous `H₀` (`P₀(a₀ ≥ 15) = 0,94 %`) ; et les deux trinômes
+de degré `3` (période `7`, quatre `1` pour trois `0`, `w₀ ≤ 18`) meurent
+sur `a₀ ≥ 19`, un tirage de l'archive (`0,11` attendu sous `H₀`). Dès `L
+= 4`, aucune fenêtre n'est trop déséquilibrée et aucun tirage n'est
+impossible : l'exclusion redevient statistique.
+
+**(vii) Martingale et inégalité de Ville : un seuil valable à tout
+instant.**
+
+> **Théorème.** *Sous `H₀` (tirages uniformes indépendants), `(BF_t)_{t ≥
+> 0}` est une surmartingale positive de valeur initiale `1` — une
+> martingale sans la troncature `n ≤ 40` — pour la filtration des tirages
+> observés. Donc, pour tout `c > 0`,*
+>
+>     P₀( sup_t BF_t ≥ c ) ≤ 1/c                                     (Ville),
+>
+> *et la règle « déclarer si `max_{t ≤ T} log₂ BF_t ≥ 23,25` », quel que
+> soit `T`, choisi ou non à l'avance, a une erreur de première espèce `≤
+> 10⁻⁷`.*
+>
+> *Preuve.* `P_mél` est une (sous-)probabilité sur les suites de tirages
+> : un prior uniforme sur `q_1`, des transitions de chaîne cachée
+> (évasion comprise) et, à chaque tirage, une loi conditionnelle `Σ_n
+> P(A_t, n | β_{q_t}…)` dont la somme sur `A_t` vaut `1` par le corollaire
+> (ii) — `≤ 1` avec la troncature — pour **chaque** trajectoire cachée,
+> donc pour leur mélange. D'où `E₀[BF_t | A_1 … A_{t−1}] = BF_{t−1} ·
+> Σ_{A_t} P_mél(A_t | A_1 … A_{t−1}) ≤ BF_{t−1}`. L'inégalité maximale de
+> Ville pour les surmartingales positives conclut. ∎
+
+Le seuil ne dépend ni de `N`, ni de `t`, ni d'aucune approximation
+gaussienne : le prix de l'état — les `log₂ N` bits qu'il faut pour
+trouver la position — est payé **dans** la vraisemblance, par le prior
+uniforme, et non par le seuil. C'est ce qui distingue ce test des
+grilles gaussiennes des 7.13–7.16 : plus de nombre effectif de
+statistiques, plus de correction de queue, et un `T` que l'on peut
+choisir après coup — le maximum courant est la statistique. Par nuit,
+chaque bloc porte sa propre surmartingale issue de `1`, et l'on retient
+son `log₂ BF` final ; sur `370` blocs, l'union donne le seuil `23,25 +
+log₂ 370 = 31,78` pour « une nuit au-dessus ». La chaîne cumulée par
+nuit — produit des `370` surmartingales successives — est encore une
+surmartingale au seuil `23,25`. Sur la grille (ix), `51` configurations
+× (flux, nuit cumulée) = `102` chaînes à `10⁻⁷` et `51` maxima de nuit
+à `10⁻⁷` : `E₀[D] ≤ 1,53·10⁻⁵`.
+
+**(viii) Le taux d'information et les témoins.** À position connue, sur
+le canal idéal de (i) (bits indépendants uniformes, résidus uniformes),
+`E_{H₁}[log₂ Σ_n P(A, n | β) / P₀(A)] = 1,31` bit par tirage
+(Monte-Carlo, écart-type `1,33`, `20 000` tirages), contre `−5,0` bits par
+tirage pour une position fausse, et `E₀[LR] = 1,002` sous `H₀` (la
+martingale, vérifiée). Le mélange se verrouille donc en `≈ log₂ N /
+6,3` tirages et gagne ensuite `1,31` bit par tirage : une nuit de `204`
+tirages vaut `≈ 266 − log₂ N` bits, le flux `9·10⁴`. Sur des Fibonacci
+**réels** à 32 bits — dont les plans `1` à `3` et le résidu modulo `5` ne
+sont pas uniformes, `r_i mod 80 = (r_{i−K} + r_{i−L} − 16·[retenue]) mod
+80` : le modèle `H₁` est là **mal spécifié** — le gain mesuré est de `0,8`
+à `1,1` bit par tirage, ce qui porte le `log₂ BF` au-dessus du seuil
+en une trentaine de tirages après le verrouillage. Témoins (`--selftest`, huit configurations plantées
+de `L = 3` à `17`, shifts `0` et `1`, flux et blocs, générateurs 32 bits
+avec rejet exact) : le postérieur pique sur la bonne orbite à moins de
+`N_T` mots de la vraie position — la DP filtre, elle ne lisse pas : les
+rejets du dernier tirage ne sont pas observés, et sa position finale reste
+floue de `N_T` — qui porte `0,05` à `0,23` de masse ; `log₂ BF ≫ 23,25`
+pour chacun (`30` à `567` bits, seuil franchi entre le `32`ᵉ et le `48`ᵉ
+tirage), `< 23,25` pour chaque témoin nul (maximum courant `≤ 2,3`). Témoins croisés
+numpy/outil C (`croise.py`, mêmes données, un générateur neuf par bloc)
+: `(3, 7)` shift 1, `612` tirages en blocs de `204` — flux `490,7`, nuit
+cumulée `508,2`, meilleure nuit `185,8` (nul : `−375,9`, `−373,1`, `−115,7`,
+maximum courant `0,19`) ; `(1, 15)` shift 0 — `525,5`, `543,4`, `193,2`
+(nul `−441,4`, `−434,8`, `−134,8`, max `0,00`) ; `(3, 7)` shift 0, `300`
+tirages en blocs de `100` — `234,4`, `243,4`, `88,2` (nul `−403,4`) ; suite
+alternée — `326,6`, `326,6`, `166,3` (nul `−714,5`) ; écart numpy/C `≤
+5·10⁻⁵` bit, mêmes instants de maximum, outil C `13` fois plus rapide.
+Sous `H₀`, le `log₂ BF` **descend** (Jensen : `E₀[log LR] < 0`), d'environ
+`−2,2` bits par tirage à `L = 4` et `−0,6` à `L = 15` — la place d'une
+surmartingale nulle est loin sous zéro, et le maximum courant reste
+au voisinage des premiers tirages.
+
+**(ix) Couverture, angles morts, et la DP élaguée.** Sont lus, sous le
+flux et par nuit : au **shift 0** (sortie brute, le bit 0 est le plan 0)
+les `31` trinômes primitifs de degré `≤ 17` — un de degré `2`, deux de
+`3`, `4`, `5`, `6`, `9`, `10`, `11`, quatre de `7`, six de `15` et de `17`
+(il n'existe pas de trinôme primitif de degré `8`, `12`, `13`, `14`, `16`)
+— ; au **shift 1** (`random()`, le bit 0 est le plan 1) les `19` de degré
+`≤ 11`, TYPE_1 compris ; la suite alternée. Ne sont pas lus : le plan 0
+de TYPE_3 (`N = 2^{31} − 1`) et de TYPE_4 ; le plan 1 de degré `≥ 15`
+(TYPE_2 : `N = 1,07·10⁹` ; TYPE_3 : `4,6·10¹⁸`) ; les plans `≥ 2` ; les
+échantillonneurs par troncature `(x · 80) >> 32`, qui lisent les bits
+hauts et non le bit 0 (7.5) ; et, bien sûr, les échantillonneurs à pas
+fixe, cribles ailleurs. Le mur n'est pas l'information — une nuit
+rendrait `266 − 31 = 235` bits contre TYPE_3 — mais le coût `21 · N` par
+tirage : `4,5·10¹⁰` pour TYPE_3 au plan 0, `64` s par tirage, `52` jours
+pour l'archive sur un cœur. La voie qui l'ouvre est l'**élagage** : après
+`m` tirages en DP pleine, ne garder que les `B` positions de plus fort
+`α` et poursuivre sur elles.
+
+> **Lemme (la DP élaguée reste une surmartingale).** *Soit `α'_t` la DP
+> (iv) où, après chaque tirage, une règle quelconque — dépendante des
+> données — annule une partie des `α'_t(q)`. Alors `BF'_t = Σ_q α'_t(q) ·
+> C(80, 20)^t` est une surmartingale positive sous `H₀`, `BF'_0 = 1`, et
+> Ville s'applique au même seuil.*
+>
+> *Preuve.* La propagation d'un tirage est un noyau positif dont, sous
+> `H₀`, l'espérance conditionnelle de la masse sortante vaut au plus la
+> masse entrante (corollaire (ii), trajectoire par trajectoire) ; annuler
+> des coordonnées après coup ne fait que diminuer la masse. Donc
+> `E₀[Σα'_t | passé] ≤ Σα'_{t−1}`. ∎
+
+Sous `H₁`, la vraie position gagne `6,3` bits par tirage sur une position
+fausse : après `m = 6` tirages pleins elle domine de `38` bits en moyenne
+le gros des positions, et un faisceau `B = 2^{24}` (le `2^{−7}`-quantile
+des positions nulles) la retient avec une marge de plusieurs
+écarts-types. Le coût devient `m · 21 · N` puis `21 · B` par tirage : pour
+TYPE_3 au plan 0, `≈ 6,4` min de DP pleine par nuit puis `0,5` s par
+tirage — `≈ 50` h de cœur pour les `370` nuits, `≈ 10` h sous le flux ;
+pour TYPE_2 au plan 1 (`N = 1,07·10⁹`), la moitié. TYPE_3 au plan 1 reste
+hors de portée : ses `4,6·10¹⁸` positions ne se laissent même pas
+parcourir une fois, et le canal (iii) n'offre aucune prise linéaire
+pour les chercher autrement — l'inconnue est le couple (plan 0, plan
+1) entier, `62` bits, et la vraisemblance d'une fenêtre en est une
+fonction symétrique du poids de Hamming, sans transformée qui la
+sépare. C'est l'angle mort qui demeure, et il est nommé.
+
+Sur l'archive (§165, jeton `f11c611488262d18`) : grille de `51` configurations en cours, pré-enregistrée avant toute lecture (jeton scellé le 2026-09-02 à 12:41Z) ; les `25` premières (plan 0, degré `≤ 15`) sont lues : `D = 0`, maximum courant du flux `1,46` bit, meilleure nuit `3,12` bits (`x² + x + 1`, avant sa mort au bloc 68), `668` tirages impossibles, tous sur les trinômes de degré `≤ 3` — les valeurs finales sont au §165.
+
 ---
 
 ## 8. Application à ce dossier
@@ -3151,6 +3462,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | plan 0 de tout Fibonacci retardé (`+`, `−` à shift 0 ; `xor` à tout shift), 110 trinômes primitifs de degré 7 à 63 + 16 retards classiques jusqu'à 1279, sous flux continu et par nuit, **sans état** (§7.15) | linéaire en `N` : 2 268 statistiques, ≈ 1–3 h | **archive — §163 : `D = 0` sur 2 268 statistiques (2 006 pleines), conforme** |
 | toute relation de **poids 2** du bit lu — période, anti-période ou décalage isolé jusqu'à `Δ_max = S × 60 559` — donc tout LCG modulo `2^W` à sortie décalée (`java.util.Random`, MSVC, TYPE_0, LCG maison : `s ≤ 20` au pas 20, `s ≤ 22` au pas 80), le plan 1 de TYPE_1/TYPE_2 à shift 1 (périodes 254 et 65 534), et les corrélations partielles des LCG deux octaves sous leur période, sous flux et par nuit, sans état (§7.16) | linéaire en `N` : `32,7 M` statistiques, `30 min` témoins compris | **archive — §164 : `D = 0` sur `32 673 251` statistiques (max `|z| = 5,07`, `z_D = -0,53`), conforme** |
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
+| la synchronisation sous le **rejet** (pas variable, `E[N] = 22,85` mots par tirage) : plan 0 des 31 trinômes de degré `≤ 17`, plan 1 des 19 de degré `≤ 11` (TYPE_1 compris), suite alternée (TYPE_0), sous le flux et par nuit, par la **position absolue** dans la suite du bit lu (§7.17) | `21 · N` par tirage, `N = 2^L − 1` (plan 0) ou `(2^L − 1) 2^L` (plan 1) ; surmartingale de Ville, seuil `23,25` (flux) / `31,78` (nuit), valable à tout instant | **archive — §165 : en cours (jeton `f11c611488262d18`)** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`

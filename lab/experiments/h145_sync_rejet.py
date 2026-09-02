@@ -384,9 +384,10 @@ def selftest(K, L, shift, T, graine, bloc=0, verbeux=True):
     dt = time.time() - t0
     s_pic, q_pic, masse = sy.pic()
     # la position apres le dernier tirage reste floue a n_T pres (ses rejets ne sont pas
-    # observes) : le pic doit etre a <= 4 de la vraie position, qui doit porter >= 0,03 de masse
+    # observes ; la DP filtre, elle ne lisse pas) : le pic doit etre sur la bonne orbite a moins
+    # de n_T <= 40 mots de la vraie position, qui doit porter >= 0,03 de masse
     m_vrai = max(float(sy.alpha[s_, q_]) for s_, q_ in attendu)
-    ok = any(s_pic == s_ and min((q_pic - q_) % sy.Pi, (q_ - q_pic) % sy.Pi) <= 4 for s_, q_ in attendu) \
+    ok = any(s_pic == s_ and min((q_pic - q_) % sy.Pi, (q_ - q_pic) % sy.Pi) <= ns[-1] for s_, q_ in attendu) \
         and m_vrai >= 0.03
     sy.reset()
     lb0 = []
@@ -414,7 +415,7 @@ if __name__ == "__main__" and "--selftest" in sys.argv:
     for K, L, shift, T, bloc in [(1, 3, 0, 60, 0), (3, 7, 0, 100, 0), (3, 7, 1, 120, 0), (1, 15, 0, 150, 0),
                                  (3, 17, 0, 150, 0), (4, 9, 1, 150, 0), (3, 7, 1, 204 * 3, 204),
                                  (1, 15, 0, 204 * 3, 204)]:
-        res.append(selftest(K, L, shift, T, graine=100 + L + shift))
+        res.append(selftest(K, L, shift, T, graine=100 + L + shift, bloc=bloc))
     assert all(r["pic_ok"] and r["log2bf"] > SEUIL_LOG2 and r["max_log2bf_nul"] < SEUIL_LOG2 for r in res)
     # la sequence alternee
     sy = Synchro(sequence_alternee())
