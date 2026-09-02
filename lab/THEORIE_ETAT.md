@@ -3758,6 +3758,86 @@ glibc — plans 0 et 1 de `x⁷ + x³ + 1` (TYPE_1) et de `x¹⁵ + x + 1`
 
 Sur l'archive (§168) : RESULTAT_720.
 
+
+### 7.21 Le canal **mod 4** (§169) — deux bits par mot au lieu d'un : `5,37` bits par tirage, et l'entrelacement redevient lisible
+
+Le 7.20 se termine sur une limite : la synchronisation ne dérive vers le
+haut que si l'entropie de l'excédent par tirage est inférieure au débit
+du canal, `1,09` bit. Un générateur **partagé** — servant un autre jeu
+entre deux de nos tirages — coûte l'entropie du nombre de mots qu'il
+consomme, `H(N) = 2,85` bits (loi exacte du 7.17), donc `1,31 − 2,85 =
+−1,54` bit par tirage : illisible, quelle que soit la longueur du flux.
+La seule issue est un **canal plus riche**. En voici un, et il est gratuit
+en information : il était sous nos yeux.
+
+**(i) Deux bits par mot, pas un.** Le numéro publié donne `v − 1 = x mod
+80`, donc `x mod 4` — **deux** bits du mot, pas seulement sa parité
+(`80 = 4 · 20` : chaque classe modulo 4 contient exactement `20` des
+quatre-vingts numéros). Le 7.17 n'en lisait qu'un parce que l'état caché
+du plan 0 seul est une m-suite de `2^L − 1` positions. Lire `x mod 4`
+demande le couple (plan 0, plan 1) — c'est-à-dire **exactement les orbites
+du Fibonacci mod 4** déjà construites au 7.17 pour le plan 1 de la
+glibc : `N = (2^L − 1) · 2^L` positions.
+
+> **Lemme (vraisemblance mod 4).** *Soit une fenêtre de `n` mots dont
+> `w_c` sont de classe `c = x mod 4`, le dernier de classe `c*`, et soit
+> `a_c` le nombre de numéros tirés dans la classe `c` (`Σ a_c = 20`).
+> Alors*
+>
+>     P(A, n | fenêtre) = [ Π_{c ≠ c*} F₂₀(w_c, a_c) ] · G₂₀(w_{c*}, a_{c*})
+>     F₂₀(w, a) = a! S(w, a) / 20^w,   G₂₀(w, a) = a! S(w−1, a−1) / 20^w
+>
+> *et `Σ_{A, n} P(A, n | fenêtre) = 1` pour toute fenêtre.*
+>
+> *Preuve.* Même découpage qu'au 7.17 : les mots d'une classe sont
+> uniformes parmi les `20` numéros de cette classe, indépendamment ; ils
+> doivent couvrir **exactement** les `a_c` numéros tirés de leur classe
+> (surjection : `F₂₀`), et le dernier mot, de classe `c*`, est la première
+> occurrence de l'un des siens (`G₂₀`). La statistique suffisante est le
+> quadruplet `(w_0, w_1, w_2, w_3)` et la classe du dernier mot.
+> Normalisation vérifiée numériquement : `1,000000000` (trois fenêtres
+> aléatoires, somme sur les `1 771` quadruplets `(a_c)` avec leurs
+> multiplicités `Π C(20, a_c)` et sur `n ≤ 60`). ∎
+
+**(ii) Le débit : `5,37` bits par tirage.** Mesuré par Monte-Carlo exact
+(`20 000` tirages, fenêtres uniformes) :
+
+    canal de parité (7.17) : 1,31 ± 1,33 bit par tirage
+    canal mod 4 (ce lemme) : 5,37 ± 2,34 bit par tirage      (× 4,1)
+
+Quatre fois plus, pour un état caché **carré** (`2^{2L}` au lieu de
+`2^L`) : le compromis est bon tant que `2^{2L}` reste parcourable, c'est-à-dire
+jusqu'à `L = 15` au plan 0 (`N = 1,07·10⁹`, le coût du §166) et `L = 10`
+au plan 1 (`N = 2^{30}`, l'état mod 8). TYPE_3 au plan 0 (`2^{62}`) reste
+dehors — c'est le même mur qu'au 7.18 (vi), et il ne bouge pas.
+
+**(iii) Ce que cela ouvre : l'entrelacement.** Le critère du 7.20 devient
+`H(π) < 5,37` bits, soit **41** valeurs équiprobables au lieu de `2,5`.
+En particulier, un **jumeau entrelacé** — le même générateur servant, entre
+deux de nos tirages, un autre tirage du même jeu, donc `N'` mots de loi
+`P₀(N')` — coûte `H(N) = 2,85` bits par tirage :
+
+| canal | débit | entrelacement d'un jumeau | net |
+|---|---|---|---|
+| parité (§7.17) | `1,31` | `−2,85` | **`−1,54`** : illisible |
+| mod 4 (ici) | `5,37` | `−2,85` | **`+2,53`** : lisible — `1,8·10⁵` bits sur l'archive |
+
+Et le coût en calcul est nul : le noyau entrelacé est une **convolution**,
+`K[Δ] = Σ_{n + n' = Δ} T[n] · P₀(n')` pour `Δ ∈ [40, 80]`, soit `41`
+transitions au lieu de `21`. La DP en flot du 7.18 s'applique mot pour
+mot ; seules les tables changent (cinq tables indexées par `w_c ≤ 40`, au
+lieu d'une indexée par `(n, w₁, b)` — elles sont même **plus petites**).
+
+**(iv) Le prix, et où il s'arrête.** Le coût par position passe de deux à
+dix opérations vectorielles (`5` consultations, `4` produits, une
+multiplication-addition), et l'état est carré. On paie donc `≈ 5 · 2^L`
+fois plus cher qu'au 7.17 pour un canal `4,1` fois plus riche : c'est
+rentable exactement quand la richesse achète quelque chose que la
+longueur du flux ne peut pas acheter — l'alignement. C'est le cas ici, et
+seulement ici.
+
+Sur l'archive (§169) : RESULTAT_721.
+
 ---
 
 ## 8. Application à ce dossier
@@ -3830,6 +3910,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
 | le rejet **masqué** — `v = 1 + (x mod M)`, refusé si `v > 80` (`M = 100, 128, 256`), l'écriture recommandée d'un tirage sans biais : mêmes trinômes, plan 0 (`L ≤ 31`) et plan 1 (`L ≤ 15`), sous le flux (§7.19) | la vraisemblance garde la même forme, `F` et `G` étalés par la binomiale du masque ; `n` jusqu'à `176`, fenêtre de 128 bits ; `1,02 → 0,092` bit par tirage de `M = 80` à `256` ; Ville au seuil `29,25` | **archive — §167 : à lancer** |
 | l'**excédent** par tirage : le générateur consomme `δ` mots de plus (habillage, seconde partie, autre jeu) — cinq séquences nommées, deux échantillonneurs, `δ` dans vingt valeurs de 1 à 79 (§7.20) | la cible se décale, la fenêtre ne bouge pas : coût nul en calcul, `log₂ 20` de seuil ; limite exacte — un excédent VARIABLE d'entropie `≥ 1,09` bit par tirage noie le signal, quelle que soit la longueur du flux | **archive — §168 : à lancer** |
+| le canal **mod 4** : `v − 1 = x mod 80` donne `x mod 4`, deux bits par mot — plan 0 des trinômes `L ≤ 15` (`N = (2^L − 1)2^L`), plan 1 des `L ≤ 10` (état mod 8), avec ou sans **jumeau entrelacé** (§7.21) | vraisemblance `Π_c F₂₀(w_c, a_c) · G₂₀` (normalisation vérifiée) ; `5,37` bits par tirage contre `1,31` ; l'entrelacement d'un jumeau coûte `2,85` bits : net `+2,53` au lieu de `−1,54` | **archive — §169 : à lancer** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
