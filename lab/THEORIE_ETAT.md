@@ -3887,14 +3887,23 @@ Une objection légitime, et il faut y répondre en chiffres : la DP des 7.17
 elle rendrait la position `q̂` et le plan bas — pas les `32` plans. Que
 vaudrait cette victoire ?
 
-**(i) Ce qu'une détection donne.** Le pic a posteriori concentre la masse
-sur une position (mesuré sur témoins : `0,1` à `0,4` de la masse à moins
-de `N_T ≤ 40` mots), et cette position est exactement l'**alignement** :
-elle dit quels mots ont servi à quel tirage, à quelques mots près, et le
-plan 0 (ou les plans 0-1) de chacun. C'est précisément l'ingrédient qui
-manquait à toute la machinerie de relèvement des 7.7 à 7.12 : *ces
-algorithmes-là supposent l'alignement connu*, et c'est pour cela qu'ils ne
-s'appliquaient pas sous pas variable.
+**(i) Ce qu'une détection donne — et ce qu'elle ne donne pas.** Le pic a
+posteriori concentre la masse sur une position (mesuré : `0,1` à `0,4`),
+et le lissage avant-arrière rend la position de **chaque** tirage :
+mesuré sur trois témoins de `60` tirages, la position lissée est exacte
+`9` à `22` fois sur `61`, à **`± 2` mots près `34` à `52` fois**, à `± 5`
+près `54` à `61` fois, la vraie position portant `0,13` à `0,19` de masse
+en médiane. En revanche le chemin de Viterbi ne rend que `15` à `21` pas
+**exacts** sur `60`, avec une dérive cumulée de `± 7` à `± 20` mots — et
+c'est attendu, pas décevant : le canal de parité porte `1,31` bit par
+tirage contre `H(N) = 2,85` bits d'entropie du pas. *Les `n_t` ne sont pas
+identifiables par ce canal seul, et ils n'ont pas à l'être.*
+
+Ce que la détection livre, c'est donc : la **suite** (donc le trinôme, le
+plan, l'orbite), et l'alignement **à quelques mots près**. C'est
+précisément l'ingrédient qui manquait à toute la machinerie de relèvement
+des 7.7 à 7.12 — *ces algorithmes-là supposent l'alignement connu*, et
+c'est pour cela qu'ils ne s'appliquaient pas sous pas variable.
 
 **(ii) Ce qui resterait.** Les plans hauts : `32 L` bits d'état, soit
 `224` (TYPE_1), `480` (TYPE_2), `992` (TYPE_3), `2 016` (TYPE_4).
@@ -3910,12 +3919,15 @@ en moyenne). D'où le compte :
 | tirages nécessaires (`45,7` bits chacun) | `4,9` | `10,5` | **`21,7`** | `44,1` |
 | soit, à un tirage par `5` minutes | `25` min | `53` min | **`1 h 49`** | `3 h 40` |
 
-**(iv) Comment, et où est le coût.** Une fois l'alignement connu, le pas
-n'est plus « variable » : il est **connu tirage par tirage** (`n_t` se lit
-sur le chemin de Viterbi de la même DP), et toutes les équations des 7.6
-à 7.12 s'appliquent mot pour mot, avec `n_t` là où elles écrivaient une
-constante. Il n'y a donc rien à inventer en algèbre — mais il reste un
-coût, et il faut le dire : la DP ne rend que les plans `0` (ou `0-1`),
+**(iv) Comment, et où est le coût.** Le pas fin se résout **avec** les
+plans hauts, pas avant eux — et c'est là que le rapport de forces
+s'inverse : la contrainte `x mod 80 ∈ A_t` vaut `2` bits par mot, `45,7`
+par tirage, contre `2,85` bits d'entropie d'alignement. Autrement dit, le
+canal du relèvement est **seize fois** plus riche que ce qu'il faut pour
+fixer les `n_t` : la recherche jointe (alignement fin × plans hauts) est
+sur-déterminée d'un facteur `16`, et elle part d'une fenêtre de `± 2` à
+`± 5` mots au lieu des `21` valeurs a priori. Il n'y a donc rien à
+inventer en algèbre — mais il reste un coût, et il faut le dire : la DP ne rend que les plans `0` (ou `0-1`),
 tandis que le relèvement de réseau du 7.8 part des **cinq** plans bas
 (`r mod 32`). Les plans intermédiaires se prennent au crible incrémental
 du 7.6, celui du §155, qui élague à chaque mot sur `x mod 80 ∈ A_t` et
