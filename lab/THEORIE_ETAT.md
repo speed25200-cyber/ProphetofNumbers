@@ -4236,6 +4236,23 @@ parcours sous-critique en moyenne n'est pas borné par sa moyenne**, et il
 faut un plafond de nœuds *et* l'exigence d'un parcours complet — une
 configuration coupée au plafond n'exclut rien.
 
+*De ce type, et pas des autres.* Les cribles durs antérieurs du dossier —
+celui des bits bas du 7.6 (`2^{5L}` états), celui du flux continu du 7.11
+(`2^L` hypothèses), celui des trois plans du 7.10 (`2^{3L}`) — sont des
+**énumérations à coût fixe** : ils parcourent un espace d'états dont la
+taille est connue d'avance, sans arbre de chemins ni boucle interne de
+longueur variable. Ils n'ont donc aucun plafond de nœuds dans leur code, et
+ils n'en ont pas besoin : la pathologie décrite ici leur est étrangère. Elle
+est propre au crible de classes, qui parcourt des **chemins** dont la
+longueur à l'intérieur d'un tirage n'est pas bornée d'avance.
+
+*Et elle vaut a fortiori pour le crible en cascade du (xi).* Hors ordre de
+flux, l'alignement n'est plus déduit et la comptabilité des classes
+acceptées n'est plus disponible : **l'élagage de clôturabilité, qui vaut ici
+un facteur `6`, y est inutilisable**. Les pics annoncés au (xi) sont donc
+des moyennes eux aussi, et il faudra les mesurer avant de les croire — ce
+que la présente section vient d'apprendre à ses dépens.
+
 #### (vii) Le relèvement : les `δ` lus sur la solution donnent le réseau (§173)
 
 Le crible ne pince que les classes — `log₂ 80 = 6,32` bits par mot — et
