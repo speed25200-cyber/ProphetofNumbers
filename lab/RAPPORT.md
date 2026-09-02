@@ -17815,8 +17815,12 @@ d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
 | 0 | `x^18 + x^11 + 1` | nuit | `262 143` | `8,44` @ `70 366` | `31,78` | `370` ; `0,00` ; bloc `236` | `0` | 0 | 494 |
 | 0 | `x^20 + x^3 + 1` | nuit | `1 048 575` | `8,91` @ `70 367` | `31,78` | `370` ; `0,00` ; bloc `89` | `0` | 0 | 486 |
 | 0 | `x^20 + x^17 + 1` | nuit | `1 048 575` | `6,68` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `107` | `0` | 0 | 486 |
+| 0 | `x^21 + x^2 + 1` | nuit | `2 097 151` | `6,79` @ `70 360` | `31,78` | `370` ; `0,00` ; bloc `242` | `0` | 0 | 561 |
+| 0 | `x^21 + x^19 + 1` | nuit | `2 097 151` | `6,67` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `188` | `0` | 0 | 546 |
+| 0 | `x^22 + x^1 + 1` | nuit | `4 194 303` | `7,11` @ `70 370` | `31,78` | `370` ; `0,00` ; bloc `65` | `0` | 0 | 654 |
+| 0 | `x^22 + x^21 + 1` | nuit | `4 194 303` | `7,37` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `319` | `0` | 0 | 662 |
 
-*Grille en cours : `42` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `46` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -17966,8 +17970,12 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 | `100` | 0 | `x^28 + x^25 + 1` | `268 435 455` | `0,08` @ `5` | `0` | `0` | 0 | 140 |
 | `100` | 0 | `x^29 + x^2 + 1` | `536 870 911` | `1,21` @ `47` | `0` | `0` | 0 | 197 |
 | `100` | 0 | `x^29 + x^27 + 1` | `536 870 911` | `0,34` @ `5` | `0` | `0` | 0 | 194 |
+| `100` | 0 | `x^31 + x^3 + 1` (TYPE_3) | `2 147 483 647` | `0,68` @ `28` | `0` | `0` | 0 | 543 |
+| `100` | 0 | `x^31 + x^6 + 1` | `2 147 483 647` | `0,14` @ `26` | `0` | `0` | 0 | 536 |
+| `100` | 0 | `x^31 + x^7 + 1` | `2 147 483 647` | `0,01` @ `1` | `0` | `0` | 0 | 532 |
+| `100` | 0 | `x^31 + x^13 + 1` | `2 147 483 647` | `0,86` @ `55` | `0` | `0` | 0 | 531 |
 
-*Grille en cours : `55` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `59` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18087,8 +18095,9 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 | brute | `x^10 + x^3 + 1` | non | `1 047 552` | `5,42` @ `49 199` | `6` | `6` | 0 | 217 |
 | brute | `x^10 + x^7 + 1` | non | `1 047 552` | `6,96` @ `66 488` | `10` | `10` | 0 | 220 |
 | brute | `x^11 + x^2 + 1` | non | `4 192 256` | `6,30` @ `63 889` | `2` | `2` | 0 | 506 |
+| brute | `x^11 + x^9 + 1` | non | `4 192 256` | `7,87` @ `53 816` | `3` | `3` | 0 | 504 |
 
-*Grille en cours : `18` configurations lues sur `84` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `19` configurations lues sur `84` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
