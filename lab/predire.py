@@ -91,13 +91,16 @@ def crible(classes, K, L, shift, ntir=NTIR, plaf=200_000_000_000):
         if t[0] == "noeuds":
             info = dict(noeuds=int(t[1]), surv=int(t[5]), coupes=int(t[7]))
         elif t[0] == "chem":
-            chemins.append([int(x) for x in t[3:]])
+            chemins.append((int(t[2]), [int(x) for x in t[3:]]))
     for f in (fc, fb):
         try:
             os.unlink(f)
         except OSError:
             pass
-    return chemins, info
+    # les plus COURTS d'abord : le chemin vrai consomme E[N] = 22,85 mots par tirage,
+    # un faux — collectionneur sur les 20 classes publiees — 71,96 (§7.24 (v))
+    chemins.sort(key=lambda c: c[0])
+    return [c for _, c in chemins], info
 
 
 # ------------------------------------------------------------------ la chaîne complète
@@ -112,17 +115,24 @@ def essaie(tirages, K, L, shift, verbeux=False):
     if not chemins:
         return None, f"0 survivant ({info.get('noeuds',0):,} noeuds, {time.time()-t0:.1f} s)"
     Treq = R.mots_utiles(K, L, 25.68 * L)
+    if Treq < 0:
+        return None, "relèvement hors de portée pour ce trinôme"
+    essais = 0
     for cls in chemins:
-        if Treq < 0 or len(cls) < Treq:
-            return None, (f"{len(chemins)} survivant(s), mais le relèvement demande {Treq} mots "
-                          f"et la fenêtre n'en donne que {len(cls)}")
+        if len(cls) < Treq:
+            continue
+        essais += 1
         etat, s = R.releve(cls, K, L, Treq, shift)
         if etat is None:
             continue
         rejoue = R.rejoue(etat, K, L, len(tirages), shift)
         if rejoue == [sorted(t) for t in tirages]:
-            return etat, f"REJEU EXACT sur {len(tirages)} tirages"
-    return None, f"{len(chemins)} survivant(s), aucun ne rejoue la fenêtre"
+            return etat, (f"REJEU EXACT sur {len(tirages)} tirages "
+                          f"(candidat {essais} sur {len(chemins)}, {time.time()-t0:.1f} s)")
+    if essais == 0:
+        return None, (f"{info.get('surv',0):,} survivant(s), mais le relèvement demande {Treq} "
+                      f"mots et la fenêtre n'en donne pas assez")
+    return None, f"{info.get('surv',0):,} survivant(s), {essais} relevés, aucun ne rejoue"
 
 
 def chercher(tirages, lmax=7, shifts=(0, 1), verbeux=True):

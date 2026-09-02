@@ -74,7 +74,8 @@
 
 #define POOL 80
 #define DRAWN 20
-#define NSURV 65536
+#define NSURV 4096
+#define CHEMMAX 12      /* chemins complets imprimes, les plus courts */
 
 static int NT, NB;
 static int FIXE[4096], NFIXE = 0;
@@ -158,9 +159,9 @@ typedef struct {
     int surv;
     unsigned char sol[64];      /* le premier survivant, ses L classes */
     unsigned char (*tous)[64];  /* jusqu'a NSURV survivants, pour les temoins */
-    int ntous;
-    unsigned char *chem;        /* suite de classes complete du PREMIER survivant */
-    int nchem;
+    int *lg;                    /* longueur (en mots) du chemin de chaque survivant */
+    int ntous, pire, ipire;     /* le plus long des survivants gardes, et son indice */
+    unsigned char *chems;       /* suite de classes complete de CHAQUE survivant garde */
     long long *front;           /* front[i] : noeuds poses a la profondeur i */
 } Bilan;
 
@@ -214,14 +215,31 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
 
         int prochain = prof + 1;
         if (prochain >= nmax || d >= R->tfin || d - t0 >= R->ntir) {     /* survivant */
-            if (B->surv == 0) {
-                memcpy(B->sol, hist, (size_t)L);
-                if (CHEMIN && B->chem) {
-                    B->nchem = prochain < nmax ? prochain : nmax;
-                    memcpy(B->chem, hist, (size_t)B->nchem);
+            if (B->surv == 0) memcpy(B->sol, hist, (size_t)L);
+            /* On ne garde pas les PREMIERS survivants mais les PLUS COURTS : le chemin vrai
+             * consomme E[N] = 22,85 mots par tirage, un chemin faux — collectionneur sur les
+             * 20 classes publiees — en consomme 71,96 en moyenne.  La longueur totale est
+             * donc un rang, et le vrai chemin y est quasi minimal (mesure : 345 mots contre
+             * un minimum de 344 sur 2,1 millions de chemins).  Sans ce tri, le vrai chemin
+             * est noye : il est RARE en nombre de chemins, meme s'il est court. */
+            if (B->tous) {
+                if (B->ntous < NSURV) {
+                    memcpy(B->tous[B->ntous], hist, (size_t)L);
+                    B->lg[B->ntous] = prochain;
+                    if (B->chems) memcpy(B->chems + (size_t)B->ntous * (nmax + 2), hist,
+                                         (size_t)prochain);
+                    if (prochain > B->pire) { B->pire = prochain; B->ipire = B->ntous; }
+                    B->ntous++;
+                } else if (prochain < B->pire) {
+                    memcpy(B->tous[B->ipire], hist, (size_t)L);
+                    B->lg[B->ipire] = prochain;
+                    if (B->chems) memcpy(B->chems + (size_t)B->ipire * (nmax + 2), hist,
+                                         (size_t)prochain);
+                    B->pire = -1;
+                    for (int u = 0; u < NSURV; u++)
+                        if (B->lg[u] > B->pire) { B->pire = B->lg[u]; B->ipire = u; }
                 }
             }
-            if (B->tous && B->ntous < NSURV) { memcpy(B->tous[B->ntous], hist, (size_t)L); B->ntous++; }
             B->surv++;
             continue;
         }
@@ -313,10 +331,11 @@ int main(int argc, char **argv)
         Reglage r = R;
         int anc = nuit ? DEB[b] : 0;
         r.tfin = nuit ? ((b + 1 < NB) ? DEB[b + 1] : NT) : NT;
-        Bilan B; memset(&B, 0, sizeof B);
+        Bilan B; memset(&B, 0, sizeof B); B.pire = -1;
         B.front = calloc((size_t)R.nmax + 2, sizeof *B.front);
         B.tous = malloc((size_t)NSURV * 64);
-        B.chem = CHEMIN ? malloc((size_t)R.nmax + 2) : NULL;
+        B.lg = malloc((size_t)NSURV * sizeof(int));
+        B.chems = CHEMIN ? malloc((size_t)NSURV * (R.nmax + 2)) : NULL;
         crible_bloc(&r, anc, &B, nuit ? -1 : b);
         noeuds += B.noeuds; coupes += B.coupes; surv += B.surv;
         long long p = 0;
@@ -327,18 +346,30 @@ int main(int argc, char **argv)
         {
             if (p > pic) pic = p;
             if (B.surv && bmax < 0) { bmax = b; memcpy(sol, B.sol, (size_t)R.L); }
-            if (CHEMIN && B.nchem > 0) {
-                printf("chem %d %d", nuit ? b : 0, B.nchem);
-                for (int i = 0; i < B.nchem; i++) printf(" %d", B.chem[i]);
-                printf("\n");
+            if (CHEMIN && B.chems) {
+                /* les CHEMMAX plus COURTS : le chemin vrai est quasi minimal (lemme du
+                 * contraste de collectionneur), donc c'est la qu'il faut le chercher. */
+                int ord[CHEMMAX], no = 0;
+                for (int u = 0; u < B.ntous; u++) {
+                    int j = no;
+                    while (j > 0 && B.lg[ord[j - 1]] > B.lg[u]) { if (j < CHEMMAX) ord[j] = ord[j - 1]; j--; }
+                    if (j < CHEMMAX) { ord[j] = u; if (no < CHEMMAX) no++; }
+                }
+                for (int k = 0; k < no; k++) {
+                    int u = ord[k];
+                    printf("chem %d %d", nuit ? b : 0, B.lg[u]);
+                    for (int i = 0; i < B.lg[u]; i++)
+                        printf(" %d", B.chems[(size_t)u * (R.nmax + 2) + i]);
+                    printf("\n");
+                }
             }
             for (int u = 0; u < B.ntous; u++) {
-                printf("surv %d", nuit ? b : 0);
+                printf("surv %d %d", nuit ? b : 0, B.lg ? B.lg[u] : -1);
                 for (int i = 0; i < R.L; i++) printf(" %d", B.tous[u][i]);
                 printf("\n");
             }
         }
-        free(B.front); free(B.tous); free(B.chem);
+        free(B.front); free(B.tous); free(B.chems); free(B.lg);
     }
 
     double sec = horloge() - t0;
