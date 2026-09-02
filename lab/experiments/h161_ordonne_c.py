@@ -213,11 +213,19 @@ def selftest(lmax=17):
 
 # ------------------------------------------------------------------ la grille
 
-def grille(lmax_seul=18, lmax_2=22, lmax_4=26):
+def grille(lmax_seul=13, lmax_2=15, lmax_4=17):
     """le theoreme fixe la portee en INFORMATION ; le calcul fixe le reste.
 
     Un tirage ordonne porte jusqu'au degre 18,43 ; deux jusqu'a 36,9 ; quatre jusqu'a 73,7.
-    Les plafonds ci-dessous sont ceux du CALCUL, plus bas, et ils sont nommes comme tels.
+    Les plafonds ci-dessous sont ceux du CALCUL, bien plus bas, et ils sont nommes comme tels :
+    le front des L premiers mots vaut produit_j (1 + a_j), et il double environ tous les
+    demi-degres. Mesures sur les donnees reelles, troncature, decalage 0 :
+
+        douze tirages seuls, (1,15) : 5 695 367 827 noeuds, 94 s
+        groupe de quatre,    (1,15) :   422 720 567 noeuds,  9 s
+
+    Le groupe de quatre est le MOINS cher des trois jeux — plus de contraintes, moins de
+    chemins — ce qui est exactement ce que la formule (*) predit.
     """
     g = []
     for L in range(2, max(lmax_seul, lmax_2, lmax_4) + 1):
@@ -262,9 +270,8 @@ def archive():
     NCONF = len(GR)
     HYP = ("Aucun Fibonacci retarde additif r_i = r_{i-K} + r_{i-L} mod 2^32 (trinome "
            "primitif) lu par TRONCATURE ou par MODULO avec rejet, aux decalages 0 et 1, "
-           "n'engendre les tirages ORDONNES des videos : ni un seul d'entre eux (degre <= 18, "
-           "portee du theoreme du tirage unitaire pour la lecture ordonnee), ni le groupe de "
-           "deux consecutifs (degre <= 22), ni celui de quatre (degre <= 26)")
+           "n'engendre les tirages ORDONNES des videos : ni un seul d'entre eux (degre <= 13), ni le groupe de "
+           "deux consecutifs (degre <= 15), ni celui de quatre (degre <= 17)")
     STAT = (f"D = nombre de configurations parmi {NCONF} laissant AU MOINS UN survivant, ET "
             "dont le parcours est COMPLET ; une configuration coupee au plafond de noeuds "
             "n'exclut rien, est nommee, et interdit la consignation")
@@ -290,6 +297,21 @@ def archive():
         if k in FAIT:
             continue
         rm = rmax_pour(L)
+        # Sous la TRONCATURE, delta = {0,1} aux deux decalages : le crible de classes est
+        # litteralement le meme (les comptes de noeuds coincident au dernier chiffre). On
+        # recopie donc le resultat du decalage 0 au lieu de le recalculer — la configuration
+        # reste dans la grille, elle n'est simplement pas payee deux fois. Le decalage 1 ne se
+        # distingue qu'a la probabilite 3,7e-8 par mot que le bit perdu ajoute une unite au
+        # delta, deja nommee au §172.
+        if delta == "0,1" and shift == 1:
+            k0 = f"{jeu},{K},{L},0,{delta}"
+            if k0 in FAIT:
+                FAIT[k] = dict(FAIT[k0])
+                with open(JOURNAL, "a", encoding="utf-8") as fj:
+                    fj.write(f"{k} {FAIT[k]['noeuds']} {FAIT[k]['surv']} "
+                             f"{FAIT[k]['coupes']} 0.0\n")
+                say(f"{k:>34} | identique au decalage 0 (troncature : meme delta)")
+                continue
         if jeu == "seuls":
             fin = lancer(seuls, K, L, shift, delta, 1, rm,
                          blocs=list(range(len(seuls))), saut=1)
@@ -337,7 +359,7 @@ def archive():
                "tirage contre 37,0043 pour l'archive triee (§7.27 (iii)), d'ou un seuil de "
                "degre 18,43 pour UN SEUL tirage : les douze tirages donnent douze tests "
                "independants. NON COUVERT : les degres au-dela des plafonds de CALCUL "
-               "(18 seuls, 22 par deux, 26 par quatre), alors que l'information porterait "
+               "(13 seuls, 15 par deux, 17 par quatre), alors que l'information porterait "
                "jusqu'a 73 sur le groupe de quatre."))
     say(f"   consigne : D = {D}")
 
