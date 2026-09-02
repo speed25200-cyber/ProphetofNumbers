@@ -25,3 +25,4 @@ lab/experiments/*.npy
 # Fichiers de PID des balayages du labo
 *.pid
 sweep_time
+lab/tools_bin/
