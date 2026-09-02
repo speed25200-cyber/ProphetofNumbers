@@ -4708,6 +4708,33 @@ Ce qu'il apporte, et qui manquait : la frontière est nette, elle est à
 ressemblent pas — d'un côté un problème de calcul, éventuellement soluble
 un jour ; de l'autre une impossibilité de principe, que rien ne lèvera.
 
+#### (vi) Et pourquoi l'archive ne dira jamais de quel côté on est
+
+Il serait commode de **mesurer** `R` sur les données. On ne peut pas, et la
+raison est un théorème et non une limite de nos outils.
+
+L'entropie conditionnelle d'un tirage sachant tout le passé vaut exactement
+`min(R, b)` : si l'état est déterminé, le seul inconnu restant est l'entropie
+fraîche. Donc mesurer `R < b` revient à mesurer un déficit du taux
+d'entropie, c'est-à-dire à **compresser** la suite publiée sous `61,6165`
+bits par tirage.
+
+> **Corollaire (la fourche est empiriquement indécidable).** *Un test qui
+> sépare `R < b` de `R ≥ b` à partir de la seule suite publiée est un
+> distingueur ; par l'argument de Yao, un distingueur d'avantage `ε` fournit
+> un prédicteur d'avantage `ε / b`. Pour un générateur sûr au sens
+> calculatoire, un tel test n'existe pas — quel que soit le volume de
+> l'archive.*
+
+C'est la forme exacte de l'impasse, et elle explique une chose qui pouvait
+passer pour de la paresse : **la documentation du fournisseur n'est pas un
+raccourci autour des mathématiques, c'est le seul instrument disponible.**
+Le codeur universel du §52 est la meilleure tentative possible dans cette
+direction — `5 133` paramètres, `0` bit extrait de `4,35` Mbit, un déficit
+mesuré de `−6,18·10⁻⁵` bit par tirage, c'est-à-dire *négatif* — et il ne
+pouvait pas faire mieux : sa classe ne contient pas les générateurs qu'il
+faudrait y mettre, et aucune classe traitable ne les contient.
+
 
 ## 8. Application à ce dossier
 
