@@ -3609,6 +3609,94 @@ caché (7.7 : le nibble vaut `23,5` bits par tirage, mais son état est
 Sur l'archive (§166, jeton `061f95021fc425e2`) : grille de `56` configurations (`38` de flux, `18` par nuit), pré-enregistrée avant toute lecture — RESULTAT_718.
 
 
+
+### 7.19 Le rejet **masqué** (§167) — l'écriture recommandée d'un tirage sans biais, et pourquoi la vraisemblance ne change pas de forme
+
+Les §7.17 et §7.18 lisent l'échantillonneur du programmeur **pressé** :
+`v = 1 + (x mod 80)`, biaisé d'un cheveu (`2³²` n'est pas multiple de
+`80`) mais direct. Le programmeur **soigneux** écrit autre chose, et c'est
+l'écriture recommandée partout :
+
+    répéter : x = suivant() ; v = 1 + (x mod M) ; jusqu'à v ≤ 80     (M = 100, 128, 256…)
+
+— masquer (`x & 127`) ou prendre `x mod 100`, et **recommencer** si le
+résidu dépasse `80`. Le pas devient encore plus variable : `E[N] = 22,85 /
+ρ` mots par tirage, `ρ = 80/M`, soit `28,6` (`M = 100`), `36,6`
+(`M = 128`), `73,1` (`M = 256`). Aucun crible du dossier ne le lisait.
+
+**(i) Le masque n'est pas corrélé au bit lu.** Parmi les `80` résidus
+retenus `0 … 79`, il y a `40` pairs et `40` impairs ; parmi les rejetés
+aussi (`M = 100` : `10`/`10` ; `M = 128` : `24`/`24` ; `M = 256` : `88`/`88`).
+Donc *un mot est dans la plage avec probabilité `ρ` indépendamment de son
+bit `0`*, et un mot dans la plage donne un numéro uniforme parmi les `40`
+de sa classe. C'est tout ce qu'il faut.
+
+> **Lemme (la vraisemblance masquée).** *Soit une fenêtre de `n` mots, `W₁`
+> de bit `1`, `W₀ = n − W₁` de bit `0`, dernier bit `b`. Alors*
+>
+>     P(A, n | fenêtre) = Σ_{S ∋ n} ρ^{|S|} (1−ρ)^{n−|S|} · F(w_{1−b}(S), a_{1−b}) · G(w_b(S), a_b)
+>
+> *où `S` parcourt les parties « dans la plage », et cette somme se
+> **factorise** :*
+>
+>     Ff[W][a] = Σ_j C(W, j)   ρ^j (1−ρ)^{W−j} F(j, a)
+>     Gg[W][a] = Σ_j C(W−1, j−1) ρ^j (1−ρ)^{W−j} G(j, a)      (le dernier mot est dans la plage)
+>     b = 1 : P = Gg[W₁][a₁] · Ff[W₀][a₀]        b = 0 : P = Ff[W₁][a₁] · Gg[W₀][a₀]
+>
+> *`ρ = 1` redonne exactement le 7.17.*
+>
+> *Preuve.* Conditionnellement à `S`, les `|S|` mots dans la plage sont
+> exactement le modèle du 7.17 (uniformes dans leur classe, le dernier
+> étant la vingtième nouveauté), d'où le facteur `F·G` évalué en
+> `w₁(S), w₀(S)`. Le nombre de parties `S ∋ n` à `j` uns et `z` zéros ne
+> dépend que des **comptes** : `C(W₁−1, j−1) C(W₀, z)` si `b = 1`,
+> `C(W₁, j) C(W₀−1, z−1)` si `b = 0`. Le poids `ρ^{j+z}(1−ρ)^{n−j−z}` se
+> scinde en `(j ; W₁)` et `(z ; W₀)`, et `F·G` aussi puisque `F` ne porte
+> que sur une classe et `G` sur l'autre : la double somme est un produit
+> de deux sommes simples. ∎
+
+**Conséquence.** La statistique suffisante reste `(n, W₁, dernier bit)` —
+la seule chose qui change dans les `21 · N` opérations par tirage est le
+contenu de la table. **Toute** la machinerie du 7.18 (passage en flot,
+faisceau, redémarrages mélangés, Ville) s'applique sans une ligne de
+preuve nouvelle. Normalisation vérifiée : `Σ_{A,n} P = 1` à `10⁻⁷` près
+pour `M = 80, 100, 128, 256` (le défaut est la troncature `n ≤ n_max`),
+et l'outil à `M = 80` reproduit celui du §166 **chiffre pour chiffre**.
+
+**(ii) Ce que le masque coûte en information.** Le tirage consomme `1/ρ`
+fois plus de mots, et les mots hors plage ne disent **rien** : ils
+diluent la fenêtre. Mesuré sur générateur planté (`x¹⁵ + x + 1`, plan 0,
+`1 500` tirages) :
+
+| `M` | `80` | `100` | `128` | `256` |
+|---|---|---|---|---|
+| `ρ = 80/M` | `1` | `0,80` | `0,625` | `0,3125` |
+| mots par tirage | `22,9` | `28,7` | `36,5` | `72,5` |
+| `n_max` (à `9 σ`) | `40` | `61` | `87` | `176` |
+| **bits par tirage** | `1,02` | `0,475` | `0,314` | `0,092` |
+
+L'information décroît comme `≈ ρ^{1,3}`, mais elle reste **très** au-dessus
+du seuil sur l'archive : même à `M = 256`, `70 560` tirages rendraient
+`6 500` bits contre un seuil de `29,25`. Le masque ne protège pas ; il
+ralentit.
+
+**(iii) Le masque doit être deviné juste.** Planté à `M = 128` et lu à
+`M = 80` ou `M = 100`, le facteur de Bayes ne décolle pas (`1,2` et `2,7`
+bits sur `250` tirages, contre `187` au bon masque) : le modèle de pas
+faux tue la synchronisation. C'est pourquoi le §167 balaie `M` comme il
+balaie les trinômes — trois masques de plus, un facteur `3` sur la borne
+d'union, rien de plus.
+
+**(iv) Le prix en calcul.** `n` monte à `176` : la fenêtre glissante passe
+à **`128` bits** (deux `popcount`), l'anneau du passage en flot à `256`
+positions, et le coût par position est multiplié par `n_max/40` — `1,5`
+(`M = 100`), `2,2` (`M = 128`), `4,4` (`M = 256`). Le faisceau, lui, ne
+change pas de largeur. C'est le prix d'un échantillonneur plus honnête :
+on le paie une fois.
+
+Sur l'archive (§167) : grille de `181` chaînes de flux (`M = 100` et `128` sur les `63` trinômes du plan 0 et les `25` du plan 1, `M = 256` sur les types nommés) — RESULTAT_719.
+
+
 ---
 
 ## 8. Application à ce dossier
@@ -3679,6 +3767,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 | la synchronisation sous le **rejet** (pas variable, `E[N] = 22,85` mots par tirage) : plan 0 des 31 trinômes de degré `≤ 17`, plan 1 des 19 de degré `≤ 11` (TYPE_1 compris), suite alternée (TYPE_0), sous le flux et par nuit, par la **position absolue** dans la suite du bit lu (§7.17) | `21 · N` par tirage, `N = 2^L − 1` (plan 0) ou `(2^L − 1) 2^L` (plan 1) ; surmartingale de Ville, seuil `23,25` (flux) / `31,78` (nuit), valable à tout instant | **archive — §165 : en cours (jeton `f11c611488262d18`)** |
 | la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
+| le rejet **masqué** — `v = 1 + (x mod M)`, refusé si `v > 80` (`M = 100, 128, 256`), l'écriture recommandée d'un tirage sans biais : mêmes trinômes, plan 0 (`L ≤ 31`) et plan 1 (`L ≤ 15`), sous le flux (§7.19) | la vraisemblance garde la même forme, `F` et `G` étalés par la binomiale du masque ; `n` jusqu'à `176`, fenêtre de 128 bits ; `1,02 → 0,092` bit par tirage de `M = 80` à `256` ; Ville au seuil `29,25` | **archive — §167 : à lancer** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
