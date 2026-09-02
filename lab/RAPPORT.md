@@ -18695,3 +18695,91 @@ probabilité `3,7·10⁻⁸` par mot déjà nommée au §172.
 **Ligne de registre.** `h161b.ordonne_c`, piste B, `D = 0`, `p = 1,0`, conforme.
 
 ---
+
+## 177. L'**énergie additive** des tirages modulo 80 : ce que le crible teste vraiment, en trois secondes au lieu de trois heures (`h162_energie_additive.py`)
+
+Le crible de classes du §172 est cher — `286` milliards de nœuds pour couvrir les
+trinômes de degré `≤ 7` — et son mur est le front `20^L`. Cette section montre
+qu'une **statistique** capture l'essentiel de ce qu'il cherche, va deux fois plus
+loin en degré, et coûte des secondes.
+
+### D'où vient l'idée
+
+Le crible avance mot par mot : `c_i = c_{i−K} + c_{i−L} + δ (mod 80)`, `δ` dans
+`{0,1}`, et le mot ne survit que si sa classe est **publiée**. Un chemin ne
+traverse un tirage que si ce tirage est riche en **coïncidences additives** :
+des couples `(u,v)` de classes publiées dont `u+v` ou `u+v+1` est publié aussi.
+
+Le théorème du tirage unitaire (§7.27) donne l'espérance du nombre de chemins
+survivants, `40^L/C(40,20)` — mais c'est une moyenne. Pour un tirage *donné*, le
+compte dépend de sa structure additive. Et cette structure, personne dans ce
+dossier ne l'avait mesurée. Deux statistiques suffisent :
+
+```
+    T0(C) = #{(u,v) ∈ C² : (u+v)   mod 80 ∈ C}
+    T1(C) = #{(u,v) ∈ C² : (u+v+1) mod 80 ∈ C}
+```
+
+Chacune vaut environ `400 × 20/80 = 100` sous SRS, mais pas exactement — les cas
+`u = v`, `w = u`, `w = v` donnent des corrections d'ordre `1/80`. On ne les
+calcule pas : la nulle est **simulée** sur `2 822 400` tirages SRS, ce qui les
+absorbe. Le calcul lui-même passe par une convolution circulaire (l'auto-convolution
+de l'indicatrice de `C` modulo `80`), vérifiée contre le comptage direct.
+
+### La puissance, mesurée et non supposée
+
+C'est le point qui fait de cette section autre chose qu'un test de plus. Sur des
+générateurs **plantés**, `2 000` tirages, lecture par troncature avec rejet :
+
+| `(K, L)` | | `z(T0)` | `z(T1)` | sur les `70 560` tirages de l'archive (`×5,94`) |
+|---|---|---|---|---|
+| `(3, 7)` | TYPE_1 | `+20,7` | `+19,0` | `≈ +123` |
+| `(1, 15)` | **TYPE_2** | `+9,3` | `+10,8` | `≈ +55` |
+| `(3, 17)` | | `+7,5` | `+6,0` | `≈ +44` |
+| `(2, 21)` | | `+1,6` | `+2,2` | `≈ +10` |
+| `(3, 31)` | TYPE_3 | `−0,7` | `+0,8` | — |
+| `(1, 63)` | TYPE_4 | `−0,2` | `+1,9` | — |
+
+La raison de la coupure se lit sans calcul : la relation lie les mots `i−L`,
+`i−K` et `i`, et un tirage ne consomme que `E[N] = 22,85` mots. Au-delà du degré
+`≈ 22`, les trois indices ne tiennent plus **dans le même tirage**, et la trace
+additive disparaît de la statistique d'un tirage. C'est exactement la limite que
+le crible, lui, franchit en enchaînant les tirages — au prix de son front `20^L`.
+
+**Le test porte donc jusqu'au degré `21` là où le crible s'arrête au degré `7`.**
+
+### Le résultat
+
+`70 560` tirages, nulle sur `2 822 400` tirages SRS :
+
+| statistique | archive | nulle | `z` |
+|---|---|---|---|
+| `T0` | `100,03722` | `99,98964 ± 0,05931` | **`+0,802`** |
+| `T1` | `100,06573` | `100,01337 ± 0,05934` | **`+0,882`** |
+
+`p = 0,755`. **Rien.** L'archive a exactement l'énergie additive d'un tirage
+uniforme de vingt numéros parmi quatre-vingts.
+
+### Ce que cela ferme
+
+Aucun Fibonacci retardé additif `r_i = r_{i−K} + r_{i−L} mod 2³²` de degré
+`L ≤ 21`, lu par troncature avec rejet, n'engendre l'archive — non plus par
+verdict dur cette fois, mais par un test de puissance **mesurée** : un tel
+générateur laisserait `z ≈ +10` au degré `21`, `+55` au degré `15`, `+123` au
+degré `7`. On lit `+0,8`.
+
+C'est une extension nette du §172, qui couvrait le degré `≤ 7` : la couverture
+passe à `≤ 21`, TYPE_2 compris, pour un coût qui se compte en secondes. Et cela
+recoupe le §176, qui excluait les mêmes degrés sur les tirages *ordonnés* des
+vidéos : ici, c'est l'archive entière.
+
+Ce que cela ne ferme pas : les degrés `≥ 22`, où les trois indices de la relation
+ne tiennent plus dans un tirage — TYPE_3 `(3,31)` et TYPE_4 `(1,63)` restent hors
+de portée de *cette* statistique comme de ce crible. Pour eux, il faut une
+statistique qui enjambe la frontière entre tirages, c'est-à-dire précisément ce
+que le §7.24 (v) rend coûteux.
+
+**Ligne de registre.** `h162.energie_additive`, piste B, `z = (+0,802, +0,882)`,
+`p = 0,755`, conforme.
+
+---
