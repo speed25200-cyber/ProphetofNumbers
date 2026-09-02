@@ -17824,3 +17824,94 @@ d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
 **Ligne de registre.** `h146.beam_rejet`, piste B, en cours (rien n'est consigné avant la fin des `56` configurations).
 
 ---
+
+## 169. Le canal **mod 4** : deux bits par mot — et le générateur **partagé** redevient lisible (`h149_canal_mod4.py`, `tools/lfg_beam_mod4.c`)
+
+### Ce que le §168 laissait
+
+Une limite exacte : la synchronisation ne dérive vers le haut que si
+l'entropie de l'excédent par tirage est inférieure au débit du canal,
+`1,09` bit. Un générateur **partagé** — servant un autre tirage du même
+jeu entre deux des nôtres — coûte `H(N) = 2,85` bits (la loi exacte du
+§165) : `1,31 − 2,85 = −1,54` bit par tirage, **illisible**, quelle que
+soit la longueur du flux. Il fallait un canal plus riche.
+
+### Il était sous nos yeux : `x mod 4`
+
+Le numéro publié donne `v − 1 = x mod 80`, donc `x mod 4` : **deux** bits
+du mot, pas seulement sa parité — car `80 = 4 · 20`, chaque classe modulo
+4 contenant exactement vingt des quatre-vingts numéros. Le §165 n'en
+lisait qu'un parce que l'état caché du plan 0 seul est une m-suite de
+`2^L − 1` positions. Lire `x mod 4` demande le couple (plan 0, plan 1) —
+c'est-à-dire **exactement les orbites du Fibonacci mod 4** déjà
+construites au §165 pour le plan 1 de la glibc : `N = (2^L − 1) 2^L`. Pour
+la sortie décalée (`x = r >> 1`), c'est le triplet mod 8 : `N = (2^L − 1)
+2^{2L}`.
+
+> **Vraisemblance (§7.21).** Fenêtre de `n` mots dont `w_c` de classe
+> `c = x mod 4`, dernier de classe `c*` ; `a_c` numéros tirés dans la
+> classe `c` :
+>
+>     P(A, n | fenêtre) = [Π_{c ≠ c*} F₂₀(w_c, a_c)] · G₂₀(w_{c*}, a_{c*})
+>     F₂₀(w, a) = a! S(w, a) / 20^w,   G₂₀(w, a) = a! S(w−1, a−1) / 20^w
+>
+> Normalisation vérifiée : `1,000000000`. Débit mesuré par Monte-Carlo
+> exact (`20 000` tirages) : **`5,37 ± 2,34` bits par tirage**, contre
+> `1,31 ± 1,33` pour la parité — quatre fois plus.
+
+Et le **jumeau entrelacé** devient un simple noyau convolé : `α_t(p) =
+Σ_{n'} P₀(n') β_t(p − n')` avec `β` la transition d'un tirage — `41`
+transitions au lieu de `21`, coût nul. Le net passe de `−1,54` (parité) à
+**`+2,53`** bit par tirage.
+
+### Témoins : le tableau croisé
+
+Générateur planté (Fibonacci 32 bits, rejet exact), `150` tirages, lu par
+les deux modèles :
+
+| planté \ lu | **sans** jumeau | **avec** jumeau |
+|---|---|---|
+| **sans** jumeau (`x¹¹ + x² + 1`, `N = 4,2·10⁶`) | **`560,7`** | `1,1` |
+| **avec** jumeau | `0,5` | **`502,2`** |
+| tirages nuls | `0,7` | `1,0` |
+
+et à l'échelle de l'archive (`x¹⁵ + x + 1`, `N = 1,07·10⁹`) : **`560,8`**
+sans jumeau lu sans, `1,4` avec jumeau lu sans, **`527,1`** avec jumeau lu
+avec. C'est la démonstration complète : **le canal mod 4 lit ce que la
+parité ne peut pas lire**, et il ne lit rien qui n'y soit pas.
+
+### Pré-enregistrement
+
+JETON169
+
+### La grille
+
+`84` chaînes de flux : les `25` trinômes primitifs de degré `≤ 15` à la
+sortie brute (état mod 4, `N = (2^L − 1)2^L` jusqu'à `1,07·10⁹`) et les
+`17` de degré `≤ 10` à la sortie décalée `x = r >> 1` (état mod 8),
+chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
+
+| sortie | trinôme | jumeau | `N` | max `log₂ BF` @ `t` | redém. | morts | dét. | s |
+|---|---|---|---|---|---|---|---|---|
+| brute | `x^2 + x^1 + 1` | non | `12` | `0,60` @ `203` | `65` | `65` | 0 | 3 |
+| brute | `x^3 + x^1 + 1` | non | `56` | `4,62` @ `337` | `65` | `65` | 0 | 3 |
+| brute | `x^3 + x^2 + 1` | non | `56` | `3,55` @ `332` | `65` | `65` | 0 | 3 |
+| brute | `x^4 + x^1 + 1` | non | `240` | `6,69` @ `2 308` | `65` | `65` | 0 | 4 |
+| brute | `x^4 + x^3 + 1` | non | `240` | `6,21` @ `2 252` | `65` | `65` | 0 | 4 |
+| brute | `x^5 + x^2 + 1` | non | `992` | `6,08` @ `47 857` | `65` | `65` | 0 | 25 |
+| brute | `x^5 + x^3 + 1` | non | `992` | `5,37` @ `42 390` | `65` | `65` | 0 | 22 |
+| brute | `x^6 + x^1 + 1` | non | `4 032` | `4,63` @ `36 991` | `65` | `65` | 0 | 23 |
+
+*Grille en cours ; le tableau est celui du journal (`/tmp/h149_journal.txt`) à l'instant de l'écriture. Rien n'est consigné au registre avant la fin des `84` chaînes.*
+
+**Résultat.**
+
+*en cours — voir le statut de la grille ci-dessus.*
+
+**Ce que cela ferme.**
+
+*à écrire à la fin de la grille.*
+
+**Ligne de registre.** `h149.canal_mod4`, piste B, en cours (rien n'est consigné avant la fin des `84` configurations).
+
+---

@@ -3836,7 +3836,7 @@ rentable exactement quand la richesse achète quelque chose que la
 longueur du flux ne peut pas acheter — l'alignement. C'est le cas ici, et
 seulement ici.
 
-Sur l'archive (§169) : RESULTAT_721.
+Sur l'archive (§169, jeton `06785fcaa1f3e711`, scellé le 2026-09-02 à 15:33Z) : grille de `84` chaînes (`25` trinômes `L ≤ 15` à la sortie brute, `17` `L ≤ 10` à la sortie décalée, chacun sans et avec jumeau) — RESULTAT_721.
 
 ---
 
@@ -3910,7 +3910,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
 | le rejet **masqué** — `v = 1 + (x mod M)`, refusé si `v > 80` (`M = 100, 128, 256`), l'écriture recommandée d'un tirage sans biais : mêmes trinômes, plan 0 (`L ≤ 31`) et plan 1 (`L ≤ 15`), sous le flux (§7.19) | la vraisemblance garde la même forme, `F` et `G` étalés par la binomiale du masque ; `n` jusqu'à `176`, fenêtre de 128 bits ; `1,02 → 0,092` bit par tirage de `M = 80` à `256` ; Ville au seuil `29,25` | **archive — §167 : à lancer** |
 | l'**excédent** par tirage : le générateur consomme `δ` mots de plus (habillage, seconde partie, autre jeu) — cinq séquences nommées, deux échantillonneurs, `δ` dans vingt valeurs de 1 à 79 (§7.20) | la cible se décale, la fenêtre ne bouge pas : coût nul en calcul, `log₂ 20` de seuil ; limite exacte — un excédent VARIABLE d'entropie `≥ 1,09` bit par tirage noie le signal, quelle que soit la longueur du flux | **archive — §168 : à lancer** |
-| le canal **mod 4** : `v − 1 = x mod 80` donne `x mod 4`, deux bits par mot — plan 0 des trinômes `L ≤ 15` (`N = (2^L − 1)2^L`), plan 1 des `L ≤ 10` (état mod 8), avec ou sans **jumeau entrelacé** (§7.21) | vraisemblance `Π_c F₂₀(w_c, a_c) · G₂₀` (normalisation vérifiée) ; `5,37` bits par tirage contre `1,31` ; l'entrelacement d'un jumeau coûte `2,85` bits : net `+2,53` au lieu de `−1,54` | **archive — §169 : à lancer** |
+| le canal **mod 4** : `v − 1 = x mod 80` donne `x mod 4`, deux bits par mot — plan 0 des trinômes `L ≤ 15` (`N = (2^L − 1)2^L`), plan 1 des `L ≤ 10` (état mod 8), avec ou sans **jumeau entrelacé** (§7.21) | vraisemblance `Π_c F₂₀(w_c, a_c) · G₂₀` (normalisation vérifiée) ; `5,37` bits par tirage contre `1,31` ; l'entrelacement d'un jumeau coûte `2,85` bits : net `+2,53` au lieu de `−1,54` | **archive — §169 : en cours (jeton `06785fcaa1f3e711`)** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
