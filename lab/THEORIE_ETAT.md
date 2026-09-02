@@ -4890,39 +4890,90 @@ compte de nœuds que `bmode 0` : la phase bonus n'est jamais atteinte.
 **(iii) Le théorème du tirage unitaire.** Ce n'est pas un accident de mesure : le
 nombre attendu de chemins compatibles avec un tirage se calcule **exactement**.
 
-> **Théorème.** Sous la lecture par troncature avec rejet, le nombre espéré de
-> chemins de classes qu'un trinôme de degré `L` laisse survivre à `T` tirages
-> consécutifs vaut
+> **Théorème (du tirage unitaire).** Sous la lecture par troncature avec rejet,
+> le nombre espéré de chemins de classes qu'un trinôme de degré `L` laisse
+> survivre à `T` tirages consécutifs vaut
 >
 > ```
->     E[survivants] = 40^L / C(40,20)^T ,        C(40,20) = 137 846 528 820.
+>     E[survivants] = 40^L · ( Π_{a=0}^{19} m_a/(40 − a) )^T ,
+> ```
+>
+> où `m_a` est le nombre de classes qu'un mot acceptant peut prendre au niveau
+> `a`. Pour l'**archive triée** `m_a = 20 − a` et le produit vaut `1/C(40,20)`
+> avec `C(40,20) = 137 846 528 820` ; pour un tirage **ordonné** `m_a = 1` et il
+> vaut `20!/40!`. D'où
+>
+> ```
+>     trié     :  E = 40^L / C(40,20)^T          37,0043 bits par tirage
+>     ordonné  :  E = 40^L · (20!/40!)^T          98,0817 bits par tirage
 > ```
 >
 > Autrement dit : **chaque mot d'état libre rapporte `log₂ 40 = 5,3219` bits, et
-> chaque tirage clôturé en coûte `log₂ C(40,20) = 37,0043`.**
+> chaque tirage clôturé en coûte `37,0043` bits s'il est trié, `98,0817` s'il est
+> ordonné.**
 
-*Démonstration.* Un chemin est déterminé par ses `L` premières classes puis, à
-chaque mot suivant, par le choix de `δ ∈ {0,1}`. Le lemme de la classe (§7.24)
-impose que **tout** mot consommé porte une classe publiée : les `L` premières se
-choisissent donc parmi `20` valeurs, d'où `20^L` amorces, et un mot déterminé
-survit avec probabilité `20/80 = 1/4` pour chacune des `2` valeurs de `δ`.
-Conditionnellement à cette survie, la classe est uniforme sur les vingt publiées.
-Un chemin qui clôture le tirage exactement au `N`-ième mot a donc une espérance
-de comptage `20^L · 2^(N−L) · (1/4)^(N−L) · Q_N = 20^L · 2^{−(N−L)} · Q_N`, où
-`Q_N` est la loi du **temps du collectionneur** sur vingt coupons. En sommant,
+*Démonstration.* Elle se fait **niveau par niveau**, et sous cette forme elle
+couvre d'un coup les deux lectures — triée et ordonnée. Appelons *niveau* `a` le
+nombre de classes déjà acceptées dans le tirage courant, `a = 0, …, 19`. Un mot
+déterminé (`i ≥ L`) offre `2` valeurs de `δ`, chacune tombant sur une classe
+donnée avec poids `1/80`. À un niveau `a`, un mot est :
 
-```
-    E = 20^L · 2^L · E[2^{−N}] ,        E[2^{−N}] = Π_{k=1}^{20} p_k/(1+p_k),  p_k = k/20,
-```
+- un **refus** s'il retombe sur l'une des `a` classes déjà acceptées : poids
+  `2a/80 = a/40` ;
+- un **acceptant** s'il tombe sur l'une des `m_a` classes admissibles : poids
+  `2·m_a/80 = m_a/40`.
 
-car `E[2^{−G}] = p/(1+p)` pour une géométrique de paramètre `p`, et `N` est somme
-de vingt géométriques indépendantes. Le produit se télescope :
+Le poids total du passage du niveau `a` au niveau `a+1`, en sommant sur le nombre
+`m ≥ 0` de refus, est une série géométrique :
 
 ```
-    Π_{k=1}^{20} k/(20+k) = 20!·20!/40! = 1/C(40,20).
+    w_a = Σ_{m≥0} (a/40)^m · (m_a/40) = (m_a/40)/(1 − a/40) = m_a/(40 − a).
 ```
 
-Pour `T` tirages, les temps sont indépendants et les facteurs se multiplient. ∎
+Enfin, un mot **libre** (`i < L`) n'a pas le facteur `1/40` du `δ` et de la
+classe : il pèse `40` fois un mot déterminé. D'où, pour `T` tirages,
+
+```
+    E = 40^L · ( Π_{a=0}^{19} m_a/(40 − a) )^T .                          (★)
+```
+
+Il ne reste qu'à instancier `m_a`, le nombre de classes qu'un acceptant peut
+prendre :
+
+| lecture | `m_a` | `Π_a m_a/(40−a)` | bits par tirage |
+|---|---|---|---|
+| archive **triée** — n'importe laquelle des `20 − a` classes non encore sorties | `20 − a` | `20!·20!/40! = 1/C(40,20)` | `37,0043` |
+| tirage **ordonné** — la prochaine classe est *lue*, une seule valeur | `1` | `20!/40! = 1/3,354·10²⁹` | `98,0817` |
+
+∎
+
+Trois remarques que la forme (★) rend visibles et que la démonstration par le
+collectionneur laissait dans l'ombre.
+
+*Le `δ` du quasi-morphisme vaut exactement `24,6123` bits par tirage.* Sans lui —
+c'est-à-dire si la classe était additive — les poids seraient `m_a/(80 − a)` au
+lieu de `m_a/(40 − a)`, et le produit trié vaudrait `1/C(80,20)`, l'information
+brute du tirage. L'écart est
+`Σ_{a=0}^{19} log₂((80−a)/(40−a)) = 61,6165 − 37,0043 = 24,6123` bits, **le même
+pour les deux lectures** (`122,6907 − 98,0817 = 24,6090`, à l'arrondi près) : le
+prix du bit de retenue ne dépend pas de ce que le tirage publie. C'est la mesure
+exacte de ce que coûte la non-additivité de `c(·)`, et elle est faible devant les
+`61,6` bits qu'un tirage trié publie — ce qui est précisément la raison pour
+laquelle le crible de classes fonctionne.
+
+*L'ordre vaut `61,08` bits et le crible en récupère `61,08`.* Un tirage ordonné
+publie `log₂(80!/60!) = 122,6907` bits contre `log₂ C(80,20) = 61,6165` pour un
+tirage trié — `log₂ 20! = 61,0742` bits de plus — et le crible passe de `37,00` à
+`98,08`, soit exactement `61,08` de plus. **Tout** le supplément d'information de
+l'ordre est capté, sans perte. C'est ce que h158 exploitait sans le savoir : sa
+portée réelle est `L*(1) = 98,0817/log₂ 40 = 18,4` pour un seul tirage ordonné,
+`36,9` pour deux, `73,7` pour quatre — d'où la couverture des degrés `≤ 21` sur
+les groupes de deux et quatre tirages consécutifs des vidéos.
+
+*Et le rendement, lui, dépend de la lecture.* Le crible extrait `37,00/61,62 =
+60,1 %` de ce qu'un tirage trié publie, contre `98,08/122,69 = 79,9 %` d'un
+tirage ordonné. La perte absolue est la même — `24,61` bits — mais elle pèse
+deux fois plus lourd sur une donnée qui en publie deux fois moins.
 
 Le seuil `E = 1` tombe à `L* = log₂C(40,20)/log₂ 40 = 37,0043/5,3219 = 6,95`.
 D'où la table de portée, qui n'a aucun paramètre ajusté :
@@ -4938,6 +4989,10 @@ D'où la table de portée, qui n'a aucun paramètre ajusté :
 
 et, pour `T` tirages consécutifs, `L* = T · 6,95` : `T = 2` porte jusqu'au degré
 `13,9`, `T = 3` jusqu'à `20,9`, `T = 25` — la fenêtre du §172 — jusqu'à `173,8`.
+Sur des tirages **ordonnés**, le même seuil vaut `L* = T · 18,43` : *un seul*
+tirage porte jusqu'au degré `18` — au-delà de TYPE_2 — et quatre jusqu'au degré
+`73`, c'est-à-dire au-delà de TYPE_4. **C'est l'ordre, et lui seul, qui sépare
+les degrés que l'on peut exclure d'un tirage de ceux qui en demandent trois.**
 
 **(iv) Le corollaire qui compte : le verdict est intra-tirage.**
 
