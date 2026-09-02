@@ -67,12 +67,18 @@ import h152_troncature as C                                            # noqa: E
 
 M32 = 1 << 32
 POOL, DRAWN = 80, 20
-EXP_ID = "h159.bonus_troncature"
-JOURNAL = "/tmp/h159_journal.txt"
-FJETON = "/tmp/h159_jeton.json"
+EXP_ID = os.environ.get("H159_EXP", "h159.bonus_troncature")
+JOURNAL = os.environ.get("H159_JOURNAL", "/tmp/h159_journal.txt")
+FJETON = os.environ.get("H159_JETON", "/tmp/h159_jeton.json")
 NMAXD = 45
 NTIR = 25
-OUTIL = "/tmp/lfg_crible_h159"
+OUTIL = os.environ.get("H159_OUTIL", "/tmp/lfg_crible_h159")
+# delta du quasi-morphisme : {0,1} troncature ; {0,-16} modulo au decalage 0.
+# Le modulo au decalage 1 ({0,1,-48,-47}) est CRITIQUE sur l'archive triee — le
+# front ne decroit jamais, quel que soit le nombre de tirages (THEORIE_ETAT
+# §7.27 (iii bis)) — donc il n'est pas cribable ainsi et n'est pas dans la grille.
+DELTA = os.environ.get("H159_DELTA", "0,1")
+BINDEX = 0 if DELTA == "0,1" else 1   # index du bonus : c/4 (troncature) ou c mod 20 (modulo)
 FILS = int(os.environ.get("H159_FILS", "3"))
 NICE = os.environ.get("H159_NICE", "12")
 SRC = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -110,7 +116,7 @@ def engendre(K, L, graine, ntir, shift, bmode, fsupp=0):
         i += 1
         x = r[i - 1]
         mots.append(x)
-        cls.append(((x >> shift) * POOL) // W)
+        cls.append((x >> shift) % POOL if BINDEX else ((x >> shift) * POOL) // W)
         return x
 
     tirages, bonus = [], []
@@ -118,7 +124,7 @@ def engendre(K, L, graine, ntir, shift, bmode, fsupp=0):
         pre = None
         if bmode == 4:                     # l'index est tire AVANT les vingt numeros
             x = mot()
-            pre = ((x >> shift) * DRAWN) // W
+            pre = (x >> shift) % DRAWN if BINDEX else ((x >> shift) * DRAWN) // W
         vus, ordre = set(), []
         while len(vus) < DRAWN:
             x = mot()
@@ -129,10 +135,10 @@ def engendre(K, L, graine, ntir, shift, bmode, fsupp=0):
         tri = sorted(vus)
         if bmode == 1:
             x = mot()
-            b = tri[((x >> shift) * DRAWN) // W]
+            b = tri[(x >> shift) % DRAWN if BINDEX else ((x >> shift) * DRAWN) // W]
         elif bmode == 3:
             x = mot()
-            b = ordre[((x >> shift) * DRAWN) // W]
+            b = ordre[(x >> shift) % DRAWN if BINDEX else ((x >> shift) * DRAWN) // W]
         elif bmode == 2:
             while True:
                 mot()
@@ -173,21 +179,26 @@ def rejoue(etat, K, L, ntir, shift, bmode, fsupp=0):
     for _ in range(ntir):
         pre = None
         if bmode == 4:
-            pre = ((mot() >> shift) * DRAWN) // W
+            x = mot() >> shift
+            pre = x % DRAWN if BINDEX else (x * DRAWN) // W
         vus, ordre = set(), []
         while len(vus) < DRAWN:
-            c = ((mot() >> shift) * POOL) // W
+            x = mot() >> shift
+            c = x % POOL if BINDEX else (x * POOL) // W
             if c not in vus:
                 vus.add(c)
                 ordre.append(c)
         tri = sorted(vus)
         if bmode == 1:
-            b = tri[((mot() >> shift) * DRAWN) // W]
+            x = mot() >> shift
+            b = tri[x % DRAWN if BINDEX else (x * DRAWN) // W]
         elif bmode == 3:
-            b = ordre[((mot() >> shift) * DRAWN) // W]
+            x = mot() >> shift
+            b = ordre[x % DRAWN if BINDEX else (x * DRAWN) // W]
         elif bmode == 2:
             while True:
-                c = ((mot() >> shift) * POOL) // W
+                x = mot() >> shift
+                c = x % POOL if BINDEX else (x * POOL) // W
                 if c in vus:
                     b = c
                     break
@@ -218,7 +229,7 @@ def lancer(K, L, shift, mode, saut, f_cls, f_blocs, f_bon, bmode, fsupp=0,
     cmd = ["nice", "-n", nice, OUTIL, str(K), str(L), str(shift), mode, f_cls, f_blocs,
            str(ntir), str(saut), str(NMAXD),
            str(plafond if plafond is not None else C.plafond(L)), fixe, "",
-           f"bonus={f_bon}", f"bmode={bmode}", f"fsupp={fsupp}"]
+           f"bonus={f_bon}", f"bmode={bmode}", f"fsupp={fsupp}", f"delta={DELTA}", f"bindex={BINDEX}"]
     t0 = time.time()
     p = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if p.returncode != 0:
@@ -317,7 +328,8 @@ def archive():
     compiler()
     G = grille()
     NCONF = len(G)
-    say(f"h159 --archive  outil {OUTIL} ; {NCONF} configurations ; NMAXD = {NMAXD}")
+    say(f"h159 --archive  outil {OUTIL} ; {NCONF} configurations ; NMAXD = {NMAXD} ; "
+        f"delta = {{{DELTA}}}")
 
     HYPOTHESE = (
         "L'archive TRIEE est engendree par un Fibonacci retarde additif "

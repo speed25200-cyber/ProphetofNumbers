@@ -18273,7 +18273,7 @@ signalées. Deux corrections ont suffi, l'une **exacte**, l'autre **nommée** :
 
 Ensemble : l'ancrage pathologique passe de `2,4·10⁹` à `5,6·10⁶` nœuds au
 degré `3`, et le degré `6` n'y coûte plus que `2,2·10⁹` — sept secondes. La
-grille est reprise entière sous jeton neuf (`h155`), et la première (`h152`)
+grille est reprise entière sous jeton neuf (`h157`), et les deux premières (`h152`, `h155`)
 reste **non consignée** : sa grille n'a pas pu être menée à son terme, et
 c'est dit ici plutôt que caché.
 
@@ -18292,53 +18292,81 @@ Jeton `c7b3095602e2e126`, scellé le `2026-09-02T19:23:13Z`, piste B. **Hypothè
 
 | `(K, L)` | décalage | mode | ancrages | nœuds visités | pic du front | survivants | secondes |
 |---|---|---|---|---|---|---|---|
-| `(1  2)` | `0` | flux | `1` | `997` | `22` | `0` | `0` |
-| `(1  3)` | `0` | flux | `1` | `19 766` | `440` | `0` | `0` |
-| `(2  3)` | `0` | flux | `1` | `21 388` | `440` | `0` | `0` |
-| `(1  4)` | `0` | flux | `1` | `383 615` | `8 800` | `0` | `0` |
-| `(3  4)` | `0` | flux | `1` | `393 760` | `8 800` | `0` | `0` |
-| `(2  5)` | `0` | flux | `1` | `7 564 530` | `176 000` | `0` | `0` |
-| `(3  5)` | `0` | flux | `1` | `7 616 000` | `176 000` | `0` | `0` |
-| `(1  6)` | `0` | flux | `1` | `149 404 546` | `3 520 000` | `0` | `0` |
-| `(5  6)` | `0` | flux | `1` | `154 462 915` | `3 520 000` | `0` | `0` |
-| `(1  7)` | `0` | flux | `1` | `2 973 024 814` | `70 400 000` | `0` | `9` |
-| `(3  7)` | `0` | flux | `1` | `2 962 766 608` | `70 400 000` | `0` | `12` |
-| `(4  7)` | `0` | flux | `1` | `2 978 781 718` | `70 400 000` | `0` | `10` |
-| `(6  7)` | `0` | flux | `1` | `3 078 366 694` | `70 400 000` | `0` | `9` |
-| `(1  2)` | `1` | flux | `1` | `2 050` | `24` | `0` | `0` |
-| `(1  3)` | `1` | flux | `1` | `55 915` | `1 234` | `0` | `0` |
-| `(2  3)` | `1` | flux | `1` | `52 173` | `480` | `0` | `0` |
-| `(1  4)` | `1` | flux | `1` | `798 958` | `9 600` | `0` | `0` |
-| `(3  4)` | `1` | flux | `1` | `818 361` | `9 600` | `0` | `0` |
-| `(2  5)` | `1` | flux | `1` | `15 860 838` | `192 000` | `0` | `0` |
-| `(3  5)` | `1` | flux | `1` | `15 895 631` | `192 000` | `0` | `0` |
-| `(1  6)` | `1` | flux | `1` | `300 490 901` | `3 840 000` | `0` | `2` |
-| `(5  6)` | `1` | flux | `1` | `318 576 044` | `3 840 000` | `0` | `2` |
-| `(1  7)` | `1` | flux | `1` | `5 863 702 640` | `76 800 000` | `0` | `28` |
-| `(3  7)` | `1` | flux | `1` | `5 984 163 188` | `76 800 000` | `0` | `38` |
-| `(4  7)` | `1` | flux | `1` | `6 065 399 528` | `76 800 000` | `0` | `32` |
-| `(6  7)` | `1` | flux | `1` | `6 240 843 171` | `76 800 000` | `0` | `28` |
-| `(1  2)` | `0` | nuit | `37` | `174 346` | `16 404` | `0` | `0` |
-| `(1  3)` | `0` | nuit | `37` | `7 357 049` | `894 133` | `0` | `0` |
-| `(2  3)` | `0` | nuit | `37` | `26 923 947` | `3 675 667` | `0` | `0` |
-| `(1  4)` | `0` | nuit | `37` | `78 824 390` | `11 028 528` | `0` | `1` |
-| `(3  4)` | `0` | nuit | `37` | `91 859 131` | `12 637 787` | `0` | `1` |
-| `(2  5)` | `0` | nuit | `37` | `723 855 934` | `79 579 751` | `0` | `4` |
-| `(3  5)` | `0` | nuit | `37` | `655 877 572` | `65 987 261` | `0` | `4` |
-| `(1  6)` | `0` | nuit | `37` | `6 956 143 039` | `353 816 824` | `0` | `22` |
-| `(5  6)` | `0` | nuit | `37` | `8 087 050 212` | `499 560 661` | `0` | `32` |
+| `( 1  2)` | `0` | flux | `20` | `997` | `22` | `0` | `0` |
+| `( 1  3)` | `0` | flux | `20` | `19 766` | `440` | `0` | `0` |
+| `( 2  3)` | `0` | flux | `20` | `21 388` | `440` | `0` | `0` |
+| `( 1  4)` | `0` | flux | `20` | `383 615` | `8 800` | `0` | `0` |
+| `( 3  4)` | `0` | flux | `20` | `393 760` | `8 800` | `0` | `0` |
+| `( 2  5)` | `0` | flux | `20` | `7 564 530` | `176 000` | `0` | `0` |
+| `( 3  5)` | `0` | flux | `20` | `7 616 000` | `176 000` | `0` | `0` |
+| `( 1  6)` | `0` | flux | `20` | `149 404 546` | `3 520 000` | `0` | `4` |
+| `( 5  6)` | `0` | flux | `20` | `154 462 915` | `3 520 000` | `0` | `4` |
+| `( 1  7)` | `0` | flux | `20` | `2 973 024 814` | `70 400 000` | `0` | `66` |
+| `( 3  7)` | `0` | flux | `20` | `2 962 766 608` | `70 400 000` | `0` | `90` |
+| `( 4  7)` | `0` | flux | `20` | `2 978 781 718` | `70 400 000` | `0` | `79` |
+| `( 6  7)` | `0` | flux | `20` | `3 078 366 694` | `70 400 000` | `0` | `69` |
+| `( 1  2)` | `1` | flux | `20` | `997` | `22` | `0` | `0` |
+| `( 1  3)` | `1` | flux | `20` | `19 766` | `440` | `0` | `0` |
+| `( 2  3)` | `1` | flux | `20` | `21 388` | `440` | `0` | `0` |
+| `( 1  4)` | `1` | flux | `20` | `383 615` | `8 800` | `0` | `0` |
+| `( 3  4)` | `1` | flux | `20` | `393 760` | `8 800` | `0` | `0` |
+| `( 2  5)` | `1` | flux | `20` | `7 564 530` | `176 000` | `0` | `0` |
+| `( 3  5)` | `1` | flux | `20` | `7 616 000` | `176 000` | `0` | `0` |
+| `( 1  6)` | `1` | flux | `20` | `149 404 546` | `3 520 000` | `0` | `4` |
+| `( 5  6)` | `1` | flux | `20` | `154 462 915` | `3 520 000` | `0` | `4` |
+| `( 1  7)` | `1` | flux | `20` | `2 973 024 814` | `70 400 000` | `0` | `74` |
+| `( 3  7)` | `1` | flux | `20` | `2 962 766 608` | `70 400 000` | `0` | `104` |
+| `( 4  7)` | `1` | flux | `20` | `2 978 781 718` | `70 400 000` | `0` | `89` |
+| `( 6  7)` | `1` | flux | `20` | `3 078 366 694` | `70 400 000` | `0` | `83` |
+| `( 1  2)` | `0` | nuit | `37` | `174 346` | `16 404` | `0` | `0` |
+| `( 1  3)` | `0` | nuit | `37` | `7 357 049` | `894 133` | `0` | `0` |
+| `( 2  3)` | `0` | nuit | `37` | `26 923 947` | `3 675 667` | `0` | `1` |
+| `( 1  4)` | `0` | nuit | `37` | `78 824 390` | `11 028 528` | `0` | `2` |
+| `( 3  4)` | `0` | nuit | `37` | `91 859 131` | `12 637 787` | `0` | `2` |
+| `( 2  5)` | `0` | nuit | `37` | `723 855 934` | `79 579 751` | `0` | `20` |
+| `( 3  5)` | `0` | nuit | `37` | `655 877 572` | `65 987 261` | `0` | `18` |
+| `( 1  6)` | `0` | nuit | `37` | `6 956 143 039` | `353 816 824` | `0` | `176` |
+| `( 5  6)` | `0` | nuit | `37` | `8 087 050 212` | `499 560 661` | `0` | `191` |
+| `( 1  7)` | `0` | nuit | `10` | `27 658 212 740` | `1 280 000 000` | `0` | `574` |
+| `( 3  7)` | `0` | nuit | `10` | `28 205 861 059` | `1 280 000 000` | `0` | `504` |
+| `( 4  7)` | `0` | nuit | `10` | `28 528 317 395` | `1 280 000 000` | `0` | `661` |
+| `( 6  7)` | `0` | nuit | `10` | `29 759 221 279` | `1 280 000 000` | `0` | `636` |
+| `( 1  2)` | `1` | nuit | `37` | `174 346` | `16 404` | `0` | `0` |
+| `( 1  3)` | `1` | nuit | `37` | `7 357 049` | `894 133` | `0` | `0` |
+| `( 2  3)` | `1` | nuit | `37` | `26 923 947` | `3 675 667` | `0` | `0` |
+| `( 1  4)` | `1` | nuit | `37` | `78 824 390` | `11 028 528` | `0` | `2` |
+| `( 3  4)` | `1` | nuit | `37` | `91 859 131` | `12 637 787` | `0` | `2` |
+| `( 2  5)` | `1` | nuit | `37` | `723 855 934` | `79 579 751` | `0` | `16` |
+| `( 3  5)` | `1` | nuit | `37` | `655 877 572` | `65 987 261` | `0` | `14` |
+| `( 1  6)` | `1` | nuit | `37` | `6 956 143 039` | `353 816 824` | `0` | `150` |
+| `( 5  6)` | `1` | nuit | `37` | `8 087 050 212` | `499 560 661` | `0` | `173` |
+| `( 1  7)` | `1` | nuit | `10` | `27 658 212 740` | `1 280 000 000` | `0` | `424` |
+| `( 3  7)` | `1` | nuit | `10` | `28 205 861 059` | `1 280 000 000` | `0` | `583` |
+| `( 4  7)` | `1` | nuit | `10` | `28 528 317 395` | `1 280 000 000` | `0` | `479` |
+| `( 6  7)` | `1` | nuit | `10` | `29 759 221 279` | `1 280 000 000` | `0` | `533` |
 
-*Grille en cours : `35` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h155_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille complète : les `52` configurations, lues au journal `/tmp/h157_journal.txt` ; la colonne « ancrages » vaut `370/saut` en mode nuit et `20` en flux (scission sur la classe du premier mot).*
 
-**Résultat.**
+**Résultat.** `52` configurations, `286 184 970 888` nœuds visités, `1,62` heure-cœur,
+**`0` configuration coupée** et **`D = 0` survivant**. Tous les parcours sont complets :
+chaque zéro est une **exclusion**, pas un échec de recherche.
 
-*en cours — voir le statut de la grille ci-dessus.*
+**Ce que cela ferme.** Aucun Fibonacci retardé additif `r_i = r_{i−K} + r_{i−L} mod 2³²`
+de trinôme primitif de degré `≤ 7` (en flux, sur `25` tirages consécutifs) ou `≤ 6`
+(par nuit, un bloc sur dix), lu par troncature `v = 1 + ((x·80) >> 32)` avec rejet,
+aux décalages `0` et `1`, n'engendre l'archive triée. Cela couvre **TYPE_1** de la
+glibc, `x⁷ + x⁴ + 1`.
 
-**Ce que cela ferme.**
+Trois choses que cela ne ferme pas, et qu'il vaut mieux dire : les degrés `8` et
+au-delà (le degré `8` n'a pas de trinôme primitif ; le `9` est traité à part) ; les
+familles qui ne sont pas des trinômes ; et — le §7.27 le démontre — *rien de ce que
+la machine ferait entre deux tirages*, puisque le crible meurt à l'intérieur du
+premier. Ce dernier point n'affaiblit pas le résultat, il l'élargit : `d_max = 0`.
 
-*à écrire à la fin de la grille.*
-
-**Ligne de registre.** `h155.troncature_v2`, piste B, en cours (rien n'est consigné avant la fin des `52` configurations).
+**Ligne de registre.** `h157.troncature_v3`, piste B, `D = 0`, `p = 1,0`, verdict
+conforme, consigné. Registre : `60 370` lignes, `0` significative après Holm.
+Les deux conceptions antérieures (`h152`, `h155`) restent **non consignées** — elles
+avaient des configurations coupées, et une configuration coupée n'exclut rien.
 
 ---
 ## 173. Le relèvement de la troncature : des classes à l'état complet, puis aux vingt numéros du tirage suivant (`h153_releve_troncature.py`, `lab/lll_exact.py`)

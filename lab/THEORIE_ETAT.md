@@ -4994,6 +4994,45 @@ tirage porte jusqu'au degré `18` — au-delà de TYPE_2 — et quatre jusqu'au 
 `73`, c'est-à-dire au-delà de TYPE_4. **C'est l'ordre, et lui seul, qui sépare
 les degrés que l'on peut exclure d'un tirage de ceux qui en demandent trois.**
 
+**(iii bis) Le nombre de valeurs de `δ` entre dans la formule — et il y a un point
+critique.** La démonstration niveau par niveau ne suppose rien sur `n_δ`, le nombre
+de valeurs que prend le `δ` du quasi-morphisme. En le gardant :
+
+```
+    E = (80/n_δ)^L · ( Π_{a=0}^{19} m_a/(80/n_δ − a) )^T .                (★★)
+```
+
+`n_δ = 2` pour la troncature (aux deux décalages) et pour l'échantillonneur à
+modulo au décalage `0` (`δ ∈ {0, −16}`) ; `n_δ = 4` pour le modulo au décalage
+`1` (`δ ∈ {0, 1, −48, −47}`, le bit perdu). Les trois cas donnent :
+
+| échantillonneur | `n_δ` | archive **triée** | tirage **ordonné** |
+|---|---|---|---|
+| troncature, décalages `0` et `1` | `2` | `37,0043` bits, `L* = 6,95` | `98,0817` bits, `L* = 18,43` |
+| modulo, décalage `0` | `2` | `37,0043` bits, `L* = 6,95` | `98,0817` bits, `L* = 18,43` |
+| modulo, décalage `1` | `4` | **`0,0000` bit**, `L*` indéfini | `61,0774` bits, `L* = 14,13` |
+
+La dernière ligne n'est pas un arrondi malheureux, c'est une **identité** : avec
+`n_δ = 4` la base tombe à `80/4 = 20`, et sur l'archive triée `m_a = 20 − a`, donc
+
+```
+    Π_{a=0}^{19} (20 − a)/(20 − a) = 1     et     E = 20^L   pour TOUT T.
+```
+
+> **Corollaire (le point critique).** *Sur l'archive triée, le crible de classes
+> appliqué à l'échantillonneur à modulo au décalage `1` est exactement critique :
+> chaque mot rapporte autant qu'il coûte, le front ne décroît jamais, et aucun
+> nombre de tirages ne le fait converger. Ce n'est pas une question de puissance
+> de calcul — la méthode ne s'applique pas.*
+
+C'est la limite structurelle du §172, et elle explique après coup pourquoi son
+outil fixait `δ ∈ {0,1}` : au décalage `1` du modulo, il n'avait rien à trouver.
+Ce cas-là n'est pas perdu pour autant — il est simplement *hors de portée de
+cette lecture-ci* : sur un tirage **ordonné**, `m_a = 1` et le produit vaut
+`1/20!`, soit `61,0774` bits par tirage et `L* = 14,13`. **L'ordre rachète le
+point critique.** C'est ce que h161 exploite pour cribler les douze tirages des
+vidéos sous les quatre lectures, celle-là comprise.
+
 **(iv) Le corollaire qui compte : le verdict est intra-tirage.**
 
 > **Corollaire.** Pour `L ≤ 6`, l'exclusion d'un trinôme se joue **à l'intérieur

@@ -110,6 +110,7 @@ static unsigned char *PUB;      /* NT x POOL : 1 si la classe est publiee par le
 static unsigned char *LST;      /* NT x DRAWN : la liste des vingt classes publiees */
 static int *DEB;                /* debuts de blocs */
 static int BMODE = 0, FSUPP = 0;
+static int BINDEX = 0;          /* 0 : index = c/4 (troncature) ; 1 : index = c mod 20 (modulo) */
 static int ORDONNE = 0;         /* les vingt classes sont donnees DANS L'ORDRE DU TIRAGE */
 static int RMAX = -1;           /* refus tolerés parmi les L PREMIERS mots (-1 : aucun plafond)
 
@@ -270,9 +271,11 @@ static inline int autorise(int ph, int d, int v, uint64_t a0, uint64_t a1, int q
         return PUB[(size_t)d * POOL + v];
     }
     if (ph == 2) return 1;
-    if (ph == 3) return (v >> 2) == BRANG[d];      /* bmode 4 : le bonus AVANT les vingt */
-    if (BMODE == 1) return (v >> 2) == BRANG[d];
-    if (BMODE == 3) return (v >> 2) == q;
+    /* l'index que le mot du bonus porte depend de l'echantillonneur : sous la
+     * troncature floor(x*20/2^32) = floor(c/4) ; sous le modulo x mod 20 = c mod 20. */
+    if (ph == 3) return (BINDEX ? (v % DRAWN) : (v >> 2)) == BRANG[d];
+    if (BMODE == 1) return (BINDEX ? (v % DRAWN) : (v >> 2)) == BRANG[d];
+    if (BMODE == 3) return (BINDEX ? (v % DRAWN) : (v >> 2)) == q;
     /* bmode 2 : soit le bonus lui-meme, soit un refus (classe non encore acceptee) */
     if (v == BCLS[d]) return 1;
     return !deja_pris(a0, a1, v);
@@ -294,6 +297,16 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
     if (t0 >= R->tfin) { free(pile); free(hist); return; }
     if (NFIXE) { c->cand[0] = (unsigned char)FIXE[0]; c->ncand = 1; }
     else if (ORDONNE) { c->cand[0] = LST[(size_t)t0 * DRAWN]; c->ncand = 1; }
+    else if (BMODE == 4) {
+        /* Au bmode 4 le PREMIER mot du tirage est celui du bonus : sa classe n'a aucune
+         * raison d'etre publiee — elle doit seulement porter le bon index.  L'ancrage par
+         * classe publiee, correct pour les autres regles, ecartait donc le chemin vrai des
+         * le mot zero.  On enumere ici les classes admissibles de la phase 3. */
+        int n = 0;
+        for (int v = 0; v < POOL; v++)
+            if (autorise(3, t0, v, 0, 0, -1, 0)) c->cand[n++] = (unsigned char)v;
+        c->ncand = (short)n;
+    }
     else if (prem >= 0) { c->cand[0] = LST[(size_t)t0 * DRAWN + prem]; c->ncand = 1; }
     else memcpy(c->cand, LST + (size_t)t0 * DRAWN, DRAWN);
 
@@ -485,6 +498,7 @@ int main(int argc, char **argv)
         else if (!strncmp(argv[i], "ordonne=", 8)) ORDONNE = atoi(argv[i] + 8);
         else if (!strncmp(argv[i], "delta=", 6)) fdelta = argv[i] + 6;
         else if (!strncmp(argv[i], "rmax=", 5)) RMAX = atoi(argv[i] + 5);
+        else if (!strncmp(argv[i], "bindex=", 7)) BINDEX = atoi(argv[i] + 7);
     }
     if (BMODE < 0 || BMODE > 4 || FSUPP < 0 || FSUPP > 8) {
         fprintf(stderr, "bmode dans 0..4, fsupp dans 0..8\n"); return 2;
@@ -525,7 +539,7 @@ int main(int argc, char **argv)
     int nuit = (strcmp(mode, "nuit") == 0);
     /* en flux, scission sur la classe du 1er mot ; en lecture ORDONNEE ce mot est LU,
      * donc il n'y a rien a scinder. */
-    int nanc = nuit ? NB : ((NFIXE || ORDONNE) ? 1 : DRAWN);
+    int nanc = nuit ? NB : ((NFIXE || ORDONNE || BMODE == 4) ? 1 : DRAWN);
     double t0 = horloge();
 
     long long noeuds = 0, coupes = 0;
