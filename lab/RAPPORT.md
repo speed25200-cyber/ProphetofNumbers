@@ -18230,6 +18230,13 @@ milliers, voire en millions. Le crible **exclut** ; il n'identifie pas. C'est
 le relèvement (les `δ` lus sur la solution donnent `T` demi-espaces sur les
 parties fractionnaires, LLL, 7.24 (vii)) qui ne laisse passer qu'un point.
 
+*Et une garde qu'il faut nommer.* Le parcours est borné par un plafond de
+nœuds. Une configuration **coupée** à ce plafond n'exclut **rien** — son
+parcours n'est pas complet — et le script refuse alors de consigner quoi que
+ce soit au registre tant qu'elle n'a pas été relancée avec un plafond
+suffisant. La colonne « coupes » du tableau ci-dessous doit donc être à zéro
+partout pour que le `D = 0` veuille dire quelque chose.
+
 ### Pré-enregistrement
 
 Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothèse** : l'archive triée n'est engendrée par aucun Fibonacci retardé additif lu par l'échantillonneur à **troncature** avec rejet, aux deux décalages, sur les `13` trinômes primitifs de degré `≤ 7` en flux continu, ceux de degré `≤ 6` par nuit (`1` nuit sur `10`) et ceux de degré `7` par nuit (`1` nuit sur `37`) — `52` configurations. **Statistique** : `D` = nombre de configurations laissant au moins un survivant, c'est-à-dire un `L`-uplet de classes dont l'automate clôture `25` tirages consécutifs. **Nulle** : crible **dur**, pas de martingale — zéro survivant exclut la configuration à `1,3·10⁻¹⁵` près (le plafond de `60` mots par tirage). **Verdict** : conforme si `D = 0`.
@@ -18262,8 +18269,9 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 | `(5  6)` | `1` | flux | `1` | `319 742 855` | `3 840 000` | `0` | `13` |
 | `(1  7)` | `1` | flux | `1` | `5 929 104 301` | `76 800 000` | `0` | `239` |
 | `(3  7)` | `1` | flux | `1` | `6 067 119 823` | `76 800 000` | `0` | `312` |
+| `(4  7)` | `1` | flux | `1` | `6 108 155 150` | `76 800 000` | `0` | `285` |
 
-*Grille en cours : `24` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `25` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 

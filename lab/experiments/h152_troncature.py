@@ -320,13 +320,23 @@ if __name__ == "__main__" and "--archive" in sys.argv:
         FAIT[k] = fin
 
     LIG = [(cle(*c), FAIT[cle(*c)]) for c in G if cle(*c) in FAIT]
+    # une configuration COUPEE au plafond de noeuds n'est PAS une exclusion : le parcours
+    # n'a pas ete mene a son terme. On la compte a part et on refuse le verdict global.
+    INC = [k for k, f in LIG if f["coupes"] > 0]
     D = sum(1 for k, f in LIG if f["surv"] > 0)
     NOE = sum(f["noeuds"] for k, f in LIG)
     SEC = sum(f["sec"] for k, f in LIG)
     CP = sum(f["coupes"] for k, f in LIG)
-    say(f"\n   {len(LIG)} configurations : D = {D} ; {NOE:,} noeuds, {CP} coupes, {SEC/3600:.2f} h")
+    say(f"\n   {len(LIG)} configurations : D = {D} ; {NOE:,} noeuds, {CP} coupes "
+        f"({len(INC)} configurations non concluantes), {SEC/3600:.2f} h")
+    if INC:
+        say("   !! non concluantes : " + ", ".join(INC[:8]))
     if DRY or len(LIG) < NCONF:
         say("   grille incomplete ou essai : rien n'est consigne.")
+    elif INC:
+        say(f"   {len(INC)} configurations coupees au plafond de noeuds : le parcours n'y est "
+            "pas complet, donc elles n'excluent RIEN. Rien n'est consigne avant de les avoir "
+            "relancees avec un plafond suffisant.")
     else:
         TOK["m_extra"] = 0
         verdict = "conforme" if D == 0 else "SURVIVANT NON RELEVE"
@@ -338,7 +348,8 @@ if __name__ == "__main__" and "--archive" in sys.argv:
                       "donnent 0 survivant, et le cout suit 2,5 x 20^L au chiffre pres"),
             notes=(f"TRONCATURE SOUS PAS VARIABLE (§172) : {len(LIG)} configurations, "
                    f"{NOE:,} noeuds, {SEC/3600:.2f} h. D = {D}. Crible DUR (exclusion exacte a "
-                   f"1,3e-15 pres, plafond de {NMAXD} mots par tirage), PAS une martingale : "
+                   f"1,3e-15 pres, plafond de {NMAXD} mots par tirage) et parcours COMPLET "
+                   f"({CP} coupes au plafond de noeuds), PAS une martingale : "
                    "aucune borne de couverture pour les configurations non parcourues. "
                    "NON COUVERT : degre 10 et au-dela (front 20^L) — TYPE_2 2^64,8, TYPE_3 "
                    "2^134, TYPE_4 2^272."))
