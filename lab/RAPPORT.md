@@ -17054,3 +17054,190 @@ Holm sur `60 366` lignes, non significatif. Fichiers :
 `/tmp/h143_journal.txt`, jeton `/tmp/h143_jeton.json`.
 
 ---
+
+## 164. Le balayage d'autocorrélation du plan 0 : les relations de poids 2 — période, anti-période, décalage isolé — sous le flux et par nuit, tout générateur congruentiel de module `2^W` sans ses paramètres (`h144_periodes_plan0.py`)
+
+**La question.** Le §163 a testé, sans état, les relations de **poids 3**
+d'un trinôme donné. Ici on ne suppose plus rien du générateur : seulement
+qu'un bit lu par l'échantillonneur — la parité du numéro désigné sur les
+mots pairs, §7.15 (ii) — satisfait une relation de **poids 2** :
+périodique (`b_{p+qP} = b_p`, famille `B`), anti-périodique (`b_{p+qH} =
+b_p ⊕ (q mod 2)`, famille `C`), ou isolée (un seul décalage `D`, famille
+`A`). C'est le §7.16 : le bit `s` de tout générateur congruentiel `x ↦
+a x + c (mod 2^W)`, `a ≡ 1 (mod 4)`, `c` impair, a pour anti-période
+`2^s` et pour période `2^{s+1}` **quels que soient `a`, `c`, `W`** (7.16
+(i)) — `java.util.Random` (`s = 17`), MSVC (`s = 16`), TYPE_0 de la glibc
+(`s = 0`), tout LCG maison ; le plan 0 d'un registre ou d'un Fibonacci
+est périodique de période `2^L − 1` ; le plan 1 de `random()` TYPE_1 et
+TYPE_2, celui que la glibc **lit** (shift 1), est périodique de période
+`2(2^L − 1) = 254` et `65 534` (Brent) — ce que le §163 ne pouvait pas
+voir. Une seule grille les prend tous, sans état, sans paramètres, en
+`O(N log N)`.
+
+**L'outil.** `T_t = (n_impairs − n_pairs)/20` sur les vingt numéros du
+tirage `t`, **non centrée** (`E T = 0` et `E T² = 3/79` exactement sous
+`H₀`, 7.16 (iii)) ; `A(d) = Σ_t T_t T_{t+d}` par FFT, `d ≤ 60 559` sous
+le flux (`n_d ≥ 10 000`), `d ≤ 172` par nuit (somme des `370` blocs). Un
+décalage de mots `D = S q + ρ` envoie le mot pair `k` du tirage `t` sur
+le mot `k + ρ` du tirage `t + q` (ou du suivant) ; `c_q(ρ)` compte ceux
+qui retombent sur un mot pair de rang `≤ 18`, `Λ_A(D) = c_q A(q) +
+c_{q+1} A(q+1)`, `V_A = τ⁴ (c_q² n_q + c_{q+1}² n_{q+1})` ; `B` et `C`
+somment `Λ_A` sur les multiples de `P` (resp. avec signes alternés sur
+les multiples de `H`), comptes signés agrégés quand deux multiples
+retombent sur le même `d` (lemme de non-recouvrement, 7.16 (v)) ; `D`
+est une seule statistique, `E T² − 3/79`, pour une relation entre deux
+mots pairs d'un **même** tirage. `z = Λ/√V`, de variance `1` exactement
+sous `H₀` (tirages indépendants, `E T = 0`), et le `z` attendu sous la
+relation vraie est `(C²/τ²) √(Σ_d e_d² n_d)`, `C = 3/79`. Sept pas
+(`20 … 24, 79, 80`), deux cibles (flux, nuit), trois familles et `D` :
+`M = 32 673 251` statistiques, `Z_c = Q^{−1}(10^{−7}/2M) = 7,89`, une
+seule valeur pour toute la grille. `D_max = S · d_max − 1` : `1 211 179`
+mots au pas 20, `4 844 719` au pas 80 (flux), `3 439` par nuit — donc,
+sous le flux, tout LCG de décalage `s ≤ 20` au pas 20 et `s ≤ 22` au pas
+80 (`C` jusqu'à `s ≤ 19`/`21`, `A` seule au-delà), tout plan 0 de
+période `2^L − 1` jusqu'à `L = 19`/`21`, TYPE_1 et TYPE_2 à shift 1 ;
+par nuit, `s ≤ 10`, `L ≤ 10`, TYPE_1 à shift 1 (7.16 (viii)).
+
+**Témoins.** Leur détection attendue n'est pas fixée à la main : elle
+est **prédite** (7.16 (ix)). Le script engendre `N = 70 560` tirages
+(fenêtre, schéma et tri exacts, `370` blocs pour les témoins de nuit)
+à partir d'un état planté, relève les vingt signes désignés `U_t =
+Σ_k (−1)^{j_{t,k}}` réellement tirés, et fait passer `C² A_{U−μ}(d)`
+dans la **même** grille — `μ = E U = ∓ 0,1438` selon l'échantillonneur
+(dix bornes impaires ; `−` pour Fisher–Yates, `+` pour le shuffle) — ce
+qui donne `z_att` en chaque statistique, relations exactes **et**
+corrélations partielles comprises ; `z_rel` est la forme close des
+seules relations exactes listées. `att = 1` si `max(|z_att|, |z_D att|)
+≥ Z_c + 2`, `0` si `≤ Z_c − 2`, `?` entre (non compté) ; un témoin est
+**raté** si la détection contredit la prédiction. Puis quatre flux nuls
+(deux PCG64 — `numpy` —, deux MT19937 — `random.Random` — en FY 20 et
+shuffle 80) passent la même grille :
+
+| témoin | pas | cible | `z_rel` | `z_att` | où | `z` au point | `z` max | `z_D` att. | `z_D` | attendu | détecté | collat. | s |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| java.util.Random shuffle 79 | 79 | flux | `104,8` | `101,4` | C `131 072` | `102,5` | `102,5` | `-1,8` | `-2,1` | 1 | 1 | 18 | 116 |
+| java.util.Random fy 20 | 20 | flux | `151,7` | `148,4` | C `131 072` | `147,1` | `147,1` | `-0,2` | `-1,2` | 1 | 1 | 18 | 93 |
+| glibc TYPE_0 (s=0) fy 20 | 20 | flux | `53 378,1` | `53 310,5` | B `1` | `38 666,4` | `38 666,4` | `664,2` | `218,7` | 1 | 1 | 39 | 92 |
+| MSVC rand (s=16) fy 21 | 21 | flux | `176,1` | `175,8` | C `65 536` | `177,4` | `177,4` | `0,1` | `0,0` | 1 | 1 | 18 | 91 |
+| MMIX 64 bits >>20 fy 22 | 22 | flux | `36,7` | `-36,9` | A `1 048 576` | `-36,9` | `-36,9` | `0,4` | `0,5` | 1 | 1 | 18 | 93 |
+| MMIX 64 bits >>19 shuffle 79 | 79 | flux | `36,2` | `37,2` | C `524 288` | `37,3` | `37,3` | `0,2` | `0,1` | 1 | 1 | 18 | 115 |
+| MMIX 64 bits >>22 shuffle 79 (angle mort exact) | 79 | flux | `0,0` | `-9,2` | C `582 143` | `-9,6` | `-9,6` | `-1,8` | `-1,9` | ? | 1 | 15 | 115 |
+| MMIX 64 bits >>22 fy 20 (exact hors portee) | 20 | flux | `0,0` | `-21,8` | A `1 048 576` | `-21,8` | `-21,8` | `-0,1` | `-0,6` | 1 | 1 | 18 | 91 |
+| Fibonacci (3,17) + shift 0 fy 20 | 20 | flux | `123,5` | `122,3` | B `131 071` | `123,2` | `123,2` | `-0,3` | `-0,9` | 1 | 1 | 18 | 94 |
+| Fibonacci (3,17) + shift 0 shuffle 79 | 79 | flux | `119,4` | `118,8` | B `131 071` | `119,8` | `119,8` | `0,3` | `0,5` | 1 | 1 | 18 | 117 |
+| glibc random() TYPE_2 (1,15) shift 1 fy 20 | 20 | flux | `258,2` | `261,4` | B `32 767` | `259,8` | `259,8` | `0,8` | `0,3` | 1 | 1 | 18 | 90 |
+| glibc TYPE_0 (s=0) fy 20, un etat par nuit | 20 | bloc | `2 375,8` | `2 373,2` | B `1` | `2 206,4` | `2 206,4` | `664,8` | `262,5` | 1 | 1 | 39 | 87 |
+| MSVC (s=16) fy 20, un etat par nuit (hors portee) | 20 | bloc | `0,0` | `-3,1` | B `1 108` | `-2,3` | `-4,4` | `0,4` | `-0,3` | 0 | 0 | 0 | 83 |
+| glibc random() TYPE_1 (3,7) shift 1 fy 20, un etat par nuit | 20 | bloc | `215,7` | `221,1` | B `127` | `221,7` | `221,7` | `1,8` | `2,4` | 1 | 1 | 39 | 84 |
+
+`collat.` : nombre de couples (grille, famille) parmi les `13` autres
+grilles — autres pas, autre cible — qui détectent aussi (`39` au plus) :
+le pas vrai n'est pas le seul à voir une période, les six autres pas du
+flux la voient (`18`), et une période courte est vue par tout, flux et
+nuits (`39`). Flux nuls :
+
+| flux nul | `max |z|` (A/B/C) | où | `z_D` | `τ²` | faux positifs | s |
+|---|---|---|---|---|---|---|
+| nul PCG64 a | `5,53` | flux, pas 23, C `121` | `-2,02` | `0,03758` | 0 | 83 |
+| nul PCG64 b | `6,26` | flux, pas 20, C `116` | `-0,89` | `0,03780` | 0 | 84 |
+| nul MT19937 (random.Random) fy 20 | `6,44` | flux, pas 22, B `1 624` | `-1,99` | `0,03758` | 0 | 85 |
+| nul MT19937 shuffle 80 | `5,57` | flux, pas 24, C `286` | `-1,59` | `0,03766` | 0 | 88 |
+
+**Lecture des témoins.** Treize prédictions sur quatorze sont tenues
+— douze « attendu » détectés, un « non attendu » (MSVC par nuit :
+`2^{16}` mots contre `D_max = 3 439`, `z_att = −3,1`, observé `−4,4`)
+non détecté — et le quatorzième, l'angle mort exact du MMIX `>> 22` au
+shuffle 79 (`z_rel = 0`), est *indéterminé* (`z_att = −9,2` en `C 582
+143`, entre `Z_c ± 2`) et détecté à `−9,6` au point prédit : la
+prédiction par `U` tient à `4 %` près jusqu'au seuil, et à `2 %` sur les
+neuf paires de Java (`148,4` prédit, `147,1` observé au FY 20 ; `101,4`
+et `102,5` au shuffle 79), sur MSVC (`175,8`/`177,4`), sur les MMIX
+(`−36,9`/`−36,9`, `37,2`/`37,3`, `−21,8`/`−21,8` — ce dernier par les
+seules corrélations partielles, sa relation exacte `2^{22}` étant hors
+de portée), sur les Fibonacci (`122,3`/`123,2`, `118,8`/`119,8`) et
+sur TYPE_2 à shift 1 (`261,4`/`259,8`). Trois détails. (a) TYPE_0
+sature : `s = 0`, le bit lu alterne à chaque mot, les dix signes
+désignés pairs sont égaux et la loi conjointe dans le tirage n'est plus
+celle de `H₀` — `53 310` prédit contre `38 666` observé sous le flux
+(`0,73×`), `2 373` contre `2 206` par nuit (`0,93×`), et `z_D` `664`
+contre `219`, `665` contre `263` (`0,4×`) : la prédiction au premier
+ordre est un majorant, la détection n'en dépend pas. (b) L'effet de
+parité : à un pas **pair**, un décalage de mots impair n'envoie jamais
+un mot pair sur un mot pair (`c = 0`) ; pour une période impaire `P₀`,
+`B(P₀) = B(2 P₀)` — seuls les multiples pairs sont lus — et l'argmax
+rapporte le plus petit index : TYPE_2 à shift 1, de période `65 534`,
+sort « à `B 32 767` », TYPE_1 par nuit, de période `254`, « à `B 127`
+» ; le Fibonacci `(3, 17)`, de période impaire `131 071`, sort à son
+vrai index. (c) Les quatre flux nuls ont tous un `z_D` négatif (`−2,0`,
+`−0,9`, `−2,0`, `−1,6`) : une coïncidence à `1/800`, vérifiée comme
+telle sur `32` flux uniformes frais (`argsort` et `choice` de numpy,
+`70 560` tirages chacun : `z_D` de moyenne `0,0` et d'écart-type
+`0,94`) — la statistique `D` est sans biais, et `Z_c = 7,89` est loin.
+Leur `max |z|` sur `32,7 M` statistiques, `5,5` à `6,4`, est celui
+d'un maximum de gaussiennes (`√(2 ln 2M) ≈ 6,0`).
+
+**Pré-enregistrement.** Jeton `381e09440a2b6e25` (2026-09-02T10:52:39Z), scellé avant tout balayage
+de l'archive ; hypothèse : *aucun bit lu de l'archive n'est périodique,
+anti-périodique ni corrélé à un décalage isolé jusqu'à `D_max`, sous
+aucun pas, ni sous le flux ni par nuit, et `E T² = 3/79`* ; statistique
+: `D` = nombre de détections à `|z| ≥ Z_c` sur les `M` statistiques ;
+décision : `D = 0` conforme, `D ≥ 1` détection (et le pas, la famille,
+l'index désignent la période du bit lu). Piste B.
+
+**La grille.** Pour chaque cible et chaque pas : le maximum de `|z|`
+par famille et son index, la moyenne et l'écart-type des `z` de la
+famille `A` (`0` et `1` attendus sous `H₀`) :
+
+| cible | pas | `D_max` | A : `z` max | `D` | moy. | é.-t. | B : `z` max | `P` | C : `z` max | `H` | dét. | s |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| flux | 20 | `1 211 179` | `-4,55` | `403 048` | `-0,0038` | `0,9980` | `4,39` | `9 917` | `4,69` | `17 280` | 0 | 6 |
+| flux | 21 | `1 271 738` | `4,22` | `324 957` | `-0,0030` | `0,9997` | `-4,65` | `413 884` | `-5,07` | `187 227` | 0 | 6 |
+| flux | 22 | `1 332 297` | `-4,54` | `443 354` | `-0,0036` | `0,9983` | `4,93` | `17 431` | `4,93` | `17 431` | 0 | 7 |
+| flux | 23 | `1 392 856` | `4,22` | `355 907` | `-0,0030` | `0,9997` | `4,67` | `123 690` | `-5,05` | `205 059` | 0 | 6 |
+| flux | 24 | `1 453 415` | `-4,54` | `483 658` | `-0,0035` | `0,9986` | `4,56` | `161 153` | `4,69` | `20 736` | 0 | 7 |
+| flux | 79 | `4 784 160` | `4,22` | `1 222 507` | `-0,0030` | `0,9997` | `4,54` | `161 260` | `4,70` | `162` | 0 | 26 |
+| flux | 80 | `4 844 719` | `4,22` | `1 237 982` | `-0,0030` | `0,9997` | `4,81` | `618 996` | `4,69` | `69 120` | 0 | 26 |
+| bloc | 20 | `3 439` | `3,84` | `1 726` | `0,0342` | `0,9876` | `3,84` | `863` | `3,84` | `863` | 0 | 0 |
+| bloc | 21 | `3 611` | `3,53` | `1 804` | `0,0290` | `0,9665` | `3,89` | `1 792` | `3,85` | `906` | 0 | 0 |
+| bloc | 22 | `3 783` | `3,83` | `1 900` | `0,0333` | `0,9838` | `3,81` | `949` | `3,81` | `949` | 0 | 0 |
+| bloc | 23 | `3 955` | `3,53` | `1 976` | `0,0290` | `0,9665` | `3,79` | `1 962` | `3,80` | `992` | 0 | 0 |
+| bloc | 24 | `4 127` | `3,82` | `2 072` | `0,0325` | `0,9806` | `3,80` | `1 037` | `3,80` | `1 037` | 0 | 0 |
+| bloc | 79 | `13 587` | `3,53` | `6 792` | `0,0290` | `0,9665` | `4,51` | `680` | `3,90` | `340` | 0 | 0 |
+| bloc | 80 | `13 759` | `3,53` | `6 878` | `0,0290` | `0,9665` | `3,57` | `1 376` | `-3,66` | `6 874` | 0 | 0 |
+
+Famille `D` (une statistique, paires de mots pairs d'un même tirage) :
+`z_D = −0,535`, `τ² = 0,03787` (`3/79 = 0,03797`), `E T = −0,00031`,
+non détectée.
+
+**Résultat.** `D = 0` : sur les `32 673 251` statistiques de l'archive, **aucune** n'atteint `Z_c = 7,89`. Le maximum de `|z|` est `5,07` (`z = -5,07`, flux, pas 21, C `187 227`), à la place d'un maximum de gaussiennes (`√(2 ln 2M) ≈ 6,0` ; les quatre flux nuls ont donné `5,5` à `6,4`) ; `z_D = -0,53` (`τ² = 0,03787`, `3/79 = 0,03797`) ; la moyenne de `T` sur l'archive est `-0,00031` (écart-type `0,00073`), et l'écart-type des `z` de la famille `A` va de `0,966` à `1,000` par grille (`1` attendu sous `H₀`) — sous le flux, moyenne `-0,004` à `-0,003` et écart-type `0,998` à `1,000` ; par nuit, où les `≈ 3 500` à `13 800` statistiques `A` d'une grille reposent sur `172` autocorrélations seulement, moyenne `0,029` à `0,034` et écart-type `0,967` à `0,988` — l'écart à `(0, 1)` y est celui de `172` valeurs indépendantes (`± 0,08`), non de `3 500`, et il est commun aux sept pas qui lisent les mêmes `A(d)` : la grille se comporte sur l'archive comme sur les flux nuls. Aucun bit lu de l'archive n'est périodique, anti-périodique ni corrélé à un décalage isolé jusqu'à `D_max`, sous aucun des sept pas, ni sous le flux ni par nuit, et `E T² = 3/79` tient. Verdict **conforme**.
+
+**Ce que cela ferme.** Sans état, sans paramètres, sous le flux continu
+comme par nuit et sous les sept pas : aucun générateur congruentiel de
+module `2^W` à sortie décalée de `s ≤ 20` (pas 20–24) ou `s ≤ 22` (pas
+79–80) n'engendre l'archive — `java.util.Random`, MSVC `rand()`, TYPE_0,
+et tout LCG maison à ces décalages, `a`, `c`, `W` quelconques ; aucun
+registre ou Fibonacci dont le plan 0 a une période `≤ D_max/2` (`L ≤
+19` au pas 20, `L ≤ 21` au pas 80) ; TYPE_1 et TYPE_2 de la glibc à
+shift 1 (périodes `254` et `65 534`), que le §163 laissait ouverts ; et
+aucune relation de poids 2 entre deux mots pairs, d'un même tirage
+(famille `D`) ou de deux tirages. Ce que cela **ne** ferme pas, dit tel
+quel : les LCG lus par multiplication (`⌊b r/2^{32}⌋`, Delphi, `nextInt`
+de Java pour une borne puissance de 2 : les bits hauts, période `2^W`),
+les décalages `s ≥ 21`/`23` (dont le MMIX `>> 22` sous le pas 20 n'est
+vu que par ses corrélations partielles, 7.16 (ix)), TYPE_3 et TYPE_4 à
+shift 1 (périodes `2^{32} − 2` et `2^{64} − 2` : c'est le 7.14/§162),
+PCG, xoshiro, MT19937 (aucun bit de période courte), le rejet et le pas
+variable.
+
+**Ligne de registre** : `h144.periodes_plan0`, piste B, `observé D =
+0`, `p = 1`, verdict **conforme** ; puissance : quatorze
+témoins plantés (onze sous le flux, trois par nuit ; Java shuffle et
+FY, TYPE_0, MSVC, quatre MMIX à `>> 19 … 22`, Fibonacci `(3, 17)` FY et
+shuffle, TYPE_2 à shift 1, et par nuit TYPE_0, MSVC hors de portée,
+TYPE_1 à shift 1), prédiction au premier ordre confirmée, `0`
+raté, `1` indéterminé, `0` faux positif sur `4 × M` statistiques
+nulles ; Holm sur tout le registre : `p = 1`, non rejeté (`m_total = 60 367`, seuil de Holm `8.31e-07`, significatif : non). Fichiers : `lab/experiments/h144_periodes_plan0.py`
+; journaux `/tmp/h144.log`, `/tmp/h144_journal.txt`, jeton
+`/tmp/h144_jeton.json` ; durée totale `29,8 min` (témoins et flux nuls compris, machine à charge ≈ 17).
+
+---
