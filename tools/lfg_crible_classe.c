@@ -62,6 +62,31 @@
  *               AVEC TOUTE SA SUITE DE CLASSES (ligne "chem"), et non seulement ses L
  *               premieres.  C'est ce dont le relevement a besoin (§173) : les delta se
  *               lisent sur la suite complete, pas sur l'etat initial.
+ *
+ * LE MOT DU BONUS (§7.27).  Le bonus de l'archive est TOUJOURS l'un des vingt numeros tires
+ * — 70 560 sur 70 560 — donc il n'est pas un vingt-et-unieme numero tire dans 1..80 : c'est un
+ * INDEX dans le tirage.  S'il est tire du meme flux, la machine consomme au moins un mot de
+ * plus par tirage, et le crible qui l'ignore teste un modele DECALE D'UN MOT PAR TIRAGE : il
+ * ne peut pas trouver le vrai generateur, meme s'il est la.  On modelise donc explicitement
+ * la phase bonus, avec ces regles (arguments cle=valeur, apres les positionnels) :
+ *
+ *   bmode=0  aucun mot de bonus (le modele des §172/§174, conserve a l'identique)
+ *   bmode=1  UN mot apres les vingt, d'index r = floor(u*20) dans le tableau TRIE.  Comme
+ *            floor(x*20/2^32) = floor(c(x)/4), sa classe est contrainte a {4r, ..., 4r+3} :
+ *            quatre valeurs sur quatre-vingts, soit 4,32 bits d'elagage EN PLUS par tirage.
+ *            La phase bonus ne coute donc pas : elle RAPPORTE.
+ *   bmode=2  des mots apres les vingt jusqu'a ce que l'un porte exactement la classe du bonus
+ *            (tirage dans 1..80 avec rejet jusqu'a tomber sur un numero deja sorti) ; les mots
+ *            intermediaires doivent porter une classe NON acceptee.  Longueur geometrique,
+ *            esperance 4 mots.
+ *   bmode=3  comme bmode=1, mais l'index porte sur l'ordre d'ACCEPTATION et non sur l'ordre
+ *            trie.  Cet ordre est inconnu de l'archive mais CONNU DU CHEMIN : le crible le
+ *            reconstruit, donc la contrainte est la meme, 4 classes sur 80.
+ *   fsupp=n  n mots supplementaires par tirage, sans aucun test (multiplicateur, jeton, sel).
+ *            Chacun coute un facteur ndelta et ne rapporte rien : c'est la borne de tolerance
+ *            du §7.24 (xiii) rendue executable.
+ *   bonus=f  fichier : une ligne par tirage, « rang classe » (rang du bonus dans le tableau
+ *            trie, 0..19 ; classe du bonus, 0..79).  Requis des que bmode > 0.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,6 +109,9 @@ static int CHEMIN = 0;          /* imprimer la suite de classes complete des sur
 static unsigned char *PUB;      /* NT x POOL : 1 si la classe est publiee par le tirage */
 static unsigned char *LST;      /* NT x DRAWN : la liste des vingt classes publiees */
 static int *DEB;                /* debuts de blocs */
+static int BMODE = 0, FSUPP = 0;
+static unsigned char *BRANG;    /* NT : rang du bonus dans le tableau trie, 0..19 */
+static unsigned char *BCLS;     /* NT : classe du bonus, 0..79 */
 
 static double horloge(void)
 {
@@ -129,6 +157,25 @@ static int lire_tirages(const char *f)
     return n;
 }
 
+static void lire_bonus(const char *f, int nt)
+{
+    FILE *fp = fopen(f, "r");
+    if (!fp) { perror(f); exit(1); }
+    BRANG = malloc((size_t)nt); BCLS = malloc((size_t)nt);
+    char ligne[64];
+    int n = 0;
+    while (n < nt && fgets(ligne, sizeof ligne, fp)) {
+        int r, c;
+        if (sscanf(ligne, "%d %d", &r, &c) != 2) continue;
+        if (r < 0 || r >= DRAWN || c < 0 || c >= POOL) {
+            fprintf(stderr, "bonus ligne %d hors bornes : %d %d\n", n, r, c); exit(1);
+        }
+        BRANG[n] = (unsigned char)r; BCLS[n] = (unsigned char)c; n++;
+    }
+    fclose(fp);
+    if (n != nt) { fprintf(stderr, "bonus : %d lignes pour %d tirages\n", n, nt); exit(1); }
+}
+
 static int lire_blocs(const char *f, int nt)
 {
     FILE *fp = fopen(f, "r");
@@ -158,6 +205,7 @@ typedef struct {
 typedef struct {
     long long noeuds, coupes;
     int surv;
+    int dmax;                   /* plus grand nombre de tirages CLOTURES par un chemin */
     unsigned char sol[64];      /* le premier survivant, ses L classes */
     unsigned char (*tous)[64];  /* jusqu'a NSURV survivants, pour les temoins */
     int *lg;                    /* longueur (en mots) du chemin de chaque survivant */
@@ -168,13 +216,30 @@ typedef struct {
 
 /* DFS iteratif : pile explicite, un cadre par mot pose. */
 typedef struct {
-    unsigned char cand[3 + DRAWN];  /* candidats restants a cette profondeur */
-    signed char ncand, icand;
+    unsigned char cand[POOL];       /* candidats restants a cette profondeur */
+    short ncand, icand;
     int d;                          /* tirage courant AVANT ce mot */
+    int ds;                         /* profondeur du PREMIER mot du tirage courant */
     short wd;                       /* mots deja consommes dans le tirage courant */
     unsigned char nacc;             /* classes acceptees dans le tirage courant */
+    unsigned char ph;               /* 0 = les vingt ; 1 = le bonus ; 2 = les mots muets */
+    unsigned char ns;               /* mots muets deja consommes */
     uint64_t acc0, acc1;            /* bitmap des classes acceptees (0..63, 64..79) */
 } Cadre;
+
+/* la classe `v` est-elle admissible pour un mot pose dans la phase `ph` du tirage `d` ?
+ * `q` : l'index du bonus dans l'ordre d'ACCEPTATION (bmode 3), calcule par l'appelant. */
+static inline int autorise(int ph, int d, int v, uint64_t a0, uint64_t a1, int q)
+{
+    if (ph == 0) return PUB[(size_t)d * POOL + v];
+    if (ph == 2) return 1;
+    if (ph == 3) return (v >> 2) == BRANG[d];      /* bmode 4 : le bonus AVANT les vingt */
+    if (BMODE == 1) return (v >> 2) == BRANG[d];
+    if (BMODE == 3) return (v >> 2) == q;
+    /* bmode 2 : soit le bonus lui-meme, soit un refus (classe non encore acceptee) */
+    if (v == BCLS[d]) return 1;
+    return !((v < 64) ? (int)((a0 >> v) & 1) : (int)((a1 >> (v - 64)) & 1));
+}
 
 /* prem >= 0 : ne parcourir que la branche dont le premier mot porte la classe LST[t0][prem] */
 static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
@@ -187,6 +252,7 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
     /* cadre initial : le premier mot du bloc, tirage t0, rien d'accepte */
     Cadre *c = &pile[0];
     c->d = t0; c->nacc = 0; c->wd = 0; c->acc0 = c->acc1 = 0;
+    c->ph = (BMODE == 4) ? 3 : 0; c->ns = 0; c->ds = 0;
     c->ncand = DRAWN; c->icand = 0;
     if (t0 >= R->tfin) { free(pile); free(hist); return; }
     if (NFIXE) { c->cand[0] = (unsigned char)FIXE[0]; c->ncand = 1; }
@@ -204,13 +270,37 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
 
         /* etat apres avoir pose ce mot : accepte ou refuse ? */
         int d = f->d, nacc = f->nacc, wd = f->wd + 1;
+        int ph = f->ph, ns = f->ns, ds = f->ds;
         uint64_t a0 = f->acc0, a1 = f->acc1;
-        int deja = (cl < 64) ? (int)((a0 >> cl) & 1) : (int)((a1 >> (cl - 64)) & 1);
-        if (!deja) {
-            if (cl < 64) a0 |= (uint64_t)1 << cl; else a1 |= (uint64_t)1 << (cl - 64);
-            nacc++;
-            if (nacc == DRAWN) { d++; nacc = 0; wd = 0; a0 = a1 = 0; }
+        int ferme = 0, mort = 0;
+        if (ph == 3) {
+            ph = 0;                        /* le mot du bonus, deja teste a la generation */
+        } else if (ph == 0) {
+            int deja = (cl < 64) ? (int)((a0 >> cl) & 1) : (int)((a1 >> (cl - 64)) & 1);
+            if (!deja) {
+                if (cl < 64) a0 |= (uint64_t)1 << cl; else a1 |= (uint64_t)1 << (cl - 64);
+                nacc++;
+                if (nacc == DRAWN) {
+                    ph = (BMODE && BMODE != 4) ? 1 : 2;
+                    if (ph == 2 && FSUPP == 0) ferme = 1;
+                }
+            }
+        } else if (ph == 1) {
+            if (BMODE == 2) {
+                if (cl == BCLS[d]) { ph = 2; if (FSUPP == 0) ferme = 1; }
+                else if ((cl < 64) ? ((a0 >> cl) & 1) : ((a1 >> (cl - 64)) & 1)) mort = 1;
+                /* sinon : un refus de plus dans la phase bonus, on y reste */
+            } else {                       /* bmode 1 ou 3 : un seul mot, deja teste */
+                ph = 2; if (FSUPP == 0) ferme = 1;
+            }
+        } else {                           /* ph == 2 : les mots muets */
+            ns++;
+            if (ns >= FSUPP) ferme = 1;
         }
+        if (mort) continue;
+        if (ferme && d + 1 - t0 > B->dmax) B->dmax = d + 1 - t0;
+        if (ferme) { d++; nacc = 0; wd = 0; a0 = a1 = 0; ns = 0; ds = prof + 1;
+                     ph = (BMODE == 4) ? 3 : 0; }
         /* tirage interminable, ou deja hors d'atteinte : chemin mort */
         if (wd + (DRAWN - nacc) > R->nmaxd) continue;
         /* BUDGET GLOBAL : le chemin vrai consomme E[N] = 22,85 mots par tirage, un faux —
@@ -252,12 +342,28 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
         /* candidats du mot suivant */
         Cadre *g = &pile[prochain];
         g->d = d; g->nacc = (unsigned char)nacc; g->wd = (short)wd; g->acc0 = a0; g->acc1 = a1;
+        g->ph = (unsigned char)ph; g->ns = (unsigned char)ns; g->ds = ds;
         g->icand = 0;
-        const unsigned char *pub = PUB + (size_t)d * POOL;
+        /* bmode 3 : l'index du bonus dans l'ordre d'ACCEPTATION.  L'archive ne le publie pas,
+         * mais le chemin le reconstruit — on le relit sur les mots du tirage courant. */
+        int q = -1;
+        if (BMODE == 3 && ph == 1) {
+            uint64_t v0 = 0, v1 = 0;
+            int r = 0, cible = BCLS[d];
+            for (int i = ds; i <= prof; i++) {
+                int u = hist[i];
+                int vu = (u < 64) ? (int)((v0 >> u) & 1) : (int)((v1 >> (u - 64)) & 1);
+                if (vu) continue;
+                if (u < 64) v0 |= (uint64_t)1 << u; else v1 |= (uint64_t)1 << (u - 64);
+                if (u == cible) { q = r; break; }
+                r++;
+            }
+            if (q < 0) continue;           /* le bonus n'est pas dans le tirage reconstruit */
+        }
         if (NFIXE > prochain) {
-            /* mot force : il doit etre publie, et — au-dela de L — compatible avec la
+            /* mot force : il doit etre admissible, et — au-dela de L — compatible avec la
              * recurrence (c'est exactement le test du chemin vrai). */
-            int v = FIXE[prochain], bon = pub[v];
+            int v = FIXE[prochain], bon = autorise(ph, d, v, a0, a1, q);
             if (bon && prochain >= L) {
                 int base = hist[prochain - K] + hist[prochain - L], vu = 0;
                 for (int e = 0; e < R->ndelta; e++) {
@@ -269,8 +375,15 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
             g->cand[0] = (unsigned char)v;
             g->ncand = bon ? 1 : 0;
         } else if (prochain < L) {
-            g->ncand = DRAWN;
-            memcpy(g->cand, LST + (size_t)d * DRAWN, DRAWN);
+            if (ph == 0) {
+                g->ncand = DRAWN;
+                memcpy(g->cand, LST + (size_t)d * DRAWN, DRAWN);
+            } else {
+                int n = 0;
+                for (int v = 0; v < POOL; v++)
+                    if (autorise(ph, d, v, a0, a1, q)) g->cand[n++] = (unsigned char)v;
+                g->ncand = (short)n;
+            }
         } else {
             int base = hist[prochain - K] + hist[prochain - L];
             int n = 0;
@@ -279,9 +392,9 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
                 v %= POOL; if (v < 0) v += POOL;
                 int vu = 0;
                 for (int j = 0; j < n; j++) if (g->cand[j] == v) { vu = 1; break; }
-                if (!vu && pub[v]) g->cand[n++] = (unsigned char)v;
+                if (!vu && autorise(ph, d, v, a0, a1, q)) g->cand[n++] = (unsigned char)v;
             }
-            g->ncand = (signed char)n;
+            g->ncand = (short)n;
         }
         prof = prochain;
     }
@@ -305,15 +418,31 @@ int main(int argc, char **argv)
     R.nmaxd = (argc > 9) ? atoi(argv[9]) : 60;
     R.plafond = (argc > 10) ? atoll(argv[10]) : 200000000000LL;
     if (argc > 12 && strcmp(argv[12], "chemin") == 0) CHEMIN = 1;
-    if (argc > 11 && argv[11][0] && strcmp(argv[11], "chemin") != 0) {
+    if (argc > 11 && argv[11][0] && !strchr(argv[11], '=') && strcmp(argv[11], "chemin") != 0) {
         char *q = argv[11];
         while (NFIXE < 4096 && *q) { FIXE[NFIXE++] = (int)strtol(q, &q, 10); if (*q == ',') q++; }
         if (NFIXE < R.L) { fprintf(stderr, "fixe : %d classes, il en faut au moins L = %d\n", NFIXE, R.L); return 2; }
     }
+    const char *fbonus = NULL;
+    for (int i = 8; i < argc; i++) {
+        if (!strncmp(argv[i], "bmode=", 6)) BMODE = atoi(argv[i] + 6);
+        else if (!strncmp(argv[i], "fsupp=", 6)) FSUPP = atoi(argv[i] + 6);
+        else if (!strncmp(argv[i], "bonus=", 6)) fbonus = argv[i] + 6;
+    }
+    if (BMODE < 0 || BMODE > 4 || FSUPP < 0 || FSUPP > 8) {
+        fprintf(stderr, "bmode dans 0..4, fsupp dans 0..8\n"); return 2;
+    }
+    if (BMODE && !fbonus) { fprintf(stderr, "bmode > 0 exige bonus=fichier\n"); return 2; }
+    if (fbonus) lire_bonus(fbonus, NT);
     R.nmax = R.ntir * R.nmaxd + R.L + 2;
-    {   /* budget global a huit ecarts-types de la loi du vrai chemin */
-        double m = 22.8487 * R.ntir, sd = 1.8525 * sqrt((double)R.ntir);
-        R.budget = (int)(m + 8.0 * sd) + R.L + 2;
+    {   /* budget global a huit ecarts-types de la loi du vrai chemin.  La phase bonus
+         * ajoute sa propre esperance et sa propre variance : un mot exactement aux bmode
+         * 1 et 3, une geometrique de parametre 1/4 au bmode 2 (esperance 4, variance 12). */
+        double m = 22.8487, v = 3.4318;                 /* 1,8525^2 */
+        if (BMODE == 1 || BMODE == 3 || BMODE == 4) m += 1.0;
+        else if (BMODE == 2) { m += 4.0; v += 12.0; }
+        m += FSUPP;
+        R.budget = (int)(m * R.ntir + 8.0 * sqrt(v * R.ntir)) + R.L + 2;
     }
     if (R.K <= 0 || R.L <= R.K || R.L > 60) { fprintf(stderr, "K, L invalides\n"); return 2; }
 
@@ -332,7 +461,7 @@ int main(int argc, char **argv)
     double t0 = horloge();
 
     long long noeuds = 0, coupes = 0;
-    int surv = 0, bmax = -1;
+    int surv = 0, bmax = -1, dmax = 0;
     long long pic = 0;
     unsigned char sol[64]; memset(sol, 0, sizeof sol);
 
@@ -358,6 +487,7 @@ int main(int argc, char **argv)
 #endif
         {
             if (p > pic) pic = p;
+            if (B.dmax > dmax) dmax = B.dmax;
             if (B.surv && bmax < 0) { bmax = b; memcpy(sol, B.sol, (size_t)R.L); }
             if (CHEMIN && B.chems) {
                 /* les CHEMMAX plus COURTS : le chemin vrai est quasi minimal (lemme du
@@ -386,6 +516,7 @@ int main(int argc, char **argv)
     }
 
     double sec = horloge() - t0;
+    printf("bmode %d fsupp %d budget %d dmax %d\n", BMODE, FSUPP, R.budget, dmax);
     printf("K %d L %d shift %d mode %s ancrages %d tirages %d nmaxd %d fils %d\n", R.K, R.L, shift, mode,
            nuit ? (NB + saut - 1) / saut : 1, R.ntir, R.nmaxd,
 #ifdef _OPENMP

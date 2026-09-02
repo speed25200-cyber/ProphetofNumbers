@@ -4825,6 +4825,153 @@ pouvait pas faire mieux : sa classe ne contient pas les générateurs qu'il
 faudrait y mettre, et aucune classe traitable ne les contient.
 
 
+### 7.27 Le **tirage unitaire** (§175) — la portée exacte du crible de classes, et pourquoi le verdict ne dépend pas du protocole
+
+Le §7.24 construit le crible de classes et le §172 l'applique : *aucun* Fibonacci
+retardé additif de degré `≤ 7` lu par troncature avec rejet n'engendre l'archive
+triée. Ce verdict est dur, mais il portait sur un modèle précis — la machine
+consomme des mots jusqu'à vingt classes distinctes, puis passe au tirage suivant,
+et rien de plus. Cette section montre que l'hypothèse « et rien de plus » est
+**inutile** : le crible meurt à l'intérieur du premier tirage, et l'on peut dire
+exactement pourquoi.
+
+**(i) Le mot du bonus, et pourquoi il fallait le regarder.** L'archive publie un
+`bonus`, et le §77 avait établi qu'il est **toujours** l'un des vingt numéros
+tirés — `70 560` sur `70 560`, là où l'uniforme sur `1..80` en donnerait `17 640`.
+Le bonus n'est donc pas un vingt-et-unième numéro : c'est un **index dans le
+tirage**, `bonus = triés[⌊u·20⌋]` (§106). S'il vient du même flux, la machine
+consomme **au moins un mot de plus par tirage** — et le crible du §172, qui n'en
+consomme aucun, teste alors un modèle *décalé d'un mot par tirage*. Après le
+vingtième accepté, son automate exige du mot suivant une classe du tirage
+**suivant**, là où la machine y met le mot du bonus : le chemin vrai meurt à la
+frontière. Zéro survivant, et ce zéro ne dirait rien du générateur.
+
+Le contrôle est exécutable, et il a été exécuté (`h159 --selftest`) : on plante
+une suite **avec** mot de bonus, on la donne au crible **sans**, et le chemin vrai
+est écarté — `30` cas sur `30` (trois trinômes, deux décalages, cinq règles). Le
+trou était donc réel. Le §175 le comble en modélisant la phase bonus :
+
+| règle | ce que la machine fait | ce que le crible en tire |
+|---|---|---|
+| `bmode 1` | un mot après les vingt, index dans le tableau **trié** | `⌊c/4⌋ = r` publié : **4 classes sur 80** |
+| `bmode 2` | retirage dans `1..80` jusqu'à retomber sur un numéro sorti | classe `= bonus − 1` exactement, après une géométrique d'espérance `4` |
+| `bmode 3` | index dans l'ordre d'**acceptation** | `⌊c/4⌋ = q`, `q` inconnu de l'archive mais **reconstruit par le chemin** |
+| `bmode 4` | index tiré **avant** les vingt | `4` classes sur `80`, en tête de tirage |
+
+Le point de comptabilité vaut d'être noté : sous la troncature,
+`⌊x·20/2³²⌋ = ⌊⌊x·80/2³²⌋/4⌋ = ⌊c(x)/4⌋`, donc l'index publie deux bits de la
+classe et en laisse deux. Le mot du bonus **rapporte** `log₂(80/4) = 4,3219` bits
+d'élagage contre `1` bit de branchement pour son `δ` : la phase bonus rend le
+crible *plus* rapide et *plus* informatif, pas moins. Le `bmode 3` est le plus
+instructif des quatre : l'ordre d'acceptation n'est pas publié par l'archive
+triée, mais le chemin le porte — le crible pose les mots un par un, donc il sait
+dans quel ordre les classes ont été acceptées. **Une information que la donnée ne
+contient pas devient utilisable parce que la reconstruction la fabrique.**
+
+**(ii) La mesure qui rend tout cela sans objet — `d_max = 0`.** Le crible étendu
+a été instrumenté pour publier `d_max`, le plus grand nombre de tirages qu'un
+chemin **clôture**. Sur l'archive, à tous les degrés testés :
+
+| `(K, L)` | nœuds | pic du front | `d_max` |
+|---|---|---|---|
+| `(1,5)` | `7 543 286` | `176 000` | **0** |
+| `(2,5)` | `7 564 530` | `176 000` | **0** |
+| `(3,5)` | `7 616 000` | `176 000` | **0** |
+| `(1,6)` | `149 404 546` | `3 520 000` | **0** |
+| `(5,6)` | `154 462 915` | `3 520 000` | **0** |
+| `(1,7)` | `2 973 024 814` | `70 400 000` | **0** |
+
+Aucun chemin ne clôture **un seul** tirage. Tout ce que la machine pourrait faire
+*entre* deux tirages — mot de bonus, mot de multiplicateur, mots muets,
+regrainage, frontière de nuit — arrive après une mort qui a déjà eu lieu. C'est
+pourquoi les quatre règles ci-dessus rendent, sur l'archive, exactement le même
+compte de nœuds que `bmode 0` : la phase bonus n'est jamais atteinte.
+
+**(iii) Le théorème du tirage unitaire.** Ce n'est pas un accident de mesure : le
+nombre attendu de chemins compatibles avec un tirage se calcule **exactement**.
+
+> **Théorème.** Sous la lecture par troncature avec rejet, le nombre espéré de
+> chemins de classes qu'un trinôme de degré `L` laisse survivre à `T` tirages
+> consécutifs vaut
+>
+> ```
+>     E[survivants] = 40^L / C(40,20)^T ,        C(40,20) = 137 846 528 820.
+> ```
+>
+> Autrement dit : **chaque mot d'état libre rapporte `log₂ 40 = 5,3219` bits, et
+> chaque tirage clôturé en coûte `log₂ C(40,20) = 37,0043`.**
+
+*Démonstration.* Un chemin est déterminé par ses `L` premières classes puis, à
+chaque mot suivant, par le choix de `δ ∈ {0,1}`. Le lemme de la classe (§7.24)
+impose que **tout** mot consommé porte une classe publiée : les `L` premières se
+choisissent donc parmi `20` valeurs, d'où `20^L` amorces, et un mot déterminé
+survit avec probabilité `20/80 = 1/4` pour chacune des `2` valeurs de `δ`.
+Conditionnellement à cette survie, la classe est uniforme sur les vingt publiées.
+Un chemin qui clôture le tirage exactement au `N`-ième mot a donc une espérance
+de comptage `20^L · 2^(N−L) · (1/4)^(N−L) · Q_N = 20^L · 2^{−(N−L)} · Q_N`, où
+`Q_N` est la loi du **temps du collectionneur** sur vingt coupons. En sommant,
+
+```
+    E = 20^L · 2^L · E[2^{−N}] ,        E[2^{−N}] = Π_{k=1}^{20} p_k/(1+p_k),  p_k = k/20,
+```
+
+car `E[2^{−G}] = p/(1+p)` pour une géométrique de paramètre `p`, et `N` est somme
+de vingt géométriques indépendantes. Le produit se télescope :
+
+```
+    Π_{k=1}^{20} k/(20+k) = 20!·20!/40! = 1/C(40,20).
+```
+
+Pour `T` tirages, les temps sont indépendants et les facteurs se multiplient. ∎
+
+Le seuil `E = 1` tombe à `L* = log₂C(40,20)/log₂ 40 = 37,0043/5,3219 = 6,95`.
+D'où la table de portée, qui n'a aucun paramètre ajusté :
+
+| `L` | `E` par tirage | lecture |
+|---|---|---|
+| `4` | `1,86·10⁻⁵` | un tirage exclut, très largement |
+| `5` | `7,43·10⁻⁴` | un tirage exclut |
+| `6` | `0,0297` | un tirage exclut |
+| `7` | `1,19` | **marginal** : il faut deux tirages (`8,6·10⁻¹²`) |
+| `8` | `47,5` | un tirage ne dit rien |
+| `9` | `1 902` | — |
+
+et, pour `T` tirages consécutifs, `L* = T · 6,95` : `T = 2` porte jusqu'au degré
+`13,9`, `T = 3` jusqu'à `20,9`, `T = 25` — la fenêtre du §172 — jusqu'à `173,8`.
+
+**(iv) Le corollaire qui compte : le verdict est intra-tirage.**
+
+> **Corollaire.** Pour `L ≤ 6`, l'exclusion d'un trinôme se joue **à l'intérieur
+> d'un seul tirage**. Elle est donc valable quel que soit le comportement de la
+> machine entre deux tirages : mot de bonus (quatre règles), mot de
+> multiplicateur, `f` mots muets pour `f` arbitraire, regrainage par tirage,
+> frontière de nuit, changement de pas. Aucune de ces variantes n'a besoin d'être
+> criblée séparément.
+
+C'est un renforcement net du §7.24 (xiii), qui bornait la tolérance à
+`f ≤ 4` mots frais par tirage : au degré `≤ 6`, la borne saute — `f` peut être
+quelconque, y compris un regrainage complet à chaque tirage, puisque le crible
+n'a jamais besoin de traverser une frontière. Le degré `7` reste, lui, dépendant
+de l'enchaînement : `E = 1,19` par tirage, il faut deux tirages consécutifs, et
+c'est exactement là que les variantes de protocole ont un sens — d'où la grille
+du §175, qui les crible toutes les cinq.
+
+**(v) Ce que la formule dit de la limite du crible.** Elle sépare proprement les
+deux murs. L'**information** ne manque jamais : `T = ⌈L/6,95⌉` tirages suffisent
+à exclure un degré `L`, soit *trois* tirages pour le degré `20` et *dix* pour le
+degré `69`. Le mur est **calculatoire** : le pic du front vaut `20^L`, mesuré
+`70 400 000` au degré `7` (contre `20⁷/…` — le front effectif, après élagage de
+clôturabilité, vaut `1,28·10⁹/18`). C'est pourquoi le crible s'arrête au degré
+`7` en flux et `6` par nuit, alors qu'il aurait assez d'information pour aller
+bien plus loin. Toute avancée sur cette famille passe donc par une réduction du
+front — pas par plus de données.
+
+Et cela referme la question posée au §7.26 sous un autre angle : on savait que
+l'archive publie toujours *assez* de bits pour déterminer l'état ; on sait
+maintenant, pour cette famille précise, **combien de tirages** il en faut, et que
+c'en est un seul dès le degré `6`.
+
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
