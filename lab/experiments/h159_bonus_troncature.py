@@ -470,6 +470,13 @@ def unitaire():
 
     say("h159 --unitaire : un tirage a la fois ; le §172 est-il INTRA-tirage ?")
     say(f"{'K,L':>7} {'tirages':>8} | {'attendu':>9} | {'observe':>7} | {'p':>7} | {'sec':>6}")
+    JU = "/tmp/h159u_journal.txt"
+    fait = {}
+    if os.path.exists(JU):
+        for l in open(JU, encoding="utf-8"):
+            t = l.split()
+            if len(t) >= 4:
+                fait[t[0]] = (int(t[1]), int(t[2]), float(t[3]))
     lig, pmax = [], 0.0
     for K, L, saut in PLAN:
         n = (N + saut - 1) // saut
@@ -479,12 +486,19 @@ def unitaire():
                "1", str(saut), str(NMAXD), "200000000000", "", "",
                f"bonus={F_BON}", "bmode=0", "fsupp=0"]
         t0 = time.time()
-        p = subprocess.run(cmd, capture_output=True, text=True, env=env)
-        obs, coupes = 0, 0
-        for l in p.stdout.splitlines():
-            t = l.split()
-            if t and t[0] == "noeuds":
-                obs = int(t[5]); coupes = int(t[7])
+        k = f"{K},{L},{saut}"
+        if k in fait:
+            obs, coupes, sec = fait[k]
+            t0 = time.time() - sec
+        else:
+            p = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            obs, coupes = 0, 0
+            for l in p.stdout.splitlines():
+                t = l.split()
+                if t and t[0] == "noeuds":
+                    obs = int(t[5]); coupes = int(t[7])
+            with open(JU, "a", encoding="utf-8") as fj:
+                fj.write(f"{k} {obs} {coupes} {time.time()-t0:.1f}\n")
         # Poisson bilateral de moyenne connue
         import math
         def cdf(k, m):
