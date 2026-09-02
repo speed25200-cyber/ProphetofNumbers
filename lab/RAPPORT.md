@@ -18167,9 +18167,10 @@ La contrainte qui mord n'est ni la détection ni le crible : c'est le
 CVP rend un vecteur faux. À `20` tirages — `450` mots, **une heure et
 demie de jeu** — il rend l'état, chaque fois.
 
-Et un détail qui compte : **la chaîne a réussi avec des facteurs de Bayes
-de `9,8`, `10,4` et `17,2` bits**, tous **sous** le seuil de Ville de
-`23,25`. Ce n'est pas une contradiction, c'est une remarque de méthode :
+Et un détail qui compte : **à `16` et `20` tirages, la chaîne a réussi
+avec des facteurs de Bayes de `9,8`, `10,4` et `17,2` bits**, tous
+**sous** le seuil de Ville de `23,25` (les autres cas donnaient `15,6` à
+`32,5`). Ce n'est pas une contradiction, c'est une remarque de méthode :
 le seuil de `23,25` gouverne la **déclaration** d'une détection à partir
 de la DP seule ; le relèvement, lui, **s'auto-vérifie** — un état qui
 régénère exactement `20` tirages triés est juste avec une probabilité
