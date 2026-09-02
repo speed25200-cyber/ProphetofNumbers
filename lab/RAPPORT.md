@@ -18188,6 +18188,14 @@ et coûte moins d'une minute. Le `D = 0` des §165 à §170 n'est donc pas
 chaîne entière, et vérifiée de bout en bout, qui ne se ferme pas sur
 l'archive.
 
+**Ce que la DP fait gagner au crible.** Le §155 criblait déjà les `2^{5L}`
+états bas de TYPE_1 **à l'aveugle** — `2^{35}` états, `0` survivant. La DP
+en donne deux plans : le crible tombe à `2^{3L}`, soit `2^{21}` au lieu de
+`2^{35}`, un facteur `2^{2L} = 16 384`. C'est ce qui rend la chaîne
+minutée plutôt qu'horaire, et ce qui la porterait jusqu'aux degrés `9` à
+`11` (`2^{27}` à `2^{33}`) là où le crible aveugle (`2^{45}` à `2^{55}`)
+ne va pas.
+
 **Et ce qu'il ne dit pas.** Il porte sur TYPE_1 (`L = 7`, `2^{21}`
 candidats au crible) ; pour TYPE_2 le crible pèse `2^{45}` et pour TYPE_3
 `2^{93}` — il faudrait alors le crible incrémental en C du §155 (qui
