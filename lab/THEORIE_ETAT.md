@@ -4377,6 +4377,48 @@ suffisent au crible, `8` au relèvement. Ce qui coûte ici n'est pas la
 donnée — c'est le front.
 
 
+#### (xiii) Ce que le crible tolère d'entropie **fraîche** — et la zone grise qu'il laisse
+
+Le 7.26 pose la question que ce dossier n'avait jamais posée : et si le
+générateur absorbait un peu d'entropie fraîche **à chaque tirage** ? C'est le
+régime intermédiaire `0 < R < b`, celui d'un logiciel qui tire quelques
+octets de QRNG par tirage et les mélange à un état — une architecture
+courante, et qu'aucune section n'a testée : toutes supposent `R = 0`.
+
+Le crible de classes y répond dans sa propre comptabilité. Sa décroissance
+vaut `E[N] = 22,85` bits par tirage (un bit de `δ` contre deux bits de
+classe, sur `22,85` mots). Chaque bit d'entropie fraîche injecté est un bit
+de branchement de plus. Donc :
+
+> **Limite d'entropie fraîche du crible de classes.** *Le front décroît
+> encore tant que*
+>
+> `R + δ̄ + H(δ) < E[N] = 22,85` bits par tirage,
+>
+> *soit `R < 2,86` octets par tirage en l'absence d'excédent. Dans la
+> variante « mots frais » — le générateur remplace `f` de ses mots par de
+> l'entropie pure —, un tel mot coûte `+log₂ 80 − 2 = +4,32` au lieu de
+> `−1`, soit un écart de `5,32` : le crible tolère `f ≤ 4` mots frais par
+> tirage sur les `23` consommés.*
+
+C'est la même limite que celle de l'excédent (xii), et pour la même raison :
+un mot dont la classe n'est pas publiée coûte sans rien rapporter, qu'il
+vienne d'un autre jeu ou d'un photon.
+
+**Et cela dessine une zone grise qu'il faut nommer.** Le seuil
+informationnel du 7.26 est à `61,62` bits par tirage ; celui du crible est à
+`22,85`. Entre les deux —
+
+`2,86 octets < R < 7,70 octets` d'entropie fraîche par tirage
+
+— **l'état est déterminé et le crible ne le trouve pas**. C'est le seul
+régime du dossier où l'écart entre *déterminé* et *trouvé* est chiffré des
+deux côtés, et il vaut un facteur `2,7`. Combler cet écart — un crible qui
+supporterait `61` bits d'injection par tirage — demanderait un élagage de
+`61` bits par tirage, soit `2,7` bits par mot au lieu de `2` : il faudrait un
+canal plus large que la classe, et il n'y en a pas ici, puisque `log₂ 80 =
+6,32` bits par mot est tout ce que le tirage publie.
+
 #### (xi) L'ordre des mots libres : la cascade triangulaire, et ce qu'elle rachète
 
 Le pic `20^L` vient de ce qu'en ordre de flux les `L` premiers mots sont
