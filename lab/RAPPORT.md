@@ -18432,3 +18432,105 @@ degré `31` en `1 739` mots.
 n'est lue, rien n'est consigné.
 
 ---
+
+## 174. Le prédicteur : un seul fil des tirages publiés aux vingt numéros suivants (`lab/predire.py`)
+
+### Ce qui manquait
+
+Les pièces existaient et chacune avait son témoin : le crible de classes du
+§172 trouve les classes, le relèvement par réseau du §173 en tire l'état de
+`32L` bits, et le §171 avait montré la chaîne entière pour l'échantillonneur
+à modulo. Mais rien ne les reliait en un **programme** : le dossier
+contenait des démonstrations, pas un outil qu'on lance sur une suite de
+tirages. C'est ce fil.
+
+    tirages triés
+      → classes publiées (`v − 1`)
+      → crible de classes — automate non déterministe sur `(Z/80)^L`, verdict DUR
+      → suite de classes complète de chaque survivant
+      → relèvement — les `δ` donnent `T` demi-espaces sur les parties
+        fractionnaires, CVP résolu par LLL exact
+      → état de `32L` bits
+      → **REJEU** de la fenêtre entière
+      → prédiction du tirage suivant
+
+Le rejeu est ce qui rend le tout sûr : le crible est ambigu et le relèvement
+peut rendre plusieurs points, mais **un état qui rejoue trente tirages triés
+à l'identique est le bon** — se tromper demanderait de reproduire
+`30 × 61,62 = 1 849` bits par accident.
+
+### Le problème que la première version n'avait pas vu
+
+Sous `H₁`, le crible rend une famille de **chemins** immense : `2 112 000`
+pour `(1, 4)` sur quinze tirages. Or elle ne recouvre que **`19` états
+distincts** — et le chemin vrai y est **rare**. En gardant les premiers
+survivants rencontrés, on ne le voit jamais : mesuré, le vrai état était
+*absent* de `652 288` chemins imprimés.
+
+Le lemme du contraste de collectionneur (§7.24 (v)) donne la sortie. Le vrai
+chemin consomme `E[N] = 22,85` mots par tirage ; un faux, qui doit
+collectionner les vingt classes publiées, en consomme `71,96`. **La longueur
+totale est donc un rang.** Mesuré sur ces mêmes `2,1` millions de chemins :
+le vrai fait `345` mots, le minimum est à `344`.
+
+L'outil garde donc les survivants les **plus courts** — tampon borné à
+remplacement du pire — au lieu des premiers venus, et imprime le chemin
+complet des douze meilleurs. Le rang du vrai état passe de « absent » à
+**`0` ou `1`**.
+
+C'est la première fois que les `0,543` bit par mot que le verdict dur laisse
+sur la table (§7.24 (v)) sont récoltés — non comme un poids, ce qu'un crible
+exact ne peut pas faire, mais comme un **ordre de parcours**, ce qui ne coûte
+aucune exactitude.
+
+### La démonstration
+
+Suite plantée, lue par troncature avec rejet, **triée** comme l'archive ;
+l'état est caché au prédicteur, qui ne reçoit que trente tirages.
+
+| trinôme | configurations écartées avant | verdict | candidat | état | tirage suivant |
+|---|---|---|---|---|---|
+| `x⁴ + x³ + 1` | `3` | REJEU EXACT sur `30` tirages | **1ᵉʳ** | exact | **20/20** |
+| `x⁵ + x³ + 1` | `5` | REJEU EXACT sur `30` tirages | **1ᵉʳ** | équivalent | **20/20** |
+| `x⁶ + x⁵ + 1` | `7` | REJEU EXACT sur `30` tirages | **1ᵉʳ** | exact | **20/20** |
+
+Trois fois sur trois, au premier candidat : le générateur est identifié, son
+état de `32L` bits retrouvé, et les **vingt numéros du tirage suivant sont
+prédits juste**. Le cas `x⁵ + x³ + 1` rend un état *différent* de celui qui a
+été planté mais **équivalent** — il rejoue les trente tirages et prédit
+juste : c'est le même générateur vu depuis un autre point de sa suite, et
+c'est ce qui compte.
+
+### Sur l'archive
+
+Lancé sur les quarante premiers tirages de l'archive, sur les treize trinômes
+primitifs de degré `≤ 7` et les deux décalages :
+
+> **AUCUN MODÈLE.** Vingt-six configurations parcourues, toutes rendant
+> **zéro survivant**, parcours complet, aucune coupe. `(1,2)` coûte
+> `1 031` nœuds, `(3,7)` en coûte `2 962 766 608` — et pas un seul chemin
+> ne survit nulle part.
+
+L'outil rend alors, mot pour mot, ce qu'il a le droit de dire : « la fenêtre
+n'est engendrée par aucun Fibonacci retardé additif de degré `≤ 7` lu par
+troncature avec rejet, aux deux décalages. Cela ne dit rien des degrés
+supérieurs ni des autres familles. »
+
+### Ce que l'outil rend, et ce qu'il ne rend pas
+
+Il rend, en cas d'échec, **la liste exacte de ce qu'il a parcouru** — et il
+refuse de conclure au-delà : « la fenêtre n'est engendrée par aucun Fibonacci
+retardé additif de degré `≤ L` lu par troncature avec rejet, aux deux
+décalages. Cela ne dit rien des degrés supérieurs ni des autres familles. »
+
+Ses limites sont celles du crible, et elles sont chiffrées ailleurs : degré
+`≤ 7` en ordre de flux (`20^L`, §7.24 (vi)), `≤ 2,86` octets d'entropie
+fraîche par tirage (§7.24 (xiii)), et rien contre une source qui verse
+`7,70` octets frais par tirage (§7.26) — contre laquelle aucun outil ne peut
+rien, jamais.
+
+**Ligne de registre.** Aucune : outil et témoins synthétiques ; l'exécution
+sur l'archive est une application des grilles déjà consignées (§172), pas une
+hypothèse nouvelle.
+
+---
