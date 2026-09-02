@@ -3394,6 +3394,186 @@ sépare. C'est l'angle mort qui demeure, et il est nommé.
 
 Sur l'archive (§165, jeton `f11c611488262d18`) : grille de `51` configurations en cours, pré-enregistrée avant toute lecture (jeton scellé le 2026-09-02 à 12:41Z) ; les `25` premières (plan 0, degré `≤ 15`) sont lues : `D = 0`, maximum courant du flux `1,46` bit, meilleure nuit `3,12` bits (`x² + x + 1`, avant sa mort au bloc 68), `668` tirages impossibles, tous sur les trinômes de degré `≤ 3` — les valeurs finales sont au §165.
 
+
+### 7.18 La DP élaguée (§166) — un seul passage en flot, un faisceau, la martingale qui survit : le plan 0 jusqu'à `2³¹`, le plan 1 de TYPE_2
+
+Le §7.17 donne la lecture exacte du pas variable, et bute sur son coût :
+`21 · N` par tirage. Pour `N = 2³¹ − 1` (le plan 0 de TYPE_3, `x³¹ + x³ +
+1`) cela fait `4,5·10¹⁰` opérations par tirage, `52` jours d'un cœur pour
+les `70 560` tirages — et, second verrou aussi net que le premier,
+`8,6` Go pour un seul tableau `α` en simple précision. Deux idées lèvent
+les deux verrous : **le passage en flot**, qui supprime le tableau et les
+`m` passages, et **le faisceau**, qui supprime le facteur `N`.
+
+**(i) Le passage en flot.** La récurrence (iv) du §7.17,
+
+    α_t(p) = Σ_{n=20}^{40} α_{t−1}(p − n) · w_t(p, n),    α_0 ≡ 1,
+
+est **locale à gauche** : `α_t(p)` ne dépend que des `21` valeurs
+`α_{t−1}(p − 20), …, α_{t−1}(p − 40)`. En balayant les positions `p` dans
+l'ordre croissant, on peut donc calculer **d'un seul coup, à chaque
+position, les `m` valeurs** `α_1(p), …, α_m(p)` : chacune ne demande que
+des valeurs déjà calculées, aux positions `p − 20 … p − 40`.
+
+> **Lemme (un passage, mémoire `O(m)`).** *Les `m` premiers étages de la
+> DP sur les `N` positions se calculent en **un seul balayage** de la
+> séquence, avec un anneau de `41` positions × `m` étages — `41 m`
+> flottants — au lieu d'un tableau de `N` et de `m` balayages.*
+>
+> *Preuve.* Récurrence sur `p` : au moment de traiter `p`, l'anneau
+> contient `α_1(p′), …, α_{m−1}(p′)` pour `p′ ∈ [p − 41, p − 1]`, ce qui
+> suffit à former les `m` sommes ci-dessus ; on y écrit ensuite
+> `α_1(p), …, α_{m−1}(p)` et on retient `α_m(p)`. ∎
+
+> **Corollaire (le découpage est exact, donc parallèle).** *Comme
+> `α_0 ≡ 1` — la loi a priori est uniforme, et en unités de rapport de
+> vraisemblance elle vaut `1` partout — `α_t(p)` ne dépend que des
+> `40 t` bits qui précèdent `p`. Un **prologue** de `40 m` positions
+> avant le début d'un morceau amorce donc l'anneau à sa valeur EXACTE :
+> le balayage se découpe en autant de morceaux qu'on veut, sans aucune
+> approximation ni communication.*
+
+C'est ce qui distingue cette DP d'une DP séquentielle ordinaire : le
+temps `t` n'est pas la position `p`, et la dépendance en `p` est bornée
+par `40 m`. Le coût par position est de `21 m` multiplications-additions
+et **une seule** lecture de la fenêtre : les `21` poids de Hamming
+`w₁(n) = #{bits 1 dans [p − n, p)}` se lisent d'un registre glissant de
+`64` bits par un `popcount` et `20` incréments (`w₁(n+1) = w₁(n) +
+bit(p − n − 1)`), et servent aux `m` étages à la fois. Mesure : `1,4·10⁷`
+positions par seconde à `m = 40` sur quatre cœurs (chargés), soit
+`150` s pour `N = 2³¹` — contre `52` jours pour la DP pleine sur
+`70 560` tirages.
+
+**(ii) Le faisceau, et la coupe de Markov.** Après `m` tirages pleins on
+ne garde que les `B` positions de plus grand `α_m`, et on poursuit sur
+elles seules. Le lemme du §7.17 (l'élagage laisse une surmartingale) dit
+que cela ne coûte **aucune** validité. Ce que cela coûte se borne
+exactement :
+
+> **Lemme (coupe).** *Sous `H₀`, `E[#{q : LR_q ≥ 2ˣ}] ≤ N 2^{−x}`, où
+> `LR_q` est le rapport de vraisemblance de la position `q` seule.*
+>
+> *Preuve.* `E₀[LR_q] = 1` pour chaque `q` (c'est une martingale de
+> moyenne `1`, corollaire (ii) du §7.17), et Markov position par
+> position ; puis on somme sur les `N` positions. ∎
+
+Un faisceau de largeur `B` retient donc tout ce qui dépasse la **coupe**
+`x = log₂(N / B)` : la vraie position survit dès que son `log₂ LR` cumulé
+après `m` tirages dépasse cette coupe. Or la vraie position gagne, mesuré
+sur générateurs plantés (Fibonacci 32 bits, rejet exact, plans 0 et 1,
+degrés `9`, `15` et `17`, `20` témoins) :
+
+| `m` | `5` | `10` | `15` | `20` | `25` | `30` | `40` |
+|---|---|---|---|---|---|---|---|
+| `log₂ LR` de la vraie position, moyenne ± é.-t. | `5,5 ± 3,5` | `11,9 ± 3,7` | `17,8 ± 8,7` | `21,4 ± 9,9` | `27,7 ± 10,7` | `33,5 ± 11,5` | `43,6 ± 12,0` |
+| minimum sur les `20` témoins | `−1,6` | `4,5` | `4,7` | `6,0` | `8,7` | `16,4` | `23,6` |
+| rang médian parmi les `N` positions | `346` | `7` | `4` | `4` | `2` | `2` | `2` |
+| rang maximal | `7 957` | `101` | `37` | `19` | `7` | `11` | `20` |
+
+soit `1,09` bit par tirage — et le nombre de positions nulles au-dessus
+d'un seuil suit bien `N 2^{−x}` (mesuré à `x = 4, 8, 12` sur `N = 3,3·10⁴`
+à `2,6·10⁵`, toujours sous la borne). Pour `N = 2³¹` et `B = 2¹⁶` la
+coupe vaut `15` bits : avec `m = 40` tirages pleins la vraie position est
+au-dessus dans **tous** les témoins (minimum `23,6`), avec `8` bits de
+marge sur le pire. C'est le couple retenu — `m = 40`, `B₁ = 2¹⁶` pendant
+`20` tirages, puis `B₂ = 1024` pour la suite, la vraie position étant
+alors de rang `≤ 20` : le coût tombe à `21 · B` par tirage, `2·10⁴`
+opérations au lieu de `4,5·10¹⁰`.
+
+**(iii) Le faisceau mort, et le mélange qui le ressuscite.** Sous `H₀` le
+faisceau finit par mourir : il ne garde que des positions « chanceuses »,
+donc corrélées (souvent voisines), et un tirage un peu extrême les tue
+toutes à la fois (mesuré : une mort toutes les `≈ 10⁴` nuits-tirages à
+`B₂ = 1024`). Ce n'est pas le modèle qui meurt, c'est l'élagage. On
+redémarre alors à l'uniforme, et le prix est exactement `log₂ R` :
+
+> **Lemme (mélange sur les redémarrages).** *Soit `τ_1 < … < τ_R` des
+> temps d'arrêt et `BF^{(i)}` la surmartingale de la chaîne redémarrée à
+> `τ_i` (valant `1` avant `τ_i`). Alors `BF* = (1/R) Σ_i BF^{(i)}` est
+> une surmartingale positive de moyenne `≤ 1`, et
+> `P₀(sup_t max_i BF^{(i)}_t ≥ 2^s) ≤ R · 2^{−s}`.*
+>
+> *Preuve.* Chaque `BF^{(i)}` est une surmartingale de moyenne `≤ 1`
+> (arrêtée à `1` avant `τ_i` : sa masse de départ est `1`) ; une
+> combinaison convexe de surmartingales en est une ; Ville sur `BF*` et
+> `BF* ≥ (1/R) max_i BF^{(i)}`. ∎
+
+D'où, pour les chaînes de flux, le seuil `log₂(10⁷) + log₂ 64 = 29,25`
+avec un budget de `R = 64` redémarrages — jamais atteint : `≤ 3` par
+configuration sur `70 560` tirages.
+
+**(iv) Les dénormaux comme règle d'élagage.** En unités de rapport de
+vraisemblance, `α` part de `1` et une position fausse perd `≈ 5` bits par
+tirage : après `25` tirages elle est sous `2^{−126}`, la limite des
+flottants simples normalisés. Laisser le matériel traiter ces dénormaux
+coûte **onze fois** le passage (assistance microcode, mesuré) ; les
+mettre matériellement à zéro (`FTZ`/`DAZ`) est *exactement* une règle
+d'élagage de plus — donc licite par le lemme du §7.17, et gratuite. Le
+détail numérique n'est pas un détail : c'est la règle d'élagage la moins
+chère qui soit, et elle rend la sélection des `B` meilleures presque
+gratuite (seules les positions au-dessus de `2^{−126}` sont même
+proposées).
+
+**(v) Ce que cela ouvre.** Le plan 0 des `32` trinômes primitifs de degré
+`18 ≤ L ≤ 31` — `x³¹ + x³ + 1`, celui de TYPE_3, compris — sous le flux :
+`3` min par configuration au lieu de `52` jours. Le plan 1 des `6`
+trinômes de degré `15` — `x¹⁵ + x + 1`, celui de TYPE_2, `N = 2¹⁴ ·
+65 534` — sous le flux : `2` min. Par nuit (`370` chaînes indépendantes,
+une par bloc), le coût est celui de la phase pleine multiplié par le
+nombre de nuits : accessible jusqu'à `L = 25` (`15` min par
+configuration), il vaut `15` h pour `L = 31`, d'où l'échantillon
+systématique **d'une nuit sur dix** pour les deux séquences nommées, fixé
+d'avance.
+
+**(vi) Ce qui reste hors de portée, et pourquoi — le plan 1 de TYPE_3.**
+Les deux plans bas du Fibonacci `r_i = r_{i−K} + r_{i−L} mod 2³²`
+s'écrivent
+
+    b_i = b_{i−K} ⊕ b_{i−L}                                (plan 0 : m-suite, `2³¹ − 1` positions)
+    c_i = c_{i−K} ⊕ c_{i−L} ⊕ (b_{i−K} ∧ b_{i−L})          (plan 1 : la même récurrence, forcée par la retenue)
+
+Le plan 1 est donc, **à position `q` du plan 0 fixée**, une fonction
+*affine* de ses `L` bits initiaux `γ` : `c = A γ ⊕ f(q)`, où `A` est le
+déroulement du LFSR et `f(q)` le terme forcé par les retenues. L'inconnue
+se factorise en `(q, γ) ∈ Z/(2³¹ − 1) × F₂³¹` : `4,6·10¹⁸` positions, que
+l'on ne peut même pas parcourir une fois. Cette factorisation est une
+prise réelle — mais aucune des deux moitiés ne se laisse attaquer seule,
+et l'obstruction est exactement celle qu'on a démontrée au §7.17 :
+
+> sous des bits uniformes, `(A_t, n_t)` est **indépendant** : la loi
+> jointe se factorise en `P₀(A) · P₀(N = n)` (l'identité vérifiée terme à
+> terme au §7.17 (iii)). L'alignement seul ne dit **rien** ; et sans
+> l'alignement, un tirage ne dit rien non plus sur un bit particulier.
+> L'information n'existe que dans le couple.
+
+Ce n'est pas un mur d'information : une nuit rend `204 · 1,31 = 267` bits
+contre `62` inconnues. C'est un mur de recherche jointe, et il a deux
+issues nommées, qu'il faudra essayer :
+
+1. **L'alternance (type turbo).** Traiter l'alignement comme variable
+   latente et les bits comme paramètres : partir de marginales `P(c_j =
+   1)` à `1/2`, calculer la loi a posteriori de l'alignement par
+   avant-arrière sur la grille `(t, position)` — de largeur `20 t`, donc
+   quadratique en la nuit —, en déduire des marginales de bits, itérer.
+   Chaque tirage est une mesure « fenêtrée » du poids de Hamming local ;
+   c'est un problème de décodage à alignement inconnu, et l'alternance en
+   est l'attaque naturelle. Rien ne garantit la convergence : la
+   dépendance est faible (`1,31` bit par tirage réparti sur `≈ 23` bits).
+2. **La corrélation rapide sur la retenue.** La parité
+   `c_i ⊕ c_{i−K} ⊕ c_{i−L}` vaut `b_{i−K} ∧ b_{i−L}`, donc `0` avec
+   probabilité `3/4` sous bits uniformes : le plan 1 est un mot de code
+   du LFSR `(K, L)` **bruité à `1/4`**, très au-dessus du seuil des
+   attaques par corrélation rapide — dès qu'on dispose de bits souples,
+   la transformée de Walsh du §7.13 retrouve `γ` en `2³¹` opérations pour
+   chaque `q`… mais il faut encore les bits souples, donc (1) d'abord.
+
+Le mur est donc nommé, réduit, et chiffré : il ne reste plus dans l'angle
+mort que **le décodage souple à alignement inconnu**, `62` bits contre
+`267` bits d'information par nuit.
+
+Sur l'archive (§166, jeton `061f95021fc425e2`) : grille de `56` configurations (`38` de flux, `18` par nuit), pré-enregistrée avant toute lecture — RESULTAT_718.
+
+
 ---
 
 ## 8. Application à ce dossier
@@ -3463,6 +3643,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | toute relation de **poids 2** du bit lu — période, anti-période ou décalage isolé jusqu'à `Δ_max = S × 60 559` — donc tout LCG modulo `2^W` à sortie décalée (`java.util.Random`, MSVC, TYPE_0, LCG maison : `s ≤ 20` au pas 20, `s ≤ 22` au pas 80), le plan 1 de TYPE_1/TYPE_2 à shift 1 (périodes 254 et 65 534), et les corrélations partielles des LCG deux octaves sous leur période, sous flux et par nuit, sans état (§7.16) | linéaire en `N` : `32,7 M` statistiques, `30 min` témoins compris | **archive — §164 : `D = 0` sur `32 673 251` statistiques (max `|z| = 5,07`, `z_D = -0,53`), conforme** |
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 | la synchronisation sous le **rejet** (pas variable, `E[N] = 22,85` mots par tirage) : plan 0 des 31 trinômes de degré `≤ 17`, plan 1 des 19 de degré `≤ 11` (TYPE_1 compris), suite alternée (TYPE_0), sous le flux et par nuit, par la **position absolue** dans la suite du bit lu (§7.17) | `21 · N` par tirage, `N = 2^L − 1` (plan 0) ou `(2^L − 1) 2^L` (plan 1) ; surmartingale de Ville, seuil `23,25` (flux) / `31,78` (nuit), valable à tout instant | **archive — §165 : en cours (jeton `f11c611488262d18`)** |
+| la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
 model-free vaut `T/(M+1)` où `T` est le nombre **total** de bits observés et `M`
