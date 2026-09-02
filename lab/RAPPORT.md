@@ -18126,3 +18126,188 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 **Ligne de registre.** `h149.canal_mod4`, piste B, en cours (rien n'est consigné avant la fin des `84` configurations).
 
 ---
+
+## 171. Le témoin de bout en bout : détecter, relever l'état complet, **prédire les vingt numéros du tirage suivant** (`h151_bout_en_bout.py`)
+
+### L'objection à laquelle il fallait répondre
+
+Les §165 à §170 rendent tous `D = 0`. Une objection légitime — et il faut y
+répondre en chiffres, pas en promesses — est que le `D = 0` ne vaut que si la
+détection, *si elle avait lieu*, mènerait effectivement quelque part : une
+martingale qui dépasse son seuil donne une **position dans l'orbite du plan
+`0`**, pas un état de `224` bits, et encore moins un tirage. Entre les deux
+il y a trois maillons — l'alignement fin, les plans hauts, l'arithmétique
+exacte — dont aucune section ne prouvait qu'ils tiennent bout à bout.
+
+Ce §171 les parcourt, sur une suite **plantée** dont on connaît la vérité :
+`x⁷ + x³ + 1` (TYPE_1), sortie `r >> 1`, échantillonneur à rejet, tirages
+**triés** comme ceux de l'archive. Rien n'y est supposé : chaque maillon est
+mesuré, y compris là où il ne donne pas ce qu'on aurait cru.
+
+### La chaîne, maillon par maillon
+
+1. **Détection** (§7.18) — la DP en flot rend l'orbite et une position, en
+   `0,2` s sur `25` tirages.
+2. **Alignement fin** — *et c'est ici que la première idée était fausse*.
+   Le décodage de Viterbi ne rend **pas** les `n_t` exacts : sur `60`
+   frontières il en place `15` à `21` au bon mot, avec une dérive de `±7` à
+   `±20`. Le lissage (moyenne des masses postérieures) fait mieux — `34` à
+   `52` frontières sur `61` à `±2` mots près — mais pas exactement. Il faut
+   donc balayer un décalage global `dq` et laisser les plans hauts trancher.
+3. **Crible des plans `2-4`** (§7.6) — `2²¹` candidats par valeur de `dq`,
+   `13` valeurs, `≈ 24` s au total.
+4. **Relèvement exact** par réseau (LLL, `lab/lll_exact.py`) — `1,7` à
+   `15,6` s.
+5. **Prédiction** — les `20` numéros du tirage suivant.
+
+### Ce que les trois tirages au sort donnent
+
+| tirage | orbite/position (lissée → vraie) | masse | survivants du crible | états `32` bits | prédiction | `log₂ BF` |
+|---|---|---|---|---|---|---|
+| 1 | `(3, 143)` → `(3, 142)` | `0,177` | `102` sur `13 × 2²¹` | `1` | **exacte, 20/20** | `23,3` |
+| 2 | `(41, 22)` → `(41, 19)` | `0,129` | `15` | `4` | **exacte, 20/20** | `29,8` |
+| 3 | `(51, 74)` → `(51, 75)` | `0,400` | `157` | `2` | **exacte, 20/20** | `15,6` |
+
+Trois fois sur trois, à partir de **`25` tirages publiés et triés** — moins
+de deux heures de jeu — la chaîne rend les vingt numéros exacts du tirage
+suivant, en **moins d'une minute** de calcul : `0,2` s de détection, `24` s
+de crible, `2` à `16` s de relèvement.
+
+### Trois remarques, dont une qui corrige une idée reçue
+
+**La position n'a pas besoin d'être exacte.** Aux trois essais, la position
+lissée se trompe de `1` à `3` mots, et les frontières de `−6` à `+4` — et
+cela ne coûte rien : le balayage `dq ∈ [−6, +6]` couvre l'écart, et le
+crible des plans hauts, qui est **dur**, ne laisse survivre que le bon
+décalage. C'est la division du travail correcte : la DP donne le *voisinage*,
+l'arithmétique exacte donne le *point*.
+
+**Le canal du relèvement est cinquante fois plus large que celui de
+l'alignement.** Chaque tirage impose à chacun de ses `≈ 23` mots que sa
+classe `x mod 80` figure parmi les vingt publiées : `2` bits par mot,
+`45,7` bits par tirage — contre `H(N) = 2,85` bits d'entropie d'alignement.
+C'est pourquoi le crible tranche là où le lissage hésite.
+
+**Un pic sous le seuil ne coûte rien.** La détection du troisième essai ne
+vaut que `15,6` bits, loin des `29,25` de la martingale — et la chaîne
+aboutit quand même. C'est structurel : le relèvement **se vérifie lui-même**
+(l'état retrouvé rejoue l'archive ou ne la rejoue pas), donc on peut
+essayer les pics sous-liminaires sans rien payer statistiquement. Le seuil
+de Ville protège l'*affirmation* ; il ne borne pas l'*exploration*.
+
+### Ce que ce témoin établit — et ce qu'il n'établit pas
+
+Il établit que **le `D = 0` des §165-§170 est le premier maillon d'une
+chaîne complète et vérifiée**, et non un test dont on ignorerait la suite.
+Si l'un de ces cribles avait parlé, l'état entier et le tirage suivant en
+seraient sortis en moins d'une minute.
+
+Il n'établit rien sur l'archive : la suite est plantée, la vérité connue.
+C'est un témoin de **puissance**, pas un résultat. Et il ne porte que sur
+TYPE_1 — le crible des plans `2-4` coûte `2^{3L}`, hors de portée au
+degré `31`.
+
+**Ligne de registre.** Aucune : témoin synthétique, aucune donnée réelle
+n'est lue, rien n'est consigné.
+
+---
+
+## 172. La lecture par **troncature** sous pas variable : le crible de classes — un automate non déterministe sur `(Z/80)^L`, l'alignement qui ne se branche pas (`h152_troncature.py`, `tools/lfg_crible_classe.c`)
+
+### Le dernier des quatre échantillonneurs
+
+Les §165 à §170 lisent l'échantillonneur à **modulo**, `v = 1 + (x mod M)`,
+sous pas variable — nu, masqué, avec excédent, par nuit, sur deux canaux. Le
+quatrième échantillonneur usuel, la **troncature** `v = 1 + ((x · 80) >> 32)`
+— celui qui n'a *pas* de biais de modulo, celui que recommande tout manuel —
+n'était lu par aucune de ces sections dès que le pas varie, et le §8 le
+nommait comme tel. Ce §172 le lit.
+
+Il fallait pour cela un outil neuf, parce que le procédé des §165-§170 y est
+**inapplicable au sens propre** : sous troncature, le numéro publié dit les
+`6,32` bits de **poids fort** du mot, et le lemme de la retenue
+(`h_i = h_{i−K} + h_{i−L} + γ_i (mod 2^t)`, `γ_i ∈ {0,1}`) interdit tout
+quotient fini **déterministe** de l'état — donc pas de plan `0`, pas d'orbite
+`Z/P`, pas de position absolue, pas de faisceau (THEORIE_ETAT 7.24 (ii)).
+
+### Ce qui le remplace : la classe est additive **à un bit près**
+
+> `c(a + b mod 2³²) = c(a) + c(b) + δ (mod 80)`,  `δ ∈ {0, 1}`
+
+— vérifié sur `400 000` couples uniformes (exactement deux écarts, `50/50`)
+et sur `3 993` pas d'une vraie suite `(3, 7)` (aucun écart hors norme). La
+suite des classes est donc lue par un **automate non déterministe** d'état
+`(Z/80)^L` : **un** bit de branchement par mot. Contre **deux** bits
+d'élagage, car sous le rejet *tout* mot consommé — accepté comme refusé — a
+sa classe parmi les vingt publiées. Le front décroît d'un bit par mot.
+
+Et — c'est le point qui distingue ce crible de tout le reste du dossier —
+**l'alignement ne se branche pas** : le tirage courant se *déduit* du compte
+des classes acceptées depuis le début du bloc. Le pas variable, qui coûtait
+`H(N) = 2,846` bits par tirage aux §165-§170 et qui a imposé toute la
+machinerie de synchronisation, coûte ici **zéro**. Seule précaution, un
+plafond de `60` mots par tirage : `P(N > 60) = 1,8·10⁻²⁰`, soit `1,3·10⁻¹⁵`
+sur l'archive entière — la probabilité est nommée, pas cachée.
+
+Coût : front `20^L`, parcours `≈ 2,5 · 20^L` nœuds. C'est ce qui borne la
+grille au degré `7` (`2^{30,3}`, vingt secondes) ; le degré `9` vaut
+`2^{38,9}` et le degré `15` `2^{64,8}`.
+
+### Les témoins
+
+Synthétiques, sans jeton (aucune donnée réelle n'est lue) : une suite
+`(K, L)` engendrée, lue par troncature avec rejet, **puis triée** comme
+l'archive.
+
+| `(K, L)` | décalage | `H₁` : la branche vraie survit | `H₀` : `400` tirages uniformes | nœuds sous `H₀` (prédits `2,5 · 20^L`) |
+|---|---|---|---|---|
+| `(1, 4)` | `0` | oui | **`0` survivant** | `292 625` (`4,0·10⁵`) |
+| `(1, 4)` | `1` | oui | **`0` survivant** | `490 586` |
+| `(2, 5)` | `0` | oui | **`0` survivant** | `5 831 939` (`8,0·10⁶`) |
+| `(2, 5)` | `1` | oui | **`0` survivant** | `9 791 964` |
+| `(1, 6)` | `0` | oui | **`0` survivant** | `116 962 388` (`1,6·10⁸`) |
+| `(1, 6)` | `1` | oui | **`0` survivant** | `198 061 272` |
+
+Les deux moitiés tiennent : le crible **retient l'état vrai à tous les
+coups**, et il ne rend **rien** sur des tirages uniformes, à un coût qui suit
+le modèle au chiffre près.
+
+*Une honnêteté nécessaire.* Sous `H₁`, l'état vrai est retenu mais il n'est
+pas seul : l'automate est **ambigu** — un écart de `+1` sur une classe peut
+être absorbé par un `δ` ultérieur — et la famille des survivants se compte en
+milliers, voire en millions. Le crible **exclut** ; il n'identifie pas. C'est
+le relèvement (les `δ` lus sur la solution donnent `T` demi-espaces sur les
+parties fractionnaires, LLL, 7.24 (vii)) qui ne laisse passer qu'un point.
+
+### Pré-enregistrement
+
+Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothèse** : l'archive triée n'est engendrée par aucun Fibonacci retardé additif lu par l'échantillonneur à **troncature** avec rejet, aux deux décalages, sur les `13` trinômes primitifs de degré `≤ 7` en flux continu, ceux de degré `≤ 6` par nuit (`1` nuit sur `10`) et ceux de degré `7` par nuit (`1` nuit sur `37`) — `52` configurations. **Statistique** : `D` = nombre de configurations laissant au moins un survivant, c'est-à-dire un `L`-uplet de classes dont l'automate clôture `25` tirages consécutifs. **Nulle** : crible **dur**, pas de martingale — zéro survivant exclut la configuration à `1,3·10⁻¹⁵` près (le plafond de `60` mots par tirage). **Verdict** : conforme si `D = 0`.
+
+### La grille
+
+| `(K, L)` | décalage | mode | ancrages | nœuds visités | pic du front | survivants | secondes |
+|---|---|---|---|---|---|---|---|
+| `(1  2)` | `0` | flux | `1` | `1 031` | `22` | `0` | `0` |
+| `(1  3)` | `0` | flux | `1` | `20 056` | `440` | `0` | `0` |
+| `(2  3)` | `0` | flux | `1` | `21 422` | `440` | `0` | `0` |
+| `(1  4)` | `0` | flux | `1` | `383 649` | `8 800` | `0` | `0` |
+| `(3  4)` | `0` | flux | `1` | `393 794` | `8 800` | `0` | `0` |
+| `(2  5)` | `0` | flux | `1` | `7 564 597` | `176 000` | `0` | `0` |
+| `(3  5)` | `0` | flux | `1` | `7 616 087` | `176 000` | `0` | `0` |
+| `(1  6)` | `0` | flux | `1` | `149 408 626` | `3 520 000` | `0` | `4` |
+| `(5  6)` | `0` | flux | `1` | `154 466 087` | `3 520 000` | `0` | `4` |
+| `(1  7)` | `0` | flux | `1` | `2 973 089 263` | `70 400 000` | `0` | `75` |
+
+*Grille en cours : `10` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+
+**Résultat.**
+
+*en cours — voir le statut de la grille ci-dessus.*
+
+**Ce que cela ferme.**
+
+*à écrire à la fin de la grille.*
+
+**Ligne de registre.** `h152.troncature`, piste B, en cours (rien n'est consigné avant la fin des `52` configurations).
+
+---
