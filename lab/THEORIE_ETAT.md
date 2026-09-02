@@ -3567,9 +3567,44 @@ issues nommées, qu'il faudra essayer :
    la transformée de Walsh du §7.13 retrouve `γ` en `2³¹` opérations pour
    chaque `q`… mais il faut encore les bits souples, donc (1) d'abord.
 
-Le mur est donc nommé, réduit, et chiffré : il ne reste plus dans l'angle
-mort que **le décodage souple à alignement inconnu**, `62` bits contre
-`267` bits d'information par nuit.
+**(vii) Pourquoi la linéarisation ne sauve pas non plus.** Le plan 1 est
+une suite linéaire récurrente d'ordre `2L + C(L,2)` (7.7, borne atteinte,
+mesurée par Berlekamp-Massey : `35, 77, 135, 527` pour `L = 7, 11, 15,
+31`) : pour TYPE_3, **`527`** — la forme close est `L(L+3)/2`, vérifiée
+ici encore pour `L = 3, 5, 7, 9, 11` (`9, 20, 35, 54, 77`). Autrement
+dit, `527` bits **durs** du plan 1, à des positions **connues**,
+détermineraient toute la suite par une simple élimination. L'échantillonneur
+à rejet ne donne ni l'un ni l'autre :
+
+- *pas de bits durs* : un tirage ne contraint que le **nombre** `a₀` de
+  numéros impairs de sa fenêtre, soit `1,31` bit réparti sur `≈ 23` bits —
+  `0,057` bit par bit, un canal de capacité si faible qu'aucune recherche
+  séquentielle sur les bits ne peut converger (à la profondeur `d`,
+  `0,057 d` bits d'information contre `2^d` feuilles) ; seuls les tirages
+  extrêmes durcissent (`a₀ = 20` forcerait `n ≥ 20` zéros consécutifs, mais
+  son espérance sur l'archive est `0,01`) ;
+- *pas de positions connues* : la dérive de l'alignement est `1,85 √t`
+  mots, soit `± 26` mots après une nuit ;
+- *pas de propagation* : les contrôles de parité du plan 1 sont
+  `c_i ⊕ c_{i−K} ⊕ c_{i−L} = b_{i−K} ∧ b_{i−L}`, **exacts** si la position
+  du plan 0 est connue, mais **bruités à `1/4`** si elle ne l'est pas.
+  Un canal de capacité `0,057` bit rend au mieux un biais `δ = 1 − 2p ≈
+  0,28` par bit (`1 − h(p) = 0,057`) ; un contrôle de poids `3` à bruit
+  `1/4` transporte un facteur `1 − 2·(1/4) = 0,5`, donc un extrinsèque
+  `0,5 δ² ≈ 0,04` contre `0,28` d'a priori, et chaque bit n'appartient
+  qu'à **trois** contrôles (le trinôme). La structure n'ajoute presque
+  rien, et l'on ne peut pas en fabriquer d'autres : le polynôme minimal
+  d'ordre `527` n'a pas de multiple de petit poids à un degré accessible
+  (anniversaire : un multiple de poids `4` vit au degré `≈ 2^{176}`).
+
+Le mur est donc nommé, réduit, et chiffré : ce n'est ni l'information
+(`92 000` bits disponibles sous le flux pour `527` inconnues linéarisées,
+`62` réelles), ni la structure (linéaire d'ordre `527`), c'est le
+**décodage souple à alignement inconnu** — et le seul levier qui reste
+serait un canal plus riche que la parité, c'est-à-dire une statistique du
+tirage qui contraigne plus d'un bit par mot sans faire exploser l'état
+caché (7.7 : le nibble vaut `23,5` bits par tirage, mais son état est
+`2^{3L−3}`).
 
 Sur l'archive (§166, jeton `061f95021fc425e2`) : grille de `56` configurations (`38` de flux, `18` par nuit), pré-enregistrée avant toute lecture — RESULTAT_718.
 
