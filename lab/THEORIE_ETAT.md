@@ -4498,6 +4498,117 @@ frontières (un tirage se ferme exactement quand vingt classes distinctes
 ont été acceptées). Une mise en œuvre qui propage cette contrainte paierait
 moins, et les pics du tableau (xi) sont donc pessimistes.
 
+
+### 7.25 La source elle-même : ce que le fournisseur annonce, ce que l'archive borne, et où il reste quelque chose
+
+Tout ce qui précède teste des **générateurs logiciels** : glibc, MT19937, les
+congruentiels, les Fibonacci retardés, xoshiro, PCG, MWC. Aucune section ne
+s'était demandée ce que l'opérateur dit employer. C'est une question de
+documentation, pas de mathématiques, et elle change la lecture de tout le
+reste.
+
+#### (i) Ce qui est public
+
+Deux faits, tous deux publics et tous deux de seconde main :
+
+- **ID Quantique nomme la Loterie Romande parmi ses clients Quantis**, pour
+  son « application de tirage des numéros gagnants » (page *Gaming &
+  Lotteries* du fournisseur) ;
+- **IGT a signé en 2022 un contrat de longue durée** (jusqu'en 2031) pour la
+  plateforme *iLottery* de la Loterie Romande.
+
+L'archive court du **14 septembre 2025** au **25 août 2026** : elle est donc
+entièrement dans la période IGT.
+
+**Statut de ces deux faits.** Ce sont une page commerciale et un communiqué,
+pas une spécification. Ni l'un ni l'autre ne dit (a) si *Loto Express* — le
+tirage aux cinq minutes — passe par le même chemin que les tirages
+principaux, ni (b) si l'entropie quantique est **consommée directement** ou
+sert de **graine** à un générateur déterministe. Ces deux inconnues sont
+exactement celles qui décident si quoi que ce soit est attaquable.
+
+#### (ii) Ce que cela fait au reste du dossier
+
+Il faut le dire sans détour : **si la source est un QRNG consommé
+directement, tous les résultats négatifs de ce dossier étaient attendus**, et
+le programme entier — les onze mille systèmes, les martingales de Ville, les
+cribles de classes — testait une famille à laquelle le système n'appartient
+pas. Sa valeur n'est alors plus celle d'une recherche mais celle d'une
+**borne** : il établit ce que l'archive ne peut pas être, ce qui reste utile
+et n'est pas ce qu'on cherchait.
+
+#### (iii) Le biais publié, et pourquoi il n'arrive pas au tirage
+
+Hurley-Smith et Hernandez-Castro (2020) rapportent des biais au niveau de
+l'**octet** sur la sortie brute de Quantis. Le tirage publié n'est pas la
+sortie brute : il en est l'image par l'échantillonneur. Ce que l'archive
+borne se calcule exactement.
+
+Sur `70 560 × 20 = 1 411 200` numéros publiés, l'effectif attendu par classe
+vaut `17 640`. Un biais relatif `d_i` par classe ajoute `17 640 · Σ d_i²` au
+`χ²`. Le seuil de détection à `3σ` sur `79` degrés de liberté vaut
+`79 + 3√158 = 116,7`. Donc :
+
+> **Toute déviation marginale d'écart quadratique moyen supérieur à
+> `0,91 %` par classe aurait été vue.** Le `χ²` mesuré vaut `53,60`
+> (`z = −2,02`), **en deçà** de son espérance.
+
+#### (iv) Ce que l'archive exclut de la **chaîne de mise en forme**
+
+C'est le point neuf, et il ne porte pas sur le hasard mais sur le logiciel
+qui l'habille. Si l'opérateur lit le flux par mots de `W` bits et les envoie
+sur `1…80` par modulo ou par troncature **sans rejet**, le biais de repli
+est calculable, et l'archive tranche :
+
+| largeur `W` du mot lu | `χ²` ajouté | écart max | verdict |
+|---|---|---|---|
+| `8` (un **octet**) | `22 050` | `25,0 %` | **exclu, massivement** |
+| `10` | `1 378` | `6,25 %` | **exclu** |
+| `12` | `86,1` | `1,56 %` | **exclu** (`χ²` total `165`, `z = 6,8`) |
+| `14` | `5,4` | `0,39 %` | invisible |
+| `16` | `0,3` | `0,098 %` | invisible |
+| `≥ 20` | `< 0,01` | `< 0,01 %` | invisible |
+
+> **L'opérateur ne réduit pas un octet — ni aucun mot de `12` bits ou
+> moins — sur `1…80` par modulo ou troncature sans rejet.** C'est la
+> première chose que l'archive dise de la chaîne matérielle, et c'est un
+> verdict dur. À partir de `14` bits, plus rien ne se voit.
+
+Autrement dit : un biais d'octet du QRNG ne peut atteindre les fréquences
+publiées qu'à travers une mise en forme *large* (`≥ 14` bits) ou *avec
+rejet*, et dans ce cas il est lissé sous le seuil de `0,91 %`.
+
+#### (v) La fourche, et c'est la seule qui compte
+
+- **QRNG → graine d'un petit générateur (32 bits).** Attaquable, et c'est
+  déjà en cours : le balayage des `2³²` amorçages du 7.4 addendum (§161)
+  couvre exactement cette branche, pour quatre libc et vingt-et-un
+  échantillonneurs.
+- **QRNG consommé directement, ou graine d'un CSPRNG (`≥ 256` bits).**
+  Hors de portée — et c'est un énoncé sur l'**information**, pas sur
+  l'effort : il n'y a pas assez de bits dans l'archive pour distinguer un
+  état de `256` bits, quelle que soit la puissance de calcul.
+
+L'archive penche déjà pour la seconde branche : `3 160` paires, `6 400`
+covariances, les `χ²` de résidus, les autocorrélations et — désormais —
+plusieurs centaines de configurations de la série du rejet donnent toutes le
+même verdict.
+
+#### (vi) Ce qui reste, et ce qui n'est pas de ce dossier
+
+Ce qui reste est **documentaire** : la chaîne exacte de mise en forme entre
+le photon et les vingt numéros. Le CSV ne la donnera pas — aucune analyse,
+si fine soit-elle, ne peut lire une spécification qu'elle n'a pas.
+
+Et il reste, hors du générateur, le **protocole** : c'est par là que les
+loteries cassées l'ont été (résultat visible trop tôt, graine égale à
+l'heure, réutilisation de flux, complicité interne), et jamais par une
+réduction de réseau sur un fichier de résultats. Le dossier en tire déjà la
+conclusion défendable — **l'échantillonneur protège plus que le
+brouilleur** — et s'arrête là : l'objet est ici la mathématique du
+générateur, et le mode d'emploi d'une fraude n'y figurera pas.
+
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
@@ -4628,6 +4739,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | la même synchronisation **élaguée** (§7.18) : plan 0 des 32 trinômes primitifs de degré `18 ≤ L ≤ 31` — `x³¹ + x³ + 1` (TYPE_3) compris, `N = 2³¹ − 1` — et plan 1 des 6 trinômes de degré 15 — `x¹⁵ + x + 1` (TYPE_2), `N = 2¹⁴ · 65 534` —, sous le flux et par nuit | un seul passage en flot pour les `m = 40` tirages pleins (mémoire `O(m)`, découpage exact), puis faisceau `2¹⁶` puis `1024` : `21 · B` par tirage ; l'élagage laisse une surmartingale, Ville au seuil `29,25` (flux, mélange sur `64` redémarrages) / `23,25 + log₂(blocs)` (nuit) | **archive — §166 : en cours (jeton `061f95021fc425e2`)** |
 | le rejet **masqué** — `v = 1 + (x mod M)`, refusé si `v > 80` (`M = 100, 128, 256`), l'écriture recommandée d'un tirage sans biais : mêmes trinômes, plan 0 (`L ≤ 31`) et plan 1 (`L ≤ 15`), sous le flux (§7.19) | la vraisemblance garde la même forme, `F` et `G` étalés par la binomiale du masque ; `n` jusqu'à `176`, fenêtre de 128 bits ; `1,02 → 0,092` bit par tirage de `M = 80` à `256` ; Ville au seuil `29,25` | **archive — §167 : en cours (jeton `3e34b826a3ea5e8f`), 122 des 181 configurations lues, `D = 0`** |
 | l'**excédent** par tirage : le générateur consomme `δ` mots de plus (habillage, seconde partie, autre jeu) — cinq séquences nommées, deux échantillonneurs, `δ` dans vingt valeurs de 1 à 79 (§7.20) | la cible se décale, la fenêtre ne bouge pas : coût nul en calcul, `log₂ 20` de seuil ; limite exacte — un excédent VARIABLE d'entropie `≥ 1,09` bit par tirage noie le signal, quelle que soit la longueur du flux | **archive — §168 : à lancer, chaîné après le §165** |
+| la **source elle-même** : un QRNG matériel (ID Quantique nomme la Loterie Romande parmi ses clients Quantis pour le tirage des numéros gagnants ; IGT tient la plateforme depuis 2022, et l'archive court de septembre 2025 à août 2026) — biais d'octet publié sur la sortie brute (Hurley-Smith & Hernandez-Castro, 2020) (§7.25) | le tirage n'est pas la sortie brute : l'archive borne toute déviation marginale à `0,91 %` d'écart quadratique moyen par classe (`χ²` mesuré `53,60` contre `79` attendus). Et elle EXCLUT la mise en forme naïve : un mot de `12` bits ou moins envoyé sur `1…80` par modulo ou troncature sans rejet donne `χ² ≥ 86` de plus, vu à `6,8σ` ; à partir de `14` bits, invisible | **acquis — §7.25. Reste la fourche : QRNG → graine de 32 bits (attaquable, §161 la balaie) contre QRNG direct ou CSPRNG ≥ 256 bits (hors de portée, faute de bits dans l'archive, non faute de calcul)** |
 | la lecture par **troncature** `v = 1 + ((x·80) >> 32)` sous **pas variable** (rejet) — l'échantillonneur sans biais de modulo, le seul des quatre que les §165-§170 ne lisent pas (§7.24) | aucun état fini DÉTERMINISTE n'existe (lemme de la retenue) ; mais la classe est additive à un bit près (quasi-morphisme `c(a+b) = c(a)+c(b)+δ`, `δ ∈ {0,1}`), d'où un automate NON DÉTERMINISTE sur `(Z/80)^L` : `1` bit de branchement contre `2` bits d'élagage par mot (lemme de la classe), et l'alignement se DÉDUIT des classes acceptées — coût nul. Front `20^L`, puis relèvement des fractions par LLL | **archive — §172 : en cours (jeton `c7b3095602e2e126`, h155), `D = 0`, 0 coupe. Le degré 9 suit (§174, h154). Première conception (h152) ABANDONNÉE et NON consignée : sa partie par nuit s'est révélée infaisable sous un plafond de 60 mots par tirage — le coût est à queue lourde, deux configurations y ont été coupées. Degré 10 (`2^{43,2}` par configuration) et au-delà hors de portée ; TYPE_2 `2^{64,8}`, TYPE_3 `2^{134}`, TYPE_4 `2^{272}` hors de portée de l'ordre de flux** |
 | le canal **mod 4** : `v − 1 = x mod 80` donne `x mod 4`, deux bits par mot — plan 0 des trinômes `L ≤ 15` (`N = (2^L − 1)2^L`), plan 1 des `L ≤ 10` (état mod 8), avec ou sans **jumeau entrelacé** (§7.21) | vraisemblance `Π_c F₂₀(w_c, a_c) · G₂₀` (normalisation vérifiée) ; `5,37` bits par tirage contre `1,31` ; l'entrelacement d'un jumeau coûte `2,85` bits : net `+2,53` au lieu de `−1,54` | **archive — §169 : en cours (jeton `06785fcaa1f3e711`)** |
 | le rejet **masqué par nuit** (§7.19 × §7.4) : le générateur réamorcé chaque soir ET lu au masque — plan 0 des trinômes `L ≤ 18`, plan 1 des `L ≤ 11`, `M = 100` et `128`, les 370 nuits | une phase pleine par nuit (`370 · N`) ; une chaîne par bloc, seuil `31,78`, plus la chaîne des blocs cumulés au seuil `23,25` | **archive — §170 : à lancer, chaîné après le §169** |
