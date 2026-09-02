@@ -4160,16 +4160,49 @@ ne clôt rien.
 Le pas variable, qui coûtait `H(N) = 2,846` bits par tirage aux §7.17-§7.21
 et qui a imposé toute la machinerie de synchronisation, **coûte ici zéro**.
 
-Une seule précaution : un chemin dégénéré — toutes ses classes égales,
-donc des refus à l'infini — ne clôturerait jamais un tirage. On coupe donc
-tout chemin dont le tirage courant dépasse `60` mots. Ce n'est pas une
-approximation gratuite : le calcul exact de la loi de `N` (chaîne du
-collectionneur, arithmétique rationnelle) donne
+Reste le plafond par tirage. Je l'ai d'abord présenté comme une simple
+précaution contre les chemins dégénérés. **C'est faux : c'est le moteur du
+crible**, et il vaut la peine de dire pourquoi.
 
-`P(N > 40) = 8,3·10⁻⁹`,  `P(N > 50) = 1,7·10⁻¹⁴`,  **`P(N > 60) = 1,8·10⁻²⁰`**,
+> **Lemme du contraste de collectionneur.** *Un chemin **vrai** tire ses
+> classes dans les `80` et s'arrête quand il en a `20` distinctes : c'est un
+> collectionneur sur `80` coupons arrêté à `20`, d'espérance*
+>
+> `E[N] = Σ_{j=0}^{19} 80/(80 − j) = 22,849` mots.
+>
+> *Un chemin **faux** a, par construction du crible, toutes ses classes parmi
+> les `20` publiées : c'est un collectionneur sur `20` coupons, complet,
+> d'espérance*
+>
+> `E[N] = 20 · H₂₀ = 71,955` mots — **`3,15` fois plus.**
 
-soit `1,3·10⁻¹⁵` sur les `70 560` tirages de l'archive. Le crible reste
-exact à cette probabilité près, qui est **nommée**.
+Le plafond exploite exactement cet écart : il coupe la queue longue du faux
+chemin sans toucher au vrai. Les deux lois se calculent exactement (chaîne du
+nombre de distincts en arithmétique rationnelle d'un côté, `20! S(n,20)/20ⁿ`
+de l'autre) :
+
+| plafond `n` | vrai : `P(N > n)` | × `25 000` tirages | faux : `P(clôture)` | élagage |
+|---|---|---|---|---|
+| `30` | `9,6·10⁻⁴` | `24` | `0,00132` | `9,57` bits |
+| `35` | `3,7·10⁻⁶` | `9,4·10⁻²` | `0,00975` | `6,68` bits |
+| `40` | `8,3·10⁻⁹` | `2,1·10⁻⁴` | `0,03589` | `4,80` bits |
+| **`45`** | **`1,3·10⁻¹¹`** | **`3,3·10⁻⁷`** | **`0,08750`** | **`3,51` bits** |
+| `60` | `1,8·10⁻²⁰` | `4,6·10⁻¹⁶` | `0,36061` | `1,47` bits |
+
+`45` est le point retenu : la perte de puissance sur toute une grille vaut
+`3,3·10⁻⁷`, et l'élagage `3,51` bits par tirage **en plus** des deux bits par
+mot. Passer à `40` gagnerait `1,29` bit de plus pour une perte de `2,1·10⁻⁴`,
+ce qui reste défendable ; passer à `60`, comme la première conception le
+faisait, jette les deux tiers de l'élagage — et c'est la vraie raison de son
+échec, bien plus que l'absence de l'élagage de clôturabilité.
+
+**Et cela explique la queue lourde du (vi).** Un tirage dont les classes
+publiées contiennent des suites consécutives laisse le faux chemin
+*collectionner plus vite* : les deux valeurs de `δ` y tombent dans l'ensemble
+publié, donc le chemin y gagne des coupons au lieu d'en manquer. La
+probabilité de clôture monte, l'élagage tombe, et l'arbre grossit. Les deux
+constats — poches surcritiques et contraste de collectionneur — sont le même
+phénomène vu par deux bouts.
 
 #### (vi) La comptabilité, et ce qu'elle coûte
 
