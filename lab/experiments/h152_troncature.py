@@ -53,7 +53,9 @@ JOURNAL = os.path.join(TMP, "h152_journal.txt")
 FJETON = os.path.join(TMP, "h152_jeton.json")
 NMAXD = 60          # plafond de mots par tirage : P(N > 60) = 1,8e-20
 NTIR = 25           # tirages qu'un chemin doit cloturer pour compter comme survivant
-PLAFOND = 20_000_000_000
+def plafond(L):
+    """jamais atteint sous H0 (ou le parcours vaut 2,5 x 20^L) : seize fois la marge."""
+    return max(20_000_000_000, 40 * 20 ** L)
 
 
 def say(*a):
@@ -73,15 +75,12 @@ def grille():
     """(K, L, shift, mode, saut) — cout ~ 2,5 x 20^L par ancrage."""
     t7 = [(K, L) for K, L in Q.TRIN0 if L <= 7]
     t6 = [(K, L) for K, L in Q.TRIN0 if L <= 6]
-    t9 = [(K, L) for K, L in Q.TRIN0 if L == 9]
     g = []
     for s in (0, 1):
         g += [(K, L, s, "flux", 1) for K, L in t7]
     for s in (0, 1):
         g += [(K, L, s, "nuit", 10) for K, L in t6]
         g += [(K, L, s, "nuit", 37) for K, L in t7 if L == 7]
-    for s in (0, 1):
-        g += [(K, L, s, "flux", 1) for K, L in t9]
     return g
 
 
@@ -89,10 +88,13 @@ def cle(K, L, shift, mode, saut):
     return f"{K},{L},{shift},{mode},{saut}"
 
 
-def lancer(K, L, shift, mode, saut, f_cls, f_blocs, nice=12, fils=4):
+def lancer(K, L, shift, mode, saut, f_cls, f_blocs, nice=15, fils=2, fixe=None, plaf=None):
     env = dict(os.environ, OMP_NUM_THREADS=str(fils))
     cmd = ["nice", "-n", str(nice), OUTIL, str(K), str(L), str(shift), mode,
-           f_cls, f_blocs, str(NTIR), str(saut), str(NMAXD), str(PLAFOND)]
+           f_cls, f_blocs, str(NTIR), str(saut), str(NMAXD),
+           str(plaf if plaf else plafond(L))]
+    if fixe:
+        cmd.append(fixe)
     t0 = time.time()
     p = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if p.returncode != 0:
@@ -149,8 +151,11 @@ def temoin(K, L, shift, ntir=60, graine=999):
     fb = os.path.join(TMP, "h152_temoin_blocs.txt")
     open(f1, "w").write("\n".join(" ".join(map(str, t)) for t in tirages) + "\n")
     open(fb, "w").write("0\n")
-    fin = lancer(K, L, shift, "flux", 1, f1, fb)
-    vrai = " ".join(str(c) for c in cls[:L])
+    vrai = ",".join(str(c) for c in cls[:L])
+    # branche forcee : verifie en quelques millisecondes que l'etat vrai survit, sans
+    # enumerer la famille entiere (l'automate est ambigu — un ecart de +1 peut etre
+    # absorbe par un delta ulterieur, §7.24 (viii))
+    fin = lancer(K, L, shift, "flux", 1, f1, fb, fixe=vrai, plaf=2_000_000)
     # H0 : tirages uniformes
     rng0 = random.Random(4242 + graine)
     t0 = [sorted(rng0.sample(range(POOL), DRAWN)) for _ in range(400)]
@@ -167,14 +172,13 @@ if __name__ == "__main__" and "--selftest" in sys.argv:
     for K, L in ((1, 4), (2, 5), (1, 6)):
         for shift in (0, 1):
             fin, vrai, fin0 = temoin(K, L, shift)
-            retenu = any(s.split(" ", 1)[1] == vrai for s in fin["sols"]) or fin["surv"] > 8
-            say(f"   ({K},{L}) shift {shift} : H1 {fin['surv']:>9,} survivants "
-                f"({fin['noeuds']:,} noeuds, {fin['sec']:.1f} s) ; "
+            say(f"   ({K},{L}) shift {shift} : H1 (branche vraie forcee [{vrai}]) "
+                f"{fin['surv']:,} survivants en {fin['noeuds']:,} noeuds ; "
                 f"H0 {fin0['surv']} survivants ({fin0['noeuds']:,} noeuds, {fin0['sec']:.1f} s)")
             if fin0["surv"] != 0:
                 say("      !! H0 rend des survivants"); ok = False
             if fin["surv"] == 0:
-                say("      !! H1 ne retient rien"); ok = False
+                say("      !! l'etat vrai n'est PAS retenu"); ok = False
     say(f"   selftest : {'OK' if ok else 'ECHEC'}")
     sys.exit(0 if ok else 1)
 
@@ -189,14 +193,13 @@ if __name__ == "__main__" and "--archive" in sys.argv:
     NCONF = len(G)
     T7 = [(K, L) for K, L in Q.TRIN0 if L <= 7]
     T6 = [(K, L) for K, L in Q.TRIN0 if L <= 6]
-    T9 = [(K, L) for K, L in Q.TRIN0 if L == 9]
     HYPOTHESE = (
         "L'archive triee (70 560 tirages, 370 blocs de nuit) n'est engendree par aucun "
         "Fibonacci retarde additif r_i = r_(i-K) + r_(i-L) mod 2^32 lu par l'echantillonneur "
         "a TRONCATURE v = 1 + ((x * 80) >> 32) avec rejet des doublons, pour x = r (shift 0) "
         f"comme x = r >> 1 (shift 1), sur les {len(T7)} trinomes primitifs de degre <= 7 en "
         f"flux continu, les {len(T6)} de degre <= 6 par nuit (1 nuit sur 10), les 4 de degre 7 "
-        f"par nuit (1 nuit sur 37), et les {len(T9)} de degre 9 en flux. Methode : crible de "
+        "par nuit (1 nuit sur 37). Methode : crible de "
         "classes (§7.24) — automate non deterministe sur (Z/80)^L, 1 bit de branchement par "
         "mot contre 2 bits d'elagage, alignement deduit et non branche"
     )

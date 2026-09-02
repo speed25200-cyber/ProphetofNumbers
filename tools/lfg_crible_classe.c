@@ -43,6 +43,9 @@
  *   saut      : ne traiter qu'un bloc sur `saut` (mode nuit ; defaut 1)
  *   nmaxd     : plafond de mots par tirage (defaut 60)
  *   plafond   : plafond de noeuds (defaut 2e11)
+ *   fixe      : L classes separees par des virgules — on ne parcourt QUE cette branche.
+ *               Sert aux temoins : verifier en quelques millisecondes qu'un etat plante
+ *               est bien retenu, sans enumerer la famille entiere.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,6 +61,7 @@
 #define NSURV 65536
 
 static int NT, NB;
+static int FIXE[64], NFIXE = 0;
 static unsigned char *PUB;      /* NT x POOL : 1 si la classe est publiee par le tirage */
 static unsigned char *LST;      /* NT x DRAWN : la liste des vingt classes publiees */
 static int *DEB;                /* debuts de blocs */
@@ -164,7 +168,8 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
     c->d = t0; c->nacc = 0; c->wd = 0; c->acc0 = c->acc1 = 0;
     c->ncand = DRAWN; c->icand = 0;
     if (t0 >= R->tfin) { free(pile); free(hist); return; }
-    if (prem >= 0) { c->cand[0] = LST[(size_t)t0 * DRAWN + prem]; c->ncand = 1; }
+    if (NFIXE) { c->cand[0] = (unsigned char)FIXE[0]; c->ncand = 1; }
+    else if (prem >= 0) { c->cand[0] = LST[(size_t)t0 * DRAWN + prem]; c->ncand = 1; }
     else memcpy(c->cand, LST + (size_t)t0 * DRAWN, DRAWN);
 
     while (prof >= 0) {
@@ -200,7 +205,10 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
         g->d = d; g->nacc = (unsigned char)nacc; g->wd = (short)wd; g->acc0 = a0; g->acc1 = a1;
         g->icand = 0;
         const unsigned char *pub = PUB + (size_t)d * POOL;
-        if (prochain < L) {
+        if (NFIXE && prochain < L) {
+            g->cand[0] = (unsigned char)FIXE[prochain];
+            g->ncand = pub[FIXE[prochain]] ? 1 : 0;
+        } else if (prochain < L) {
             g->ncand = DRAWN;
             memcpy(g->cand, LST + (size_t)d * DRAWN, DRAWN);
         } else {
@@ -236,6 +244,11 @@ int main(int argc, char **argv)
     int saut = (argc > 8) ? atoi(argv[8]) : 1;
     R.nmaxd = (argc > 9) ? atoi(argv[9]) : 60;
     R.plafond = (argc > 10) ? atoll(argv[10]) : 200000000000LL;
+    if (argc > 11) {
+        char *q = argv[11];
+        while (NFIXE < 64 && *q) { FIXE[NFIXE++] = (int)strtol(q, &q, 10); if (*q == ',') q++; }
+        if (NFIXE != R.L) { fprintf(stderr, "fixe : %d classes pour L = %d\n", NFIXE, R.L); return 2; }
+    }
     R.nmax = R.ntir * R.nmaxd + R.L + 2;
     if (R.K <= 0 || R.L <= R.K || R.L > 60) { fprintf(stderr, "K, L invalides\n"); return 2; }
 
@@ -246,7 +259,7 @@ int main(int argc, char **argv)
     if (shift == 1) { R.delta[2] = 2; R.ndelta = 3; }
 
     int nuit = (strcmp(mode, "nuit") == 0);
-    int nanc = nuit ? NB : DRAWN;      /* en flux, on scinde sur la classe du premier mot */
+    int nanc = nuit ? NB : (NFIXE ? 1 : DRAWN);   /* en flux, scission sur la classe du 1er mot */
     double t0 = horloge();
 
     long long noeuds = 0, coupes = 0;
