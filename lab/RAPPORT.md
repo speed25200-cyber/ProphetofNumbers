@@ -18783,3 +18783,106 @@ que le §7.24 (v) rend coûteux.
 `p = 0,755`, conforme.
 
 ---
+
+## 178. L'énergie additive **croisée** : la relation à trois termes quand ses trois indices tombent dans trois tirages différents (`h163_energie_croisee.py`)
+
+Le §177 s'arrête au degré `21`, et il dit pourquoi : la relation
+`c_i = c_{i−K} + c_{i−L} + δ` lie trois mots, un tirage n'en consomme que
+`E[N] = 22,85`, donc au-delà du degré `≈ 22` les trois indices ne tiennent plus
+dans le même tirage. TYPE_3 `(3,31)` et TYPE_4 `(1,63)` y échappaient.
+
+Mais ils n'échappent à rien : ils passent simplement dans le tirage **précédent**.
+Un mot d'indice `i − 31` est à `31/22,85 = 1,36` tirage en arrière ; `i − 63`, à
+`2,76`. Il suffit de laisser chacun des deux antécédents choisir *son* tirage :
+
+```
+    T(g₁, g₂) = #{ (u,v) ∈ C_{t−g₁} × C_{t−g₂} : (u+v+δ) mod 80 ∈ C_t , δ ∈ {0,1} }
+```
+
+`(0,0)` redonne la statistique du §177. Le couple qui porte le signal se lit sur
+le générateur : `g₁ ≈ L/22,85`, `g₂ ≈ K/22,85`. Quinze couples avec `g₁ ≤ 4`
+couvrent tous les degrés jusqu'à `≈ 90`.
+
+### La puissance, mesurée
+
+Générateurs plantés, `4 000` tirages, lecture par troncature avec rejet ; la
+dernière colonne ramène le `z` aux `70 560` tirages de l'archive (`×4,20`) :
+
+| `(K, L)` | | meilleur couple | `z` sur `4 000` | `z` sur `70 560` |
+|---|---|---|---|---|
+| `(3, 7)` | TYPE_1 | `(0, 0)` | `+37,4` | `+157` |
+| `(1, 15)` | **TYPE_2** | `(1, 0)` | `+28,2` | `+118` |
+| `(3, 17)` | | `(1, 0)` | `+29,0` | `+122` |
+| `(2, 21)` | | `(1, 0)` | `+37,7` | `+158` |
+| `(3, 25)` | | `(1, 0)` | `+38,7` | `+163` |
+| `(3, 31)` | **TYPE_3** | `(1, 0)` | `+28,5` | `+120` |
+| `(13, 31)` | | `(2, 1)` | `+21,7` | `+91` |
+| `(1, 63)` | **TYPE_4** | `(3, 0)` | `+34,1` | `+143` |
+| `(31, 63)` | | `(3, 1)` | `+26,5` | `+111` |
+
+Deux lignes justifient à elles seules le balayage **complet**. `(13,31)` et
+`(31,63)` ne montrent rien en `g₂ = 0` : leur `K` est assez grand pour que
+l'antécédent `i − K` tombe lui aussi dans un tirage antérieur. Un balayage limité
+aux couples `(g, 0)` les manquerait tous les deux — c'est le genre d'angle mort
+qui fait croire qu'on a couvert une famille alors qu'on en a couvert la moitié.
+
+**Les quatre types de la glibc sont vus à plus de cent écarts-types.** Le crible
+de classes du §172 s'arrête au degré `7` pour `286` milliards de nœuds ; le §177
+va au degré `21` en trois secondes ; celui-ci va au degré `63` en trois minutes,
+dont deux et demie pour simuler la nulle.
+
+### Le résultat
+
+`70 560` tirages, nulle sur `40 × 70 560` tirages SRS :
+
+| `(g₁,g₂)` | archive | nulle | `sd` | `z` |
+|---|---|---|---|---|
+| `(0,0)` | `200,1029` | `200,0200` | `0,0825` | `+1,005` |
+| `(1,0)` | `200,0465` | `200,0028` | `0,0488` | `+0,897` |
+| `(1,1)` | `199,9516` | `199,9906` | `0,0488` | `−0,800` |
+| `(2,0)` | `200,0444` | `199,9954` | `0,0488` | `+1,004` |
+| `(2,1)` | `200,0775` | `200,0041` | `0,0350` | `+2,093` |
+| `(2,2)` | `199,9548` | `200,0041` | `0,0488` | `−1,008` |
+| `(3,0)` | `200,0561` | `200,0068` | `0,0489` | `+1,008` |
+| `(3,1)` | `200,0223` | `199,9838` | `0,0351` | `+1,097` |
+| `(3,2)` | `199,9791` | `199,9921` | `0,0352` | `−0,369` |
+| `(3,3)` | `199,9317` | `200,0018` | `0,0489` | `−1,433` |
+| `(4,0)` | `200,0529` | `199,9897` | `0,0490` | `+1,290` |
+| `(4,1)` | `200,0762` | `199,9904` | `0,0352` | **`+2,435`** |
+| `(4,2)` | `200,0145` | `199,9952` | `0,0353` | `+0,546` |
+| `(4,3)` | `199,9876` | `199,9955` | `0,0353` | `−0,223` |
+| `(4,4)` | `200,0886` | `199,9797` | `0,0490` | `+2,222` |
+
+`|z|` max `= 2,435` au couple `(4,1)`, `p = 0,223` après Bonferroni sur les
+quinze. **Rien.** Quinze statistiques, quinze valeurs dans le bruit.
+
+### Ce que cela ferme
+
+C'est la fermeture la plus large de ce dossier sur la famille qui l'a occupé le
+plus longtemps :
+
+> **Aucun Fibonacci retardé additif `r_i = r_{i−K} + r_{i−L} mod 2³²` de degré
+> `L ≤ 63`, lu par troncature avec rejet, n'engendre l'archive.** Les quatre types
+> de la glibc — TYPE_1 `(3,7)`, TYPE_2 `(1,15)`, TYPE_3 `(3,31)`, TYPE_4 `(1,63)`
+> — laisseraient entre `+91` et `+163` écarts-types sur au moins une des quinze
+> statistiques. On lit `+2,4` au pire.
+
+Le chemin pour y arriver mérite d'être noté, parce qu'il inverse l'ordre habituel.
+Le §172 a construit un crible exact, coûteux (`286` milliards de nœuds), et il a
+buté au degré `7`. C'est en cherchant *pourquoi* — le théorème du tirage unitaire
+du §7.27 — qu'est apparue la quantité dont le crible se nourrit : les coïncidences
+additives. Une fois nommée, elle se mesure directement, sans crible, et va huit
+fois plus loin en degré pour un millième du coût. **La théorie n'a pas servi à
+faire marcher l'attaque : elle a servi à s'en passer.**
+
+Ce que cela ne ferme pas, et il faut le dire : ce n'est pas un verdict dur. C'est
+un test de puissance mesurée, qui écarte une famille sans en énumérer les états.
+Un générateur additif dont le pas de consommation serait irrégulier au point de
+brouiller l'alignement entre tirages — plusieurs dizaines de mots muets par
+tirage, tirés au hasard — diluerait le signal ; le §7.24 (xii) en donne la limite.
+Et cela ne dit rien des familles non additives.
+
+**Ligne de registre.** `h163.energie_croisee`, piste B, `|z| max = 2,435`,
+`p = 0,223`, conforme.
+
+---
