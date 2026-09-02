@@ -68,6 +68,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <time.h>
+#include <math.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -148,7 +149,7 @@ static int lire_blocs(const char *f, int nt)
 /* ------------------------------------------------------------------ le crible */
 
 typedef struct {
-    int K, L, nmax, ndelta, nmaxd, ntir;
+    int K, L, nmax, ndelta, nmaxd, ntir, budget;
     int delta[3];
     int tfin;                   /* dernier tirage utilisable (exclus) */
     long long plafond;
@@ -212,6 +213,10 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
         }
         /* tirage interminable, ou deja hors d'atteinte : chemin mort */
         if (wd + (DRAWN - nacc) > R->nmaxd) continue;
+        /* BUDGET GLOBAL : le chemin vrai consomme E[N] = 22,85 mots par tirage, un faux —
+         * collectionneur sur les 20 classes publiees — 71,96.  Le total est donc lui aussi
+         * un discriminant, et a huit ecarts-types il ne coute rien au vrai chemin. */
+        if (R->budget > 0 && prof + 1 + (R->ntir - (d - t0)) * DRAWN > R->budget) continue;
 
         int prochain = prof + 1;
         if (prochain >= nmax || d >= R->tfin || d - t0 >= R->ntir) {     /* survivant */
@@ -306,13 +311,21 @@ int main(int argc, char **argv)
         if (NFIXE < R.L) { fprintf(stderr, "fixe : %d classes, il en faut au moins L = %d\n", NFIXE, R.L); return 2; }
     }
     R.nmax = R.ntir * R.nmaxd + R.L + 2;
+    {   /* budget global a huit ecarts-types de la loi du vrai chemin */
+        double m = 22.8487 * R.ntir, sd = 1.8525 * sqrt((double)R.ntir);
+        R.budget = (int)(m + 8.0 * sd) + R.L + 2;
+    }
     if (R.K <= 0 || R.L <= R.K || R.L > 60) { fprintf(stderr, "K, L invalides\n"); return 2; }
 
-    /* delta : {0,1} au shift 0 ; {0,1,2} au shift 1 (le bit perdu peut ajouter une unite,
-     * avec une probabilite de 80/2^31 — on le garde pour rester EXACT). */
+    /* delta : {0,1} dans les deux cas.  Au shift 1 le bit perdu peut en principe ajouter
+     * une unite de plus (delta = 2), mais seulement si la partie fractionnaire tombe a
+     * 80/2^31 = 3,7e-8 pres d'un entier : sur les ~571 mots d'un ancrage, la probabilite
+     * de perdre le vrai chemin vaut 2,1e-5, et elle est NOMMEE.  La garder coutait un
+     * facteur 1 500 sur les ancrages difficiles (mesure : (1,3) shift 1 passe de 3,0e7 a
+     * 2,0e4 noeuds), parce que log2(3) = 1,585 bit de branchement contre 2 bits d'elagage
+     * ne laisse que 0,415 bit de decroissance par mot au lieu de 1. */
     R.delta[0] = 0; R.delta[1] = 1;
     R.ndelta = 2;
-    if (shift == 1) { R.delta[2] = 2; R.ndelta = 3; }
 
     int nuit = (strcmp(mode, "nuit") == 0);
     int nanc = nuit ? NB : (NFIXE ? 1 : DRAWN);   /* en flux, scission sur la classe du 1er mot */
