@@ -16335,6 +16335,182 @@ budget).
 
 ---
 
+## 157. Le flux continu : un plan deviné au lieu de trois, `2^L` au lieu de `2^{3L}`, et les 60 000 premiers tirages criblés contre 31 trinômes (`h137_flux_continu.py`, `tools/lfg_flux_continu.c`)
+
+**Ce que le §156 laissait.** Le crible à trois plans coûte `2^{3L}` par
+fenêtre de 204 tirages : TYPE_1 en trois secondes, TYPE_2 « quatre à cinq
+années-cœur, non lancé », TYPE_3 `2^{93}`. La fenêtre est la cause : sur
+204 tirages les plans 1 et 2 ne reçoivent pour ainsi dire aucune équation
+(`8·10⁻⁸` et `3` par fenêtre), il faut donc les deviner avec le plan 0.
+Mais la fenêtre est un choix. L'archive est `70 560` tirages en `346`
+journées — `345` pauses nocturnes : `343` de `25 500` s, une de `21 900`,
+une de `29 100` — plus `24` sauts de `±1` à `±5` s (`369` ruptures de la
+cadence de 300 s en tout, `370` blocs dont `333` de 204 tirages) — et un
+générateur qui n'est **jamais réensemencé** est un seul flux
+lu à pas constant à travers les pauses : le tirage `t` lit les mots
+`x_{S·t+k}` d'un **même** état, et les `70 560` tirages sont `70 560`
+lectures de `32L` bits. C'est l'**hypothèse du flux continu** ; sous elle,
+un seul plan est deviné, les deux suivants se calculent, et TYPE_2 passe
+de `2^{45}` à `2^{15}`. La théorie est au §7.11 de THEORIE_ETAT.md ; voici
+les faits, et pour la première fois depuis le §155 un **crible de
+l'archive** contre TYPE_2 et vingt-neuf autres trinômes.
+
+**Les événements.** Le lemme gradué du §156 contraint `x_k mod 2^{e_k}`
+aux mots `k = 0, 4, 8, 12, 16` avec `e = 4, 2, 3, 2, 6` (Fisher-Yates
+partiel, `fy`) ; sous `Collections.shuffle` lu par ses vingt dernières
+cases (`shuffle`) le mot `k` sert la case `79 − k` et les mêmes cinq mots
+sont contraints de même. Chaque contrainte est un masque de résidus. Le
+plan 0 de `r` est muet (`x = r >> 1`) ; le bit 0 de `x` est le plan 1, le
+bit 1 le plan 2. Par (tirage, mot, parité `a` du bit 0) : **MORT** si aucun
+résidu permis n'a la parité `a` (`⇒ bit 0 ≠ a`, une classe entière absente
+: `7,8·10⁻⁸` au mot 0, `9,5·10⁻⁶` au mot 16 — jamais) ; **FORCE** si tous
+les résidus permis de parité `a` ont le même bit 1 `f` (`⇒ (bit 0 = a) ⇒
+(bit 1 = f)`, un quart de classe absent : `4·hyp(20) = 0,0047` au mot 0,
+`0,0071`, `0,0104`, `0,0153`, `0,0222` aux mots 4, 8, 12, 16). Total
+**`0,0597` par tirage** — et l'archive en a `3 577` sur ses `60 000`
+premiers tirages, `0,0596`, un flux planté de `70 560` en a `4 244` : le
+taux est celui d'un tirage uniforme, comme il se doit (§7.5).
+
+**Le théorème (§7.11).** Le plan 0 des `L` mots initiaux étant fixé, le
+plan 0 de tous les mots est connu et, `y, z ∈ F₂^L` étant les plans 1 et 2
+initiaux : `p^1_i = ⟨α_i, y⟩ ⊕ δ_i` (affine, `α` le LFSR de `x^L + x^K +
+1`, `δ` la récurrence des retenues du plan 0) et `p^2_i = ⟨α_i, z⟩ ⊕
+Q_i(y)` avec `Q_i` **quadratique** en `y` — la retenue du plan 1 vers le
+plan 2 est `p^1_a p^1_b ⊕ c^1_i (p^1_a ⊕ p^1_b)`, produit de deux formes
+affines. Une MORT est linéaire en `y` ; une FORCE est la cubique
+`(⟨α_i,y⟩ ⊕ δ_i ⊕ a ⊕ 1)(⟨α_i,z⟩ ⊕ Q_i(y) ⊕ f) = 0`. Linéarisées sur `{y_j,
+z_j, y_j y_k, y_j z_k, y_j y_k y_l, 1}`, `M(L) = 2L + C(L,2) + L² + C(L,3)
++ 1` inconnues — `120, 220, 816, 1 140` pour `L = 7, 9, 15, 17`. Le vrai
+plan 0 satisfait tout (son résidu est permis) ; un faux contredit dès que
+les équations dépassent le rang. **Rang mesuré** (prototype, flux planté,
+pas 20) : `117/220` à `L = 9`, `710/816` à `L = 15`, `1 003/1 140` à `L =
+17` ; les colonnes `y` puis `z` sont triangulaires (lues bit par bit,
+`137` monômes cubiques restant libres à `L = 17`) ; un faux plan 0 meurt
+**une à trois équations après le rang** (`1 005`, `1 002`, `1 004` sur
+`2 486`). Il faut donc `≈ R(L)/0,0597` tirages — `16 800` à `L = 17` —,
+d'où la nécessité du flux continu : une journée n'y suffit pas. Plafond de
+la linéarisation sur l'archive, `M(L) ≤ 3 577` : **`L ≤ 25`** ; TYPE_3
+(`M = 5 984`) est hors du plafond avant même d'être hors des `2^{31}`.
+
+**L'outil (`tools/lfg_flux_continu.c`).** Les `2^L` plans 0 par blocs de
+`64` en tranches de bits ; par mot, trois opérations propagent `p^0`,
+`c^1`, `δ` et la partie dépendante de `Q` (la partie `⟨α_a,y⟩⟨α_b,y⟩`,
+indépendante de l'hypothèse, est précalculée) ; aux positions des
+événements, chaque hypothèse vivante du bloc reçoit sa ligne de `M` bits
+et un Gauss incrémental (pivot = monôme de tête, la constante exclue ;
+`1 = 0` est la contradiction) ; un bloc s'arrête à la mort de sa
+soixante-quatrième hypothèse, vers le tirage `17 000` à `L = 17`, sans
+engendrer le reste du flux. Les survivants au bout de `N` tirages ont `y`
+triangulaire ; `y` est lu, les bits libres énumérés (`≤ 2^{12}`, sinon
+**indécis**, compté), l'état `r mod 4` **relevé** plan par plan jusqu'au
+plan `5 + shift` par le Gauss à retenues exactes du §156, et **vérifié**
+par simulation sur les `N` tirages. Sortie `r mod 2^{6+shift}`, autonome :
+tout survivant prédit les résidus `x_k mod 2^{e_k}` de tous les tirages
+futurs. Paramètres du crible : `(K, L)`, le pas `S` (`fy` : `20..24`, `79`,
+`80` ; `shuffle` : `79`, `80`), le shift (`1` = glibc ; `0` = `x = r`, où le
+plan 0 est publié et le crible un Gauss sur `L` bits). Tout décalage
+constant du flux est absorbé par l'état initial : la place des mots perdus
+dans un pas est sans objet.
+
+**Protocole.** Les `70 560` tirages **triés** (identifiants `1309614` à
+`1380173`) sont coupés en `60 000` d'ajustement (jusqu'à `1369613`) et
+`10 560` **retenus** ; tout survivant du crible des `60 000` est confronté
+aux `10 560` retenus (`coherent`, en Python, indépendante de l'outil).
+Pré-enregistrement **avant le crible** (`h137.flux_continu`, piste B,
+jeton scellé `a0905869bb411907` le `2026-09-02T01:28:23Z`, persisté et
+repris en cas de reprise) : hypothèse « aucun état d'aucun Fibonacci
+retardé additif de degré `L ≤ 17` (les `31` trinômes primitifs, TYPE_1 et
+TYPE_2 compris) lu à pas constant à travers les pauses n'engendre les
+tirages triés sous aucun des neuf schémas × deux shifts » ; statistique :
+survivants cohérents avec les retenus, et indécis ; verdict prévu :
+conforme si `0` et `0` sur `558` cribles, ETAT TROUVE si un survivant
+est cohérent avec les retenus, FAUX SURVIVANT sinon. Le design (mots,
+événements, linéarisation, relèvement, bornes) a été fixé sur témoins
+plantés avant la consignation ; deux corrections au prototype avant
+registre (une clé de monôme manquante ; le pivot sur la colonne
+constante, qui masquait les contradictions), disclosées ici.
+
+**Témoins dans le régime de l'archive** (`60 000` tirages plantés, puis
+`60 000` tirages aléatoires ; machine à quatre cœurs partagée avec `h130`
+et `h135`, trois fils) :
+
+| `K` | `L` | `S` | mode | shift | événements | `M` | rang | s | résultat |
+|---|---|---|---|---|---|---|---|---|---|
+| 3 | 7 | 20 | fy | 1 | 3 982 | 120 | 98 | 0,2 | planté seul, aléatoire rien |
+| 3 | 7 | 20 | fy | 0 | 3 245 | 120 | 7 | 0,2 | idem |
+| 4 | 9 | 79 | shuffle | 1 | 3 405 | 220 | 183 | 0,9 | idem |
+| 4 | 9 | 80 | shuffle | 0 | 3 581 | 220 | 9 | 0,5 | idem |
+| 1 | 15 | 21 | fy | 1 | 3 576 | 816 | 710 | 89,0 | idem |
+| 3 | 17 | 20 | fy | 1 | 3 792 | 1 140 | 1 003 | 579,8 | idem |
+
+Six témoins, six fois l'état planté seul (`0` indécis), six fois rien sur
+l'aléatoire : le crible **pouvait** trouver TYPE_1 et TYPE_2 dans ce
+régime.
+
+**Le crible de l'archive.** `558` cribles — `31` trinômes × `9` variantes
+× `2` shifts, du moins cher au plus cher (shift 0, puis shift 1, `L`
+croissant), journal `/tmp/h137_journal.txt`, reprise possible — :
+
+| `L` | trinômes (`K`) | shift | cribles | événements | rang | survivants | indécis | s |
+|---|---|---|---|---|---|---|---|---|
+| 2 | 1 | 0 / 1 | 9 / 9 | 3 577 (fy), 3 562 (shuffle) | 2 | 0 | 0 | 0,0 |
+| 3 | 1, 2 | 0 / 1 | 18 / 18 | idem | 3 | 0 | 0 | 0,0 |
+| 4 | 1, 3 | 0 / 1 | 18 / 18 | idem | 4 | 0 | 0 | 0,0 |
+| 5 | 2, 3 | 0 / 1 | 18 / 18 | idem | 5 | 0 | 0 | 0,0 |
+| 6 | 1, 5 | 0 / 1 | 18 / 18 | idem | 6 | 0 | 0 | 0,0 |
+| 7 | 1, 3, 4, 6 | 0 / 1 | 36 / 36 | idem | 7 | 0 | 0 | 0,0 |
+| 9 | 4, 5 | 0 / 1 | 18 / 18 | idem | 9 | 0 | 0 | 0,0 / 0,1 |
+| 10 | 3, 7 | 0 / 1 | 18 / 18 | idem | 10 | 0 | 0 | 0,0 / 1,6 |
+| 11 | 2, 9 | 0 / 1 | 18 / 18 | idem | 11 | 0 | 0 | 0,0 / 4,2 |
+| 15 | 1, 4, 7, 8, 11, 14 | 0 / 1 | 54 / 54 | idem | 15 / 710 | 0 | 0 | 4,9 / 1 240 |
+| 17 | 3, 5, 6, 11, 12, 14 | 0 / 1 | 54 / 54 | idem | 17 / 1 003 | 0 | 0 | 21,4 / 13 456 |
+
+Colonnes : « rang » est le rang atteint par le système linéaire des plans
+1–2 (shift 0 : les `L` bits du plan 0 seuls, `2^L` hypothèses tranchées
+par les événements du plan 0 ; shift 1 : `M = 3L + L(L+1)/2 + …`
+inconnues, `710` sur `816` pour `L = 15`, `1 003` sur `1 140` pour
+`L = 17`, le reste tranché par les événements non linéaires). En tout
+`558` cribles, `0` survivant, `0` indécis, `0` état cohérent avec les
+`10 560` tirages retenus (les `20` premiers de chaque bloc de `204`, hors
+singletons), `0` faux survivant ; `14 728` s de crible cumulées (`4,09`
+h) sur `15 516` s de marche, trois fils sur une machine partagée. Le
+temps est celui de `L = 17`, shift 1 : `13 456` s, `180` à `455` s par
+crible (la charge de la machine variait), et `L = 15`, shift 1 : `1 240`
+s. Tout le reste tient en une minute.
+
+**Ce que le crible exclut.** Sous l'hypothèse du **flux continu** — un
+seul `random()` jamais réamorcé sur les `70 560` tirages, `x_i = (x_{i-K}
++ x_{i-L}) mod 2^{32}`, sortie `x >> 1`, Fisher-Yates partiel ou shuffle
+complet à pas fixe (`20`–`24`, `79`, `80`), shift `0` ou `1` — les `31`
+trinômes primitifs de degré `≤ 17`, TYPE_1 `(3, 7)` et TYPE_2 `(1, 15)`
+compris, sont exclus sur l'archive : aucun état bas (`6` ou `7` bits par
+mot, `2^{32L}` états complets par trinôme) ne reproduit à la fois les
+bits bas des index de la journée et les événements des `10 560` tirages
+retenus. Un état vrai ressortirait seul, comme les six témoins.
+
+**Ce que cela n'est pas.** Une exclusion sous **réensemencement**
+quotidien : le crible suppose un flux jamais relancé, et sous un
+réensemencement chaque matin le §156 reste le seul outil, à son prix
+(`2^{45}` pour TYPE_2). Ni une exclusion de TYPE_3 (`3, 31`) et TYPE_4
+(`1, 63`) : `2^{31}` et `2^{63}` plans 0, et pour TYPE_3 le plafond de
+linéarisation `L ≤ 25` est dépassé sur cette archive quel que soit le
+coût par hypothèse — il faudrait `100 000` tirages ou une relinéarisation
+qui exploite la structure creuse, non écrite. Restent hors du crible,
+comme au §156 : le rejet des doublons (pas variable, l'alignement n'est
+plus une constante absorbée), la troncature `(x·80) >> 32`, les vingt
+premières cases d'un shuffle, le Fibonacci **soustractif**. Et le crible
+rend un état **bas** (`6` ou `7` bits par mot) : le relèvement à `32L` bits
+sous le modulo — congruences à modules mixtes `80, 79, …, 61` — reste la
+frontière du §156, sans algorithme.
+
+**Ligne de registre** : `h137.flux_continu`, piste B, `m_extra = 0`,
+verdict **conforme**, puissance : six témoins plantés dans le régime de
+l'archive, tous conformes ; Holm sur `60 364` lignes, `0` significatif. Fichiers :
+`tools/lfg_flux_continu.c`, `lab/experiments/h137_flux_continu.py` ;
+journaux `/tmp/h137.log`, `/tmp/h137_journal.txt`.
+
+---
+
 ## 159. Les douze tirages ordonnés sous le flux continu : le crible exact des plans bas, 5 264 cellules, TYPE_3 compris (`h139_videos_flux_continu.py`)
 
 **Ce que l'ordre change.** Les §157–158 criblent l'archive **triée** : un

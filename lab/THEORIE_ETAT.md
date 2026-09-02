@@ -1574,6 +1574,191 @@ extension non écrite.
 
 ---
 
+### 7.11 Le flux continu (§157) — un plan deviné au lieu de trois, `2^L` au lieu de `2^{3L}`, et les 70 560 tirages comme une seule lecture
+
+Le 7.10 devine **trois** plans parce qu'une fenêtre de 204 tirages ne dit
+presque rien des plans 1 et 2 : le plan 1 y est forcé une fois sur dix
+millions, le plan 2 trois fois. Mais la fenêtre est un choix, pas une
+donnée. L'archive a `70 560` tirages en `346` journées séparées par `345`
+pauses nocturnes (`343` de `25 500` s), coupées par `24` sauts de quelques
+secondes en `370` blocs de cadence ; si le générateur est **réensemencé**
+chaque matin, chaque journée est une fenêtre et le 7.10 est le bon outil ;
+s'il ne l'est **jamais** — un seul flux, lu à pas constant `S` à travers les
+pauses, ce que fait tout processus qui tourne sans redémarrer — alors le
+tirage `t` lit les mots `x_{S·t+k}` du **même** état, et les `70 560`
+tirages sont `70 560` lectures d'un seul état de `32L` bits. C'est
+l'**hypothèse du flux continu**, et sous elle les plans 1 et 2 reçoivent
+assez d'équations pour n'être plus devinés. Le théorème qui suit ramène le
+coût de `2^{3L}` à `2^L` — pour TYPE_2, de `2^{45}` à `2^{15}` — au prix
+d'une linéarisation cubique.
+
+**Ce que l'archive triée publie, mot par mot.** Le lemme gradué du 7.10
+donne `x_k mod 2^{e_k}` contraint aux mots `k = 0, 4, 8, 12, 16` avec `e =
+4, 2, 3, 2, 6` (mots 4 et 12 : `76 = 4·19`, `68 = 4·17`). Sous
+`Collections.shuffle` lu par ses vingt dernières cases, le mot `k` sert la
+case `i = 79 − k` et `x_k mod (i+1)` est contraint de même, aux mêmes cinq
+mots. Chaque contrainte est un **masque** : l'ensemble des résidus
+`mod 2^e` permis par le tirage. Le plan 0 de `r` n'est pas publié
+(`x = r >> 1`) ; le bit 0 de `x` est le **plan 1** de `r`, le bit 1 son
+**plan 2**. Deux événements, par (tirage, mot, parité `a` du bit 0 de `x`) :
+
+    MORT    aucun résidu permis n'a la parité a        →  bit 0 de x ≠ a
+    FORCE   tous les résidus permis de parité a ont     →  (bit 0 de x = a) ⇒ (bit 1 de x = f)
+            le même bit 1, égal à f
+
+La MORT est une classe entière (une parité, `2^{e−1}` résidus, `n_k/2`
+numéros) absente du tirage : `2·hyp(40) = 7,8·10^{−8}` au mot 0, `9,5·10^{−6}`
+au mot 16 — jamais, ou presque. La FORCE est un **quart** de classe absent :
+`4·hyp(20) = 0,0047` au mot 0, `0,0071` (mot 4), `0,0104` (mot 8),
+`0,0153` (mot 12), `0,0222` (mot 16) — **`0,0597` par tirage**, `3 577`
+sur les `60 000` premiers tirages de l'archive (`0,0596`), `4 244` sur un
+flux planté de `70 560`. Pour le **vrai** état la FORCE est toujours
+satisfaite (son résidu est permis, donc de la bonne parité et du bon bit 1)
+; pour un faux, c'est une équation au hasard.
+
+> **Théorème du flux continu.** *Soit `r_i = r_{i−K} + r_{i−L} mod 2^32`,
+> et `p^b_i` le plan `b` de `r_i`. Le plan 0 des `L` mots initiaux étant
+> fixé (`2^L` hypothèses), le plan 0 de tout mot est connu, et, notant
+> `y, z ∈ F₂^L` les plans 1 et 2 des mots initiaux :*
+>
+>     p^1_i = ⟨α_i, y⟩ ⊕ δ_i
+>     p^2_i = ⟨α_i, z⟩ ⊕ Q_i(y),      Q_i quadratique en y,
+>
+> *avec, pour `a = i − K`, `b = i − L`, `c^1_i = p^0_a p^0_b` :*
+>
+>     α_i = α_a ⊕ α_b,   δ_i = δ_a ⊕ δ_b ⊕ c^1_i,
+>     Q_i = Q_a ⊕ Q_b ⊕ ⟨α_a,y⟩⟨α_b,y⟩ ⊕ δ_b⟨α_a,y⟩ ⊕ δ_a⟨α_b,y⟩ ⊕ δ_a δ_b
+>                       ⊕ c^1_i (⟨α_a ⊕ α_b, y⟩ ⊕ δ_a ⊕ δ_b).
+>
+> *Un événement MORT au mot `i` est l'équation **linéaire** `⟨α_i, y⟩ =
+> δ_i ⊕ a ⊕ 1` ; un événement FORCE est l'équation **cubique**
+> `(⟨α_i,y⟩ ⊕ δ_i ⊕ a ⊕ 1)·(⟨α_i,z⟩ ⊕ Q_i(y) ⊕ f) = 0`, de degré 3 en `y`,
+> 1 en `z`, 2 en `(y,z)`. Linéarisées sur les monômes `{y_j, z_j, y_j y_k,
+> y_j z_k, y_j y_k y_l, 1}`, ces équations sont un système sur*
+>
+>     M(L) = 2L + C(L,2) + L² + C(L,3) + 1      (120, 220, 816, 1 140 pour L = 7, 9, 15, 17)
+>
+> *inconnues, que le vrai plan 0 satisfait et qu'un faux contredit dès que
+> le nombre d'équations dépasse le rang.*
+>
+> *Preuve.* Le plan 1 est le théorème du 7.10 avec `p = 1` : la retenue
+> `c^1_i` ne dépend que du plan 0, connu. Le plan 2 : la retenue sortant des
+> deux bits bas de `r_a + r_b` est `c^2_i = p^1_a p^1_b ⊕ c^1_i (p^1_a ⊕
+> p^1_b)` ; on y substitue `p^1 = ⟨α, y⟩ ⊕ δ`, et `p^2_i = p^2_a ⊕ p^2_b ⊕
+> c^2_i` se propage par récurrence : la partie en `z` est linéaire de
+> matrice `α` (même LFSR), le reste est `Q_i`, quadratique en `y` puisque
+> `c^2_i` l'est et que la récurrence est additive. Les événements sont la
+> définition des masques. La linéarisation est le remplacement de chaque
+> monôme par une inconnue ; les monômes possibles d'un produit (affine en
+> `y`) × (affine en `z`, quadratique en `y`) sont ceux listés. ∎
+
+Le mot 0 du tirage `t` est le mot `S·t` du flux ; le pas `S` et le schéma
+(`fy` : Fisher-Yates partiel, mots `0..19`, `S = 20..24` avec des mots
+perdus, `79..80` pour un shuffle complet lu par ses vingt **premières**
+cases ; `shuffle` : `Collections.shuffle` lu par ses vingt **dernières**,
+`S = 79..80`) sont des paramètres du crible, et tout décalage constant du
+flux est absorbé par l'état initial : la **place** des mots perdus dans un
+pas est sans objet. Deux sorties : `x = r >> 1` (glibc, plan 0 muet) et
+`x = r` (« shift 0 » : le plan 0 est publié, la MORT tue directement et la
+FORCE est linéaire en `y` — le crible est alors un Gauss sur `L` bits, et
+`2^L` hypothèses coûtent quelques secondes à `L = 17`).
+
+**Le rang, mesuré.** Le système linéarisé n'est pas de rang plein — les
+monômes sont plus nombreux que les degrés de liberté du problème (`2L`) —
+et c'est le rang qui fixe le nombre d'événements nécessaires. Prototype
+(`proto137`, pas 20, `x = r >> 1`, flux planté) :
+
+| `L` | `M` | rang | y lu | z lu | faux plan 0 contredit à l'équation |
+|---|---|---|---|---|---|
+| 9 | 220 | 117 | oui | — | rang + 1..3 |
+| 15 | 816 | 710 | oui | oui | `711`, `712`, `711` sur `1 246` |
+| 17 | 1 140 | 1 003 | oui | oui | `1 005`, `1 002`, `1 004` sur `2 486` |
+
+Le vrai plan 0 n'est jamais contredit et les colonnes `y` (puis `z`) sont
+**triangulaires** dans la réduction : `y` est lu bit par bit, `z` aussi à
+`L ≥ 15`, bien que `137` monômes restent libres à `L = 17` — les degrés de
+liberté résiduels sont dans les monômes cubiques, pas dans les inconnues.
+Un faux plan 0 meurt **une à trois équations après le rang** : il faut
+`≈ R(L) + 3` événements, soit `R/0,0597` tirages — `16 800` à `L = 17`,
+`12 000` à `L = 15`. Le flux continu est nécessaire : une fenêtre de 204
+tirages (`12` événements) ne fait rien, et même une journée n'y suffit pas.
+Sur 60 000 tirages l'archive fournit `3 577` événements ; le plafond de la
+linéarisation est `M(L) ≤ 3 577`, soit **`L ≤ 25`** (`M(25) = 3 276`,
+`M(26) = 3 654`). TYPE_3 (`L = 31`, `M = 5 984`) est **hors du plafond** :
+sur cette archive, la linéarisation ne ferme pas à `L = 31`, quel que
+soit le coût par hypothèse (il faudrait `100 000` tirages, ou une
+relinéarisation qui exploite la structure creuse — non écrite).
+
+**L'algorithme (`tools/lfg_flux_continu.c`).** Les `2^L` plans 0 sont
+parcourus par **blocs de 64** en tranches de bits (bit-slicing) : un mot de
+64 bits porte le plan 0 de 64 hypothèses, et la récurrence `p^0_i = p^0_a
+⊕ p^0_b`, `c^1_i = p^0_a ∧ p^0_b`, `δ_i = δ_a ⊕ δ_b ⊕ c^1_i` et la partie
+**dépendante** de `Q_i` (linéaire en `y` plus constante — la partie
+`⟨α_a,y⟩⟨α_b,y⟩`, indépendante de l'hypothèse, est précalculée une fois) se
+propagent en trois opérations par mot. Aux positions des événements
+(précalculées, `≈ 0,06` par tirage) chaque hypothèse du bloc reçoit sa
+ligne — `M` bits, construite à partir de tables fixes (`FIX1`, `FIX2`, `T`
+: les contributions de `α_i`, de `Q^{yy}_i`, de `f`) et des trois quantités
+de l'hypothèse (`δ_i`, `Q^{dep}_i`) — et un **Gauss incrémental** par
+hypothèse (pivot = monôme de tête, la constante exclue : une ligne réduite
+à `1 = 0` est la contradiction). L'hypothèse morte cesse d'exister ; le
+bloc s'arrête quand ses 64 hypothèses sont mortes, en général vers le
+tirage `17 000` à `L = 17`, sans engendrer le reste du flux. Une hypothèse
+vivante au bout de `N` tirages a ses colonnes `y` triangulaires ; `y` est
+lu, les bits libres énumérés (au plus `2^{12}`, sinon **indécis**, compté),
+et l'état `r mod 4` est **relevé** plan par plan jusqu'au plan `5 + shift`
+par le principe du 7.10 (Gauss sur `L` bits avec retenues exactes, masques
+pliés `mod 2^{p+1}`), puis **vérifié** par simulation mot par mot sur les
+`N` tirages. Sortie : `r_0..r_{L−1} mod 2^{6+shift}`.
+
+Mesuré (autotest, machine à quatre cœurs chargée par deux autres
+balayages, deux fils) : TYPE_1 `60 000` tirages `0,2` s ; `(4, 9)` shuffle
+pas 79 `0,9` s ; TYPE_2 pas 21, `20 000` tirages, `29,5` s pour `2^{15}` ;
+`(3, 17)` pas 20, `70 560` tirages, **`270` s pour `2^{17}`** — `≈ 4`
+ms par hypothèse et par cœur à `L = 17`, contre `2^{2L}` fois plus
+d'hypothèses à `5` µs pour les trois plans du 7.10. L'état planté ressort
+**seul**, avec `0` indécis, et un flux de tirages aléatoires ne rend rien,
+sous `fy` et `shuffle`, shift 1 et 0. Coût de l'archive entière — `31`
+trinômes primitifs `L ≤ 17` (`13` de degré `≤ 7`, `2` de degré `9`, `10`,
+`11`, `6` de degré `15` et `17`), `9` variantes (`fy` pas `20..24, 79, 80`
+; `shuffle` pas `79, 80`), `2` shifts, **`558` cribles** : `≈ 10^7`
+hypothèses à `≤ 4` ms, `≈ 5` heures sur deux cœurs.
+
+**Ce que ça change, et ce que ça ne change pas.** Le 7.10 laissait TYPE_2
+à `2^{45}` — quatre à cinq années-cœur, « hors de ce dossier ». Sous le
+flux continu c'est `2^{15}` hypothèses et **une minute**. Le prix est une
+hypothèse de plus — pas de réensemencement — mais elle est la plus
+naturelle de toutes : un service qui tourne. Le crible rend l'état **bas**
+(`6` ou `7` bits par mot) : c'est encore une identification, et le
+relèvement à `32L` bits sous le modulo reste la frontière du 7.10 (les
+congruences à modules mixtes, sans algorithme). Un survivant aurait
+pourtant déjà un pouvoir prédictif **testable** : `r mod 2^{6+shift}` est
+autonome, donc les résidus `x_k mod 2^{e_k}` de **tous** les tirages futurs
+sont connus — cinq numéros candidats pour le premier tiré, quatre
+numéros exclus sur cinq au mot 16 (`x_{16} mod 64` connu, `j_{16}` connu,
+mais le contenu de la case dépend des mots hauts) — et c'est ce que le §157
+vérifie sur `10 560` tirages retenus. Restent hors du crible : TYPE_3 et
+TYPE_4 (plafond de linéarisation **et** `2^{31}`, `2^{63}` hypothèses) ; le
+**rejet** (pas variable : l'alignement des mots n'est plus une constante
+absorbée par l'état) ; la troncature ; les vingt premières cases d'un
+shuffle ; le Fibonacci **soustractif** ; et, bien sûr, le réensemencement
+quotidien — sous lequel le 7.10 reste le seul outil, à son prix.
+
+**Résultat (h137, RAPPORT §157).** Le crible a tourné sur l'archive :
+`31` trinômes primitifs de degré `L ≤ 17` (TYPE_1 `(3, 7)` et TYPE_2
+`(1, 15)` compris), `9` variantes (fy à pas `20`–`24`, `79`, `80` ;
+shuffle à pas `79`, `80`), shifts `0` et `1` — `558` cribles, `2^L`
+hypothèses de plan 0 chacun, plans 1–2 par linéarisation cubique sur
+`10 560` tirages retenus. **Zéro survivant, zéro indécis**, six témoins
+plantés retrouvés seuls dans le régime de l'archive (`L = 7, 9, 15, 17`,
+shifts `0` et `1`). Verdict conforme, jeton `a0905869bb411907`, `14 728` s
+de crible. Sous le flux continu, TYPE_1 et TYPE_2 sont **exclus** de
+l'archive pour ces échantillonneurs à pas fixe ; le pas variable (rejet)
+est repris par le crible à retrait par échange avec le dernier (h138,
+§158) et le décodage mou (7.13).
+
+---
+
 ### 7.12 Le relèvement sous le flux continu : les équations exactes, le bit de débordement, et le compte — sans algorithme sur l'archive triée, un algorithme sur les tirages ordonnés
 
 Le crible du 7.11 rend `r mod 2^m` pour tous les mots (`m = 6 + shift`),
@@ -1828,6 +2013,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état entier TYPE_1 (224 bits) | 17 triés | **archive — §155** |
 | état bas TYPE_2 par l'archive triée, pas constant | `2^45` hypothèses à trois plans (§7.10) | archive — calcul **non lancé** (une heure de carte graphique, des années-cœur ici) |
 | état bas TYPE_3 par l'archive triée | `2^93` (§7.10) | hors de portée |
+| état bas TYPE_1, TYPE_2 et 29 trinômes par l'archive triée, **flux continu** à pas constant (§7.11) | `2^L` plans 0, plans 1–2 par linéarisation cubique | **archive — §157 (fy 20–24, 79, 80 ; shuffle 79, 80), §158 (shuffle 20–24) : §157 **conforme**, 558 cribles, 0 survivant : TYPE_1, TYPE_2 exclus à pas fixe ; §158 en cours** |
 | état bas TYPE_1, TYPE_2, TYPE_3 et 29 trinômes sous flux continu, **tirages ordonnés** (§7.12) | `2^L` par table de vérité, `5 264` cellules exactes | **vidéos — §159 : 0 survivant sur 5 264 cellules, TYPE_1, TYPE_2, TYPE_3 exclus à pas constant** |
 | état **entier** TYPE_1 (224 bits) par des tirages ordonnés à pas constant | 5 ordonnés, plan 0 par crible linéaire puis LLL (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
