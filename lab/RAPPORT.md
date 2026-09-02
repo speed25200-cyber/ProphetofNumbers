@@ -16982,7 +16982,7 @@ tirage sous `189` couples (échantillonneur, décalage)), 16 segments glibc
 par tirage, 16 glibc par bloc, 1 segment `pid`, 32 segments FreeBSD et
 musl par tirage, 9 segments 4.4BSD par tirage, 48 segments `initstate`
 TYPE_1/2/4 par bloc, 32 FreeBSD et musl par bloc, 9 4.4BSD par bloc.
-Journal (`/tmp/h141_journal.txt`) au `2026-09-02T13:38Z` :
+Journal (`/tmp/h141_journal.txt`) au `2026-09-02T15:04Z` :
 
 | segment | variante | graines | couples (éch., déc.) | touches | durée | fils |
 |---|---|---|---|---|---|---|
@@ -16994,6 +16994,7 @@ Journal (`/tmp/h141_journal.txt`) au `2026-09-02T13:38Z` :
 | `--archive 0 268435456 536870912 1 0` | idem, graines `[2²⁸, 2²⁹)` | `268 435 456` | `32` | **0** | `6 902,8 s` (`1,92 h` mur) | 2 |
 | `--archive 0 536870912 805306368 1 0` | idem, graines `[2²⁹, 3·2²⁸)` | `268 435 456` | `32` | **0** | `5 440,3 s` (`1,51 h` mur) | 2 |
 | `--archive 0 805306368 1073741824 1 0` | idem, graines `[3·2²⁸, 2³⁰)` | `268 435 456` | `32` | **0** | `5 220,3 s` (`1,45 h` mur) | 2 |
+| `--archive 0 1073741824 1342177280 1 0` | idem, graines `[2³⁰, 5·2²⁸)` | `268 435 456` | `32` | **0** | `5 224,1 s` (`1,45 h` mur) | 2 |
 
 Soit `17,7 µs` (glibc), `21,7 µs` (FreeBSD, dont l'amorçage récent
 par sa LCG de Park–Miller sur `x^31 + x^3 + 1`), `21,5 µs` (4.4BSD) et
@@ -17010,9 +17011,10 @@ le troisième `--archive 0 536870912 805306368 1 0`, **0 touche** en
 `1,51 h`, et le quatrième `--archive 0 805306368 1073741824 1 0`, **0
 touche** en `1,45 h` : les quatre premiers segments de `2²⁸` graines
 couvrent `[0, 2³⁰)`, soit le **quart** des `2³²` graines glibc par tirage
-à `(OP, OC) = (1, 0)`. En cours au moment où ceci est écrit : le
-cinquième segment `--archive 0 1073741824 1342177280 1 0` (lancé
-`13:36:04Z`) ; suivent les onze autres segments glibc par tirage (`≈ 20 µs` par graine et par
+à `(OP, OC) = (1, 0)` ; le cinquième segment `--archive 0 1073741824
+1342177280 1 0` (`[2³⁰, 5·2²⁸)`) de même, **0 touche** en `1,45 h`. En
+cours au moment où ceci est écrit : le sixième, `--archive 0 1342177280
+1610612736 1 0` (lancé `15:03:08Z`) ; suivent les dix autres segments glibc par tirage (`≈ 20 µs` par graine et par
 fil, soit `≈ 12 h` mur à deux fils pour les `2³²`), les `2³²` par bloc
 (`≈ 7,5 h`), et le reste du plan (`≈ 50 h`). Le tableau ci-dessus est **celui du journal à
 l'instant de l'écriture** ; il est repris tel quel, ligne par ligne, à
