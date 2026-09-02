@@ -4196,6 +4196,20 @@ ce qui reste défendable ; passer à `60`, comme la première conception le
 faisait, jette les deux tiers de l'élagage — et c'est la vraie raison de son
 échec, bien plus que l'absence de l'élagage de clôturabilité.
 
+**Combien reste-t-il sur la table ?** Un tirage publie `61,6165` bits et
+consomme `22,849` mots : le plafond informationnel est de **`2,697` bits par
+mot**, et rien ne peut le dépasser. Le crible en extrait `2` (la classe) plus
+`3,51/22,849 = 0,154` (la clôture), soit **`2,154` bits par mot — `79,8 %` du
+plafond**. Les `0,543` bits manquants par mot, soit `12,4` bits par tirage,
+sont ceux que seule la **vraisemblance complète** donnerait : pondérer chaque
+chemin par la loi de `N` au lieu de la couper à `45`. Un crible **dur** ne
+peut pas le faire — il n'a que des verdicts, pas des poids — et un traitement
+souple ferait perdre l'exactitude. La décroissance passerait de `1,154` à
+`1,697` bit par mot, soit `47 %` de mieux ; mais **le pic resterait `20^L`**,
+puisqu'il est atteint avant que le premier tirage ne se referme. Ce qui
+manque n'ouvre donc aucun degré nouveau : c'est une accélération, pas une
+portée.
+
 **Et cela explique la queue lourde du (vi).** Un tirage dont les classes
 publiées contiennent des suites consécutives laisse le faux chemin
 *collectionner plus vite* : les deux valeurs de `δ` y tombent dans l'ensemble
