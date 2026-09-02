@@ -16781,20 +16781,25 @@ tirage sous `189` couples (échantillonneur, décalage)), 16 segments glibc
 par tirage, 16 glibc par bloc, 1 segment `pid`, 32 segments FreeBSD et
 musl par tirage, 9 segments 4.4BSD par tirage, 48 segments `initstate`
 TYPE_1/2/4 par bloc, 32 FreeBSD et musl par bloc, 9 4.4BSD par bloc.
-Journal (`/tmp/h141_journal.txt`) au `2026-09-02T06:40Z` :
+Journal (`/tmp/h141_journal.txt`) au `2026-09-02T08:03Z` :
 
 | segment | variante | graines | couples (éch., déc.) | touches | durée | fils |
 |---|---|---|---|---|---|---|
 | `--horloge 0 300 0 8 8` | 0 glibc TYPE_3 | `88 270 560` (`70 560` tirages × `1 251`) | `189` | **0** | `782,2 s` (`0,22 h` mur) | 2 |
 | `--horloge 4 300 0 8 8` | 4 FreeBSD `random(3)` (TYPE_3, amorçage récent) | `88 270 560` | `189` | **0** | `957,4 s` (`0,27 h` mur) | 2 |
+| `--horloge 5 300 0 8 8` | 5 4.4BSD `random(3)` (TYPE_3, amorçage ancien) | `88 270 560` | `189` | **0** | `950,7 s` (`0,26 h` mur) | 2 |
+| `--horloge 6 300 0 8 8` | 6 musl `random(3)` (TYPE_3) | `88 270 560` | `189` | **0** | `897,2 s` (`0,25 h` mur) | 2 |
 
-Soit `17,7 µs` (glibc) et `21,7 µs` (FreeBSD, dont l'amorçage récent
-par sa LCG de Park–Miller sur `x^31 + x^3 + 1`) par graine et par fil à
-`189` couples. En cours au moment où ceci est écrit : `--horloge 5 300 0
-8 8` (4.4BSD, lancé `06:35:34Z`) ; suit musl, puis les `2³²` graines glibc par
-tirage (`16 × 2²⁸`, `OP = 1, OC = 0`, `≈ 20 µs` par graine et par fil,
-soit `≈ 12 h` mur à deux fils), les `2³²` par bloc (`≈ 7,5 h`), et le
-reste du plan (`≈ 50 h`). Le tableau ci-dessus est **celui du journal à
+Soit `17,7 µs` (glibc), `21,7 µs` (FreeBSD, dont l'amorçage récent
+par sa LCG de Park–Miller sur `x^31 + x^3 + 1`), `21,5 µs` (4.4BSD) et
+`20,3 µs` (musl) par graine et par fil à `189` couples : les quatre
+segments de conventions sont **terminés, 0 touche**. En cours au moment
+où ceci est écrit : le premier segment exhaustif `--archive 0 0 268435456
+1 0` (glibc TYPE_3, graines `[0, 2²⁸)`, `OP = 1, OC = 0`, index inverse
+des `70 560` tirages construit en `67,7 s`, lancé `07:06:22Z`) ; suivent
+les quinze autres segments glibc par tirage (`≈ 20 µs` par graine et par
+fil, soit `≈ 12 h` mur à deux fils pour les `2³²`), les `2³²` par bloc
+(`≈ 7,5 h`), et le reste du plan (`≈ 50 h`). Le tableau ci-dessus est **celui du journal à
 l'instant de l'écriture** ; il est repris tel quel, ligne par ligne, à
 chaque segment terminé, et la ligne de registre (§ « Ligne de registre »
 ci-dessous) n'est écrite qu'à la fin du plan, ou au moment où le plan est
@@ -16802,15 +16807,14 @@ arrêté, avec la couverture atteinte à cet instant.
 
 **Résultat.**
 
-**0 touche** sur les `88 270 560` graines de convention, pour la glibc
-comme pour FreeBSD : aucun des `70 560` tirages n'a son ensemble de vingt
+**0 touche** sur les `88 270 560` graines de convention, pour chacune
+des quatre libc — glibc, FreeBSD, 4.4BSD, musl : aucun des `70 560` tirages n'a son ensemble de vingt
 numéros produit par `random()` amorcé par `srandom(ts + d)`, `srandom(id +
 d)` (`|d| ≤ 300`) ni par les sept autres conventions, sous aucun des `189`
 couples (échantillonneur, décalage). Le §63 avait fermé `d ∈ {−1, 0, 1}` sur
 quatre échantillonneurs et un décalage, pour la seule glibc ; ceci ferme
-`|d| ≤ 300`, vingt-et-un échantillonneurs et neuf décalages, pour la libc
-qui compte et pour celle des BSD récents. Les segments suivants s'ajoutent
-ici au fil du journal.
+`|d| ≤ 300`, vingt-et-un échantillonneurs et neuf décalages, pour les
+quatre libc. Les segments exhaustifs s'ajoutent ici au fil du journal.
 
 **Ce que cela ferme, et ce que cela ne ferme pas.** Fermé, à hauteur de la
 couverture ci-dessus : `random()` amorcé une fois par bloc ou une fois par
