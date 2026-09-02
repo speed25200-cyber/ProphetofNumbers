@@ -2349,7 +2349,8 @@ l'énumération de **toutes** les relations à portée, et pourquoi la
 famille structurelle n'en est qu'une partie ; (v) ce que voient les plans
 supérieurs — la proposition de la retenue, qui dit exactement pourquoi la
 `random()` de la glibc est invisible ici et pourquoi c'est le 7.14 qui
-la voit ; (vi) la cible par nuit ; (vii) les témoins, la troncature à `L
+la voit (et, pour TYPE_1 et TYPE_2, le 7.16 par la période `2(2^L −
+1)` de leur plan 1) ; (vi) la cible par nuit ; (vii) les témoins, la troncature à `L
 ≤ 20` ; (viii) le chemin vers l'état si le test détecte, et les limites.
 Le résultat sur l'archive est au §163 : `D = 0` sur `2 006` statistiques pleines (`z` max `3,14`, écart-type `1,022`), conforme ; `236` cases faibles et `262` vides restent ouvertes, presque toutes aux pas 79–80 et de degré `≥ 21`.
 
@@ -2650,6 +2651,436 @@ d'information suffit, ce sont les relations courtes qui manquent.
 
 ---
 
+### 7.16 Le balayage d'autocorrélation du plan 0 (§164) — les relations de poids 2 : tout générateur congruentiel de module `2^W` sans ses paramètres, toute période à portée, sans état
+
+Le 7.15 teste les relations de poids **3** d'un trinôme donné : il faut
+nommer le trinôme. Cette section descend d'un cran et ne nomme plus
+rien : elle demande seulement si le bit que lit l'échantillonneur — la
+parité du numéro désigné, mots pairs, 7.15 (ii) — satisfait une relation
+de poids **2** quelque part dans le flux,
+
+    b_{p+D} = b_p            (ou son complément)      pour tout p,
+
+pour un décalage `D` quelconque jusqu'à quelques millions de mots. Trois
+familles en découlent : un décalage isolé (`A`), une période `P` et tous
+ses multiples (`B`), une anti-période `H` (`b_{p+qH} = b_p ⊕ (q mod 2)`,
+`C`). Ce que cela couvre est plus large qu'il n'y paraît, et c'est le
+théorème (i) qui le dit : **tout** générateur congruentiel linéaire de
+module `2^W` — `x_{i+1} = a x_i + c mod 2^W` à sortie `x >> s` — a un
+bit `s` de période exactement `2^{s+1}` et d'anti-période `2^s`, quels
+que soient `a ≡ 1 (mod 4)`, `c` impair et `W`. `java.util.Random` (`s =
+17`), `rand()` de MSVC (`s = 16`), TYPE_0 de la glibc (`s = 0`), le
+MMIX de Knuth à 64 bits et n'importe quel LCG maison tombent ainsi sous
+un même test, sans que l'on connaisse `a`, `c` ni `W` ; s'y ajoutent
+tout registre à décalage ou Fibonacci retardé dont la période du plan 0,
+`2^L − 1`, tient dans le flux, et — par la période exacte `2(2^L − 1)`
+du plan 1 d'un Fibonacci additif — la `random()` de la glibc en TYPE_1
+et TYPE_2 à shift 1, celle-là même que le 7.15 (v) déclare invisible
+aux relations de poids 3. La statistique est une autocorrélation, la
+grille est balayée par transformée de Fourier, et le tout coûte moins
+d'une heure pour `32,7` millions de statistiques.
+
+La section établit (i) le théorème des bits d'un LCG, avec la correction
+d'une affirmation antérieure sur le décalage `2^{s+1}` ; (ii) la
+projection d'un décalage de mots sur la grille des tirages, les tables
+`c_q(ρ)` et leurs conditions de parité ; (iii) la statistique `T` non
+centrée et ses moments exacts ; (iv) la variance nulle exacte, le `z`
+attendu en forme close et l'optimalité ; (v) les familles `B` et `C`,
+le lemme de non-recouvrement et le coût ; (vi) la famille `D`, les
+paires d'un même tirage ; (vii) le seuil, le nombre effectif de
+statistiques et la queue ; (viii) la couverture exacte et les angles
+morts ; (ix) la théorie au premier ordre `T ≈ C·U`, qui **prédit** les
+témoins au lieu de les fixer à la main, et l'échelle des corrélations
+partielles d'un LCG — deux résultats nouveaux. Le résultat sur l'archive
+est au §164.
+
+**(i) Les bits d'un générateur congruentiel de module `2^W`.** Soit
+`x_{i+1} = a x_i + c (mod 2^W)`, `a ≡ 1 (mod 4)`, `c` impair — les
+conditions de Hull–Dobell pour la période pleine, que tout LCG déployé
+respecte —, et `b^s_i` le bit `s` de `x_i`. Notons `Σ_n = Σ_{j<n} a^j`
+et `v₂` la valuation 2-adique.
+
+> **Théorème (période et anti-période du bit `s`).** *Pour tout `s ≤ W −
+> 1` et tout `i` :*
+>
+>     x_{i+2^s} ≡ x_i + 2^s   (mod 2^{s+1}),      donc   b^s_{i+2^s} = 1 ⊕ b^s_i,   b^s_{i+2^{s+1}} = b^s_i,
+>
+> *et `2^{s+1}` est la période exacte du bit `s`. En particulier, sous un
+> échantillonneur à modulo de borne paire (`j = k + (r mod (80 − k))`,
+> `r = x >> s`, `k` pair), la parité du numéro désigné est exactement
+> `b^s`, et vérifie les deux relations.*
+>
+> *Preuve.* `x_{i+n} = a^n x_i + c Σ_n`. Par le lemme de relèvement des
+> exposants en `p = 2` (`a ≡ 1 mod 4`) : `v₂(a^n − 1) = v₂(a − 1) +
+> v₂(n)`, d'où `v₂(Σ_n) = v₂((a^n − 1)/(a − 1)) = v₂(n)`. Pour `n =
+> 2^s` : `v₂(a^n − 1) ≥ 2 + s`, donc `a^n x_i ≡ x_i (mod 2^{s+1})` ; et
+> `c Σ_n = 2^s × impair ≡ 2^s (mod 2^{s+1})`. Ajouter `2^s` modulo
+> `2^{s+1}` inverse le bit `s` sans retenue. La période divise `2^{s+1}`
+> et ne divise pas `2^s` : elle vaut `2^{s+1}`. Pour une borne paire `b`,
+> `(r mod b) mod 2 = r mod 2 = b^s`. ∎
+
+Le théorème ne dépend ni de `W` (les `s + 1` bits bas forment un LCG
+modulo `2^{s+1}` clos sur lui-même), ni de la valeur de `a` au-delà de
+`a ≡ 1 (mod 4)`, ni de `c` au-delà de sa parité : c'est ce qui permet de
+tester **tous** les LCG à la fois, `s` étant la seule inconnue, et `s`
+n'est qu'un index de la grille. Une remarque corrige au passage une
+affirmation faite plus haut dans ce dossier : au décalage `2^{s+1}`, la
+sortie `r = x >> s` **n'est pas** translatée d'une constante. En effet
+`x_{i+2^{s+1}} − x_i = (a^{2^{s+1}} − 1) x_i + c Σ_{2^{s+1}}` avec
+`v₂(a^{2^{s+1}} − 1) ≥ s + 3` et `v₂(c Σ) = s + 1` : la différence des
+sorties vaut `c Σ/2^s + 8 m x_i` — ses trois bits bas seulement sont
+constants (`≡ 2 mod 4`), le reste dépend de `x_i`. Seul le bit `s` (bit
+0 de la sortie) porte une relation exacte ; c'est lui, et lui seul, que
+le balayage lit.
+
+Pour une borne **impaire** `b` (les mots `k` impairs, et tous les mots au
+pas 79 du shuffle sauf `i + 1 = 64`), `(r mod b) mod 2 = r ⊕ ⌊r/b⌋ (mod
+2)` : le quotient `⌊r/b⌋` est équiréparti modulo 2 sur une plage de `r`
+bien plus longue que `b`, et la parité du résidu ne porte plus le bit
+`s` (corrélation `≈ 0`, mesurée `< 0,003`). C'est pourquoi la grille ne
+prend que les mots pairs `k ≤ 18` — les mêmes qu'au 7.13 et 7.15. La
+borne `64` de `java.util.Random` (`k = 16` au FY, `i + 1 = 64` au
+shuffle) est un cas à part : `nextInt(64)` renvoie `(64 · r) >> 31`, les
+bits `42–47` de l'état, qui n'ont aucune relation à portée ; ce mot est
+exclu des relations exactes des témoins Java, et la prédiction de (ix)
+le traite d'elle-même.
+
+**(ii) Du décalage de mots au retard de tirages.** Le mot `k` du tirage
+`t` est à la position `p = S t + k`. Un décalage `D = S q + ρ` (`0 ≤ ρ <
+S`) l'envoie sur le mot `k + ρ` du tirage `t + q` si `k + ρ < S`, sur le
+mot `k + ρ − S` du tirage `t + q + 1` sinon. Soit `E = {0, 2, …, 18}`
+les mots lus ; posons
+
+    c_q(ρ)     = #{k ∈ E : k + ρ ∈ E},           c_{q+1}(ρ) = #{k ∈ E : k + ρ − S ∈ E}.
+
+Explicitement `c_q(ρ) = 10 − ρ/2` pour `ρ` pair `≤ 18`, `0` sinon ; et
+`c_{q+1}(ρ) = 10 − (S − ρ)/2` pour `S − ρ` pair `≤ 18`, `0` sinon. Les
+**conditions de parité** en découlent : `c_q` ne vit que sur `ρ` pair,
+`c_{q+1}` que sur `ρ ≡ S (mod 2)`. Au pas pair, tout décalage pair
+envoie les dix mots pairs sur dix mots pairs (`c_q + c_{q+1} = 10`) et
+tout décalage impair sur rien ; au pas impair, seuls `20` résidus `ρ`
+sur `S` portent des paires (`ρ ∈ {0, …, 18}` pair, ou `ρ ∈ {S − 18, …, S
+− 1}` impair), et les multiples `qP` d'une période, réduits modulo `S`,
+n'en atteignent qu'une fraction — `2^{17} ≡ 11`, `2^{18} ≡ 22`, `2^{22} ≡
+36 (mod 79)`, et il faut aller à `7 · 2^{17} = 79 · 11 614 − 2` pour
+trouver les premières paires de Java au shuffle 79 (`9` paires, retard
+de tirage `11 614`). Un décalage `D` vaut donc, sur les tirages, la
+combinaison `c_q(ρ) A(q) + c_{q+1}(ρ) A(q + 1)` des autocorrélations
+
+    A(d) = Σ_t T_t T_{t+d},        d ≥ 1,
+
+calculées une fois pour toutes par transformée de Fourier (flux :
+`n_d = N − d` ; par nuit : somme des autocorrélations internes des `370`
+blocs). Le terme `q = 0` — deux mots du **même** tirage — n'est pas un
+produit de tirages distincts et sort des familles `A`, `B`, `C` : il
+fait la famille `D` de (vi).
+
+**(iii) `T` non centrée et ses moments exacts.** `T_t = (n_impairs −
+n_pairs)/20` comme au 7.15, mais **sans centrage ni `τ²` supposé** :
+sous `H₀` le nombre d'impairs est hypergéométrique `(80, 40, 20)`, donc
+
+    E[T] = 0,      E[T²] = Var T = (1/100) · 20 · (1/2)(1/2) · (60/79) = 3/79 = 0,037975,      σ(T²) = 0,052908
+
+exactement (le quatrième moment hypergéométrique donne `σ(T²)`). Ne pas
+centrer est une décision, pas une négligence : une relation `b_{p+S} =
+b_p` (période divisant `S`) rend chaque mot pair `k` **constant** d'un
+tirage à l'autre, et `E[T_t] = C Σ_k (−1)^{b_k}` vaut jusqu'à `±10 C =
+±0,38` — un signal énorme que le centrage effacerait, et que la famille
+`B` lit au contraire à tous les retards (`P | S`). Sous `H₀`, `E[T] = 0`
+n'est pas une estimation : c'est une identité de l'échantillonnage
+uniforme, et elle rend la variance de (iv) exacte.
+
+**(iv) Variance nulle exacte, `z` attendu, optimalité.** Une famille
+(un `D`, un `P` ou un `H`) désigne des comptes signés `s_d` de paires
+(mot pair `→` mot pair de rang `≤ 18`, tirages distincts) au retard `d`,
+et la statistique
+
+    Λ = Σ_{d≥1} s_d A(d),        z = Λ / √V,        V = τ⁴ Σ_d s_d² n_d,
+
+`τ²` la moyenne empirique de `T²` (`0,03787` sur l'archive, pour `3/79 =
+0,03797`).
+
+> **Proposition (variance exacte, `z` attendu, optimalité).** *Sous
+> `H₀` — tirages indépendants, `E[T] = 0`, `E[T²] = τ²` —, `E[Λ] = 0` et
+> `Var Λ = V` exactement. Sous `H₁` — la relation vraie, `e_d` paires
+> signées au retard `d` —, `E[T_t T_{t+d}] = e_d C²` au premier ordre de
+> (ix), donc `E[Λ] = C² Σ_d s_d e_d n_d`, et pour les poids adaptés `s =
+> e` :*
+>
+>     z_attendu = (C²/τ²) √(Σ_d e_d² n_d) ≈ C √(Σ_d e_d² n_d) = 0,038 √(Σ_d e_d² n_d),
+>
+> *maximum de `E[Λ]/√(Var Λ)` sur toutes les combinaisons linéaires des
+> `A(d)`.*
+>
+> *Preuve.* Deux paires de tirages distinctes `{t, t + d} ≠ {t', t' +
+> d'}` ont une covariance `E[T_t T_{t+d} T_{t'} T_{t'+d'}]` qui contient
+> un facteur `E[T] = 0` (un indice non partagé) ou vaut
+> `E[T²]·E[T]·E[T]` (un indice partagé) : elle est nulle, et `Var Λ = Σ
+> s_d² Σ_t Var(T_t T_{t+d}) = τ⁴ Σ s_d² n_d`. L'espérance sous `H₁` est
+> (ix) ; l'optimalité est Cauchy–Schwarz sur `Σ s_d e_d n_d / √(Σ s_d²
+> n_d)`. ∎
+
+Une paire au retard `d` vaut donc `z ≈ 0,038 √n_d` : `9,3` sur le flux
+entier (`n_d ≈ 60 000`), `3,8` au `n` minimal `10 000` — une seule paire
+isolée est au bord du seuil, deux le dépassent, et une période en
+apporte des dizaines par ses multiples. Le `z_rel` des témoins du §164
+est cette forme close, calculée sur les seules relations **exactes** ;
+il ne compte ni les corrélations partielles ni le mot `64` de Java, et
+(ix) fait mieux.
+
+**(v) Les familles `B` et `C` : les multiples, et le lemme de
+non-recouvrement.** `B(P)` somme `Λ_A(qP)` sur `q = 1, 2, …, ⌊D_max/P⌋`,
+`C(H)` de même avec le signe `(−1)^q`. Il faut agréger les comptes quand
+deux multiples tombent sur le même retard de tirages.
+
+> **Lemme (non-recouvrement).** *Si `P ≥ 2S`, deux multiples distincts
+> `qP`, `q'P` ne contribuent jamais au même retard de tirages, ni par
+> `c_q` ni par `c_{q+1}`.*
+>
+> *Preuve.* `qP = S d + ρ`, `q'P = S d' + ρ'` avec `d ≤ d' ≤ d + 1` et
+> `q < q'` donneraient `(q' − q) P = S(d' − d) + ρ' − ρ ≤ S + S − 1 <
+> 2S ≤ P`. ∎
+
+Pour `P ≥ 2S` la statistique `B(P)` est donc une simple tranche
+`Λ_A(P), Λ_A(2P), …` — variance comprise, `V_B = Σ_q V_A(qP)` —, ce que
+l'outil calcule par tranches vectorisées en `O(D_max log D_max)` par
+pas ; pour `P < 2S` (au plus `159` valeurs) les comptes signés `s_d`
+sont accumulés explicitement. Le coût total est de l'ordre de `2 ·
+10^8` opérations par cible : `2` minutes pour la grille entière, contre
+`2^L` pour un décodeur.
+
+**(vi) La famille `D` : les paires d'un même tirage.** Une relation de
+période `P ≤ 18` lie deux mots pairs `k, k + P` du **même** tirage et
+force deux numéros désignés à la même parité (ou à des parités opposées
+pour une anti-période impaire). Sous `H₀` deux numéros désignés ont la
+même parité avec probabilité `39/79` ; la relation la porte à `1` (ou
+`0`), et
+
+    E[T²] − 3/79 = ± δ_D,      δ_D = (40/79)(E[T² | mêmes] − E[T² | opposées]) = 236/79 079 = 0,0029844
+
+par paire, exactement (les deux espérances conditionnelles sont
+hypergéométriques `(78, 38 ou 40, 18)`). La statistique `z_D = (T̄² −
+3/79) √N / σ(T²)` vaut alors `≈ 15` par paire sur l'archive : la famille
+`D` est une seule statistique, mais la plus sensible de toutes — et
+c'est elle que voit TYPE_0 de la glibc (`s = 0` : bit 0 d'anti-période
+1, dix numéros désignés de même parité, `z_D = 219` au témoin), en plus
+de `B(1)` et `C(1)` qui voient ses `2 000` multiples.
+
+**(vii) Le seuil, le nombre effectif, la queue.** La grille compte, par
+pas `S` et par cible, `S · d_max − 1` statistiques `A` et autant pour `B
++ C` (`P, H ≤ D_max/2`) : `M = 2 Σ_S Σ_{cible} (S d_max − 1) + 1 = 32 673
+251` avec `d_max = 60 559` (flux, `n_d ≥ 10 000`) et `172` (bloc). Le
+seuil bilatéral `Z_c = Q^{−1}(10^{−7}/2M) = 7,89` est Bonferroni sur ce
+`M` nominal ; mais toutes les statistiques sont des combinaisons
+linéaires des `60 559 + 172` autocorrélations `A(d)`, et le nombre
+**effectif** est plutôt `M_eff ≈ 10^6` : le maximum de `|z|` sous `H₀`
+attendu est `√(2 ln M_eff) ≈ 5,3`, et les quatre flux nuls des témoins
+donnent `5,3` à `5,5` — `2,5` unités sous le seuil. La queue gaussienne
+de `z` est une hypothèse, non un théorème : `T` est sous-gaussienne
+(Hoeffding sans remise, facteur `1,3` sur sa variance) et `Λ` une somme
+de `n_d ≥ 10 000` produits bornés, mais les bornes de concentration
+génériques ne donnent que `≈ 10^{−8}` par statistique au `n` minimal —
+insuffisant pour `3 · 10^7` statistiques —, et ce sont les flux nuls
+(quatre fois `M` statistiques, maximum `5,5`) qui attestent la queue là
+où elle compte.
+
+**(viii) Couverture exacte, et angles morts.** `D_max = S · d_max − 1`
+vaut `1 211 179` au pas 20 et `4 844 719` au pas 80 (flux), `3 439` par
+nuit. Un LCG à sortie `>> s` est vu par `C` si `2^s ≤ D_max/2`, par `A`
+seule si `2^s ≤ D_max` :
+
+| cible | pas 20 (flux) | pas 80 (flux) | pas 20 (bloc) |
+|---|---|---|---|
+| LCG, anti-période `2^s` (`C`, tous les multiples) | `s ≤ 19` | `s ≤ 21` | `s ≤ 10` |
+| LCG, un décalage `2^s` (`A` seule) | `s ≤ 20` | `s ≤ 22` | `s ≤ 11` |
+| plan 0 d'un Fibonacci ou registre, période `2^L − 1` (`B`) | `L ≤ 19` | `L ≤ 21` | `L ≤ 10` |
+| plan 1 de `random()` additif, période `2(2^L − 1)` (`B`) | TYPE_1, TYPE_2 | TYPE_1, TYPE_2 | TYPE_1 |
+
+`java.util.Random` (`s = 17`), MSVC (`s = 16`), TYPE_0 (`s = 0`), le
+MMIX `>> 19 … 22` sont couverts sous le flux ; par nuit, seuls `s ≤ 10`
+— MSVC par nuit est hors de portée (témoin `attendu 0`, `détecté 0`),
+et c'est le §161 qui traite la graine par nuit. La `random()` de la
+glibc à shift 1 : le bit 1 d'un Fibonacci additif `r_i = r_{i−K} +
+r_{i−L}` de trinôme primitif a pour période exactement `2(2^L − 1)`
+(Brent, 1994 : le plan `j` a pour période `2^j (2^L − 1)` dès qu'un mot
+initial est impair — le plan 1 est le plan 0 forcé par la retenue `b⁰_{i−K}
+b⁰_{i−L}`, périodique de période `2^L − 1`, et `b¹_{i+P₀} ⊕ b¹_i` est
+une `m`-suite non nulle), soit `254` pour TYPE_1 et `65 534` pour
+TYPE_2 : à portée sous le flux, et TYPE_1 même par nuit. TYPE_3 (`2^{32}
+− 2`) et TYPE_4 restent hors de portée — c'est le 7.14 (`2^{31}`) qui
+les tient, et le §157 les a exclus à pas fixe.
+
+Les angles morts sont ceux du pas constant et du bit lu : (a) une lecture
+**multiplicative** (`⌊b · r/2^{32}⌋`, Delphi, `nextInt` de Java pour une
+borne puissance de 2) lit les bits **hauts**, dont la période est `2^W`
+— rien à portée, et le mot `64` de Java en est l'exemple ; (b) PCG,
+xoshiro, MT19937 : aucun bit de période courte ; (c) le rejet et le pas
+variable : la position `S t + k` n'existe plus ; (d) un `ρ` qui retombe
+sur un mot **impair** ou hors des `19` premiers : la relation existe,
+la grille ne la voit pas — c'est l'« angle mort exact » du MMIX `>> 22`
+au shuffle 79 (`2^{22} ≡ 36 (mod 79)`, aucun multiple à portée ne
+retombe sur un mot pair, `z_rel = 0`), que (ix) va rattraper par un
+autre chemin.
+
+**(ix) La théorie au premier ordre `T ≈ C · U`, et l'échelle des
+corrélations partielles.** Les témoins du §164 ne reçoivent pas une
+« détection attendue » fixée à la main : elle est **prédite**. Le lemme
+du numéro désigné (7.15 (ii)) vaut pour les vingt pas `k = 0 … 19` de
+l'un et l'autre échantillonneur, bornes paires et impaires — le numéro
+`j_k + 1` est tiré, et `E[T · (−1)^{j_k}] = C = 3/79` pour tout `k`.
+Posons `U_t = Σ_{k<20} β_{t,k}`, `β_{t,k} = (−1)^{j_{t,k}}`, la somme
+des vingt **signes désignés** réellement tirés par l'échantillonneur.
+Un détail compte : les signes des dix bornes **impaires** `b = 61, 63,
+…, 79` (l'un et l'autre échantillonneur les parcourent toutes, Java
+compris, sa borne `64` étant paire) ne sont pas centrés — `r mod b`
+uniforme sur `{0, …, b − 1}` tombe pair `(b + 1)/2` fois sur `b` —
+alors que `E T = 0` exactement ; et le **signe** de ce biais dépend de
+l'échantillonneur : Fisher–Yates lit `j = k + (r mod b)` avec `b = 80 −
+k`, donc `k` impair quand `b` l'est, et `E β = m_b = −1/b` ; le shuffle
+lit `j = r mod b` et `E β = m_b = +1/b`. Posons `μ = E U = ε Σ_{b impair}
+1/b = ε · 0,14383` (`ε = −1` pour Fisher–Yates, `+1` pour le shuffle) et
+`σ_U² = Var U = 20 − Σ_{b impair} 1/b² = 19,9979`.
+
+> **Proposition (premier ordre).** *Sous des mots indépendants et
+> uniformes à l'intérieur de chaque tirage, `T_t = C (U_t − μ) + ε_t` à
+> un facteur `1/(1 − m_b²) ≤ 1,0003` près sur chaque signe de borne
+> impaire, avec `E[ε_t β] = 0` pour chaque signe `β` du tirage `t` ;
+> `Var(C (U − μ)) = σ_U² C² = 0,02884`, et `corr(T, U) = √(σ_U² · 3/79)
+> = 0,871`. Si deux tirages `t`, `t + d` ne partagent qu'**un** signe, de
+> borne paire (`β_{t+d,k'} = ± β_{t,k}`, les autres indépendants), alors*
+>
+>     E[T_t T_{t+d}] = C² E[(U_t − μ)(U_{t+d} − μ)]        exactement.
+>
+> *Preuve.* Les vingt signes d'un tirage sont indépendants (chaque `j_k`
+> ne dépend que de son mot), donc les `β_k − m_k` sont orthogonaux ;
+> `E[T β_k] = C` pour tout `k` (7.15 (ii) : le numéro `j_k + 1` est tiré
+> quel que soit le biais de `j_k`) et `E T = 0` donnent `Cov(T, β_k) =
+> C`, `Var β_k = 1 − m_k²`, et la projection de `T` sur l'espace engendré
+> par `1` et les signes est `Σ_k C (β_k − m_k)/(1 − m_k²)`. Pour deux
+> tirages, `E[T_t T_{t+d}] = E[ E[T_t | β_{t,k}] E[T_{t+d} | β_{t+d,k'}] ]`
+> puisque, le signe partagé fixé, les deux tirages sont indépendants ;
+> `E[T | β]` est affine en un signe binaire, `= C (β − m)/(1 − m²)`, et
+> `m = 0` pour une borne paire. ∎
+
+Mesuré sur `30 000` tirages de chaque témoin : `corr(T, U) = 0,875`,
+pente `E[TU]/E[U²] = 0,0380 = C`. La prédiction d'une grille entière
+s'ensuit : on passe `A_att(d) = C² A_{U−μ}(d)` dans la **même** grille
+que l'archive, et l'on obtient `z_att` en chaque statistique, relations
+exactes et **partielles** confondues, borne `64` de Java comprise ; pour
+la famille `D`, `E[T²] − 3/79 ≈ (m_mêmes − m_opp)(Var U − σ_U²)/4` avec
+`m_mêmes − m_opp = 0,0058940` (chaque paire de signes de covariance `ρ`
+déplace `E[T²]` de `(m_mêmes − m_opp) ρ/2`). Le centrage par `μ` n'est
+pas un raffinement : sans lui, la constante `μ² n_d` de `A_U(d)` se
+somme sur les `60 559` retards de la famille « tous les retards » (`B` à
+`P = S`, ou `P = 1`) et fabrique un `z_att` fantôme `≈ μ² √(Σ n_d)/τ² ≈
+40` — les témoins MMIX au shuffle 79 l'ont montré (`z_att 48,6` à `B
+79`, observé `1,7`) — là où `T`, non centré mais de moyenne **nulle**
+exactement, ne voit rien ; et le centrage au mauvais signe (`+μ` pour
+Fisher–Yates) laisse `2μ` et fabrique un fantôme quatre fois plus grand
+(`z_att 154` à `B 1`, `B 3`, … pour Java au FY 20, observé `−0,7`, les
+moyennes par mot valant `−0,0117, −0,0088, …` aux `k` impairs contre
+`+1/b = +0,0127, +0,0130, …`). La même famille rend la grille sensible à
+`T̄²` : un biais de parité de `0,3 %` sur l'archive la déclencherait
+(`z ≈ 12`) ; l'archive donne `T̄ = −0,00031`, soit `z ≈ 0,1`. Quand
+plusieurs signes sont partagés, la formule reste une prédiction au
+premier ordre : à `2 %` près pour les `9` paires de Java (`z_att
+148,4`, observé `147,1` au FY 20 ; `101,4` et `102,5` au shuffle 79),
+mais en excès de `30 %` sur la grille et de `3×` sur `D` pour TYPE_0,
+dont les **dix** signes désignés sont égaux — la loi conjointe à
+l'intérieur du tirage n'est plus celle de `H₀`, et `T` sature. Un
+témoin est déclaré *attendu* si `max(|z_att|, |z_D,att|) ≥ Z_c + 2`,
+*non attendu* si `≤ Z_c − 2`, indéterminé entre les deux ; il est
+*raté* si la détection observée contredit la prédiction.
+
+Ce que cette prédiction a révélé, et que les relations exactes
+cachaient : un LCG n'a pas **que** ses relations exactes.
+
+> **Proposition (l'échelle des corrélations partielles).** *Soit `Δ =
+> 2^{s−j}`, `1 ≤ j ≤ (s + 1)/2`. Pour les positions `i` d'une même classe
+> `x_i ≡ x_ℓ (mod 2^{j−1})`, `b^s_{i+Δ} = b^s_i ⊕ κ ⊕ retenue`, où `κ`
+> est constant sur la classe et la retenue vaut 1 avec probabilité
+> `w/2^j`, `w` impair, `0 < w < 2^j`, fonction de la classe et de `c`.
+> La corrélation `E[(−1)^{b_i} (−1)^{b_{i+Δ}}]` sur la classe vaut donc*
+>
+>     ± (2^{j−1} − w) / 2^{j−1}  —  un multiple impair de 2^{−(j−1)} :
+>     0 (j = 1), ±1/2 (j = 2), ±1/4, ±3/4 (j = 3), ±1/8 … ±7/8 (j = 4), …
+>
+> *et les classes `x_ℓ` et `x_ℓ + 2^{j−2}` portent le même `w` et des
+> signes opposés, de sorte que la corrélation moyenne sur toutes les
+> positions est nulle.*
+>
+> *Preuve.* `a^Δ = 1 + 2^{s−j+2} u` (`u` impair, lemme des exposants) et
+> `c Σ_Δ = 2^{s−j} v` (`v` impair), donc `x_{i+Δ} ≡ x_i + 2^{s−j+2} u
+> x_i + 2^{s−j} v (mod 2^{s+1})`. Écrivons `x_i = 2^{j−1} x_h + x_ℓ` :
+> `2^{s−j+2} u x_i ≡ 2^{s−j+2} u x_ℓ (mod 2^{s+1})`, et `x_ℓ`, résidu des
+> `j − 1` bits bas, est constant sur la classe (ils ont pour période
+> `2^{j−1}`). Ainsi `x_{i+Δ} ≡ x_i + K (mod 2^{s+1})` avec `K = 2^{s−j}
+> W`, `W = (4 u x_ℓ + v) mod 2^{j+1}` impair, constant sur la classe. Le
+> bit `s` de `x_i + K` est `b^s_i ⊕ κ ⊕ retenue`, `κ = ⌊W/2^j⌋` le bit
+> `s` de `K`, la retenue arrivant au bit `s` si et seulement si `x_i mod
+> 2^s ≥ 2^s − 2^{s−j} w`, `w = W mod 2^j` ; pour `x_i` uniforme dans la
+> classe et `s − j ≥ j − 1`, ce seuil est un multiple de `2^{j−1}` et la
+> probabilité vaut exactement `w/2^j`, indépendamment de `b^s_i`. D'où
+> la corrélation `(−1)^κ (1 − 2w/2^j)`. Passer de `x_ℓ` à `x_ℓ + 2^{j−2}`
+> ajoute `2^j u ≡ 2^j (mod 2^{j+1})` à `W` : `w` ne change pas, `κ`
+> bascule, le signe s'inverse. Pour `j = 1`, `x_ℓ = 0`, `w = 1` et la
+> corrélation est exactement nulle. ∎
+
+Mesurée sur le MMIX `>> 22` (`5,6 · 10^6` mots) : au retard `2^{21}`,
+`0,000` sur les deux classes ; à `2^{20}`, `+0,500` (positions paires)
+et `−0,500` (impaires) ; à `2^{19}`, `−0,750, −0,250, +0,750, +0,250`
+selon la classe modulo 4 ; à `2^{18}`, les huit multiples impairs de
+`1/8` ; à `2^{17}`, ceux de `1/16` — la proposition au chiffre près. Sur
+la grille, ces corrélations sont **cohérentes** dès que `2^{j−1}` divise
+le pas : au pas 20 ou 24 jusqu'à `j = 3`, au pas 80 jusqu'à `j = 5`, au
+pas impair pas du tout (la classe alterne avec `t`, et la somme sur `t`
+s'annule). C'est ce qui a rendu détectable le témoin MMIX `>> 22` au FY
+20, dont la relation exacte `2^{22}` est **hors de portée** (`D_max = 1
+211 179 < 4 194 304`) : au retard `2^{20} = 20 · 52 428 + 16`, `10` paires
+de corrélation `±1/2` donnent `z ≈ 0,5 · 10 · 0,038 · √18 131 = 26`,
+observé `−21,8` — la grille lit un LCG **deux octaves** sous sa période.
+Et une seconde source, sans structure de puissance de 2 : le multiplicateur
+`a^D mod 2^{s+1}` peut être **petit** pour un `D` quelconque ; le bit haut
+de `x ↦ a^D x + c_D (mod 2^{s+1})` est alors corrélé à celui de `x` — pour
+le MMIX `>> 22`, `a^{582 149} ≡ −3 (mod 2^{23})`, corrélation `+0,088`, et
+`582 149 = 79 · 7 368 + 77` retombe sur `9` paires au shuffle 79 : c'est
+l'« angle mort exact » de (viii), prédit par `U` à `z_att = −9,2` (famille
+`C`, `H = 582 143`) et observé à `−9,6` au même point — maximum de la
+grille, avec `8,9` en `A` (`D = 582 133`) et en `B` (`P = 582 135`) — ;
+comme `|z_att|` tombe entre `Z_c − 2` et `Z_c + 2`, ce témoin est le seul
+« indéterminé » de la grille, et sa détection ne compte ni pour ni
+contre. Ces corrélations partielles ne sont pas une faiblesse du test mais
+une **extension** de sa couverture, que seule la prédiction par `U`
+pouvait mettre en chiffres : la grille reste exacte sous `H₀`, et sous
+`H₁` elle voit plus que ses relations.
+
+Les témoins du §164 — onze sous le flux, trois par nuit, à l'échelle de
+l'archive (`70 560` tirages, `370` blocs), même grille, même seuil —
+sont au tableau du §164 avec, pour chacun, `z_rel` (forme close des
+relations exactes), `z_att` (prédiction par `U`, et où), le `z` observé
+au point prédit, le maximum de la grille, `z_D` prédit et observé, et
+le verdict : treize prédictions confirmées (douze « attendu » détectés,
+et le MSVC par nuit, hors de portée, « non attendu » et non détecté), un
+indéterminé (l'angle mort du MMIX `>> 22`, prédit `−9,2`, détecté
+`−9,6`), aucun raté, aucun faux positif sur `4 × M` statistiques
+nulles. Un effet de parité vaut d'être noté : à un
+pas **pair**, un décalage de mots impair n'envoie jamais un mot pair sur
+un mot pair (`c = 0`), donc pour une période impaire `P₀` les
+statistiques `B` et `C` à `P₀` coïncident avec celles à `2 P₀` — seuls
+les multiples pairs sont lus — et l'argmax rapporte le plus petit index :
+TYPE_2 à shift 1, de période `65 534`, est détecté « à `B 32 767` », et
+TYPE_1 par nuit, de période `254`, « à `B 127` » (le Fibonacci `(3, 17)`,
+de période impaire `131 071`, l'est à son vrai index). Le test est un
+**distingueur** : s'il détecte, le pas, la
+famille et l'index désignent la période du bit lu, donc `s` pour un
+LCG ou `L` pour un registre, et le décodage de l'état suit (2^{s+1}
+hypothèses pour les bits bas d'un LCG, le 7.11 ou le 7.14 pour un
+Fibonacci) ; s'il ne détecte pas, aucun générateur de la couverture
+(viii) n'a engendré l'archive à pas constant, quels que soient ses
+paramètres.
+
+---
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
@@ -2714,6 +3145,7 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
 | état bas TYPE_2, TYPE_3 et 42 trinômes (degré 15 à 31) sous flux continu à pas constant, **shift 1** (`random()` de la glibc), par les relations de poids 3 sur `Z/4` (§7.14) | `2^L` plans 0 par une WHT (`L ≤ 28`) ou un `χ²` par morceaux (`L = 31`), plan 1 déduit linéairement | **archive — §162 : 396 décodages (fy 20–24, 79, 80 ; shuffle 79, 80 ; shifts 1 et 0), pré-enregistré, en cours** |
 | plan 0 de tout Fibonacci retardé (`+`, `−` à shift 0 ; `xor` à tout shift), 110 trinômes primitifs de degré 7 à 63 + 16 retards classiques jusqu'à 1279, sous flux continu et par nuit, **sans état** (§7.15) | linéaire en `N` : 2 268 statistiques, ≈ 1–3 h | **archive — §163 : `D = 0` sur 2 268 statistiques (2 006 pleines), conforme** |
+| toute relation de **poids 2** du bit lu — période, anti-période ou décalage isolé jusqu'à `Δ_max = S × 60 559` — donc tout LCG modulo `2^W` à sortie décalée (`java.util.Random`, MSVC, TYPE_0, LCG maison : `s ≤ 20` au pas 20, `s ≤ 22` au pas 80), le plan 1 de TYPE_1/TYPE_2 à shift 1 (périodes 254 et 65 534), et les corrélations partielles des LCG deux octaves sous leur période, sous flux et par nuit, sans état (§7.16) | linéaire en `N` : `32,7 M` statistiques, ≈ 45 min | **archive — §164 : pré-enregistré, en cours** |
 | la **graine** de `random()` (32 bits), une par bloc ou une par tirage, quelle que soit sa source (§7.4 addendum) | `2^32` × 16 variantes × 21 échantillonneurs, index bitmap des 370 blocs et index inverse des 5-sous-ensembles | **archive — §161 : balayage en cours, journalisé ; couverture consignée au registre** |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond
