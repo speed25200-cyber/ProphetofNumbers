@@ -18034,8 +18034,14 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 | `128` | 0 | `x^15 + x^11 + 1` | `32 767` | `1,61` @ `45` | `0` | `0` | 0 | 201 |
 | `128` | 0 | `x^15 + x^14 + 1` | `32 767` | `0,09` @ `1` | `0` | `0` | 0 | 196 |
 | `128` | 0 | `x^17 + x^3 + 1` | `131 071` | `0,10` @ `1` | `0` | `0` | 0 | 217 |
+| `128` | 0 | `x^17 + x^5 + 1` | `131 071` | `0,10` @ `1` | `0` | `0` | 0 | 212 |
+| `128` | 0 | `x^17 + x^6 + 1` | `131 071` | `0,10` @ `2` | `0` | `0` | 0 | 210 |
+| `128` | 0 | `x^17 + x^11 + 1` | `131 071` | `0,10` @ `1` | `0` | `0` | 0 | 205 |
+| `128` | 0 | `x^17 + x^12 + 1` | `131 071` | `0,10` @ `1` | `0` | `0` | 0 | 198 |
+| `128` | 0 | `x^17 + x^14 + 1` | `131 071` | `0,10` @ `1` | `0` | `0` | 0 | 194 |
+| `128` | 0 | `x^18 + x^7 + 1` | `262 143` | `0,10` @ `1` | `0` | `0` | 0 | 209 |
 
-*Grille en cours : `114` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `120` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18048,7 +18054,6 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 **Ligne de registre.** `h147.masque_rejet`, piste B, en cours (rien n'est consigné avant la fin des `181` configurations).
 
 ---
-
 ## 169. Le canal **mod 4** : deux bits par mot — et le générateur **partagé** redevient lisible (`h149_canal_mod4.py`, `tools/lfg_beam_mod4.c`)
 
 ### Ce que le §168 laissait
@@ -18284,8 +18289,10 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 | `(6  7)` | `1` | flux | `1` | `6 267 171 264` | `76 800 000` | `0` | `217` |
 | `(1  2)` | `0` | nuit | `37` | `47 719 313` | `8 140 752` | `0` | `1` |
 | `(1  3)` | `0` | nuit | `37` | `29 827 396 843` | `4 442 690 036` | `0` | `494` |
+| `(2  3)` | `0` | nuit | `37` | `60 011 692 052` | `6 559 920 471` | `0` | `986` |
+| `(1  4)` | `0` | nuit | `37` | `57 737 846 037` | `5 967 540 967` | `0` | `948` |
 
-*Grille en cours : `28` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `30` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18298,7 +18305,6 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 **Ligne de registre.** `h152.troncature`, piste B, en cours (rien n'est consigné avant la fin des `52` configurations).
 
 ---
-
 ## 173. Le relèvement de la troncature : des classes à l'état complet, puis aux vingt numéros du tirage suivant (`h153_releve_troncature.py`, `lab/lll_exact.py`)
 
 ### Ce que le §172 laissait ouvert
