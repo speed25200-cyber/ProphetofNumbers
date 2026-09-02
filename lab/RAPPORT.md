@@ -17877,8 +17877,17 @@ les deux modèles :
 
 et à l'échelle de l'archive (`x¹⁵ + x + 1`, `N = 1,07·10⁹`) : **`560,8`**
 sans jumeau lu sans, `1,4` avec jumeau lu sans, **`527,1`** avec jumeau lu
-avec. C'est la démonstration complète : **le canal mod 4 lit ce que la
-parité ne peut pas lire**, et il ne lit rien qui n'y soit pas.
+avec. Même chose à la **sortie décalée** `x = r >> 1` (état mod 8), où le
+même tableau croisé tient :
+
+| planté \ lu (sortie `r >> 1`) | **sans** jumeau | **avec** jumeau |
+|---|---|---|
+| `x⁵ + x³ + 1` (`N = 31 744`) sans / avec | `756,3` / `3,4` | `0,0` / `706,8` |
+| `x⁷ + x³ + 1` (TYPE_1, `N = 2,1·10⁶`) sans / avec | `742,9` / `0,3` | `0,5` / `529,5` |
+| `x⁹ + x⁴ + 1` (`N = 1,3·10⁸`) sans / avec | `626,8` / `0,9` | `0,2` / `590,3` |
+
+C'est la démonstration complète : **le canal mod 4 lit ce que la parité ne
+peut pas lire**, et il ne lit rien qui n'y soit pas.
 
 ### Pré-enregistrement
 
@@ -17901,8 +17910,14 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 | brute | `x^5 + x^2 + 1` | non | `992` | `6,08` @ `47 857` | `65` | `65` | 0 | 25 |
 | brute | `x^5 + x^3 + 1` | non | `992` | `5,37` @ `42 390` | `65` | `65` | 0 | 22 |
 | brute | `x^6 + x^1 + 1` | non | `4 032` | `4,63` @ `36 991` | `65` | `65` | 0 | 23 |
+| brute | `x^6 + x^5 + 1` | non | `4 032` | `10,10` @ `36 601` | `65` | `65` | 0 | 24 |
+| brute | `x^7 + x^1 + 1` | non | `16 256` | `9,96` @ `69 250` | `50` | `50` | 0 | 61 |
+| brute | `x^7 + x^3 + 1` (TYPE_1) | non | `16 256` | `8,11` @ `69 571` | `46` | `46` | 0 | 72 |
+| brute | `x^7 + x^4 + 1` | non | `16 256` | `7,98` @ `68 978` | `58` | `58` | 0 | 65 |
+| brute | `x^7 + x^6 + 1` | non | `16 256` | `9,20` @ `67 994` | `58` | `58` | 0 | 73 |
+| brute | `x^9 + x^4 + 1` | non | `261 632` | `10,30` @ `68 978` | `13` | `13` | 0 | 122 |
 
-*Grille en cours ; le tableau est celui du journal (`/tmp/h149_journal.txt`) à l'instant de l'écriture. Rien n'est consigné au registre avant la fin des `84` chaînes.*
+*Grille en cours ; le tableau est celui du journal à l'instant de l'écriture. Rien n'est consigné au registre avant la fin des `84` chaînes.*
 
 **Résultat.**
 

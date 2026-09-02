@@ -252,7 +252,7 @@ if __name__ == "__main__" and "--archive" in sys.argv:
             power_at=("normalisation de la vraisemblance mod 4 verifiee a 1e-9 ; debit mesure 5,37 "
                       "bits par tirage (contre 1,31 pour la parite) ; plante sans jumeau detecte "
                       "(561 bits en 150 tirages a N = 1,07e9) et rejete par le modele a jumeau ; "
-                      "plante AVEC jumeau invisible sans le modele (1,4 bit) et detecte avec ; "
+                      "plante AVEC jumeau invisible sans le modele (1,4 bit) et detecte avec (527) ; meme tableau croise a la sortie decalee (etat mod 8, L = 5, 7, 9 : 756/742/627 sans jumeau, 707/530/590 avec, <= 3,4 aux modeles croises) ; "
                       "tirages nuls sous le seuil"),
             notes=(f"CANAL MOD 4 (§7.21) : {len(LIG)} chaines = ({len(TRIN0)} trinomes L <= {LMAX0} "
                    f"sortie brute + {len(TRIN1)} L <= {LMAX1} sortie decalee) x (sans, avec jumeau "
