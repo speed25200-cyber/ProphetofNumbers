@@ -18110,3 +18110,63 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 **Ligne de registre.** `h149.canal_mod4`, piste B, en cours (rien n'est consigné avant la fin des `84` configurations).
 
 ---
+## 171. Le témoin de **bout en bout** : détecter, relever les 224 bits, prédire le tirage suivant — exactement (`h151_bout_en_bout.py`)
+
+### La question que les §165 à §170 laissent ouverte
+
+Ils cherchent, et ne trouvent pas. Mais **que vaudrait une trouvaille ?**
+La DP de synchronisation ne lit qu'un ou deux bits par mot ; elle rendrait
+la suite et la position, pas les trente-deux plans. La réponse est au
+§7.23 en chiffres — l'alignement acquis, chaque mot consommé vaut `2` bits
+(`x mod 80 ∈ A_t`), `45,7` par tirage, contre `2,85` d'entropie
+d'alignement — mais un chiffre n'est pas un programme. Voici le programme,
+et il tourne.
+
+### La chaîne, sur un TYPE_1 planté
+
+`x⁷ + x³ + 1`, sortie `r >> 1` (la `random()` de la glibc à état de 32
+octets), état de **`224` bits** tiré au hasard, lu par l'échantillonneur à
+rejet, publié **trié**. Données : **`25` tirages** — deux heures de jeu.
+
+| étape | ce qu'elle fait | coût |
+|---|---|---|
+| **1. détection** | la DP du §165 sur les `64` orbites du Fibonacci mod 4 : orbite et position trouvées ; le lissage avant-arrière donne les frontières entre tirages à quelques mots près | `0,2` s |
+| **2. crible** | les plans `2-4` des `7` mots (`2^{21}` candidats) : *sous rejet, tout mot consommé — accepté ou doublon — a sa classe `x mod 16` dans le tirage courant*, ce qui tue `30 %` des candidats par mot ; appliqué à l'intérieur sûr de chaque tirage (marge de `8` mots, décalages `± 6` balayés) | `24` s |
+| **3. relèvement** | le réseau LLL **exact** du §154 sur les états bas survivants : l'état `32` bits | `2` à `16` s |
+| **4. prédiction** | l'état régénère la suite : le tirage suivant, ses vingt numéros | immédiat |
+
+### Trois témoins, trois réussites
+
+| graine | `log₂ BF` de la détection | pic (masse) | états bas après crible | états `32` bits | état exact | **tirage 26 prédit** |
+|---|---|---|---|---|---|---|
+| `151` | `23,3` | `0,177` | `102` (le vrai dedans) | `1` | **oui** | **exact, 20/20** |
+| `152` | `29,8` | `0,129` | `15` (le vrai dedans) | `4` | **oui** | **exact, 20/20** |
+| `153` | `15,6` | `0,400` | `157` (le vrai dedans) | `2` | **oui** | **exact, 20/20** |
+
+Moins d'une minute de calcul par cas. Le tirage prédit est reproduit
+ici pour la graine `151` :
+
+    prédit : 7 9 14 19 22 25 30 33 36 38 39 46 49 56 57 65 70 71 75 77
+    réel   : 7 9 14 19 22 25 30 33 36 38 39 46 49 56 57 65 70 71 75 77
+
+### Ce que ce témoin établit
+
+**Sur cette famille, la détection suffit.** Tout ce qui suit — l'alignement
+fin, les plans intermédiaires, l'état haut, la prédiction — est mécanique
+et coûte moins d'une minute. Le `D = 0` des §165 à §170 n'est donc pas
+« nous n'avons pas su chercher » : c'est le **premier maillon** d'une
+chaîne entière, et vérifiée de bout en bout, qui ne se ferme pas sur
+l'archive.
+
+**Et ce qu'il ne dit pas.** Il porte sur TYPE_1 (`L = 7`, `2^{21}`
+candidats au crible) ; pour TYPE_2 le crible pèse `2^{45}` et pour TYPE_3
+`2^{93}` — il faudrait alors le crible incrémental en C du §155 (qui
+élague mot par mot au lieu d'énumérer) plutôt que le tableau numpy utilisé
+ici. Le principe ne change pas, le coût si. Rien de tout cela n'a été
+appliqué à l'archive, et pour cause : aucune détection ne l'y autorise.
+
+**Ligne de registre.** Aucune : c'est un **témoin sur générateur planté**,
+pas un test sur l'archive. Il n'a pas de jeton parce qu'il n'en a pas
+besoin — il ne lit pas les données réelles.
+
+---
