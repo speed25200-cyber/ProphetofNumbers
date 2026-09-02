@@ -17825,6 +17825,151 @@ d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
 
 ---
 
+## 167. Le rejet **masqué** — l'écriture recommandée d'un tirage sans biais, lue par la même synchronisation (`h147_masque_rejet.py`, `tools/lfg_beam_masque.c`)
+
+### Ce que les §165 et §166 laissaient
+
+Ils lisent l'échantillonneur du programmeur **pressé** : `v = 1 + (x mod
+80)`, biaisé d'un cheveu (`2³²` n'est pas multiple de `80`) mais direct.
+Le programmeur **soigneux** écrit ce qu'on recommande partout :
+
+    répéter : x = suivant() ; v = 1 + (x mod M) ; jusqu'à v ≤ 80     (M = 100, 128, 256…)
+
+masquer (`x & 127`) ou prendre `x mod 100`, et **recommencer** si le
+résidu dépasse `80` — un tirage sans biais. Le pas devient encore plus
+variable : `E[N] = 22,85/ρ` mots par tirage, `ρ = 80/M`. **Aucun crible du
+dossier ne lisait cette écriture sous pas variable.**
+
+### La vraisemblance ne change pas de forme
+
+Le masque n'est pas corrélé au bit lu : parmi les `80` résidus retenus,
+`40` sont pairs et `40` impairs — et parmi les rejetés aussi. Donc un mot
+est « dans la plage » avec probabilité `ρ` **indépendamment de son bit
+`0`**, et la somme sur les parties dans la plage se factorise (§7.19) :
+`F` et `G` sont simplement **étalés par la binomiale du masque**,
+
+    Ff[W][a] = Σ_j C(W, j) ρ^j (1−ρ)^{W−j} F(j, a)
+    Gg[W][a] = Σ_j C(W−1, j−1) ρ^j (1−ρ)^{W−j} G(j, a)
+
+et la statistique suffisante reste `(n, W₁, dernier bit)`. **Toute** la
+machinerie du §166 — passage en flot, faisceau, redémarrages mélangés,
+Ville — s'applique sans une ligne de preuve nouvelle : seule la table
+change, et `n` monte jusqu'à `176` (d'où une fenêtre glissante de `128`
+bits dans l'outil, et un anneau de `256` positions).
+
+### Témoins
+
+| témoin | attendu | mesuré |
+|---|---|---|
+| normalisation `Σ_{A,n} P = 1`, `M = 80, 100, 128, 256` | `1` au défaut de troncature près | `0,999999993`, `0,999999999`, `0,999999999`, `0,99999991` |
+| l'outil à `M = 80` contre celui du §166, mêmes données | identique | écart **`0`** bit |
+| planté `M = 100`, `x¹⁵ + x + 1` plan 0, `200` tirages | détecté | `82,1` bits, pic **OK** |
+| planté `M = 128`, `x²⁰ + x³ + 1` plan 0, `250` tirages | détecté | `187,4` bits, pic **OK** |
+| planté `M = 128`, `x⁹ + x⁴ + 1` plan 1, `200` tirages | détecté | `90,9` bits, pic **OK** |
+| planté `M = 256`, `x¹⁵ + x + 1` plan 0, `1 500` tirages | détecté | `162,7` bits, pic **OK** |
+| planté `M = 128`, **lu** `M = 80` | rien | `1,2` bit |
+| planté `M = 128`, **lu** `M = 100` | rien | `2,7` bits |
+| témoins nuls (tirages uniformes) | `< 29,25` | `≤ 4,2` |
+
+Débit d'information mesuré (planté `x¹⁵ + x + 1`, `1 500` tirages) :
+`1,02` bit par tirage à `M = 80`, `0,475` à `100`, `0,314` à `128`,
+`0,092` à `256` — le masque **ne protège pas, il ralentit** : même à
+`M = 256`, les `70 560` tirages de l'archive rendraient `6 500` bits
+contre un seuil de `29,25`. Mais il doit être **deviné juste** : lu au
+mauvais masque, le facteur de Bayes ne décolle pas. D'où le balayage.
+
+### Pré-enregistrement
+
+Jeton `3e34b826a3ea5e8f`, scellé le **2026-09-02 à 14:50:37Z**, avant
+toute lecture de l'archive par ce script (le pré-enregistrement précède le
+chargement dans le code lui-même). Hypothèse : le flux continu des `70 560`
+tirages n'est engendré par aucun Fibonacci retardé additif `mod 2³²` lu par
+l'échantillonneur à rejet **masqué** — `v = 1 + (x mod M)`, refusé si
+`v > 80`, puis refusé si déjà tiré — pour `M = 100` et `128` (les `63`
+trinômes primitifs de degré `≤ 31` au plan 0, TYPE_3 compris ; les `25` de
+degré `≤ 15` au plan 1, TYPE_2 compris) ni pour `M = 256` (les cinq
+séquences nommées). Statistique : `D` = nombre de chaînes de flux détectées
+parmi `181`, seuil `29,25` = `log₂(10⁷) + log₂ 64` (Ville, plus le mélange
+uniforme sur les `≤ 64` redémarrages du faisceau). Nulle : surmartingale
+positive de moyenne `≤ 1` (mélange propre tronqué à `n ≤ n_max`, élagage,
+redémarrages mélangés, dénormaux mis à zéro), donc `10⁻⁷` par chaîne à tout
+instant ; borne d'union `E[D] ≤ 1,8·10⁻⁵`. Verdict : conforme si `D = 0`.
+
+### La grille
+
+`181` chaînes de flux : `M = 100` et `M = 128` sur les `63` trinômes
+primitifs de degré `≤ 31` au plan 0 (`x³¹ + x³ + 1`, TYPE_3, compris) et
+les `25` de degré `≤ 15` au plan 1 (`x¹⁵ + x + 1`, TYPE_2, compris) ;
+`M = 256` sur les cinq séquences nommées (TYPE_1, TYPE_2, TYPE_3). Seuil
+`29,25` par chaîne (Ville plus le mélange sur les `64` redémarrages),
+borne d'union `E[D] ≤ 1,8·10⁻⁵`.
+
+| `M` | plan | trinôme | `N` | max `log₂ BF` @ `t` | redém. | morts | dét. | s |
+|---|---|---|---|---|---|---|---|---|
+| `100` | 0 | `x^2 + x^1 + 1` | `3` | `4,59` @ `942` | `65` | `65` | 0 | 3 |
+| `100` | 0 | `x^3 + x^1 + 1` | `7` | `7,88` @ `3 959` | `65` | `65` | 0 | 3 |
+| `100` | 0 | `x^3 + x^2 + 1` | `7` | `3,96` @ `3 947` | `65` | `65` | 0 | 3 |
+| `100` | 0 | `x^4 + x^1 + 1` | `15` | `6,12` @ `5 462` | `65` | `65` | 0 | 4 |
+| `100` | 0 | `x^4 + x^3 + 1` | `15` | `4,90` @ `5 559` | `65` | `65` | 0 | 4 |
+| `100` | 0 | `x^5 + x^2 + 1` | `31` | `0,00` @ `0` | `0` | `0` | 0 | 26 |
+| `100` | 0 | `x^5 + x^3 + 1` | `31` | `0,00` @ `0` | `0` | `0` | 0 | 26 |
+| `100` | 0 | `x^6 + x^1 + 1` | `63` | `0,00` @ `0` | `0` | `0` | 0 | 5 |
+| `100` | 0 | `x^6 + x^5 + 1` | `63` | `0,00` @ `0` | `0` | `0` | 0 | 5 |
+| `100` | 0 | `x^7 + x^1 + 1` | `127` | `0,32` @ `2` | `0` | `0` | 0 | 9 |
+| `100` | 0 | `x^7 + x^3 + 1` (TYPE_1) | `127` | `0,37` @ `2` | `0` | `0` | 0 | 10 |
+| `100` | 0 | `x^7 + x^4 + 1` | `127` | `0,44` @ `2` | `0` | `0` | 0 | 10 |
+| `100` | 0 | `x^7 + x^6 + 1` | `127` | `0,68` @ `2` | `0` | `0` | 0 | 10 |
+| `100` | 0 | `x^9 + x^4 + 1` | `511` | `0,08` @ `2` | `0` | `0` | 0 | 34 |
+| `100` | 0 | `x^9 + x^5 + 1` | `511` | `0,30` @ `2` | `0` | `0` | 0 | 34 |
+| `100` | 0 | `x^10 + x^3 + 1` | `1 023` | `0,32` @ `2` | `0` | `0` | 0 | 66 |
+| `100` | 0 | `x^10 + x^7 + 1` | `1 023` | `0,70` @ `3` | `0` | `0` | 0 | 65 |
+| `100` | 0 | `x^11 + x^2 + 1` | `2 047` | `0,26` @ `3` | `0` | `0` | 0 | 67 |
+| `100` | 0 | `x^11 + x^9 + 1` | `2 047` | `0,73` @ `4` | `0` | `0` | 0 | 67 |
+| `100` | 0 | `x^15 + x^1 + 1` (TYPE_2) | `32 767` | `0,12` @ `1` | `0` | `0` | 0 | 67 |
+| `100` | 0 | `x^15 + x^4 + 1` | `32 767` | `0,13` @ `1` | `0` | `0` | 0 | 68 |
+| `100` | 0 | `x^15 + x^7 + 1` | `32 767` | `0,13` @ `1` | `0` | `0` | 0 | 67 |
+| `100` | 0 | `x^15 + x^8 + 1` | `32 767` | `0,13` @ `1` | `0` | `0` | 0 | 68 |
+| `100` | 0 | `x^15 + x^11 + 1` | `32 767` | `0,13` @ `1` | `0` | `0` | 0 | 70 |
+| `100` | 0 | `x^15 + x^14 + 1` | `32 767` | `0,41` @ `42` | `0` | `0` | 0 | 70 |
+| `100` | 0 | `x^17 + x^3 + 1` | `131 071` | `2,46` @ `29` | `0` | `0` | 0 | 68 |
+| `100` | 0 | `x^17 + x^5 + 1` | `131 071` | `0,13` @ `1` | `0` | `0` | 0 | 68 |
+| `100` | 0 | `x^17 + x^6 + 1` | `131 071` | `0,13` @ `1` | `0` | `0` | 0 | 69 |
+| `100` | 0 | `x^17 + x^11 + 1` | `131 071` | `0,41` @ `29` | `0` | `0` | 0 | 75 |
+| `100` | 0 | `x^17 + x^12 + 1` | `131 071` | `0,13` @ `1` | `0` | `0` | 0 | 82 |
+| `100` | 0 | `x^17 + x^14 + 1` | `131 071` | `0,12` @ `1` | `0` | `0` | 0 | 81 |
+| `100` | 0 | `x^18 + x^7 + 1` | `262 143` | `0,12` @ `1` | `0` | `0` | 0 | 79 |
+| `100` | 0 | `x^18 + x^11 + 1` | `262 143` | `0,12` @ `1` | `0` | `0` | 0 | 81 |
+| `100` | 0 | `x^20 + x^3 + 1` | `1 048 575` | `0,10` @ `1` | `0` | `0` | 0 | 79 |
+| `100` | 0 | `x^20 + x^17 + 1` | `1 048 575` | `0,10` @ `1` | `0` | `0` | 0 | 80 |
+| `100` | 0 | `x^21 + x^2 + 1` | `2 097 151` | `0,47` @ `30` | `0` | `0` | 0 | 81 |
+| `100` | 0 | `x^21 + x^19 + 1` | `2 097 151` | `0,08` @ `1` | `0` | `0` | 0 | 80 |
+| `100` | 0 | `x^22 + x^1 + 1` | `4 194 303` | `0,07` @ `1` | `0` | `0` | 0 | 84 |
+| `100` | 0 | `x^22 + x^21 + 1` | `4 194 303` | `0,07` @ `1` | `0` | `0` | 0 | 80 |
+| `100` | 0 | `x^23 + x^5 + 1` | `8 388 607` | `0,07` @ `1` | `0` | `0` | 0 | 83 |
+| `100` | 0 | `x^23 + x^9 + 1` | `8 388 607` | `0,83` @ `44` | `0` | `0` | 0 | 81 |
+| `100` | 0 | `x^23 + x^14 + 1` | `8 388 607` | `0,07` @ `1` | `0` | `0` | 0 | 92 |
+| `100` | 0 | `x^23 + x^18 + 1` | `8 388 607` | `0,07` @ `1` | `0` | `0` | 0 | 82 |
+| `100` | 0 | `x^25 + x^3 + 1` | `33 554 431` | `0,05` @ `1` | `0` | `0` | 0 | 89 |
+| `100` | 0 | `x^25 + x^7 + 1` | `33 554 431` | `0,05` @ `1` | `0` | `0` | 0 | 86 |
+| `100` | 0 | `x^25 + x^18 + 1` | `33 554 431` | `0,05` @ `1` | `0` | `0` | 0 | 90 |
+| `100` | 0 | `x^25 + x^22 + 1` | `33 554 431` | `0,05` @ `1` | `0` | `0` | 0 | 99 |
+| `100` | 0 | `x^28 + x^3 + 1` | `268 435 455` | `0,02` @ `1` | `0` | `0` | 0 | 164 |
+| `100` | 0 | `x^28 + x^9 + 1` | `268 435 455` | `0,02` @ `1` | `0` | `0` | 0 | 179 |
+| `100` | 0 | `x^28 + x^13 + 1` | `268 435 455` | `0,69` @ `45` | `0` | `0` | 0 | 152 |
+
+*Grille en cours : `50` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+
+**Résultat.**
+
+*en cours — voir le statut de la grille ci-dessus.*
+
+**Ce que cela ferme.**
+
+*à écrire à la fin de la grille.*
+
+**Ligne de registre.** `h147.masque_rejet`, piste B, en cours (rien n'est consigné avant la fin des `181` configurations).
+
+---
 ## 169. Le canal **mod 4** : deux bits par mot — et le générateur **partagé** redevient lisible (`h149_canal_mod4.py`, `tools/lfg_beam_mod4.c`)
 
 ### Ce que le §168 laissait
@@ -17891,7 +18036,18 @@ peut pas lire**, et il ne lit rien qui n'y soit pas.
 
 ### Pré-enregistrement
 
-JETON169
+Jeton `06785fcaa1f3e711`, scellé le **2026-09-02 à 15:33:24Z**, avant toute
+lecture de l'archive par ce script. Hypothèse : le flux continu des `70 560`
+tirages n'est engendré par aucun Fibonacci retardé additif `mod 2³²` lu par
+l'échantillonneur à rejet **au canal mod 4** — c'est-à-dire en lisant les
+deux bits bas de chaque mot que le numéro publié révèle — pour les `25`
+trinômes primitifs de degré `≤ 15` à la sortie brute (état : orbites du
+Fibonacci mod 4) et les `17` de degré `≤ 10` à la sortie décalée `x = r >> 1`
+(orbites mod 8), **ni seul ni avec un jumeau entrelacé** (le même générateur
+servant un autre tirage du même jeu entre deux des nôtres : noyau convolé par
+`P₀(n')`). Statistique : `D` = nombre de chaînes détectées parmi `84`, seuil
+`29,25`. Nulle : Ville sur une surmartingale positive de moyenne `≤ 1` ; borne
+d'union `E[D] ≤ 8,4·10⁻⁶`. Verdict : conforme si `D = 0`.
 
 ### La grille
 
@@ -17917,7 +18073,7 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 | brute | `x^7 + x^6 + 1` | non | `16 256` | `9,20` @ `67 994` | `58` | `58` | 0 | 73 |
 | brute | `x^9 + x^4 + 1` | non | `261 632` | `10,30` @ `68 978` | `13` | `13` | 0 | 122 |
 
-*Grille en cours ; le tableau est celui du journal à l'instant de l'écriture. Rien n'est consigné au registre avant la fin des `84` chaînes.*
+*Grille en cours ; rien n'est consigné avant la fin des `84` chaînes.*
 
 **Résultat.**
 
