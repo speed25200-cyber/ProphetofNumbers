@@ -3910,11 +3910,19 @@ en moyenne). D'où le compte :
 | tirages nécessaires (`45,7` bits chacun) | `4,9` | `10,5` | **`21,7`** | `44,1` |
 | soit, à un tirage par `5` minutes | `25` min | `53` min | **`1 h 49`** | `3 h 40` |
 
-**(iv) Comment.** Plan par plan, et chaque plan est **affine** en `L`
-inconnues une fois les plans inférieurs fixés (7.11) : c'est le
-relèvement du 7.12, instrumenté et éprouvé (`lab/lfg_releve.py`, témoin
-positif au §154), avec le crible du 7.6 pour les plans bas. Rien à
-inventer : la difficulté était l'alignement, pas l'algèbre.
+**(iv) Comment, et où est le coût.** Une fois l'alignement connu, le pas
+n'est plus « variable » : il est **connu tirage par tirage** (`n_t` se lit
+sur le chemin de Viterbi de la même DP), et toutes les équations des 7.6
+à 7.12 s'appliquent mot pour mot, avec `n_t` là où elles écrivaient une
+constante. Il n'y a donc rien à inventer en algèbre — mais il reste un
+coût, et il faut le dire : la DP ne rend que les plans `0` (ou `0-1`),
+tandis que le relèvement de réseau du 7.8 part des **cinq** plans bas
+(`r mod 32`). Les plans intermédiaires se prennent au crible incrémental
+du 7.6, celui du §155, qui élague à chaque mot sur `x mod 80 ∈ A_t` et
+dont le coût mesuré est très en deçà de son `2^{5L}` nominal ; puis le
+réseau LLL exact du 7.8 (`lab/lfg_releve.py`, témoin positif au §154)
+remonte l'état haut. La difficulté qui bloquait tout était l'alignement,
+et c'est elle que cette série lève.
 
 **(v) Et alors la prédiction est exacte.** L'état complet d'un Fibonacci
 retardé détermine *tous* les tirages suivants — jusqu'au prochain
