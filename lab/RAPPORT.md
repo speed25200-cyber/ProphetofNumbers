@@ -18325,8 +18325,10 @@ Jeton `c7b3095602e2e126`, scellé le `2026-09-02T19:23:13Z`, piste B. **Hypothè
 | `(3  4)` | `0` | nuit | `37` | `91 859 131` | `12 637 787` | `0` | `1` |
 | `(2  5)` | `0` | nuit | `37` | `723 855 934` | `79 579 751` | `0` | `4` |
 | `(3  5)` | `0` | nuit | `37` | `655 877 572` | `65 987 261` | `0` | `4` |
+| `(1  6)` | `0` | nuit | `37` | `6 956 143 039` | `353 816 824` | `0` | `22` |
+| `(5  6)` | `0` | nuit | `37` | `8 087 050 212` | `499 560 661` | `0` | `32` |
 
-*Grille en cours : `33` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h155_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `35` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h155_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
