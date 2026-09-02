@@ -152,10 +152,11 @@ def temoin(K, L, shift, ntir=60, graine=999):
     open(f1, "w").write("\n".join(" ".join(map(str, t)) for t in tirages) + "\n")
     open(fb, "w").write("0\n")
     vrai = ",".join(str(c) for c in cls[:L])
+    chemin = ",".join(str(c) for c in cls[:min(len(cls), 1200)])
     # branche forcee : verifie en quelques millisecondes que l'etat vrai survit, sans
     # enumerer la famille entiere (l'automate est ambigu — un ecart de +1 peut etre
     # absorbe par un delta ulterieur, §7.24 (viii))
-    fin = lancer(K, L, shift, "flux", 1, f1, fb, fixe=vrai, plaf=2_000_000)
+    fin = lancer(K, L, shift, "flux", 1, f1, fb, fixe=chemin, plaf=2_000_000)
     # H0 : tirages uniformes
     rng0 = random.Random(4242 + graine)
     t0 = [sorted(rng0.sample(range(POOL), DRAWN)) for _ in range(400)]
@@ -163,6 +164,49 @@ def temoin(K, L, shift, ntir=60, graine=999):
     open(f0, "w").write("\n".join(" ".join(map(str, t)) for t in t0) + "\n")
     fin0 = lancer(K, L, shift, "flux", 1, f0, fb)
     return fin, vrai, fin0
+
+
+def temoin_nuit(K, L, shift, nnuit=3, ntir=30, graine=777):
+    """meme chose en mode NUIT : un generateur REAMORCE a chaque bloc. Verifie que le crible
+    retient l'etat vrai de CHAQUE nuit, et qu'il ne rend rien sur des nuits tirees sous H0."""
+    import random
+    M = 1 << 32
+    W = 1 << (32 - shift)
+    tirages, vrais, deb = [], [], []
+    for b in range(nnuit):
+        rng = random.Random(graine + 100 * b)
+        r = [rng.randrange(M) for _ in range(L)]
+        i = L
+        def mot():
+            nonlocal i
+            r.append((r[i - K] + r[i - L]) % M); i += 1
+            return r[i - 1]
+        cls = []
+        deb.append(len(tirages))
+        for _ in range(ntir):
+            vus = set()
+            while len(vus) < DRAWN:
+                c = ((mot() >> shift) * POOL) // W
+                cls.append(c); vus.add(c)
+            tirages.append(sorted(vus))
+        vrais.append(",".join(str(c) for c in cls[:min(len(cls), 1200)]))
+    f1 = os.path.join(TMP, f"h152_nuit_{K}_{L}_{shift}.txt")
+    fb = os.path.join(TMP, f"h152_nuit_blocs_{K}_{L}_{shift}.txt")
+    open(f1, "w").write("\n".join(" ".join(map(str, t)) for t in tirages) + "\n")
+    open(fb, "w").write("\n".join(str(d) for d in deb) + "\n")
+    ok = []
+    for b, v in enumerate(vrais):
+        fb1 = os.path.join(TMP, "h152_nuit_un.txt")
+        open(fb1, "w").write(f"{deb[b]}\n")
+        f = lancer(K, L, shift, "nuit", 1, f1, fb1, fixe=v, plaf=2_000_000)
+        ok.append(f["surv"] > 0)
+    # H0 : les memes blocs, mais des tirages uniformes
+    rng0 = random.Random(31337 + graine)
+    t0 = [sorted(rng0.sample(range(POOL), DRAWN)) for _ in range(len(tirages))]
+    f0 = os.path.join(TMP, "h152_nuit_h0.txt")
+    open(f0, "w").write("\n".join(" ".join(map(str, t)) for t in t0) + "\n")
+    fin0 = lancer(K, L, shift, "nuit", 1, f0, fb)
+    return ok, fin0
 
 
 if __name__ == "__main__" and "--selftest" in sys.argv:
@@ -179,6 +223,16 @@ if __name__ == "__main__" and "--selftest" in sys.argv:
                 say("      !! H0 rend des survivants"); ok = False
             if fin["surv"] == 0:
                 say("      !! l'etat vrai n'est PAS retenu"); ok = False
+    for K, L in ((1, 4), (2, 5), (1, 6)):
+        for shift in (0, 1):
+            bons, fin0 = temoin_nuit(K, L, shift)
+            say(f"   ({K},{L}) shift {shift} mode NUIT : {sum(bons)}/{len(bons)} nuits dont "
+                f"l'etat vrai survit ; H0 sur {len(bons)} nuits uniformes : {fin0['surv']} "
+                f"survivants ({fin0['noeuds']:,} noeuds)")
+            if not all(bons):
+                say("      !! une nuit plantee n'est pas retenue"); ok = False
+            if fin0["surv"] != 0:
+                say("      !! H0 rend des survivants en mode nuit"); ok = False
     say(f"   selftest : {'OK' if ok else 'ECHEC'}")
     sys.exit(0 if ok else 1)
 

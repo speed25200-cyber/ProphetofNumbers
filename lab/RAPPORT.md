@@ -18207,14 +18207,17 @@ Synthétiques, sans jeton (aucune donnée réelle n'est lue) : une suite
 `(K, L)` engendrée, lue par troncature avec rejet, **puis triée** comme
 l'archive.
 
-| `(K, L)` | décalage | `H₁` : la branche vraie survit | `H₀` : `400` tirages uniformes | nœuds sous `H₀` (prédits `2,5 · 20^L`) |
-|---|---|---|---|---|
-| `(1, 4)` | `0` | oui | **`0` survivant** | `292 625` (`4,0·10⁵`) |
-| `(1, 4)` | `1` | oui | **`0` survivant** | `490 586` |
-| `(2, 5)` | `0` | oui | **`0` survivant** | `5 831 939` (`8,0·10⁶`) |
-| `(2, 5)` | `1` | oui | **`0` survivant** | `9 791 964` |
-| `(1, 6)` | `0` | oui | **`0` survivant** | `116 962 388` (`1,6·10⁸`) |
-| `(1, 6)` | `1` | oui | **`0` survivant** | `198 061 272` |
+| `(K, L)` | décalage | `H₁` flux : le chemin vrai survit | `H₁` **par nuit** (3 nuits réamorcées) | `H₀` flux, `400` tirages uniformes | nœuds sous `H₀` (prédits `2,5 · 20^L`) |
+|---|---|---|---|---|---|
+| `(1, 4)` | `0` | oui | `3/3` | **`0` survivant** | `292 625` (`4,0·10⁵`) |
+| `(1, 4)` | `1` | oui | `3/3` | **`0` survivant** | `490 586` |
+| `(2, 5)` | `0` | oui | `3/3` | **`0` survivant** | `5 831 939` (`8,0·10⁶`) |
+| `(2, 5)` | `1` | oui | `3/3` | **`0` survivant** | `9 791 964` |
+| `(1, 6)` | `0` | oui | `3/3` | **`0` survivant** | `116 962 388` (`1,6·10⁸`) |
+| `(1, 6)` | `1` | oui | `3/3` | **`0` survivant** | `198 061 272` |
+
+et, sous `H₀`, `0` survivant aussi en mode **par nuit** sur des nuits tirées
+uniformément (`1,0·10⁶` à `9,8·10⁸` nœuds selon le degré).
 
 Les deux moitiés tiennent : le crible **retient l'état vrai à tous les
 coups**, et il ne rend **rien** sur des tirages uniformes, à un coût qui suit
@@ -18257,8 +18260,10 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 | `(3  5)` | `1` | flux | `1` | `52 833 265` | `3 328 514` | `0` | `2` |
 | `(1  6)` | `1` | flux | `1` | `301 863 348` | `3 840 000` | `0` | `13` |
 | `(5  6)` | `1` | flux | `1` | `319 742 855` | `3 840 000` | `0` | `13` |
+| `(1  7)` | `1` | flux | `1` | `5 929 104 301` | `76 800 000` | `0` | `239` |
+| `(3  7)` | `1` | flux | `1` | `6 067 119 823` | `76 800 000` | `0` | `312` |
 
-*Grille en cours : `22` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `24` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 

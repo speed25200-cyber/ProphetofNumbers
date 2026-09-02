@@ -43,9 +43,11 @@
  *   saut      : ne traiter qu'un bloc sur `saut` (mode nuit ; defaut 1)
  *   nmaxd     : plafond de mots par tirage (defaut 60)
  *   plafond   : plafond de noeuds (defaut 2e11)
- *   fixe      : L classes separees par des virgules — on ne parcourt QUE cette branche.
- *               Sert aux temoins : verifier en quelques millisecondes qu'un etat plante
- *               est bien retenu, sans enumerer la famille entiere.
+ *   fixe      : des classes separees par des virgules — les mots 0..n-1 sont FORCES a
+ *               ces classes, et l'on ne parcourt que cette branche.  Avec L classes on
+ *               force l'etat initial ; avec toute la suite on force le chemin entier, ce
+ *               qui rend le verdict instantane.  Sert aux temoins : verifier qu'un etat
+ *               plante est retenu, sans enumerer la famille (qui se compte en millions).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +63,7 @@
 #define NSURV 65536
 
 static int NT, NB;
-static int FIXE[64], NFIXE = 0;
+static int FIXE[4096], NFIXE = 0;
 static unsigned char *PUB;      /* NT x POOL : 1 si la classe est publiee par le tirage */
 static unsigned char *LST;      /* NT x DRAWN : la liste des vingt classes publiees */
 static int *DEB;                /* debuts de blocs */
@@ -205,9 +207,20 @@ static void crible_bloc(const Reglage *R, int t0, Bilan *B, int prem)
         g->d = d; g->nacc = (unsigned char)nacc; g->wd = (short)wd; g->acc0 = a0; g->acc1 = a1;
         g->icand = 0;
         const unsigned char *pub = PUB + (size_t)d * POOL;
-        if (NFIXE && prochain < L) {
-            g->cand[0] = (unsigned char)FIXE[prochain];
-            g->ncand = pub[FIXE[prochain]] ? 1 : 0;
+        if (NFIXE > prochain) {
+            /* mot force : il doit etre publie, et — au-dela de L — compatible avec la
+             * recurrence (c'est exactement le test du chemin vrai). */
+            int v = FIXE[prochain], bon = pub[v];
+            if (bon && prochain >= L) {
+                int base = hist[prochain - K] + hist[prochain - L], vu = 0;
+                for (int e = 0; e < R->ndelta; e++) {
+                    int w = (base + R->delta[e]) % POOL; if (w < 0) w += POOL;
+                    if (w == v) { vu = 1; break; }
+                }
+                bon = vu;
+            }
+            g->cand[0] = (unsigned char)v;
+            g->ncand = bon ? 1 : 0;
         } else if (prochain < L) {
             g->ncand = DRAWN;
             memcpy(g->cand, LST + (size_t)d * DRAWN, DRAWN);
@@ -246,8 +259,8 @@ int main(int argc, char **argv)
     R.plafond = (argc > 10) ? atoll(argv[10]) : 200000000000LL;
     if (argc > 11) {
         char *q = argv[11];
-        while (NFIXE < 64 && *q) { FIXE[NFIXE++] = (int)strtol(q, &q, 10); if (*q == ',') q++; }
-        if (NFIXE != R.L) { fprintf(stderr, "fixe : %d classes pour L = %d\n", NFIXE, R.L); return 2; }
+        while (NFIXE < 4096 && *q) { FIXE[NFIXE++] = (int)strtol(q, &q, 10); if (*q == ',') q++; }
+        if (NFIXE < R.L) { fprintf(stderr, "fixe : %d classes, il en faut au moins L = %d\n", NFIXE, R.L); return 2; }
     }
     R.nmax = R.ntir * R.nmaxd + R.L + 2;
     if (R.K <= 0 || R.L <= R.K || R.L > 60) { fprintf(stderr, "K, L invalides\n"); return 2; }
