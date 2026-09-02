@@ -19178,3 +19178,211 @@ vingt-huit. **Rien.**
 `p = 0,211`, conforme.
 
 ---
+
+## 180. Le même détecteur pour l'échantillonneur à **modulo** : le carré complet (`h165_energie_modulo.py`)
+
+Les §177 à §179 supposent tous `δ ∈ {0,1}` — c'est-à-dire la lecture par
+**troncature**. L'échantillonneur à **modulo** a le sien : `2³² mod 80 = 16`, donc
+`δ ∈ {0,−16}` au décalage `0` et `{0,1,−48,−47}` au décalage `1`. Un Fibonacci lu
+par modulo est **invisible** aux sections précédentes.
+
+### La puissance, mesurée
+
+`4 000` tirages plantés lus par modulo, `z` ramené aux `70 560` de l'archive :
+
+| générateur | lecture | couple | `z` |
+|---|---|---|---|
+| additif `(3,7)` | modulo `s0` | `(0, 0)` | `+133` |
+| TYPE_2 `(1,15)` | modulo `s0` | `(1, 0)` | `+130` |
+| TYPE_3 `(3,31)` | modulo `s0` | `(1, 0)` | `+130` |
+| TYPE_4 `(1,63)` | modulo `s0` | `(3, 0)` | `+154` |
+| Knuth `(24,55)` soustractif | modulo `s0` | `(1, −1)` | `+166` |
+| TYPE_2 `(1,15)` | modulo `s1` | `(1, 0)` | `+87` |
+
+Le décalage `1` perd du terrain — son `δ` a quatre valeurs, donc la coïncidence est
+deux fois plus banale — mais `+87` écarts-types laissent de la marge. C'est la loi
+de dégradation en `1/√|S|` du §7.28 (iii).
+
+### Le résultat
+
+`56` statistiques. Avec la nulle **exacte** du §184 — `200` pour `|S| = 2`, `400`
+pour `|S| = 4` — le plus grand écart vaut `|z| = 2,177` au couple `(4,4)` de la
+lecture `modulo s1`, soit `p = 1,00` après Bonferroni. **Rien.**
+
+**Ligne de registre.** `h165.energie_modulo`, piste B, conforme.
+
+---
+
+## 181. L'énergie additive à **coefficients** : `r_i = α·r_{i−K} + β·r_{i−L}` (`h166_energie_coefficients.py`)
+
+La classe est quasi-**homogène** autant qu'elle est quasi-additive :
+`c(α·x mod 2³²) = α·c(x) + δ_α` avec `δ_α ∈ {0, …, α−1}`. Le détecteur se
+généralise en **dilatant** l'indicatrice avant de convoluer — `A_α[k]` compte les
+`u` de `C` tels que `α·u ≡ k`. Le support de `δ` vaut au plus `|α| + |β| − 1`, six
+valeurs au pire pour `α, β ∈ {±1, ±2}`.
+
+Point de mise en œuvre : la dilatation ne dépend pas du couple de décalages. On la
+calcule **une fois par coefficient**, pas une fois par statistique — c'est ce qui
+rend les `448` statistiques abordables.
+
+| générateur | `(α, β)` | décalages | `z` sur `70 560` |
+|---|---|---|---|
+| `r_i = 2·r_{i−3} + r_{i−7}` | `(1, 2)` | `(0, 0)` | `+88` |
+| `r_i = r_{i−3} − 2·r_{i−7}` | `(1, 2)` | `(0, 0)` | `+93` |
+| `r_i = 2·r_{i−1} + r_{i−2}` (multiplication-et-retenue) | `(1, 2)` | `(0, 0)` | `+134` |
+| `r_i = r_{i−3} + r_{i−7}` (témoin) | `(1, 1)` | `(0, 0)` | `+122` |
+
+Le couple gagnant est `(1,2)` et non `(2,1)` : la relation `r_i = 2a + b` se relit
+`b = r_i − 2a`, et le détecteur trouve la forme où la somme tombe dans le tirage
+courant.
+
+### Le résultat
+
+`|z|` max `= 2,720`, `p = 1,0000` après Bonferroni sur `448`. **Rien.**
+
+**Ligne de registre.** `h166.energie_coefficients`, piste B, conforme.
+
+---
+
+## 182. L'énergie **XOR** : les générateurs `F₂`-linéaires à deux termes (`h167_energie_xor.py`)
+
+Tous les détecteurs précédents mesurent une coïncidence **additive**. Ils sont
+aveugles aux récurrences sur `GF(2)` : le `XOR` n'a pas de retenue, donc pas de
+structure additive. Le témoin le confirme dans les deux sens — un additif `(3,7)`
+donne `z = +21` sur la statistique XOR contre `+162` sur l'additive.
+
+Or le `XOR` agit bit à bit, donc les **bits de tête** vérifient exactement la même
+relation. La classe place `x` dans un intervalle large de `2^{25,68}` ; sur six
+bits de tête (granularité `2^{26}`), cet intervalle chevauche une ou deux cases :
+la classe détermine la tête **à une ambiguïté de deux près**, et l'on compte les
+deux candidats. La convolution est celle de **Walsh-Hadamard**.
+
+| générateur | couple | `z` sur `70 560` |
+|---|---|---|
+| GFSR XOR `(3,7)` | `(−1, −1)` | `+257` |
+| GFSR XOR `(1,15)` | `(−1, −1)` | `+76` |
+| GFSR XOR `(3,31)` | `(−1, −1)` | `+27` |
+
+**Ce qu'il ne voit pas.** Mersenne Twister n'est pas une récurrence XOR à deux
+termes sur des *mots* : son pas mélange deux mots par un masque puis décale d'un
+bit, ce qui casse l'alignement des têtes. Le *tempering*, lui, ne gêne pas — il est
+`F₂`-linéaire, donc il préserve la relation. Ce détecteur couvre les GFSR et les
+xorshift à deux termes ; MT19937 reste traité par les §68 et §99.
+
+### Le résultat
+
+`|z|` max `= 2,383` au couple `(2,−1)`, `p = 0,258` après Bonferroni sur `15`.
+**Rien.**
+
+Une observation qui mérite d'être écrite : les quinze `z` sont **tous négatifs**,
+entre `−1,28` et `−2,38`. Ce n'est pas quinze indices concordants — les quinze
+statistiques partagent les mêmes tirages et sont donc quasi parfaitement
+corrélées, ce qui n'en fait qu'un seul degré de liberté effectif, à `z ≈ −1,8`,
+`p = 0,07`. Et la direction est un **déficit** de coïncidences XOR, ce qu'aucun
+générateur ne produirait. La nulle de ce détecteur a d'ailleurs été vérifiée par
+un calcul exact (§184) : `348,6126` contre `348,6081` à `348,6388` simulés sur les
+couples à tirages distincts, soit `0,1` écart-type. Elle est juste.
+
+**Ligne de registre.** `h167.energie_xor`, piste B, conforme.
+
+---
+
+## 183. L'énergie à **trois termes**, et la chasse qui a suivi (`h168_energie_trois_termes.py`, `h168b`, `h168c`)
+
+Les sections précédentes ne testent que des récurrences à **deux** termes. Les
+additifs à trois taps — pentanômes de rétroaction, `add-with-carry` à plusieurs
+retards — n'ont aucune coïncidence de la forme `u+v ∈ C` : il leur en faut une à
+quatre corps, `u+v+w+δ ∈ C_t` avec `δ ∈ {0,1,2}` (deux retenues au lieu d'une).
+
+La nulle monte de `200` à `6 000` par tirage : le bruit croît comme la racine du
+comptage, la puissance baisse d'un facteur `√30 ≈ 5,5`, et reste suffisante.
+
+| générateur | triplet | `z` sur `70 560` |
+|---|---|---|
+| `r_{i−2} + r_{i−5} + r_{i−7}` | `(0, 0, 0)` | `+31` |
+| `r_{i−7} + r_{i−15} + r_{i−22}` | `(1, 1, 1)` | `+23` |
+| `r_{i−24} + r_{i−55} + r_{i−80}` | `(3, 3, −1)` | `+25` |
+| `r_{i−3} + r_{i−7}` (témoin à deux termes) | — | `+40` |
+
+### Le résultat, et ce qu'il a fallu pour le comprendre
+
+Contre la nulle **simulée**, le triplet `(3,1,1)` sortait à `z = +3,267`,
+`p = 0,038` — sous le seuil, donc consigné **ECART**. Deux chasses ont suivi, dans
+l'ordre où il faut les faire.
+
+*Première chasse — la réplication (`h168b`).* Le triplet fixé d'avance, l'archive
+coupée en deux moitiés disjointes de `35 280` tirages : `z₁ = +3,145`,
+`z₂ = +2,196`, mêmes signes, à comparer aux `+2,31` qu'un effet réel donnerait de
+chaque côté. **Il se réplique.**
+
+*Deuxième chasse — la frontière de nuit (`h168c`).* La statistique fait intervenir
+quatre tirages ; quand `t` est en début de nuit, ils enjambent une coupure. En ne
+gardant que les `69 474` quadruplets entièrement contenus dans une nuit —
+`98,5 %` du total — l'écart **persiste** : `z = +2,520`.
+
+*Troisième chasse — la nulle elle-même (§184).* C'était la bonne. La nulle de la
+statistique à trois termes vaut **exactement `6 000`**, et la nulle simulée valait
+`5 999,76` : basse de `0,24`, soit `0,88` écart-type. Avec la valeur exacte,
+
+```
+    z = (6 000,6543 − 6 000) / 0,2736 = +2,392 ,   p = 0,587  après Bonferroni.
+```
+
+**L'écart disparaît.** Et la leçon vaut d'être écrite : *la réplication a
+fidèlement reproduit un biais de nulle.* Les deux moitiés partagent la même nulle
+simulée, donc elles partagent son erreur — une réplication ne teste pas la nulle,
+elle teste la stabilité de l'effet **étant donné** la nulle. C'est un piège que ce
+dossier n'avait pas encore rencontré, et il n'a été vu que parce que la nulle était
+calculable.
+
+**Lignes de registre.** `h168.energie_trois_termes` (ECART, corrigé par le §184),
+`h168b.chasse_triplet` (répliqué), `h168c.triplet_intranuit` (persiste), toutes
+piste B.
+
+---
+
+## 184. La **nulle exacte** des détecteurs d'énergie, et la correction qu'elle impose (`h169.nulle_exacte`)
+
+Les six détecteurs des §177 à §183 comparent l'archive à une nulle **simulée**. Or
+cette nulle se calcule exactement, et l'écart entre les deux vaut jusqu'à
+`0,88` écart-type — assez pour déplacer un verdict.
+
+> **Proposition.** Sous SRS `20/80`, l'espérance de la statistique à deux termes
+> `T = #{(u,v) : u+v+δ ∈ C_t, δ ∈ S}` vaut **exactement `100·|S|`**, et cela dans
+> les **quatre** configurations de coïncidence : trois tirages distincts, les deux
+> opérandes dans le même tirage, un opérande égal à la cible, tout dans le même
+> tirage. La statistique à trois termes vaut exactement `2 000·|S|`.
+
+*Démonstration.* Énumération exhaustive sur les `80² · |S|` triples `(u,v,δ)`, en
+pondérant chaque configuration par sa probabilité hypergéométrique — `p₁ = 20/80`,
+`p₂ = 20·19/(80·79)`, `p₃ = 20·19·18/(80·79·78)` selon le nombre d'indices
+distincts tombant dans un même tirage. Pour la configuration « tout dans le même
+tirage », le compte se répartit en `2` triples entièrement confondus, `474` à deux
+indices égaux et `12 324` à trois indices distincts, et
+`2·p₁ + 474·p₂ + 12 324·p₃ = 0,5 + 28,5 + 171 = 200` exactement. ∎
+
+### Ce que la correction change
+
+| section | `\|z\|` max, nulle simulée | `\|z\|` max, nulle **exacte** | `p` corrigé |
+|---|---|---|---|
+| §178 `h163` | `2,435` | `2,210` | `0,407` |
+| §179 `h164` | `2,672` | `2,210` | `0,759` |
+| §180 `h165` | `2,460` | `2,177` | `1,000` |
+| §182 `h167` | `2,383` | `2,383` (nulle vérifiée juste) | `0,258` |
+| §183 `h168` | `3,267` | **`2,392`** | **`0,587`** |
+
+L'unique `ECART` du lot — celui du §183 — **disparaît**. Et la correction va
+toujours dans le même sens : la nulle simulée était *basse*, donc elle gonflait les
+écarts positifs. Aucun verdict ne bascule vers un écart ; tous se renforcent.
+
+*Ce que cela dit de la méthode.* Une nulle simulée sur `40 × 70 560` tirages a
+encore une erreur d'estimation de l'ordre de `0,08` sur une statistique dont
+l'écart mesuré vaut `0,89`. Ce n'est pas négligeable, et cela ne se voit pas :
+la simulation *paraît* massive. **Quand la nulle est calculable, il faut la
+calculer.** C'est la seule façon de ne pas mesurer sa propre erreur
+d'échantillonnage.
+
+**Ligne de registre.** `h169.nulle_exacte`, piste B, conforme (correction
+appliquée).
+
+---

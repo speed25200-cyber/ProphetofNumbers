@@ -5229,6 +5229,30 @@ tirage — et celle-là, aucun mot muet inséré entre les tirages ne peut l'att
 C'est l'inverse exact de la faiblesse du crible : le crible a besoin de traverser
 les frontières, le détecteur non.
 
+**(iii ter) La nulle est calculable — et il faut la calculer.** Toutes ces
+statistiques ont une espérance **exacte** sous SRS, et s'en passer coûte cher :
+
+> **Proposition.** Sous SRS `20/80`, `E[T] = 100·|S|` pour la forme à deux termes
+> et `2 000·|S|` pour celle à trois termes, **dans toutes les configurations de
+> coïncidence** — que les tirages impliqués soient distincts, partiellement ou
+> totalement confondus.
+
+La démonstration est une énumération exhaustive sur les `80²·|S|` triples
+`(u,v,δ)`, pondérée par les probabilités hypergéométriques `p₁ = 20/80`,
+`p₂ = 20·19/(80·79)`, `p₃ = 20·19·18/(80·79·78)`. Dans le cas le plus emmêlé — tout
+dans le même tirage — les `12 800` triples se répartissent en `2` entièrement
+confondus, `474` à deux indices égaux et `12 324` à trois distincts, et
+`2·p₁ + 474·p₂ + 12 324·p₃ = 0,5 + 28,5 + 171 = 200` exactement.
+
+Le §184 montre ce que coûte de l'ignorer. Une nulle simulée sur `40 × 70 560`
+tirages garde une erreur d'estimation de `0,08` sur une statistique dont l'écart
+mesuré vaut `0,89` : elle déplace les `z` d'environ un écart-type, et elle a
+fabriqué un `ECART` à `p = 0,038` là où la valeur exacte donne `p = 0,587`. Pire,
+cet écart **s'est répliqué** sur deux moitiés disjointes de l'archive — parce que
+les deux moitiés partagent la même nulle simulée, donc la même erreur. *Une
+réplication ne teste pas la nulle ; elle teste la stabilité de l'effet étant donné
+la nulle.*
+
 **(iv) Ce que la forme ne couvre pas.** Elle demande un quasi-morphisme, donc :
 
 - **un LCG à grand multiplicateur** n'en a pas — `c(a·x)` n'est pas
