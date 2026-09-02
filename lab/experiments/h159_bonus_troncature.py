@@ -150,6 +150,58 @@ def engendre(K, L, graine, ntir, shift, bmode, fsupp=0):
     return tirages, bonus, cls, mots[:L]
 
 
+def rejoue(etat, K, L, ntir, shift, bmode, fsupp=0):
+    """rejoue depuis les L PREMIERS MOTS CONSOMMES, en consommant AUSSI le mot du bonus.
+
+    C'est ce qui manquait au predicteur du §174 : si la machine consomme un mot de plus par
+    tirage et que le rejeu ne le consomme pas, la reconstitution se DESYNCHRONISE au premier
+    tirage — l'etat serait bon et la prediction fausse. Renvoie (tirages tries, bonus).
+    """
+    r = list(etat)
+    n = 0
+    W = 1 << (32 - shift)
+
+    def mot():
+        nonlocal n
+        while n >= len(r):
+            r.append((r[len(r) - K] + r[len(r) - L]) % M32)
+        x = r[n]
+        n += 1
+        return x
+
+    tirages, bonus = [], []
+    for _ in range(ntir):
+        pre = None
+        if bmode == 4:
+            pre = ((mot() >> shift) * DRAWN) // W
+        vus, ordre = set(), []
+        while len(vus) < DRAWN:
+            c = ((mot() >> shift) * POOL) // W
+            if c not in vus:
+                vus.add(c)
+                ordre.append(c)
+        tri = sorted(vus)
+        if bmode == 1:
+            b = tri[((mot() >> shift) * DRAWN) // W]
+        elif bmode == 3:
+            b = ordre[((mot() >> shift) * DRAWN) // W]
+        elif bmode == 2:
+            while True:
+                c = ((mot() >> shift) * POOL) // W
+                if c in vus:
+                    b = c
+                    break
+        elif bmode == 4:
+            b = tri[pre]
+        else:
+            b = tri[0]
+        for _ in range(fsupp):
+            mot()
+        tirages.append([v + 1 for v in tri])
+        bonus.append(b + 1)
+    return tirages, bonus
+
+
 def ecrire(f_cls, f_bon, tirages, bonus):
     open(f_cls, "w").write("\n".join(" ".join(str(v - 1) for v in t) for t in tirages) + "\n")
     lig = []

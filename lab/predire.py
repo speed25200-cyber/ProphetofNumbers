@@ -27,8 +27,8 @@ tirages triés à l'identique est le bon, à `2^{-1232}` près.
 
 USAGE
 =====
-    python3 lab/predire.py --temoin                  # démonstration sur une suite plantée
-    python3 lab/predire.py --archive [--depuis T] [--nb N]
+    python3 lab/predire.py --temoin [--bonus B] [--K k --L l] [--nb N]
+    python3 lab/predire.py --archive [--depuis T] [--nb N] [--bonus 0,1,2,3,4]
     python3 lab/predire.py --fichier tirages.txt     # 20 numéros 1..80 par ligne
 """
 
@@ -43,10 +43,11 @@ sys.path.insert(0, RACINE)
 sys.path.insert(0, os.path.join(RACINE, "experiments"))
 
 import h153_releve_troncature as R                                      # noqa: E402
+import h159_bonus_troncature as B                                       # noqa: E402
 
 M32 = 1 << 32
 POOL, DRAWN = 80, 20
-OUTIL = os.path.join(RACINE, "tools_bin", "lfg_crible_classe")
+OUTIL = os.path.join(RACINE, "tools_bin", "lfg_crible_bonus")
 SRC = os.path.normpath(os.path.join(RACINE, "..", "tools", "lfg_crible_classe.c"))
 NMAXD, NTIR = 45, 25
 TMP = "/tmp"
@@ -71,14 +72,25 @@ def trinomes(lmax):
 
 # ------------------------------------------------------------------ le crible
 
-def crible(classes, K, L, shift, ntir=NTIR, plaf=200_000_000_000):
-    """renvoie la liste des suites de classes des survivants (au plus une par ancrage)."""
+def crible(classes, K, L, shift, ntir=NTIR, plaf=200_000_000_000, bmode=0, bonus=None):
+    """renvoie la liste des suites de classes des survivants (au plus une par ancrage).
+
+    `bmode` > 0 : la machine consomme un mot de plus par tirage pour le bonus (§175). Il faut
+    alors le lui dire, sinon le crible teste un modele decale d'un mot par tirage et perd le
+    chemin vrai des le second tirage — mesure : 30 temoins sur 30.
+    """
     fc = os.path.join(TMP, f"predire_cls_{os.getpid()}.txt")
     fb = os.path.join(TMP, f"predire_b_{os.getpid()}.txt")
+    fo = os.path.join(TMP, f"predire_bon_{os.getpid()}.txt")
     open(fc, "w").write("\n".join(" ".join(map(str, t)) for t in classes) + "\n")
     open(fb, "w").write("0\n")
+    if bmode:
+        open(fo, "w").write("\n".join(f"{sorted(t).index(b - 1)} {b - 1}"
+                                      for t, b in zip(classes, bonus)) + "\n")
     cmd = [OUTIL, str(K), str(L), str(shift), "flux", fc, fb, str(ntir), "1", str(NMAXD),
            str(plaf), "", "chemin"]
+    if bmode:
+        cmd += [f"bonus={fo}", f"bmode={bmode}", "fsupp=0"]
     p = subprocess.run(cmd, capture_output=True, text=True,
                        env=dict(os.environ, OMP_NUM_THREADS="4"))
     if p.returncode != 0:
@@ -92,7 +104,7 @@ def crible(classes, K, L, shift, ntir=NTIR, plaf=200_000_000_000):
             info = dict(noeuds=int(t[1]), surv=int(t[5]), coupes=int(t[7]))
         elif t[0] == "chem":
             chemins.append((int(t[2]), [int(x) for x in t[3:]]))
-    for f in (fc, fb):
+    for f in (fc, fb, fo):
         try:
             os.unlink(f)
         except OSError:
@@ -105,11 +117,11 @@ def crible(classes, K, L, shift, ntir=NTIR, plaf=200_000_000_000):
 
 # ------------------------------------------------------------------ la chaîne complète
 
-def essaie(tirages, K, L, shift, verbeux=False):
+def essaie(tirages, K, L, shift, verbeux=False, bmode=0, bonus=None):
     """une configuration : crible -> relèvement -> rejeu. Renvoie (etat, diagnostic)."""
     classes = [[v - 1 for v in t] for t in tirages]
     t0 = time.time()
-    chemins, info = crible(classes, K, L, shift)
+    chemins, info = crible(classes, K, L, shift, bmode=bmode, bonus=bonus)
     if info.get("coupes"):
         return None, f"parcours COUPE au plafond ({info['noeuds']:,} noeuds) — n'exclut rien"
     if not chemins:
@@ -125,8 +137,13 @@ def essaie(tirages, K, L, shift, verbeux=False):
         etat, s = R.releve(cls, K, L, Treq, shift)
         if etat is None:
             continue
-        rejoue = R.rejoue(etat, K, L, len(tirages), shift)
-        if rejoue == [sorted(t) for t in tirages]:
+        if bmode:
+            rj, rb = B.rejoue(etat, K, L, len(tirages), shift, bmode)
+            bon = rj == [sorted(t) for t in tirages] and list(rb) == list(bonus)
+        else:
+            rj = R.rejoue(etat, K, L, len(tirages), shift)
+            bon = rj == [sorted(t) for t in tirages]
+        if bon:
             return etat, (f"REJEU EXACT sur {len(tirages)} tirages "
                           f"(candidat {essais} sur {len(chemins)}, {time.time()-t0:.1f} s)")
     if essais == 0:
@@ -135,24 +152,27 @@ def essaie(tirages, K, L, shift, verbeux=False):
     return None, f"{info.get('surv',0):,} survivant(s), {essais} relevés, aucun ne rejoue"
 
 
-def chercher(tirages, lmax=7, shifts=(0, 1), verbeux=True):
-    """parcourt les configurations ; renvoie (K, L, shift, etat) ou None, et la couverture."""
+def chercher(tirages, lmax=7, shifts=(0, 1), verbeux=True, bmodes=(0,), bonus=None):
+    """parcourt les configurations ; renvoie (K, L, shift, bmode, etat) ou None, et la
+    couverture."""
     compiler()
     couverture = []
     for K, L in trinomes(lmax):
         for shift in shifts:
-            etat, diag = essaie(tirages, K, L, shift)
-            couverture.append((K, L, shift, diag))
-            if verbeux:
-                say(f"   ({K},{L}) shift {shift} : {diag}")
-            if etat is not None:
-                return (K, L, shift, etat), couverture
+            for bmode in bmodes:
+                etat, diag = essaie(tirages, K, L, shift, bmode=bmode, bonus=bonus)
+                couverture.append((K, L, shift, bmode, diag))
+                if verbeux:
+                    say(f"   ({K},{L}) shift {shift} bonus {bmode} : {diag}")
+                if etat is not None:
+                    return (K, L, shift, bmode, etat), couverture
     return None, couverture
 
 
-def predire(tirages, lmax=7, shifts=(0, 1), verbeux=True):
-    say(f"predire — {len(tirages)} tirages, trinômes de degré ≤ {lmax}, décalages {shifts}")
-    trouve, couv = chercher(tirages, lmax, shifts, verbeux)
+def predire(tirages, lmax=7, shifts=(0, 1), verbeux=True, bmodes=(0,), bonus=None):
+    say(f"predire — {len(tirages)} tirages, trinômes de degré ≤ {lmax}, décalages {shifts}, "
+        f"règles de bonus {bmodes}")
+    trouve, couv = chercher(tirages, lmax, shifts, verbeux, bmodes, bonus)
     if trouve is None:
         say(f"\n   AUCUN MODELE. {len(couv)} configurations parcourues, toutes exclues "
             "(verdict dur : zéro survivant, parcours complet).")
@@ -160,24 +180,43 @@ def predire(tirages, lmax=7, shifts=(0, 1), verbeux=True):
             f"retardé additif de degré ≤ {lmax} lu par troncature avec rejet, aux deux "
             "décalages. Cela ne dit rien des degrés supérieurs ni des autres familles.")
         return None
-    K, L, shift, etat = trouve
-    say(f"\n   MODELE TROUVE : x^{L} + x^{L-K} + 1, sortie r >> {shift}, troncature avec rejet")
+    K, L, shift, bmode, etat = trouve
+    say(f"\n   MODELE TROUVE : x^{L} + x^{L-K} + 1, sortie r >> {shift}, troncature avec rejet"
+        + (f", mot de bonus (règle {bmode})" if bmode else ""))
     say(f"   état ({L} mots de 32 bits) : {etat}")
-    suite = R.rejoue(etat, K, L, len(tirages) + 1, shift)
-    say(f"   PREDICTION du tirage {len(tirages) + 1} : {suite[len(tirages)]}")
-    return dict(K=K, L=L, shift=shift, etat=etat, prediction=suite[len(tirages)])
+    if bmode:
+        suite, sbon = B.rejoue(etat, K, L, len(tirages) + 1, shift, bmode)
+        pb = sbon[len(tirages)]
+    else:
+        suite = R.rejoue(etat, K, L, len(tirages) + 1, shift)
+        pb = None
+    say(f"   PREDICTION du tirage {len(tirages) + 1} : {suite[len(tirages)]}"
+        + (f"   bonus {pb}" if pb else ""))
+    return dict(K=K, L=L, shift=shift, bmode=bmode, etat=etat,
+                prediction=suite[len(tirages)], bonus=pb)
 
 
 # ------------------------------------------------------------------ démonstration
 
-def temoin(K=3, L=7, shift=0, ntir=30, graine=20260902):
-    tir, cls, mots, etat = R.engendre(K, L, graine, ntir + 1, shift)
-    say(f"témoin : x^{L} + x^{L-K} + 1 planté, sortie r >> {shift}, {ntir} tirages TRIÉS donnés")
+def temoin(K=3, L=7, shift=0, ntir=30, graine=20260902, bmode=0):
+    """`bmode` > 0 : la machine plantée consomme AUSSI un mot pour le bonus (§175), et le
+    prédicteur doit retrouver l'état, le tirage suivant ET son bonus."""
+    if bmode:
+        tir, bon, cls, etat = B.engendre(K, L, graine, ntir + 1, shift, bmode)
+    else:
+        tir, cls, mots, etat = R.engendre(K, L, graine, ntir + 1, shift)
+        bon = None
+    say(f"témoin : x^{L} + x^{L-K} + 1 planté, sortie r >> {shift}, {ntir} tirages TRIÉS donnés"
+        + (f", mot de bonus (règle {bmode})" if bmode else ""))
     say(f"   état vrai (caché au prédicteur) : {etat}")
-    res = predire(tir[:ntir], lmax=L, shifts=(shift,))
+    res = predire(tir[:ntir], lmax=L, shifts=(shift,), bmodes=(bmode,),
+                  bonus=(bon[:ntir] if bmode else None))
     if res:
         juste = res["prediction"] == tir[ntir]
-        say(f"   tirage {ntir + 1} réel                : {tir[ntir]}")
+        if bmode:
+            juste = juste and res["bonus"] == bon[ntir]
+        say(f"   tirage {ntir + 1} réel                : {tir[ntir]}"
+            + (f"   bonus {bon[ntir]}" if bmode else ""))
         say(f"   >>> PREDICTION {'EXACTE, 20/20' if juste else 'FAUSSE'} ; "
             f"état {'exact' if res['etat'] == etat else 'différent'}")
         return juste
@@ -186,7 +225,11 @@ def temoin(K=3, L=7, shift=0, ntir=30, graine=20260902):
 
 if __name__ == "__main__":
     if "--temoin" in sys.argv:
-        ok = temoin()
+        bm = int(sys.argv[sys.argv.index("--bonus") + 1]) if "--bonus" in sys.argv else 0
+        K = int(sys.argv[sys.argv.index("--K") + 1]) if "--K" in sys.argv else 3
+        L = int(sys.argv[sys.argv.index("--L") + 1]) if "--L" in sys.argv else 7
+        nt = int(sys.argv[sys.argv.index("--nb") + 1]) if "--nb" in sys.argv else 30
+        ok = temoin(K=K, L=L, ntir=nt, bmode=bm)
         sys.exit(0 if ok else 1)
     if "--archive" in sys.argv:
         import lab
@@ -197,8 +240,11 @@ if __name__ == "__main__":
         n = int(sys.argv[sys.argv.index("--nb") + 1]) if "--nb" in sys.argv else 40
         lm = int(sys.argv[sys.argv.index("--degres") + 1]) if "--degres" in sys.argv else 7
         tir = [[int(v) for v in NUM[i]] for i in range(d, d + n)]
+        bon = [int(v) for v in np.asarray(A.bonus)[d:d + n]]
+        bms = ([int(x) for x in sys.argv[sys.argv.index("--bonus") + 1].split(",")]
+               if "--bonus" in sys.argv else [0])
         say(f"archive : tirages {d} à {d + n - 1}")
-        predire(tir, lmax=lm)
+        predire(tir, lmax=lm, bmodes=tuple(bms), bonus=bon)
         sys.exit(0)
     if "--fichier" in sys.argv:
         f = sys.argv[sys.argv.index("--fichier") + 1]
