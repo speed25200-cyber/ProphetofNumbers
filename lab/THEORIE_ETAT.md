@@ -5173,9 +5173,25 @@ trois journées différentes, valent douze équations du même flux.
 
 **Sauf pour le Fibonacci retardé sous le rejet** (§7.7, §154) : là, les
 équations sont des retenues entre un mot et ses antécédents `i − k`, `i − L`,
-et elles n'existent qu'entre tirages **consécutifs** — un tirage isolé ne
-sert qu'à vérifier. TYPE_3 (`L = 31`) demande trois consécutifs au moins ;
-les vidéos en ont quatre (jour B), et la réponse est zéro. Pour l'état
+et elles n'existent qu'entre tirages **consécutifs**. TYPE_3 (`L = 31`) demande
+trois consécutifs au moins ; les vidéos en ont quatre (jour B), et la réponse
+est zéro.
+
+> **Correction (§7.27).** La phrase « un tirage isolé ne sert qu'à vérifier »,
+> écrite ici avant le théorème du tirage unitaire, est **fausse pour le canal de
+> classes**. Un tirage consomme `E[N] = 22,85` mots, donc `22,85 − L` d'entre eux
+> sont déjà déterminés par la récurrence *à l'intérieur du tirage* : les équations
+> ne commencent pas à la frontière, elles commencent au `L`-ième mot. Le théorème
+> chiffre exactement ce que cela vaut — `98,0817` bits par tirage ordonné contre
+> `5,3219` par mot d'état libre, soit un seuil `L* = 18,43`. **Un seul tirage
+> ordonné exclut tous les degrés jusqu'à 18**, TYPE_2 compris. Les six tirages
+> *isolés* des vidéos, que l'on croyait bons seulement pour vérifier, sont donc six
+> tests indépendants de plein droit — c'est ce que h161 exécute (§176).
+>
+> Ce qui reste vrai : au-delà du degré `18`, il faut des consécutifs, et le compte
+> est `T = ⌈L/18,43⌉` tirages ordonnés — `2` pour TYPE_3 `(3,31)`, `4` pour TYPE_4
+> `(1,63)`. Ce sont des bornes d'**information** ; le calcul, lui, s'arrête bien
+> avant, vers le degré `17`. Pour l'état
 **entier**, c'est le §7.8 qui compte : `n* = L(27 − log₂ 5)/log₂ M(f)` mots,
 `72` tirages consécutifs — ordonnés ou **triés**, l'archive suffit — pour
 TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
