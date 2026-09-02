@@ -4199,27 +4199,62 @@ La mesure confirme le modèle au chiffre près : sur `400` tirages tirés sous
 `2,5 · 20⁷ = 3,2·10⁹` prédits — en `69` s, soit `27` ns par nœud, et rend
 **zéro survivant**.
 
-#### (vii) Le relèvement : les `δ` lus sur la solution donnent le réseau
+#### (vii) Le relèvement : les `δ` lus sur la solution donnent le réseau (§173)
 
-Le crible ne rend que les classes ; il reste `32 − log₂ 80 = 25,68` bits
-par mot à trouver. Ils se lisent sur les `δ`. Posons `u_i = 80 r_i / 2³²`
-et `f_i = u_i − c_i ∈ [0, 1)`. Comme `u_i ≡ u_{i−K} + u_{i−L} (mod 80)`
-exactement, et comme `f_{i−K} + f_{i−L} ∈ [0, 2)` :
+Le crible ne pince que les classes — `log₂ 80 = 6,32` bits par mot — et
+laisse les `25,68` bits bas. Il n'a pas à faire mieux : les **retenues** les
+rendent, et le §173 le **mesure** au lieu de l'affirmer.
 
-`f_i = f_{i−K} + f_{i−L} − δ_i`,  `δ_i = ⌊f_{i−K} + f_{i−L}⌋ ∈ {0, 1}`.
+Écrivons `r_i = M_i + s_i`, où `M_i = ⌈c_i · 2³²/80⌉` est le bas de la
+classe (connu dès que le crible a rendu les `c_i`) et `s_i ∈ [0, W)` avec
+`W = 2³²/80` (inconnu, `25,68` bits). La récurrence `r_i = r_{i−K} + r_{i−L}
+− 2³² e_i` donne
 
-Autrement dit **le `δ` que le crible a branché n'est pas un artefact : c'est
-la retenue des parties fractionnaires**, et une fois la solution en main il
-se lit par `δ_i = (c_i − c_{i−K} − c_{i−L}) mod 80`. Chaque `δ_i` est alors
-une inégalité **exacte** :
+`s_i = s_{i−K} + s_{i−L} + D_i`,  `D_i = M_{i−K} + M_{i−L} − M_i − 2³² e_i`,
 
-`f_{i−K} + f_{i−L} ≥ 1` si `δ_i = 1`,  `< 1` sinon,
+et **`e_i` est déterminé** : une seule des deux valeurs met `D_i` dans
+`(−2W, W)`. C'est le même `δ` que le crible branchait — non pas un
+artefact, mais la retenue des parties fractionnaires. Les `s_i` sont donc
+des formes **affines entières** des `L` premières, `s_i = Σ_m a_{i,m} s_m +
+β_i` avec `a_i = a_{i−K} + a_{i−L}` sur les entiers, et la contrainte
+`0 ≤ s_i < W` pour tout `i < T` est un problème de **vecteur le plus
+proche** dans un réseau de rang `L` plongé dans `Z^T` — exactement la forme
+que `lab/lll_exact.py` résout en exact (LLL par la matrice de Gram, puis
+Babai).
 
-où chaque `f_i` est une forme `Z`-linéaire connue des `L` fractions
-initiales. On obtient `T` demi-espaces sur `L` inconnues de `25,68` bits :
-un problème de vecteur le plus proche que LLL résout exactement, comme au
-7.8 et au 7.23. Il faut `T ≥ 25,68 L` mots, soit `1,124 L` tirages —
-**`8` tirages pour TYPE_1**, `35` pour un degré `31`.
+> **Le bon critère, et ce n'est pas un compte de mots.** *Le point vrai est
+> l'unique point du réseau dans la boîte `[0, W)^T` dès que*
+>
+> `log₂ det Λ ≥ L · (32 − log₂ 80) = 25,68 L`.
+>
+> *Or `det Λ` croît à la vitesse de la **racine dominante** du trinôme
+> `x^L = x^{L−K} + 1`, qui dépend du trinôme et pas seulement de son degré,
+> et qui tend vers `1` quand le degré monte. Le nombre de mots nécessaires
+> se calcule donc trinôme par trinôme — par élimination de **Bareiss** sur
+> la matrice de Gram entière, un calcul flottant n'en gardant aucun chiffre
+> puisque les colonnes de la matrice sont presque parallèles.*
+
+| `(K, L)` | | mots nécessaires | tirages |
+|---|---|---|---|
+| `(2, 5)` | | `311` | `13,6` |
+| `(1, 6)` | | `362` | `15,8` |
+| **`(3, 7)`** | **TYPE_1** | `399` | `17,5` |
+| `(2, 11)` | | `634` | `27,7` |
+| `(1, 15)` | TYPE_2 | `848` | `37,1` |
+| `(3, 17)` | | `965` | `42,2` |
+| `(3, 31)` | TYPE_3 | `1 739` | `76,1` |
+
+Soit, pour TYPE_1, **dix-huit tirages** — une nuit en compte `204`, et même
+le degré `31` tient dans une seule nuit. Et le §173 mesure la chaîne
+entière sur suite plantée : aux deux décalages, l'état de `32L` bits est
+retrouvé **exactement**, et les **vingt numéros du tirage suivant** sont
+prédits juste.
+
+*Une correction à consigner.* Une version antérieure de ce paragraphe
+annonçait `T ≥ 25,68 L` mots, soit `8` tirages pour TYPE_1. C'était faux :
+ce compte confond le nombre de **bits** à trouver avec le nombre de
+**coordonnées** qui les donnent. La mesure le corrige d'un facteur cinq — et
+il fallait la faire pour s'en apercevoir.
 
 #### (viii) Ce que le crible rend, et ce qu'il ne rend pas
 
