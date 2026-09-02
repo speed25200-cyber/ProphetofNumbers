@@ -18563,6 +18563,238 @@ hypothèse nouvelle.
 
 ---
 
+## 175. Le **mot du bonus**, et le théorème du tirage unitaire : la portée exacte du crible de classes (`h159_bonus_troncature.py`)
+
+Le §172 rend un verdict dur — aucun Fibonacci retardé additif de degré `≤ 7` lu
+par troncature avec rejet n'engendre l'archive triée — mais ce verdict portait
+sur un modèle précis : la machine consomme des mots jusqu'à vingt classes
+distinctes, puis passe au tirage suivant, **et rien de plus**. Cette section
+enlève l'hypothèse « et rien de plus », et découvre en chemin que le crible en
+disait déjà beaucoup plus qu'on ne croyait.
+
+### Le trou : le bonus n'est pas un numéro, c'est un index
+
+Le §77 avait établi que le `bonus` est **toujours** l'un des vingt numéros tirés
+— `70 560` sur `70 560`, là où l'uniforme sur `1..80` en donnerait `17 640` — et
+le §106 que sa loi est `bonus = triés[⌊u·20⌋]`. Ce n'est donc pas un
+vingt-et-unième numéro : c'est un **index dans le tirage**, et s'il vient du même
+flux, la machine consomme **au moins un mot de plus par tirage**.
+
+Un mot de plus par tirage n'est pas un détail de comptabilité. Le crible du §172,
+qui n'en consomme aucun, teste alors un modèle *décalé d'un mot par tirage* :
+après le vingtième accepté, son automate exige du mot suivant une classe du
+tirage **suivant**, là où la machine y met le mot du bonus. Le chemin vrai meurt
+à la frontière, et le zéro qu'on lit ne dit plus rien du générateur.
+
+Le contrôle est exécutable, et il a été exécuté (`h159 --selftest`) : on plante
+une suite **avec** mot de bonus, on la donne au crible **sans**, et le chemin vrai
+est écarté à tous les coups. **`60` vérifications sur `60`** — `30` fois « le
+chemin vrai survit sous la bonne règle », `30` fois « il est perdu sous celle du
+§172 » (trois trinômes `(2,5)`, `(1,6)`, `(3,7)`, deux décalages, cinq règles).
+Le trou était réel.
+
+### Ce que le mot du bonus rapporte
+
+Sous la troncature, `⌊x·20/2³²⌋ = ⌊⌊x·80/2³²⌋/4⌋ = ⌊c(x)/4⌋` : l'index publie
+**deux bits de la classe** et en laisse deux. La classe du mot de bonus est donc
+contrainte à `{4r, 4r+1, 4r+2, 4r+3}`, quatre valeurs sur quatre-vingts, soit
+`log₂(80/4) = 4,3219` bits d'élagage — contre `1` bit de branchement pour son
+`δ`. **La phase bonus ne coûte pas, elle rapporte `3,32` bits par tirage** : le
+crible avec bonus est plus rapide *et* plus informatif que celui sans.
+
+Cinq règles ont été implémentées dans `tools/lfg_crible_classe.c` (arguments
+`bmode=`, `fsupp=`, `bonus=`) :
+
+| règle | ce que la machine fait | ce que le crible en tire |
+|---|---|---|
+| `bmode 1` | un mot après les vingt, index dans le tableau **trié** | `⌊c/4⌋ = r` publié : `4` classes sur `80` |
+| `bmode 2` | retirage dans `1..80` jusqu'à retomber sur un numéro sorti | classe `= bonus − 1` exactement, après une géométrique d'espérance `4` |
+| `bmode 3` | index dans l'ordre d'**acceptation** | `⌊c/4⌋ = q`, `q` **reconstruit par le chemin** |
+| `bmode 4` | index tiré **avant** les vingt | `4` classes sur `80`, en tête de tirage |
+| `fsupp n` | `n` mots muets de plus | aucun test : `1` bit de branchement sec |
+
+Le `bmode 3` mérite qu'on s'y arrête. L'ordre d'acceptation n'est pas publié par
+l'archive triée — mais le crible le **reconstruit** : il pose les mots un par un,
+donc il sait dans quel ordre les classes ont été acceptées le long du chemin
+qu'il explore. Une information que la donnée ne contient pas devient utilisable
+parce que la reconstruction la fabrique.
+
+**Le multiplicateur suit la même règle.** Le §106 avait établi que la loi du
+`boost` est portée par la grille `1/80`, avec des secteurs `(41, 19, 12, 4, 2, 2)`
+— revérifié ici sur les `70 560` tirages, tous les `|z| < 0,6` :
+
+| `boost` | compte | part | `×80` | secteur |
+|---|---|---|---|---|
+| `1` | `36 122` | `0,51193` | `40,955` | `41` |
+| `2` | `16 791` | `0,23797` | `19,037` | `19` |
+| `3` | `10 626` | `0,15060` | `12,048` | `12` |
+| `4` | `3 525` | `0,04996` | `3,997` | `4` |
+| `10` | `1 757` | `0,02490` | `1,992` | `2` |
+| `5` | `1 739` | `0,02465` | `1,972` | `2` |
+
+Le boost est donc, lui aussi, la troncature d'un mot sur la **même** grille de
+quatre-vingts, et son secteur publié élague `Σ p_j log₂(80/n_j) = 1,879` bits
+contre `1` bit de branchement : net `+0,88`. La machine consomme donc au moins
+**vingt-deux** mots par tirage — vingt numéros (avec refus), un bonus, un boost —
+et les deux mots supplémentaires *aident* le crible au lieu de le gêner.
+
+### La mesure qui rend tout cela sans objet — `d_max = 0`
+
+Le crible a été instrumenté pour publier `d_max`, le plus grand nombre de tirages
+qu'un chemin **clôture**. Sur l'archive :
+
+| `(K, L)` | nœuds | pic du front | `d_max` |
+|---|---|---|---|
+| `(1,5)` | `7 543 286` | `176 000` | **0** |
+| `(2,5)` | `7 564 530` | `176 000` | **0** |
+| `(3,5)` | `7 616 000` | `176 000` | **0** |
+| `(1,6)` | `149 404 546` | `3 520 000` | **0** |
+| `(5,6)` | `154 462 915` | `3 520 000` | **0** |
+| `(1,7)` | `2 973 024 814` | `70 400 000` | **0** |
+
+En **flux**, aucun chemin ne clôture un seul tirage. Par **nuit**, le degré `6` va
+tout juste plus loin : `(1,6)` atteint `d_max = 1` — un chemin clôture *un* tirage,
+aucun n'en clôture deux. Tout ce que la machine pourrait faire *entre* deux tirages
+arrive donc après une mort qui, sauf ce cas unique, a déjà eu lieu.
+
+La conséquence est mesurable, et elle a été mesurée : sur les configurations
+comparables du §172, les comptes de nœuds sont **identiques au nœud près** —
+`52` sur `52` pour `bmode 1`, `38` sur `38` pour `bmode 3`, `36` sur `38` pour
+`bmode 2`. Les deux exceptions sont précisément les `(1,6)` par nuit où
+`d_max = 1` : `6 956 185 211` nœuds contre `6 956 143 039`, soit `42 172` nœuds de
+plus — six dix-millièmes de pour cent, le coût de la seule phase bonus jamais
+atteinte de toute la grille. La règle `bmode 4`, elle, diffère partout (`37` sur
+`37`) : son mot de bonus est en tête de tirage, donc il est *toujours* atteint.
+
+### Le théorème du tirage unitaire
+
+Ce n'est pas un accident. Le nombre de chemins qu'un tirage laisse passer se
+calcule exactement, et la démonstration — niveau par niveau, `THEORIE_ETAT`
+§7.27 (iii) — couvre d'un coup la lecture triée et la lecture ordonnée :
+
+```
+    E[survivants] = 40^L · ( Π_{a=0}^{19} m_a/(40 − a) )^T
+```
+
+où `m_a` est le nombre de classes qu'un mot acceptant peut prendre au niveau `a`
+(`20 − a` pour l'archive triée, `1` pour un tirage ordonné). D'où
+
+```
+    trié     :  E = 40^L / C(40,20)^T ,  C(40,20) = 137 846 528 820   37,0043 bits/tirage
+    ordonné  :  E = 40^L · (20!/40!)^T                                98,0817 bits/tirage
+```
+
+**Chaque mot d'état libre rapporte `log₂ 40 = 5,3219` bits ; chaque tirage
+clôturé en coûte `37,00` s'il est trié, `98,08` s'il est ordonné.** Le seuil
+`E = 1` tombe donc à `L* = 6,95` par tirage trié et `18,43` par tirage ordonné.
+
+| `L` | `E` par tirage trié | lecture |
+|---|---|---|
+| `5` | `7,43·10⁻⁴` | un tirage exclut |
+| `6` | `0,0297` | un tirage exclut |
+| `7` | `1,19` | marginal : il faut deux tirages (`8,6·10⁻¹²`) |
+| `8` | `47,5` | un tirage ne dit rien |
+
+Trois conséquences se lisent directement sur la formule. D'abord, **le `δ` du
+quasi-morphisme vaut exactement `24,6123` bits par tirage** — l'écart entre
+`1/C(40,20)` et `1/C(80,20)` — et c'est le *même* écart pour la lecture ordonnée
+(`122,6907 − 98,0817 = 24,609`) : le prix du bit de retenue ne dépend pas de ce
+que le tirage publie. Ensuite, **l'ordre vaut `log₂ 20! = 61,07` bits et le
+crible les récupère tous** (`98,08 − 37,00 = 61,08`). Enfin le rendement, lui,
+dépend de la lecture : `60,1 %` de ce qu'un tirage trié publie, `79,9 %` d'un
+tirage ordonné.
+
+### Le corollaire, et ce qu'il ferme
+
+> **Pour `L ≤ 6`, l'exclusion d'un trinôme se décide à l'intérieur d'un seul
+> tirage** — `E = 0,0297` survivant par tirage au degré `6`, `7,4·10⁻⁴` au degré
+> `5`. Elle vaut donc quel que soit le comportement de la machine entre deux
+> tirages : mot de bonus (quatre règles), mot de multiplicateur, `f` mots muets
+> pour `f` **arbitraire**, regrainage complet à chaque tirage, frontière de nuit,
+> changement de pas.
+
+C'est un énoncé sur l'espérance, et la mesure le suit : `d_max = 0` partout en
+flux, `d_max = 1` au plus par nuit. Le corollaire ne dit pas qu'aucun chemin ne
+franchit *jamais* une frontière — il dit qu'aucun n'en franchit **deux**, et que
+c'est déjà assez pour que le protocole ne puisse rien sauver.
+
+C'est un renforcement net du §168 et du §7.24 (xii), qui bornaient la tolérance
+à `δ̄ + H(δ) < 22,85` : au degré `≤ 6`, la borne saute — l'excédent peut être
+quelconque, puisque le crible n'a jamais besoin de traverser une frontière. Le
+degré `7` reste le seul où le protocole compte (`E = 1,19` par tirage), et c'est
+exactement là que la grille des cinq règles sert.
+
+Elle a donc été exécutée quand même, pour ce degré-là et par acquit de conscience
+pour les autres.
+
+### Le résultat de la grille
+
+`190` configurations — treize trinômes de degré `≤ 7` en flux et neuf de degré
+`≤ 6` par nuit, aux deux décalages, aux quatre règles de bonus, plus un mot muet au
+degré `≤ 5` — `182 617 359 392` nœuds visités, `1.43` heure-cœur, **`0`
+configuration coupée** et **`D = 0` survivant**. Parcours complets, verdicts durs.
+
+### Deux défauts trouvés en route, et ce qu'ils coûtent
+
+Ils sont nommés ici parce qu'un chiffre annoncé faux est pire qu'un chiffre absent.
+
+*Le budget global était trop serré.* Il élaguait sur « `(ntir − tirages_clos) · 20`
+mots restants », qui compte vingt mots pour le tirage courant même quand dix-neuf de
+ses classes y sont déjà acceptées. La surestimation — jusqu'à dix-neuf mots — rabote
+d'autant le budget : à `ntir = 25` il tombait de `8` à `6,78` écarts-types, soit
+`6·10⁻¹²` de perte par ancrage au lieu de `10⁻¹⁵`. C'est plus petit que la perte déjà
+nommée du plafond de `45` mots par tirage (`3,2·10⁻¹⁰` par ancrage) : aucun verdict
+n'en dépend. Corrigé ; le témoin du §176 passe de `15/16` à `16/16`.
+
+*L'ancrage du `bmode 4` était faux.* Quand le mot du bonus est en tête de tirage, sa
+classe n'a aucune raison d'être publiée — elle doit seulement porter le bon index. Or
+l'ancrage en flux scinde sur les vingt classes publiées du premier tirage : il
+écartait le chemin vrai dès le mot zéro. Mesuré en parcours **libre** sur `(2,5)`
+planté : `0` survivant et état vrai perdu avant correction, retrouvé après. Le témoin
+par `fixe` ne pouvait pas le voir, puisqu'il court-circuite l'ancrage. Les `44`
+configurations `bmode 4` ont donc été **rejouées** sous le binaire corrigé, et leurs
+résultats antérieurs écartés (journal conservé en `/tmp/h159_journal_v1.txt`).
+
+### Le tirage unitaire, et une formule qu'il a fallu corriger
+
+Le théorème du (iii) prédit `40^L/C(40,20)` chemins survivants par tirage. Mis à
+l'épreuve sur l'archive tirage par tirage — six tirages au `(3,7)`, espérance
+`7,131` — il rend **zéro**, `p = 0,0016`. L'écart a été consigné comme tel, puis
+contrôlé de la seule façon qui tranche : **le même crible, le même nombre de
+tirages, mais des tirages SRS**.
+
+Résultat du contrôle : `16 757 048 805` nœuds, parcours complet, **zéro survivant
+lui aussi**. L'archive rend exactement ce que rend le hasard. L'écart n'est donc pas
+une propriété de l'archive — c'est une **erreur de modèle** : la formule surestime
+le nombre de chemins que l'outil retient réellement.
+
+Trois choses en découlent, et il faut les dire dans cet ordre.
+
+*La direction de l'erreur est conservatrice.* L'outil élague **plus** que le modèle
+idéalisé. Les exclusions des §172, §175 et §176 sont des parcours **complets** — un
+zéro y signifie « l'arbre entier a été visité » — et ne dépendent d'aucune formule.
+Elles restent valides sans réserve.
+
+*Ce qui reste vérifié de la formule, ce sont ses rapports.* Les seuils `L* = 6,95`
+(trié) et `18,43` (ordonné), le point critique du modulo au décalage `1`, les
+`24,6123` bits du `δ` : ce sont des comparaisons, et elles sont confirmées
+indépendamment — par la portée observée du crible, par la puissance mesurée des
+§177 et §178, et par le fait que le crible ordonné retrouve bien TYPE_2 sur trois
+tirages là où la formule le prédit.
+
+*Ce qui reste à faire.* Localiser l'écart absolu. Les deux plafonds candidats — `45`
+mots par tirage, budget global — pèsent `5,6·10⁻⁵` et `10⁻⁸` sous la loi inclinée
+exacte du nombre de mots (`E[N] = 27,23`, écart-type `3,36`), donc aucun des deux
+n'explique un facteur sept. C'est une question ouverte, et elle est écrite comme
+telle.
+
+**Ligne de registre.** `h159.bonus_troncature`, piste B, `D = 0`, `p = 1,0`,
+conforme. Le contrôle est consigné séparément sous `h159u.controle_srs`, et la ligne
+`h159u.tirage_unitaire` (`ECART`, `p = 0,0016`) reste au registre avec sa correction
+attachée — on ne retire pas une ligne du registre, on l'explique.
+
+---
+
 ## 176. Les tirages **ordonnés** portés en C : ce que l'ordre vaut, et un élagage qui était faux (`h161_ordonne_c.py`)
 
 Le §175 a montré que l'exclusion, sur l'archive triée, se joue à l'intérieur d'un
