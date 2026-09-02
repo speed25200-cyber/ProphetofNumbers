@@ -4270,8 +4270,9 @@ le mode « par nuit » couvre *aussi* le réamorçage quotidien). C'est l'objet
 du §172.
 
 **Ce qui reste dehors, et il faut le nommer** : TYPE_2 (`2^{64,8}`),
-TYPE_3 (`2^{134}`), TYPE_4 (`2^{272}`) — hors de portée du parcours, et
-rien ici ne les réduit. Le crible rend par ailleurs un verdict **dur** et
+TYPE_3 (`2^{134}`), TYPE_4 (`2^{272}`) — hors de portée de *cet* ordre de
+parcours. Le (xi) en récupère une partie (TYPE_2 tombe à `2^{37}`) ; TYPE_3
+et TYPE_4 restent dehors quoi qu'on fasse ici. Le crible rend par ailleurs un verdict **dur** et
 non une martingale : l'absence de survivant *exclut* une configuration
 parcourue, mais ne se convertit pas en borne de couverture au sens de
 Ville pour les configurations **non** parcourues. Les deux régimes sont
@@ -4286,6 +4287,68 @@ auto-entretenu. Ensuite, le compte en tirages est dérisoire : `25` tirages
 suffisent au crible, `8` au relèvement. Ce qui coûte ici n'est pas la
 donnée — c'est le front.
 
+
+#### (xi) L'ordre des mots libres : la cascade triangulaire, et ce qu'elle rachète
+
+Le pic `20^L` vient de ce qu'en ordre de flux les `L` premiers mots sont
+libres avant que la récurrence ne morde. Mais la relation à trois termes se
+lit **dans les deux sens** — connaître deux des indices `(i−L, i−K, i)`
+donne le troisième, en avant (`r_i`) comme en arrière (`r_{i−L} = r_i −
+r_{i−K}`, au prix d'un bit d'emprunt au lieu d'un bit de retenue). On peut
+donc poser les mots libres **n'importe où**, et il y a un placement qui fait
+tomber les mots déterminés bien plus tôt :
+
+> **Lemme de la cascade triangulaire.** *Si les mots libres sont placés aux
+> positions `p_j = j(L − K)`, `j = 0, …, k−1`, la clôture à trois termes
+> détermine exactement les `k(k−1)/2` mots `p_j + mL` pour `1 ≤ m ≤ k−1` et
+> `0 ≤ j ≤ k−1−m`.*
+
+*Preuve.* Par récurrence sur `m`. Le mot `p_j + mL` a pour antécédents
+`(p_j + mL) − L = p_j + (m−1)L`, du niveau `m−1`, et `(p_j + mL) − K =
+(p_j + L − K) + (m−1)L = p_{j+1} + (m−1)L`, du niveau `m−1` lui aussi. Deux
+des trois indices étant connus, le troisième l'est. Le compte est
+`Σ_{m=1}^{k−1}(k − m) = k(k−1)/2`. ∎
+
+`k` mots libres achètent donc `k(k−1)/2` mots déterminés : **quadratique
+contre linéaire**. C'est ce qui casse le `20^L`.
+
+**Mais il faut payer l'alignement.** En ordre de flux, le tirage courant se
+déduit (v) ; hors ordre, il ne se déduit plus — pour savoir dans quel tirage
+tombe un mot placé en position `p`, il faut avoir branché **toutes** les
+frontières en deçà. Et pour un crible **dur**, on n'a pas droit à l'entropie
+`H(N) = 2,846` : il faut énumérer *toutes* les valeurs possibles de `N`,
+c'est-à-dire `N ∈ [20, 60]`, soit `log₂ 41 = 5,358` bits par tirage franchi.
+Le pic devient
+
+`max_k [ k · log₂ 20 − d(k) + 5,358 · (p_max(k) / 22,85) ]`.
+
+| `(K, L)` | | flux `20^L` | ordre choisi, `H(N) = 2,846` | ordre choisi, **crible dur** `log₂ 41` |
+|---|---|---|---|---|
+| `(3, 7)` | TYPE_1 | `2^{30,3}` | `2^{18,4}` | **`2^{20,9}`** |
+| `(4, 9)` | | `2^{38,9}` | `2^{19,0}` | **`2^{22,3}`** |
+| `(2, 11)` | | `2^{47,5}` | `2^{22,0}` | **`2^{28,3}`** |
+| `(1, 15)` | **TYPE_2** | `2^{64,8}` | `2^{25,8}` | **`2^{37,2}`** |
+| `(3, 17)` | | `2^{73,5}` | `2^{26,5}` | `2^{45,9}` |
+| `(2, 21)` | | `2^{90,8}` | `2^{30,1}` | `2^{47,3}` |
+| `(3, 25)` | | `2^{108,0}` | `2^{42,6}` | `2^{58,9}` |
+| `(13, 31)` | | `2^{134,0}` | `2^{39,6}` | `2^{52,4}` |
+| `(3, 31)` | TYPE_3 | `2^{134,0}` | `2^{49,6}` | `2^{81,9}` |
+| `(31, 63)` | | `2^{272,3}` | `2^{72,0}` | `2^{98,0}` |
+| `(1, 63)` | TYPE_4 | `2^{272,3}` | `2^{74,3}` | `2^{129,7}` |
+
+Trois choses à en retenir. D'abord, **la portée passe du degré `7` au degré
+`15`** : TYPE_2 tombe à `2^{37,2}`, soit `1,4·10¹¹` nœuds — un quart d'heure.
+Ensuite, **le pic dépend du trinôme, pas seulement de son degré** : `(13,31)`
+vaut `2^{52,4}` quand `(3,31)` vaut `2^{81,9}`, parce que le pas de la
+cascade `L − K` décide de la portée qu'il faut couvrir. Enfin, **TYPE_3 et
+TYPE_4 restent dehors** (`2^{82}`, `2^{130}`) : la cascade divise le pic par
+`1,6` à `2,1`, elle ne l'annule pas.
+
+C'est un **calcul de conception**, pas une mesure : l'outil du §172 est celui
+de l'ordre de flux (alignement déduit, pic `20^L`, degré `≤ 7`). Le crible
+hors ordre, qui doit brancher les frontières et propager la clôture dans les
+deux sens, est un second outil — il porterait la lecture par troncature
+jusqu'à TYPE_2, et c'est la suite naturelle de cette section.
 
 ## 8. Application à ce dossier
 

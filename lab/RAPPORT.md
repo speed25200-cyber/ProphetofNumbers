@@ -17821,8 +17821,11 @@ d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
 | 0 | `x^22 + x^21 + 1` | nuit | `4 194 303` | `7,37` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `319` | `0` | 0 | 662 |
 | 0 | `x^23 + x^5 + 1` | nuit | `8 388 607` | `8,35` @ `70 371` | `31,78` | `370` ; `0,00` ; bloc `214` | `0` | 0 | 870 |
 | 0 | `x^23 + x^9 + 1` | nuit | `8 388 607` | `7,76` @ `70 364` | `31,78` | `370` ; `0,00` ; bloc `230` | `0` | 0 | 898 |
+| 0 | `x^23 + x^14 + 1` | nuit | `8 388 607` | `6,41` @ `70 373` | `31,78` | `370` ; `0,00` ; bloc `314` | `0` | 0 | 844 |
+| 0 | `x^23 + x^18 + 1` | nuit | `8 388 607` | `7,97` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `170` | `0` | 0 | 850 |
+| 0 | `x^25 + x^3 + 1` | nuit | `33 554 431` | `8,24` @ `70 360` | `31,78` | `370` ; `0,00` ; bloc `116` | `0` | 0 | 2032 |
 
-*Grille en cours : `48` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `51` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -17990,8 +17993,38 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 | `100` | 1 | `x^6 + x^1 + 1` | `4 032` | `2,00` @ `13` | `0` | `0` | 0 | 76 |
 | `100` | 1 | `x^6 + x^5 + 1` | `4 032` | `1,53` @ `7` | `0` | `0` | 0 | 79 |
 | `100` | 1 | `x^7 + x^1 + 1` | `16 256` | `1,08` @ `7` | `0` | `0` | 0 | 77 |
+| `100` | 1 | `x^7 + x^3 + 1` (TYPE_1) | `16 256` | `1,04` @ `12` | `0` | `0` | 0 | 78 |
+| `100` | 1 | `x^7 + x^4 + 1` | `16 256` | `0,39` @ `9` | `0` | `0` | 0 | 76 |
+| `100` | 1 | `x^7 + x^6 + 1` | `16 256` | `0,11` @ `2` | `0` | `0` | 0 | 79 |
+| `100` | 1 | `x^9 + x^4 + 1` | `261 632` | `0,20` @ `17` | `0` | `0` | 0 | 79 |
+| `100` | 1 | `x^9 + x^5 + 1` | `261 632` | `0,84` @ `35` | `0` | `0` | 0 | 82 |
+| `100` | 1 | `x^10 + x^3 + 1` | `1 047 552` | `2,30` @ `31` | `0` | `0` | 0 | 81 |
+| `100` | 1 | `x^10 + x^7 + 1` | `1 047 552` | `0,17` @ `16` | `0` | `0` | 0 | 82 |
+| `100` | 1 | `x^11 + x^2 + 1` | `4 192 256` | `3,31` @ `40` | `0` | `0` | 0 | 83 |
+| `100` | 1 | `x^11 + x^9 + 1` | `4 192 256` | `2,13` @ `42` | `0` | `0` | 0 | 84 |
+| `100` | 1 | `x^15 + x^1 + 1` (TYPE_2) | `1 073 709 056` | `0,79` @ `46` | `0` | `0` | 0 | 332 |
+| `100` | 1 | `x^15 + x^4 + 1` | `1 073 709 056` | `2,84` @ `64` | `0` | `0` | 0 | 322 |
+| `100` | 1 | `x^15 + x^7 + 1` | `1 073 709 056` | `0,17` @ `31` | `0` | `0` | 0 | 334 |
+| `100` | 1 | `x^15 + x^8 + 1` | `1 073 709 056` | `0,56` @ `55` | `0` | `0` | 0 | 346 |
+| `100` | 1 | `x^15 + x^11 + 1` | `1 073 709 056` | `3,51` @ `51` | `0` | `0` | 0 | 360 |
+| `100` | 1 | `x^15 + x^14 + 1` | `1 073 709 056` | `0,20` @ `36` | `0` | `0` | 0 | 401 |
+| `128` | 0 | `x^2 + x^1 + 1` | `3` | `5,57` @ `1 912` | `65` | `65` | 0 | 4 |
+| `128` | 0 | `x^3 + x^1 + 1` | `7` | `6,23` @ `3 995` | `65` | `65` | 0 | 4 |
+| `128` | 0 | `x^3 + x^2 + 1` | `7` | `5,16` @ `3 995` | `65` | `65` | 0 | 5 |
+| `128` | 0 | `x^4 + x^1 + 1` | `15` | `5,95` @ `5 462` | `65` | `65` | 0 | 6 |
+| `128` | 0 | `x^4 + x^3 + 1` | `15` | `5,12` @ `5 559` | `65` | `65` | 0 | 6 |
+| `128` | 0 | `x^5 + x^2 + 1` | `31` | `0,00` @ `0` | `0` | `0` | 0 | 63 |
+| `128` | 0 | `x^5 + x^3 + 1` | `31` | `0,00` @ `0` | `0` | `0` | 0 | 63 |
+| `128` | 0 | `x^6 + x^1 + 1` | `63` | `0,00` @ `0` | `0` | `0` | 0 | 68 |
+| `128` | 0 | `x^6 + x^5 + 1` | `63` | `0,00` @ `0` | `0` | `0` | 0 | 69 |
+| `128` | 0 | `x^7 + x^1 + 1` | `127` | `0,19` @ `2` | `0` | `0` | 0 | 21 |
+| `128` | 0 | `x^7 + x^3 + 1` (TYPE_1) | `127` | `0,17` @ `2` | `0` | `0` | 0 | 20 |
+| `128` | 0 | `x^7 + x^4 + 1` | `127` | `0,17` @ `2` | `0` | `0` | 0 | 23 |
+| `128` | 0 | `x^7 + x^6 + 1` | `127` | `0,20` @ `2` | `0` | `0` | 0 | 21 |
+| `128` | 0 | `x^9 + x^4 + 1` | `511` | `0,16` @ `2` | `0` | `0` | 0 | 81 |
+| `128` | 0 | `x^9 + x^5 + 1` | `511` | `0,32` @ `2` | `0` | `0` | 0 | 83 |
 
-*Grille en cours : `73` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `103` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -18127,91 +18160,6 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 
 ---
 
-## 171. Le témoin de bout en bout : détecter, relever l'état complet, **prédire les vingt numéros du tirage suivant** (`h151_bout_en_bout.py`)
-
-### L'objection à laquelle il fallait répondre
-
-Les §165 à §170 rendent tous `D = 0`. Une objection légitime — et il faut y
-répondre en chiffres, pas en promesses — est que le `D = 0` ne vaut que si la
-détection, *si elle avait lieu*, mènerait effectivement quelque part : une
-martingale qui dépasse son seuil donne une **position dans l'orbite du plan
-`0`**, pas un état de `224` bits, et encore moins un tirage. Entre les deux
-il y a trois maillons — l'alignement fin, les plans hauts, l'arithmétique
-exacte — dont aucune section ne prouvait qu'ils tiennent bout à bout.
-
-Ce §171 les parcourt, sur une suite **plantée** dont on connaît la vérité :
-`x⁷ + x³ + 1` (TYPE_1), sortie `r >> 1`, échantillonneur à rejet, tirages
-**triés** comme ceux de l'archive. Rien n'y est supposé : chaque maillon est
-mesuré, y compris là où il ne donne pas ce qu'on aurait cru.
-
-### La chaîne, maillon par maillon
-
-1. **Détection** (§7.18) — la DP en flot rend l'orbite et une position, en
-   `0,2` s sur `25` tirages.
-2. **Alignement fin** — *et c'est ici que la première idée était fausse*.
-   Le décodage de Viterbi ne rend **pas** les `n_t` exacts : sur `60`
-   frontières il en place `15` à `21` au bon mot, avec une dérive de `±7` à
-   `±20`. Le lissage (moyenne des masses postérieures) fait mieux — `34` à
-   `52` frontières sur `61` à `±2` mots près — mais pas exactement. Il faut
-   donc balayer un décalage global `dq` et laisser les plans hauts trancher.
-3. **Crible des plans `2-4`** (§7.6) — `2²¹` candidats par valeur de `dq`,
-   `13` valeurs, `≈ 24` s au total.
-4. **Relèvement exact** par réseau (LLL, `lab/lll_exact.py`) — `1,7` à
-   `15,6` s.
-5. **Prédiction** — les `20` numéros du tirage suivant.
-
-### Ce que les trois tirages au sort donnent
-
-| tirage | orbite/position (lissée → vraie) | masse | survivants du crible | états `32` bits | prédiction | `log₂ BF` |
-|---|---|---|---|---|---|---|
-| 1 | `(3, 143)` → `(3, 142)` | `0,177` | `102` sur `13 × 2²¹` | `1` | **exacte, 20/20** | `23,3` |
-| 2 | `(41, 22)` → `(41, 19)` | `0,129` | `15` | `4` | **exacte, 20/20** | `29,8` |
-| 3 | `(51, 74)` → `(51, 75)` | `0,400` | `157` | `2` | **exacte, 20/20** | `15,6` |
-
-Trois fois sur trois, à partir de **`25` tirages publiés et triés** — moins
-de deux heures de jeu — la chaîne rend les vingt numéros exacts du tirage
-suivant, en **moins d'une minute** de calcul : `0,2` s de détection, `24` s
-de crible, `2` à `16` s de relèvement.
-
-### Trois remarques, dont une qui corrige une idée reçue
-
-**La position n'a pas besoin d'être exacte.** Aux trois essais, la position
-lissée se trompe de `1` à `3` mots, et les frontières de `−6` à `+4` — et
-cela ne coûte rien : le balayage `dq ∈ [−6, +6]` couvre l'écart, et le
-crible des plans hauts, qui est **dur**, ne laisse survivre que le bon
-décalage. C'est la division du travail correcte : la DP donne le *voisinage*,
-l'arithmétique exacte donne le *point*.
-
-**Le canal du relèvement est cinquante fois plus large que celui de
-l'alignement.** Chaque tirage impose à chacun de ses `≈ 23` mots que sa
-classe `x mod 80` figure parmi les vingt publiées : `2` bits par mot,
-`45,7` bits par tirage — contre `H(N) = 2,85` bits d'entropie d'alignement.
-C'est pourquoi le crible tranche là où le lissage hésite.
-
-**Un pic sous le seuil ne coûte rien.** La détection du troisième essai ne
-vaut que `15,6` bits, loin des `29,25` de la martingale — et la chaîne
-aboutit quand même. C'est structurel : le relèvement **se vérifie lui-même**
-(l'état retrouvé rejoue l'archive ou ne la rejoue pas), donc on peut
-essayer les pics sous-liminaires sans rien payer statistiquement. Le seuil
-de Ville protège l'*affirmation* ; il ne borne pas l'*exploration*.
-
-### Ce que ce témoin établit — et ce qu'il n'établit pas
-
-Il établit que **le `D = 0` des §165-§170 est le premier maillon d'une
-chaîne complète et vérifiée**, et non un test dont on ignorerait la suite.
-Si l'un de ces cribles avait parlé, l'état entier et le tirage suivant en
-seraient sortis en moins d'une minute.
-
-Il n'établit rien sur l'archive : la suite est plantée, la vérité connue.
-C'est un témoin de **puissance**, pas un résultat. Et il ne porte que sur
-TYPE_1 — le crible des plans `2-4` coûte `2^{3L}`, hors de portée au
-degré `31`.
-
-**Ligne de registre.** Aucune : témoin synthétique, aucune donnée réelle
-n'est lue, rien n'est consigné.
-
----
-
 ## 172. La lecture par **troncature** sous pas variable : le crible de classes — un automate non déterministe sur `(Z/80)^L`, l'alignement qui ne se branche pas (`h152_troncature.py`, `tools/lfg_crible_classe.c`)
 
 ### Le dernier des quatre échantillonneurs
@@ -18297,8 +18245,20 @@ Jeton `4060788fad07297d`, scellé le `2026-09-02T18:03:29Z`, piste B. **Hypothè
 | `(1  6)` | `0` | flux | `1` | `149 408 626` | `3 520 000` | `0` | `4` |
 | `(5  6)` | `0` | flux | `1` | `154 466 087` | `3 520 000` | `0` | `4` |
 | `(1  7)` | `0` | flux | `1` | `2 973 089 263` | `70 400 000` | `0` | `75` |
+| `(3  7)` | `0` | flux | `1` | `2 962 818 531` | `70 400 000` | `0` | `101` |
+| `(4  7)` | `0` | flux | `1` | `2 978 845 646` | `70 400 000` | `0` | `90` |
+| `(6  7)` | `0` | flux | `1` | `3 078 412 821` | `70 400 000` | `0` | `76` |
+| `(1  2)` | `1` | flux | `1` | `2 480` | `24` | `0` | `0` |
+| `(1  3)` | `1` | flux | `1` | `29 904 401` | `2 692 550` | `0` | `1` |
+| `(2  3)` | `1` | flux | `1` | `54 266` | `480` | `0` | `0` |
+| `(1  4)` | `1` | flux | `1` | `808 904` | `9 600` | `0` | `0` |
+| `(3  4)` | `1` | flux | `1` | `828 624` | `9 600` | `0` | `0` |
+| `(2  5)` | `1` | flux | `1` | `15 916 234` | `192 000` | `0` | `1` |
+| `(3  5)` | `1` | flux | `1` | `52 833 265` | `3 328 514` | `0` | `2` |
+| `(1  6)` | `1` | flux | `1` | `301 863 348` | `3 840 000` | `0` | `13` |
+| `(5  6)` | `1` | flux | `1` | `319 742 855` | `3 840 000` | `0` | `13` |
 
-*Grille en cours : `10` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `22` configurations lues sur `52` ; le tableau est celui du journal (`/tmp/h152_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
