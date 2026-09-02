@@ -40,6 +40,12 @@ tirages), pour TYPE_1 modulo pas 20 (shift 1 et 0), (4, 9) shuffle pas 79 et
 
 Il TESTE l'archive : il consigne au registre, pre-enregistrement AVANT le
 crible (jeton scelle, conserve dans le journal pour la reprise).
+
+REEMPLOI (h138) : les variantes, les temoins, l'identifiant de registre et la
+phrase des schemas se lisent dans l'environnement (H137_ID, H137_VARIANTES,
+H137_TEMOINS, H137_SCHEMAS) ; sans ces variables, le script est exactement h137.
+Le jeton h137 (scelle avant le crible) est relu tel quel : l'hypothese du
+registre n'est jamais reecrite apres coup.
 """
 
 import json
@@ -60,6 +66,8 @@ DRY = os.environ.get("H137_DRY") == "1"
 ICI = os.path.dirname(os.path.abspath(__file__))
 DEPOT = os.path.dirname(os.path.dirname(ICI))
 TMP = os.environ.get("H137_TMP", "/tmp")
+EXP_ID = os.environ.get("H137_ID", "h137.flux_continu")       # identifiant de registre
+PREFIXE = EXP_ID.split(".")[0]                                # h137 -> fichiers h137_*
 POOL, DRAWN = 80, 20
 MOTS = [(0, 4), (4, 2), (8, 3), (12, 2), (16, 6)]            # (k, e) : x_k mod 2^e
 N_RETENUS = 10560                                             # tirages retenus (hold-out)
@@ -128,14 +136,22 @@ NOMS = {(3, 7): "TYPE_1", (1, 15): "TYPE_2"}
 TRINOMES = [(K, L) for L in range(2, LMAX + 1) for K in range(1, L) if primitif(K, L)]
 assert len(TRINOMES) == 31 and (3, 7) in TRINOMES and (1, 15) in TRINOMES
 VARIANTES = [("fy", s) for s in (20, 21, 22, 23, 24, 79, 80)] + [("shuffle", s) for s in (79, 80)]
+SCHEMAS = ("Fisher-Yates partiel par modulo aux pas 20 a 24, 79 et 80 ; "
+           "Collections.shuffle vingt dernieres cases aux pas 79 et 80")
+if os.environ.get("H137_VARIANTES"):                 # "fy:20,21;shuffle:79,80"
+    VARIANTES = [(m, int(s)) for bloc in os.environ["H137_VARIANTES"].split(";")
+                 for m, ss in [bloc.split(":")] for s in ss.split(",")]
+    SCHEMAS = os.environ["H137_SCHEMAS"]             # la phrase des schemas, obligatoire
+assert all(m in ("fy", "shuffle") for m, s in VARIANTES)
 SHIFTS = (0, 1)
 if DRY:
     TRINOMES = [t for t in TRINOMES if t[1] <= 9]
-    VARIANTES = [("fy", 20), ("shuffle", 79)]
+    VARIANTES = ([("fy", 20), ("shuffle", 79)] if not os.environ.get("H137_VARIANTES")
+                 else VARIANTES[:2])
 
 NBFILS = os.environ.get("SWEEP_THREADS", "3")
 ENV = dict(os.environ, SWEEP_THREADS=NBFILS)
-BIN = os.path.join(TMP, "lfg_flux_continu_h137")
+BIN = os.path.join(TMP, f"lfg_flux_continu_{PREFIXE}")
 subprocess.run(["cc", "-O3", "-march=native", "-pthread", "-o", BIN,
                 os.path.join(DEPOT, "tools", "lfg_flux_continu.c")],
                check=True, capture_output=True)
@@ -219,10 +235,12 @@ say(f"""   Un seul flux r_i = r_(i-K) + r_(i-L) mod 2^32, lu a pas constant S a 
 for K, L in TRINOMES:
     M = 2 * L + comb(L, 2) + L * L + comb(L, 3) + 1
     say(f"       {K:>2} {L:>2} {'2^%d' % L:>6} {M:>5}  x^{L}+x^{L-K}+1 {NOMS.get((K, L), '')}")
+PAS = {m: ", ".join(str(s) for mm, s in VARIANTES if mm == m) for m in ("fy", "shuffle")}
 say(f"""
-   {len(TRINOMES)} trinomes x {len(VARIANTES)} variantes (fy = Fisher-Yates partiel par modulo,
-   pas {', '.join(str(s) for m, s in VARIANTES if m == 'fy')} ; shuffle = Collections.shuffle vingt dernieres
-   cases, pas {', '.join(str(s) for m, s in VARIANTES if m == 'shuffle')}) x shifts {SHIFTS} = {len(TRINOMES)*len(VARIANTES)*len(SHIFTS)} cribles.
+   {len(TRINOMES)} trinomes x {len(VARIANTES)} variantes ({SCHEMAS} :
+   fy = masque de Fisher-Yates partiel par modulo, pas {PAS['fy'] or '-'} ; shuffle = masque
+   des vingt dernieres cases d'un Collections.shuffle, pas {PAS['shuffle'] or '-'})
+   x shifts {SHIFTS} = {len(TRINOMES)*len(VARIANTES)*len(SHIFTS)} cribles.
    Tout decalage constant du flux est absorbe par l'etat initial : la place des
    mots perdus dans un pas S > 20 (ou > 79) est sans objet.""")
 
@@ -240,7 +258,7 @@ ENS = [NUM[t].tolist() for t in range(NTOT)]
 N_FIT = NTOT - N_RETENUS
 if DRY:
     N_FIT = 3000
-FARCH = os.path.join(TMP, "h137_archive.txt")
+FARCH = os.path.join(TMP, f"{PREFIXE}_archive.txt")
 with open(FARCH, "w") as fh:
     for t in range(NTOT):
         fh.write(" ".join(str(v) for v in ENS[t]) + "\n")
@@ -266,15 +284,14 @@ say(f"""   {NTOT} tirages, identifiants {int(IDS[0])} a {int(IDS[-1])}, {coupes}
 rule("3. PRE-ENREGISTREMENT (avant le crible)")
 # ==========================================================================
 
-JOURNAL = os.path.join(TMP, "h137_journal.txt")
-FJETON = os.path.join(TMP, "h137_jeton.json")
+JOURNAL = os.path.join(TMP, f"{PREFIXE}_journal.txt")
+FJETON = os.path.join(TMP, f"{PREFIXE}_jeton.json")
 HYPOTHESE = (
     "Aucun etat d'aucun Fibonacci retarde additif r_i = r_(i-K) + r_(i-L) mod 2^32 "
     f"de degre L <= {LMAX} — les {len(TRINOMES)} trinomes primitifs, dont TYPE_1 (3, 7) et "
     "TYPE_2 (1, 15) de la glibc random() — lu a PAS CONSTANT a travers les pauses "
     "(un seul flux, jamais reensemence) n'engendre les tirages TRIES de l'archive "
-    "sous aucun des schemas : Fisher-Yates partiel par modulo aux pas 20 a 24, 79 "
-    "et 80 ; Collections.shuffle vingt dernieres cases aux pas 79 et 80 ; sortie "
+    f"sous aucun des schemas : {SCHEMAS} ; sortie "
     "x = r >> 1 (glibc) ou x = r. L'attaque devine le plan 0 des L mots initiaux "
     "(2^L), linearise le plan 1 (affine en y) et le plan 2 (affine en z, quadratique "
     "en y) sur les evenements MORT et FORCE des masques de residus, releve les "
@@ -301,8 +318,7 @@ if not DRY:
         TOK = json.load(open(FJETON, encoding="utf-8"))
         say(f"   jeton repris : scelle {TOK['seal']} le {TOK['registered_at']}")
     else:
-        TOK = lab.preregister("h137.flux_continu", HYPOTHESE, STATISTIQUE, NULL, VERDICT,
-                              track="B")
+        TOK = lab.preregister(EXP_ID, HYPOTHESE, STATISTIQUE, NULL, VERDICT, track="B")
         json.dump(TOK, open(FJETON, "w", encoding="utf-8"), ensure_ascii=False)
         say(f"   jeton scelle {TOK['seal']} le {TOK['registered_at']}")
 else:
@@ -315,6 +331,10 @@ rule("4. TEMOINS DANS LE REGIME DE L'ARCHIVE")
 
 TEMOINS_SPEC = [(3, 7, 20, "fy", 1, 1), (3, 7, 20, "fy", 0, 2), (4, 9, 79, "shuffle", 1, 3),
                 (4, 9, 80, "shuffle", 0, 4), (1, 15, 21, "fy", 1, 5), (3, 17, 20, "fy", 1, 6)]
+if os.environ.get("H137_TEMOINS"):                   # "K,L,S,mode,shift,graine;..."
+    TEMOINS_SPEC = [(int(a), int(b), int(c), d, int(e), int(f))
+                    for a, b, c, d, e, f in (bloc.split(",")
+                                              for bloc in os.environ["H137_TEMOINS"].split(";"))]
 if DRY:
     TEMOINS_SPEC = TEMOINS_SPEC[:4]
 say(f"""   Un etat 32 bits plante, {N_FIT} tirages engendres sous (K, L, S, mode, shift),
@@ -438,7 +458,7 @@ else:
                f"de crible. NON COUVERT : TYPE_3/4, rejet, troncature, vingt premieres "
                f"cases d'un shuffle, reensemencement, Fibonacci soustractif."))
     h = lab.holm()
-    say(f"   consigne : h137.flux_continu   verdict {verdict}")
+    say(f"   consigne : {EXP_ID}   verdict {verdict}")
     say(f"   m du registre : {h[0]['m_total']:,}   significatifs : "
         f"{sum(1 for r in h if r['significant'])}")
 
