@@ -3838,6 +3838,47 @@ seulement ici.
 
 Sur l'archive (§169, jeton `06785fcaa1f3e711`, scellé le 2026-09-02 à 15:33Z) : grille de `84` chaînes (`25` trinômes `L ≤ 15` à la sortie brute, `17` `L ≤ 10` à la sortie décalée, chacun sans et avec jumeau) — RESULTAT_721.
 
+
+### 7.22 La calibration de la nulle — ce que les maxima disent quand ils ne disent rien
+
+Les §165 à §170 ne rendent pas seulement « aucune détection » : ils rendent
+un **échantillon** de maxima courants, un par chaîne, et cet échantillon est
+lui-même une vérification. Sous `H₀`, l'inégalité de Ville donne, pour chaque
+chaîne et à tout instant, `P₀(sup_t BF_t ≥ 2ˣ) ≤ 2^{−x}` ; donc, sur `n_eff`
+chaînes (en comptant chaque redémarrage du faisceau comme une chaîne, ce que
+le mélange du 7.18 (iii) impose de toute façon),
+
+    E₀[#{chaînes de maximum ≥ x bits}] ≤ n_eff · 2^{−x}.
+
+C'est une **borne d'espérance** : elle vaut quelle que soit la dépendance
+entre les chaînes — et elles sont fortement dépendantes, puisqu'elles lisent
+toutes la même archive. Voici ce qu'on observe, toutes séries confondues :
+
+| `x` (bits) | chaînes de maximum `≥ x` | borne `n_eff · 2^{−x}` |
+|---|---|---|
+| `2` | `49` | `359,8` |
+| `4` | `34` | `89,9` |
+| `6` | `25` | `22,5` |
+| `8` | `10` | `5,6` |
+| `10` | `4` | `1,4` |
+| `12` | `0` | `0,35` |
+| `16` | `0` | `0,02` |
+| `23,25` (seuil) | **`0`** | `1,5·10⁻⁵` |
+
+`217` chaînes lues, `1 439` effectives. La queue colle à la borne — `10` contre
+`5,6` à huit bits, `4` contre `1,4` à dix — ce que Markov autorise sans
+réserve (`P(# ≥ k) ≤ E[#]/k`), et le maximum absolu de toute la série vaut
+`11,76` bits, atteint par une nuit de `x¹⁸ + x⁷ + 1` : **la moitié du seuil, en
+bits, et un facteur `2 900` en facteur de Bayes.**
+
+Ce n'est pas seulement « rien n'a été détecté ». C'est : *la loi entière de
+l'évidence, sur des centaines de chaînes et des milliards de positions, est
+celle que `H₀` prédit* — une martingale de moyenne `1` qui monte un peu, au
+hasard, et retombe. Le test n'est pas aveugle (les témoins plantés donnent
+`500` à `1 500` bits sur les mêmes chaînes) ; il est **calibré**, et il ne voit
+rien parce qu'il n'y a rien à voir.
+
+
 ---
 
 ## 8. Application à ce dossier
