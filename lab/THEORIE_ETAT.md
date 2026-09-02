@@ -3871,9 +3871,29 @@ réserve (`P(# ≥ k) ≤ E[#]/k`), et le maximum absolu de toute la série vaut
 `11,76` bits, atteint par une nuit de `x¹⁸ + x⁷ + 1` : **la moitié du seuil, en
 bits, et un facteur `2 900` en facteur de Bayes.**
 
-Ce n'est pas seulement « rien n'a été détecté ». C'est : *la loi entière de
-l'évidence, sur des centaines de chaînes et des milliards de positions, est
-celle que `H₀` prédit* — une martingale de moyenne `1` qui monte un peu, au
+**Et les coordonnées que ces canaux lisent ne bougent pas non plus.** Les
+DP des 7.17 à 7.21 lisent `v − 1` modulo `2` (parité), `4` (canal mod 4),
+et le crible du 7.6 lit modulo `16` ; le relèvement du 7.8 lit modulo `5`.
+Sur les `70 560 × 20 = 1 411 200` numéros publiés :
+
+| `(v − 1) mod` | `2` | `4` | `5` | `8` | `16` | `80` |
+|---|---|---|---|---|---|---|
+| `χ²` | `0,14` | `0,45` | `2,74` | `1,41` | `6,38` | `53,60` |
+| degrés de liberté | `1` | `3` | `4` | `7` | `15` | `79` |
+| `z = (χ² − ddl)/√(2 ddl)` | `−0,61` | `−1,04` | `−0,44` | `−1,49` | `−1,57` | `−2,02` |
+
+Tous **en deçà** de leur espérance — et c'est attendu, non suspect : les
+vingt numéros d'un tirage étant **distincts**, les comptes par classe sont
+négativement corrélés à l'intérieur d'un tirage et leur variance est plus
+petite que multinomiale ; le `χ²` classique est ici conservateur. Quant à
+la statistique suffisante du canal de parité, son autocorrélation vaut
+`−0,0025` à `+0,0039` aux décalages `1, 2, 3, 5, 10` et `204` (une nuit
+entière), contre un écart-type de `0,0038` : rien, à tous les décalages
+qui comptent.
+
+Ce n'est donc pas seulement « rien n'a été détecté ». C'est : *la loi
+entière de l'évidence, sur des centaines de chaînes et des milliards de
+positions, est celle que `H₀` prédit* — une martingale de moyenne `1` qui monte un peu, au
 hasard, et retombe. Le test n'est pas aveugle (les témoins plantés donnent
 `500` à `1 500` bits sur les mêmes chaînes) ; il est **calibré**, et il ne voit
 rien parce qu'il n'y a rien à voir.
