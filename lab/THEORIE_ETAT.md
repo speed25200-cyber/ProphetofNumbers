@@ -5150,11 +5150,30 @@ près, puisque l'intervalle d'une classe est large de `2^{25,68}` contre `2^{26}
 par case.
 
 **(ii) La règle de portée.** Le couple de décalages qui porte le signal se lit
-sur le générateur, sans rien calculer :
+sur le générateur, sans rien calculer. Il faut d'abord écrire la relation sous la
+forme *« somme = … »*, puis compter les retards **depuis le mot de la somme** :
 
 ```
-    g₁ ≈ L / E[N] ,     g₂ ≈ K / E[N] ,     E[N] = 22,85 mots par tirage.
+    r_s = r_{s−d₁} ⋆ r_{s−d₂}     ⟹     g_j = d_j / E[N] ,
+    E[N] = Σ_{k=0}^{19} 80/(80−k) = 22,848709…  mots par tirage
 ```
+
+(la constante est exacte, `80·(H₈₀ − H₆₀)`, de variance `3,4319` — ce sont les
+deux valeurs que le budget du crible du §172 utilise déjà). Vérification sur les
+cas mesurés :
+
+| générateur | forme « somme = … » | `(d₁, d₂)` | `(g₁, g₂)` prédit | couple observé |
+|---|---|---|---|---|
+| TYPE_1 `(3,7)` additif | `r_i = r_{i−3} + r_{i−7}` | `(7, 3)` | `(0,31 ; 0,13)` | `(0, 0)` |
+| TYPE_2 `(1,15)` | `r_i = r_{i−1} + r_{i−15}` | `(15, 1)` | `(0,66 ; 0,04)` | `(1, 0)` |
+| TYPE_3 `(3,31)` | `r_i = r_{i−3} + r_{i−31}` | `(31, 3)` | `(1,36 ; 0,13)` | `(1, 0)` |
+| TYPE_4 `(1,63)` | `r_i = r_{i−1} + r_{i−63}` | `(63, 1)` | `(2,76 ; 0,04)` | `(3, 0)` |
+| Knuth `(24,55)` **soustractif** | `r_{i−24} = r_i + r_{i−55}` | `(31, −24)` | `(1,36 ; −1,05)` | `(1, −1)` |
+
+La dernière ligne est celle qui compte : réécrite avec la somme à gauche, la
+relation de Knuth a un retard **négatif** — l'un des opérandes est `24` mots
+*après* la somme. La règle le donne sans rien essayer, et c'est exactement le
+couple `(1, −1)` que la mesure trouve.
 
 C'est *tout* le contenu du balayage : un retard de `L` mots est un retard de
 `L/22,85` tirages. TYPE_3 `(3,31)` sort en `(1,0)` parce que `31/22,85 = 1,36` et
