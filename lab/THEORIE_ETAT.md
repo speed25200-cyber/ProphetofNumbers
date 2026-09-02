@@ -3879,6 +3879,59 @@ hasard, et retombe. Le test n'est pas aveugle (les témoins plantés donnent
 rien parce qu'il n'y a rien à voir.
 
 
+
+### 7.23 Du pic à l'état complet — ce qu'une détection donnerait, et pourquoi la chaîne est entière
+
+Une objection légitime, et il faut y répondre en chiffres : la DP des 7.17
+à 7.21 ne lit qu'**un ou deux bits par mot**. À supposer qu'elle détecte,
+elle rendrait la position `q̂` et le plan bas — pas les `32` plans. Que
+vaudrait cette victoire ?
+
+**(i) Ce qu'une détection donne.** Le pic a posteriori concentre la masse
+sur une position (mesuré sur témoins : `0,1` à `0,4` de la masse à moins
+de `N_T ≤ 40` mots), et cette position est exactement l'**alignement** :
+elle dit quels mots ont servi à quel tirage, à quelques mots près, et le
+plan 0 (ou les plans 0-1) de chacun. C'est précisément l'ingrédient qui
+manquait à toute la machinerie de relèvement des 7.7 à 7.12 : *ces
+algorithmes-là supposent l'alignement connu*, et c'est pour cela qu'ils ne
+s'appliquaient pas sous pas variable.
+
+**(ii) Ce qui resterait.** Les plans hauts : `32 L` bits d'état, soit
+`224` (TYPE_1), `480` (TYPE_2), `992` (TYPE_3), `2 016` (TYPE_4).
+
+**(iii) Ce que l'archive en dit, une fois l'alignement connu.** Chaque mot
+consommé satisfait `x mod 80 ∈ A_t` — vingt valeurs sur quatre-vingts,
+donc `log₂(80/20) = 2` bits par mot, `45,7` bits par tirage (`22,85` mots
+en moyenne). D'où le compte :
+
+| | TYPE_1 | TYPE_2 | TYPE_3 | TYPE_4 |
+|---|---|---|---|---|
+| état à relever | `224` bits | `480` | `992` | `2 016` |
+| tirages nécessaires (`45,7` bits chacun) | `4,9` | `10,5` | **`21,7`** | `44,1` |
+| soit, à un tirage par `5` minutes | `25` min | `53` min | **`1 h 49`** | `3 h 40` |
+
+**(iv) Comment.** Plan par plan, et chaque plan est **affine** en `L`
+inconnues une fois les plans inférieurs fixés (7.11) : c'est le
+relèvement du 7.12, instrumenté et éprouvé (`lab/lfg_releve.py`, témoin
+positif au §154), avec le crible du 7.6 pour les plans bas. Rien à
+inventer : la difficulté était l'alignement, pas l'algèbre.
+
+**(v) Et alors la prédiction est exacte.** L'état complet d'un Fibonacci
+retardé détermine *tous* les tirages suivants — jusqu'au prochain
+réamorçage, que le mode « par nuit » des §165, §166 et §170 teste
+séparément. Ce n'est pas « améliorer un peu les chances » : c'est
+connaître le tirage.
+
+**Ce qui rend le résultat négatif significatif.** La chaîne
+détection → alignement → relèvement → état → prédiction est **entière** :
+chacun de ses maillons existe, a son témoin positif, et le maillon qui
+manquait — l'alignement sous pas variable — est celui que cette série a
+construit. Que `D = 0` sur toutes les grilles ne dit donc pas « nous
+n'avons pas su chercher » : cela dit que le premier maillon ne se ferme
+pas, alors que tous les suivants attendaient, prêts, et qu'ils auraient
+suffi en moins de deux heures de jeu.
+
+
 ---
 
 ## 8. Application à ce dossier
