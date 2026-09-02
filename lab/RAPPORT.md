@@ -17647,3 +17647,180 @@ l'évasion, à `−∞` en pratique), la détection et le temps de calcul :
 **Ligne de registre** : `h145.sync_rejet`, piste B, en cours (rien n'est consigné avant la fin des `51` configurations).
 
 ---
+
+## 166. La même synchronisation, **élaguée** : un seul passage en flot, un faisceau — le plan 0 jusqu'à `2³¹ − 1` (TYPE_3) et le plan 1 de TYPE_2 (`h146_beam_rejet.py`, `tools/lfg_beam_rejet.c`)
+
+### Ce que le §165 laissait
+
+Le §165 lit le pas variable de l'échantillonneur à rejet exactement — mais
+il coûte `21 · N` par tirage, et s'arrête donc à `N ≈ 10⁵` : plan 0 des
+trinômes de degré `≤ 17`, plan 1 de ceux de degré `≤ 11`. Restaient
+dehors, entre autres, **les deux séquences qui portent les noms de la
+libc** :
+
+    plan 0 de TYPE_3  (x³¹ + x³ + 1)  : N = 2 147 483 647     52 jours d'un cœur
+    plan 1 de TYPE_2  (x¹⁵ + x + 1)   : N = 1 073 709 056     26 jours
+
+et tout le plan 0 des degrés `18` à `31`. Ce n'était pas un mur
+d'information — une nuit rendrait `267` bits contre `31` d'inconnue —
+mais un mur de calcul, et un mur de mémoire (`8,6` Go pour un seul
+tableau `α`).
+
+### L'outil : un passage en flot, puis un faisceau
+
+Deux idées (§7.18), et un outil, `tools/lfg_beam_rejet.c` :
+
+**Un seul passage.** `α_t(p)` ne dépend que de `α_{t−1}(p − 20 … p − 40)`.
+En balayant les positions dans l'ordre, on calcule donc à chaque position
+les `m` étages `α_1(p), …, α_m(p)` **d'un coup**, avec un anneau de `41`
+positions × `m` étages : `41 m` flottants au lieu d'un tableau de `N`, un
+balayage au lieu de `m`. Et comme `α_0 ≡ 1` (unités de rapport de
+vraisemblance), un prologue de `40 m` positions amorce l'anneau à sa
+valeur **exacte** : le balayage se découpe en morceaux parallèles sans
+aucune approximation. Les `21` poids de Hamming de la fenêtre se lisent
+d'un registre glissant de `64` bits (`popcount` + `20` incréments) et
+servent aux `m` étages ; le noyau est en AVX2 (`m` voies par instruction).
+
+**Un faisceau.** Après les `m` tirages pleins, on ne garde que les `B₁ =
+2¹⁶` meilleures positions, puis `B₂ = 1024` après `20` tirages de plus.
+L'élagage — mise à zéro d'une masse positive, par n'importe quelle règle,
+même dépendante des données — laisse une **surmartingale** de moyenne
+`≤ 1` : Ville s'applique inchangé (§7.17, lemme de l'élagage). Il ne
+coûte que de la puissance, et cela se borne : sous `H₀`,
+`E[#{q : LR_q ≥ 2ˣ}] ≤ N 2^{−x}`, donc un faisceau de largeur `B` retient
+tout ce qui dépasse la **coupe** `log₂(N/B)` — `15` bits pour `N = 2³¹` et
+`B = 2¹⁶`. Or, mesuré sur `20` générateurs plantés, la vraie position
+gagne `1,09` bit par tirage et vaut `43,6 ± 12,0` bits après `m = 40`
+tirages, **minimum `23,6`** : elle passe la coupe dans tous les témoins,
+avec `8` bits de marge sur le pire, et son rang y est `≤ 20`.
+
+**Deux détails qui ne sont pas des détails.** (a) Sous `H₀` le faisceau
+finit par mourir — il ne garde que des positions chanceuses, donc
+voisines, qu'un tirage extrême tue ensemble ; on redémarre alors à
+l'uniforme, au plus `R = 64` fois, et le mélange de poids `1/R` sur ces
+chaînes reste une surmartingale : le seuil du flux passe de `23,25` à
+`23,25 + log₂ 64 = 29,25`, une fois pour toutes. (b) Une position fausse
+perd `≈ 5` bits par tirage : après `25` tirages elle est sous `2^{−126}`,
+et laisser le matériel traiter ces dénormaux coûte **onze fois** le
+passage. Les mettre à zéro (`FTZ`/`DAZ`) est *exactement* une règle
+d'élagage de plus — donc licite, et gratuite.
+
+Coût final, mesuré : `1,4·10⁷` positions par seconde à `m = 40` sur
+quatre cœurs chargés, soit `150` s pour `N = 2³¹`, puis `21 · B` par
+tirage. Le flux de TYPE_3 au plan 0 : `3` min, contre `52` jours.
+
+### Témoins
+
+`--selftest` (données synthétiques, aucune lecture de l'archive). D'abord
+le **croisement** avec la DP pleine du §165, sur les mêmes données
+plantées, faisceau plus large que `N` (donc aucun élagage) puis faisceau
+ordinaire :
+
+| croisement | DP pleine (§165) | faisceau sans élagage | écart | avec `B₁ = 2¹⁶`, `B₂ = 1024` |
+|---|---|---|---|---|
+| `x¹⁵ + x + 1`, plan 0, `200` tirages | `171,6502` | `171,6502` | `4,6·10⁻⁶` | `171,6502` |
+| `x⁹ + x⁴ + 1`, plan 1, `150` tirages | `153,1598` | `153,1598` | `4,0·10⁻⁶` | `153,1598` |
+
+Puis les générateurs plantés (Fibonacci 32 bits, rejet exact), sous le
+flux et par nuit, jusqu'à l'échelle de l'archive :
+
+| planté | plan | `N` | mode | tirages | max `log₂ BF` | pic | masse | témoin nul | s |
+|---|---|---|---|---|---|---|---|---|---|
+| `x¹⁵ + x + 1` | 0 | `32 767` | flux | `200` | `176,3` | **OK** | `0,171` | `0,00` | `0,4` |
+| `x²⁰ + x³ + 1` | 0 | `1 048 575` | flux | `250` | `196,6` | **OK** | `0,259` | `0,86` | `0,9` |
+| `x⁹ + x⁴ + 1` | 1 | `261 632` | flux | `150` | `138,1` | **OK** | `0,197` | `0,16` | `0,8` |
+| `x¹⁸ + x⁷ + 1` | 0 | `262 143` | nuit (`3 × 204`) | `612` | `221,7` | **OK** | `0,109` | `2,55` | `1,9` |
+| `x⁹ + x⁴ + 1` | 1 | `261 632` | nuit (`3 × 204`) | `612` | `186,9` | **OK** | `0,138` | `4,20` | `2,1` |
+| **`x³¹ + x³ + 1` (TYPE_3)** | **0** | **`2 147 483 647`** | flux | `300` | **`280,5`** | — | `0,136` | `0,27` | `167` |
+| **`x¹⁵ + x + 1` (TYPE_2)** | **1** | **`1 073 709 056`** | flux | `300` | **`238,8`** | — | `0,197` | `1,13` | `88` |
+
+Les deux dernières lignes sont le témoin qui compte : **si l'archive
+était engendrée par le plan 0 de TYPE_3 ou par le plan 1 de TYPE_2 lus au
+rejet, `300` tirages — une nuit et demie — suffiraient à le dire avec
+`280` (resp. `239`) bits contre un seuil de `29,25`.** Le pic n'y est pas
+vérifié position par position (il faudrait reconstruire `2·10⁹` bits en
+Python) ; il l'est sur les cinq premières lignes, où il tombe sur la
+vraie position à moins de `n_T ≤ 40` mots — la DP filtre, elle ne lisse
+pas.
+
+### Pré-enregistrement
+
+Jeton `061f95021fc425e2`, scellé le **2026-09-02 à 14:24:47Z**, avant
+toute lecture de l'archive par ce script (le pré-enregistrement précède
+le chargement dans le code lui-même). Hypothèse : **ni** le flux continu
+des `70 560` tirages **ni** les blocs de nuit ne sont engendrés par un
+Fibonacci retardé additif `mod 2³²` lu par l'échantillonneur **à rejet**,
+pour le plan 0 des `32` trinômes primitifs de degré `18 ≤ L ≤ 31`
+(TYPE_3 compris) ni pour le plan 1 des `6` trinômes de degré `15`
+(TYPE_2 compris). Statistique : `D` = nombre de chaînes détectées parmi
+les `56` configurations — `38` chaînes de flux (seuil `29,25`), et pour
+chacune des `18` configurations de nuit la chaîne des blocs cumulés
+(seuil `23,25`) et le maximum sur les blocs traités (seuil `23,25 +
+log₂(blocs)`). Nulle : Ville sur une surmartingale positive de moyenne
+`≤ 1` — mélange propre, tronqué à `n ≤ 40`, puis élagage, redémarrages
+mélangés à poids `1/64`, arrondis et dénormaux mis à zéro, qui ne peuvent
+que la diminuer —, donc `10⁻⁷` par chaîne à tout instant ; borne d'union
+`E[D] ≤ 7,4·10⁻⁶`. Verdict : conforme si `D = 0`.
+
+### La grille
+
+`56` configurations : `38` sous le flux (les `32` trinômes du plan 0,
+degrés `18` à `31` ; les `6` du plan 1, degré `15`) et `18` par nuit
+(les `16` trinômes du plan 0 de degré `≤ 25`, tous les blocs ; et les
+deux séquences nommées, une nuit sur dix — échantillon systématique fixé
+d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
+
+| plan | trinôme | mode | `N` | max `log₂ BF` @ `t` | seuil | blocs ; cumul max ; meilleur (flux : redémarrages) | morts | dét. | s |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | `x^18 + x^7 + 1` | flux | `262 143` | `8,59` @ `61 918` | `29,25` | `15` redém. | `15` | 0 | 37 |
+| 0 | `x^18 + x^11 + 1` | flux | `262 143` | `3,26` @ `65 694` | `29,25` | `9` redém. | `9` | 0 | 33 |
+| 0 | `x^20 + x^3 + 1` | flux | `1 048 575` | `2,46` @ `64 958` | `29,25` | `4` redém. | `4` | 0 | 29 |
+| 0 | `x^20 + x^17 + 1` | flux | `1 048 575` | `0,13` @ `62 892` | `29,25` | `3` redém. | `3` | 0 | 28 |
+| 0 | `x^21 + x^2 + 1` | flux | `2 097 151` | `0,06` @ `1` | `29,25` | `1` redém. | `1` | 0 | 28 |
+| 0 | `x^21 + x^19 + 1` | flux | `2 097 151` | `1,02` @ `45 643` | `29,25` | `2` redém. | `2` | 0 | 28 |
+| 0 | `x^22 + x^1 + 1` | flux | `4 194 303` | `0,08` @ `3` | `29,25` | `0` redém. | `0` | 0 | 27 |
+| 0 | `x^22 + x^21 + 1` | flux | `4 194 303` | `0,41` @ `5` | `29,25` | `0` redém. | `0` | 0 | 26 |
+| 0 | `x^23 + x^5 + 1` | flux | `8 388 607` | `0,80` @ `34 155` | `29,25` | `3` redém. | `3` | 0 | 31 |
+| 0 | `x^23 + x^9 + 1` | flux | `8 388 607` | `1,66` @ `52 010` | `29,25` | `2` redém. | `2` | 0 | 30 |
+| 0 | `x^23 + x^14 + 1` | flux | `8 388 607` | `0,51` @ `40 712` | `29,25` | `1` redém. | `1` | 0 | 29 |
+| 0 | `x^23 + x^18 + 1` | flux | `8 388 607` | `1,11` @ `55 363` | `29,25` | `2` redém. | `2` | 0 | 31 |
+| 0 | `x^25 + x^3 + 1` | flux | `33 554 431` | `1,41` @ `39 729` | `29,25` | `1` redém. | `1` | 0 | 32 |
+| 0 | `x^25 + x^7 + 1` | flux | `33 554 431` | `0,69` @ `47 795` | `29,25` | `1` redém. | `1` | 0 | 32 |
+| 0 | `x^25 + x^18 + 1` | flux | `33 554 431` | `3,42` @ `21 704` | `29,25` | `1` redém. | `1` | 0 | 32 |
+| 0 | `x^25 + x^22 + 1` | flux | `33 554 431` | `0,34` @ `5` | `29,25` | `2` redém. | `2` | 0 | 36 |
+| 0 | `x^28 + x^3 + 1` | flux | `268 435 455` | `1,41` @ `20` | `29,25` | `0` redém. | `0` | 0 | 47 |
+| 0 | `x^28 + x^9 + 1` | flux | `268 435 455` | `0,11` @ `26 900` | `29,25` | `1` redém. | `1` | 0 | 69 |
+| 0 | `x^28 + x^13 + 1` | flux | `268 435 455` | `0,36` @ `50 168` | `29,25` | `1` redém. | `1` | 0 | 65 |
+| 0 | `x^28 + x^15 + 1` | flux | `268 435 455` | `0,00` @ `1` | `29,25` | `1` redém. | `1` | 0 | 65 |
+| 0 | `x^28 + x^19 + 1` | flux | `268 435 455` | `0,08` @ `27` | `29,25` | `0` redém. | `0` | 0 | 44 |
+| 0 | `x^28 + x^25 + 1` | flux | `268 435 455` | `0,22` @ `5` | `29,25` | `0` redém. | `0` | 0 | 46 |
+| 0 | `x^29 + x^2 + 1` | flux | `536 870 911` | `0,00` @ `1` | `29,25` | `0` redém. | `0` | 0 | 69 |
+| 0 | `x^29 + x^27 + 1` | flux | `536 870 911` | `0,45` @ `10 646` | `29,25` | `1` redém. | `1` | 0 | 103 |
+| 0 | `x^31 + x^3 + 1` (TYPE_3, plan 0) | flux | `2 147 483 647` | `0,00` @ `28` | `29,25` | `0` redém. | `0` | 0 | 188 |
+| 0 | `x^31 + x^6 + 1` | flux | `2 147 483 647` | `1,89` @ `26` | `29,25` | `0` redém. | `0` | 0 | 202 |
+| 0 | `x^31 + x^7 + 1` | flux | `2 147 483 647` | `0,47` @ `8` | `29,25` | `0` redém. | `0` | 0 | 198 |
+| 0 | `x^31 + x^13 + 1` | flux | `2 147 483 647` | `0,22` @ `29` | `29,25` | `0` redém. | `0` | 0 | 218 |
+| 0 | `x^31 + x^18 + 1` | flux | `2 147 483 647` | `4,98` @ `38 684` | `29,25` | `1` redém. | `1` | 0 | 391 |
+| 0 | `x^31 + x^24 + 1` | flux | `2 147 483 647` | `0,96` @ `40` | `29,25` | `0` redém. | `0` | 0 | 217 |
+| 0 | `x^31 + x^25 + 1` | flux | `2 147 483 647` | `0,00` @ `1` | `29,25` | `0` redém. | `0` | 0 | 220 |
+| 0 | `x^31 + x^28 + 1` | flux | `2 147 483 647` | `0,40` @ `6` | `29,25` | `0` redém. | `0` | 0 | 248 |
+| 1 | `x^15 + x^1 + 1` (TYPE_2, plan 1) | flux | `1 073 709 056` | `0,64` @ `25` | `29,25` | `0` redém. | `0` | 0 | 150 |
+| 1 | `x^15 + x^4 + 1` | flux | `1 073 709 056` | `0,11` @ `1` | `29,25` | `0` redém. | `0` | 0 | 147 |
+| 1 | `x^15 + x^7 + 1` | flux | `1 073 709 056` | `0,10` @ `1` | `29,25` | `0` redém. | `0` | 0 | 147 |
+| 1 | `x^15 + x^8 + 1` | flux | `1 073 709 056` | `0,10` @ `1` | `29,25` | `0` redém. | `0` | 0 | 152 |
+| 1 | `x^15 + x^11 + 1` | flux | `1 073 709 056` | `0,10` @ `1` | `29,25` | `0` redém. | `0` | 0 | 152 |
+| 1 | `x^15 + x^14 + 1` | flux | `1 073 709 056` | `3,79` @ `35` | `29,25` | `0` redém. | `0` | 0 | 152 |
+
+*Les `38` chaînes de flux sont lues — **toutes**, TYPE_3 au plan 0 et TYPE_2 au plan 1 compris : `D = 0`, maximum courant `8,59` bits contre un seuil de `29,25`. Restent les `18` configurations par nuit (en cours). Le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture ; rien n'est consigné au registre avant la fin.*
+
+**Résultat.**
+
+*en cours — voir le statut de la grille ci-dessus.*
+
+**Ce que cela ferme.**
+
+*à écrire à la fin de la grille.*
+
+**Ligne de registre.** `h146.beam_rejet`, piste B, en cours (rien n'est consigné avant la fin des `56` configurations).
+
+---
