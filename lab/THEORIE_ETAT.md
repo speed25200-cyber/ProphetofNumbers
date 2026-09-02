@@ -5050,6 +5050,46 @@ de l'enchaînement : `E = 1,19` par tirage, il faut deux tirages consécutifs, e
 c'est exactement là que les variantes de protocole ont un sens — d'où la grille
 du §175, qui les crible toutes les cinq.
 
+**(iv bis) Le détecteur que la formule fait apparaître, et qui rend le crible
+inutile sur cette famille.** La démonstration du (iii) repose sur une seule
+quantité : la probabilité qu'une classe *déterminée* tombe sur une classe
+publiée. Ce n'est pas une abstraction — c'est une propriété mesurable du tirage,
+son **énergie additive** :
+
+```
+    T(g₁, g₂) = #{ (u,v) ∈ C_{t−g₁} × C_{t−g₂} : (u+v+δ) mod 80 ∈ C_t , δ ∈ {0,1} }
+```
+
+Un Fibonacci retardé additif en laisse par construction, puisque sa relation
+*est* une somme de deux classes. Le couple qui porte la trace se lit sur le
+générateur : `g₁ ≈ L/22,85`, `g₂ ≈ K/22,85` — c'est-à-dire à combien de tirages
+en arrière tombent les deux antécédents, sachant qu'un tirage consomme
+`E[N] = 22,85` mots.
+
+La puissance a été mesurée sur générateurs plantés (§177, §178), ramenée aux
+`70 560` tirages de l'archive :
+
+| `(K, L)` | | couple | `z` attendu |
+|---|---|---|---|
+| `(3, 7)` | TYPE_1 | `(0,0)` | `+157` |
+| `(1, 15)` | TYPE_2 | `(1,0)` | `+118` |
+| `(3, 31)` | TYPE_3 | `(1,0)` | `+120` |
+| `(13, 31)` | | `(2,1)` | `+91` |
+| `(1, 63)` | TYPE_4 | `(3,0)` | `+143` |
+| `(31, 63)` | | `(3,1)` | `+111` |
+
+Mesuré sur l'archive : `|z| ≤ 2,44` sur les quinze couples, `p = 0,22`. **Les
+quatre types de la glibc sont écartés, du degré `7` au degré `63`, pour trois
+minutes de calcul** — contre les `286` milliards de nœuds que le crible du §172 a
+dépensés pour couvrir le degré `≤ 7`.
+
+C'est un renversement de méthode qu'il vaut la peine d'énoncer : *le crible a
+buté au degré 7 ; en cherchant pourquoi, on a nommé la quantité dont il se
+nourrit ; une fois nommée, elle se mesure sans lui.* Le prix à payer est réel —
+un détecteur écarte une famille, il ne rend pas d'état et ne prédit rien — mais
+il dit où il vaut la peine de lancer le crible, et sur cette famille-ci la réponse
+est : nulle part.
+
 **(v) Ce que la formule dit de la limite du crible.** Elle sépare proprement les
 deux murs. L'**information** ne manque jamais : `T = ⌈L/6,95⌉` tirages suffisent
 à exclure un degré `L`, soit *trois* tirages pour le degré `20` et *dix* pour le
