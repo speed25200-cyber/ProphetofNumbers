@@ -451,7 +451,12 @@ def unitaire():
     # teste vraiment. Elle passe en premier pour que le redemarrage d'un conteneur ne la
     # laisse jamais en dernier. Les cinq configurations doivent toutes finir avant
     # consignation, l'ordre n'y change rien.
-    PLAN = [(3, 7, 5000), (1, 6, 500), (5, 6, 500), (2, 5, 20), (3, 5, 20)]
+    # Les `saut` sont choisis pour qu'AUCUNE configuration ne depasse ~400 s : le conteneur
+    # de ce laboratoire redemarre toutes les quinze a vingt minutes, et une configuration
+    # tuee en vol est a refaire entierement. L'esperance totale reste 13,4 survivants,
+    # dont 7,1 pour (3,7) — la seule configuration ou la formule predit un compte non nul,
+    # donc la seule qui la mette a l'epreuve.
+    PLAN = [(3, 7, 12000), (1, 6, 1000), (5, 6, 1000), (2, 5, 50), (3, 5, 50)]
     FJ = "/tmp/h159u_jeton.json"
     HYP = ("Le nombre de chemins de classes qu'UN SEUL tirage de l'archive laisse passer sous "
            "la troncature avec rejet est celui d'un tirage SRS : 40^L / C(40,20) par tirage "
