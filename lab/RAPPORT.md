@@ -15590,6 +15590,91 @@ session.
 
 ---
 
+## 151. Le même espace d'état, sous les trois autres façons de tirer vingt numéros : modulo, rejet des doublons, `Collections.shuffle` (`h130_archive_trois_echantillonneurs.py`, `tools/sweep_archive3.c`)
+
+### Ce que le §150 laissait
+
+Le §150 énumère les 2^32 états de chacun des 972 designs xorshift à période
+pleine et demande à chacun s'il produit **exactement** l'ensemble des vingt
+numéros du tirage 1309794 — mais sous **un seul** échantillonneur, la
+troncature `(x · (80 − k)) >> 32` de Lemire, et un seul schéma, Fisher-Yates
+partiel. Or le code qui tire vingt numéros s'écrit bien plus souvent avec un
+**modulo**, et souvent sans Fisher-Yates du tout. Un xorshift32 exclu sous la
+troncature ne l'est pas sous le modulo : les deux lisent des bits différents du
+même mot.
+
+> Ici on rejoue le balayage du §150 — **même liste de 972 designs, mêmes
+> 4 294 967 296 états par design, même tirage, même filtre** — sous les trois
+> autres écritures usuelles d'un tirage.
+
+### Les trois modes
+
+    MODULO    Fisher-Yates partiel, j = k + x mod (80 − k)
+    REJET     v = x mod 80 + 1, tiré jusqu'à vingt DISTINCTS (doublons rejetés)
+    SHUFFLE   Collections.shuffle : pour i = 79..1, swap(i, x mod (i + 1)) ;
+              le tirage = les vingt DERNIÈRES cases, fixées par les vingt
+              premiers mots
+
+Les trois partagent leur **premier mot** : sa valeur est `x mod 80 + 1` dans les
+trois cas et doit appartenir à l'ensemble publié. Trois états sur quatre
+meurent donc **avant qu'aucun tableau ne soit construit** — c'est ce qui rend le
+balayage des trois modes moins cher que celui d'un seul dans la version du
+§150, qui initialisait ses 80 cases avant de regarder le premier mot. Le
+schéma à rejet est borné à 400 mots par état (au-delà, rejeté) ; un état qui
+produit l'ensemble en moins de 400 mots — c'est-à-dire tout état honnête, la
+probabilité de dépasser 400 mots avec 20 numéros distincts sur 80 étant nulle
+en pratique — est compté.
+
+Le filtre est celui du §150 : `1/C(80,20) = 2,83·10^−19` par (état, mode),
+soit **1,2·10^−9 faux positif attendu par design et par mode**, `3,6·10^−9` par
+design pour les trois. Un seul tirage suffit, donc ni **pas** entre tirages ni
+**alignement** ne sont supposés.
+
+### Témoin : 4/4
+
+`tools/sweep_archive3.c --selftest` plante un état de 32 bits sous **chacun
+des trois modes**, fabrique l'ensemble trié qu'il produit, et vérifie que le
+balayage le retrouve, **lui seul, et dans son mode seulement** (un état planté
+en mode modulo ne doit pas ressortir en mode rejet ni shuffle) ; puis qu'un
+ensemble aléatoire de vingt numéros ne rend rien. `autotest : 4/4`. Le même
+découpage `[lo, hi)` avec `hi = 2^32` pour le dernier fil que le §150 corrigé :
+l'état `2^32 − 1` est balayé.
+
+### Le balayage
+
+    972 designs × 4 294 967 296 états × 3 modes  =  12 524 124 635 136 couples (état, mode)
+                                                     0 couple compatible
+                                                     modulo 0, rejet 0, shuffle 0
+
+Une seule session (journal `/tmp/h130_journal.txt`, reprise au design près),
+`13 h 54` de calcul (`50 033` s) — de `15,8` à `51,4` s par design, la machine étant partagée avec les cribles des
+§155 et §156.
+
+> Tout xorshift de 32 bits à période pleine — **quel que soit son triplet de
+> décalages, son orientation, et son état initial** — est exclu sur l'archive
+> sous les **quatre** façons usuelles de tirer vingt numéros : troncature
+> (§150), modulo, rejet des doublons, shuffle complet lu par ses vingt
+> dernières cases.
+
+### Ce qu'il faut dire
+
+**Ce qui n'est pas couvert, et il faut le dire.** Les vingt **premières**
+cases d'un shuffle complet dépendent des 79 mots du tirage : pas de rejet
+précoce, soixante fois plus cher. Il est dit, pas fait. Et tout générateur dont
+l'état dépasse 32 bits n'est pas touché par l'énumération : les LCG de 64 bits
+sont criblés par leurs bits bas au §152, le Fibonacci retardé aux §155 et §156.
+
+**Registre : `h130.archive_trois_echantillonneurs`, piste B, `m = 60 369`, 0
+couple, `verdict : conforme`, 0 significatif.** Comme au §150, l'appel de
+consignation est en fin de script, donc postérieur au balayage ; mais le texte
+qu'il consigne — trois modes, un tirage, `1/C(80,20)`, « conforme si aucun
+couple n'est compatible » — est celui du script commis à 19 h 16 (`c70fb7c`),
+et l'outil n'a plus changé depuis 21 h 20 (`25d22a3`, l'état `2^32 − 1`
+inclus), plus de deux heures avant le lancement (23 h 40). Rien n'a été aligné
+en cours de calcul.
+
+---
+
 ## 152. Les LCG de module `2^W` à sortie décalée — musl, newlib, MMIX, glibc TYPE_0, MSVC, la norme C — criblés par leurs bits bas, à pas constant et sous le rejet (`h131_lcg64_crible.py`, `tools/lcg64_sieve.c`)
 
 **Ce que le §149 faisait, et ce qu'il laissait.** Le §149 exclut les `2^48`
@@ -16897,7 +16982,7 @@ tirage sous `189` couples (échantillonneur, décalage)), 16 segments glibc
 par tirage, 16 glibc par bloc, 1 segment `pid`, 32 segments FreeBSD et
 musl par tirage, 9 segments 4.4BSD par tirage, 48 segments `initstate`
 TYPE_1/2/4 par bloc, 32 FreeBSD et musl par bloc, 9 4.4BSD par bloc.
-Journal (`/tmp/h141_journal.txt`) au `2026-09-02T12:10Z` :
+Journal (`/tmp/h141_journal.txt`) au `2026-09-02T13:38Z` :
 
 | segment | variante | graines | couples (éch., déc.) | touches | durée | fils |
 |---|---|---|---|---|---|---|
@@ -16908,6 +16993,7 @@ Journal (`/tmp/h141_journal.txt`) au `2026-09-02T12:10Z` :
 | `--archive 0 0 268435456 1 0` | 0 glibc TYPE_3, **par tirage**, `OP = 1, OC = 0`, graines `[0, 2²⁸)` | `268 435 456` (index inverse des `70 560` tirages) | `32` (`11` partiels × décalages `0, 1` + `10` complets × décalage `0`) | **0** | `5 818,8 s` (`1,62 h` mur) | 2 |
 | `--archive 0 268435456 536870912 1 0` | idem, graines `[2²⁸, 2²⁹)` | `268 435 456` | `32` | **0** | `6 902,8 s` (`1,92 h` mur) | 2 |
 | `--archive 0 536870912 805306368 1 0` | idem, graines `[2²⁹, 3·2²⁸)` | `268 435 456` | `32` | **0** | `5 440,3 s` (`1,51 h` mur) | 2 |
+| `--archive 0 805306368 1073741824 1 0` | idem, graines `[3·2²⁸, 2³⁰)` | `268 435 456` | `32` | **0** | `5 220,3 s` (`1,45 h` mur) | 2 |
 
 Soit `17,7 µs` (glibc), `21,7 µs` (FreeBSD, dont l'amorçage récent
 par sa LCG de Park–Miller sur `x^31 + x^3 + 1`), `21,5 µs` (4.4BSD) et
@@ -16920,11 +17006,13 @@ exhaustif `--archive 0 0 268435456 1 0` (glibc TYPE_3, graines `[0,
 `32` combinaisons de `(OP, OC) = (1, 0)` — un quart des `2³²` de cette
 variante), et le deuxième quart `--archive 0 268435456 536870912 1 0`
 de même, **0 touche** en `1,92 h` (la machine est plus chargée), puis
-le troisième quart `--archive 0 536870912 805306368 1 0`, **0 touche**
-en `1,51 h` : les trois quarts des `2³²` graines glibc par tirage à
-`(OP, OC) = (1, 0)` sont faits. En cours au moment où ceci est écrit : le
-dernier quart `--archive 0 805306368 1073741824 1 0` (lancé
-`12:09:04Z`) ; suivent les douze autres segments glibc par tirage (`≈ 20 µs` par graine et par
+le troisième `--archive 0 536870912 805306368 1 0`, **0 touche** en
+`1,51 h`, et le quatrième `--archive 0 805306368 1073741824 1 0`, **0
+touche** en `1,45 h` : les quatre premiers segments de `2²⁸` graines
+couvrent `[0, 2³⁰)`, soit le **quart** des `2³²` graines glibc par tirage
+à `(OP, OC) = (1, 0)`. En cours au moment où ceci est écrit : le
+cinquième segment `--archive 0 1073741824 1342177280 1 0` (lancé
+`13:36:04Z`) ; suivent les onze autres segments glibc par tirage (`≈ 20 µs` par graine et par
 fil, soit `≈ 12 h` mur à deux fils pour les `2³²`), les `2³²` par bloc
 (`≈ 7,5 h`), et le reste du plan (`≈ 50 h`). Le tableau ci-dessus est **celui du journal à
 l'instant de l'écriture** ; il est repris tel quel, ligne par ligne, à
@@ -17526,8 +17614,27 @@ l'évasion, à `−∞` en pratique), la détection et le temps de calcul :
 | 0 | `x^15 + x^14 + 1` | `32 767` | `-43 361,9` | `0,13` @ `1` | `-42 013,1` | `0,13` @ `1` | `0,16` (`88`) | `-113,5 ± 31,1` | `0` / `0` | 0 | 31 |
 | 0 | `x^17 + x^3 + 1` | `131 071` | `-36 415,1` | `0,13` @ `1` | `-35 011,6` | `0,13` @ `1` | `0,14` (`88`) | `-94,6 ± 26,0` | `0` / `0` | 0 | 271 |
 | 0 | `x^17 + x^5 + 1` | `131 071` | `-36 493,9` | `0,14` @ `1` | `-35 045,1` | `0,14` @ `1` | `0,15` (`88`) | `-94,7 ± 26,2` | `0` / `0` | 0 | 272 |
+| 0 | `x^17 + x^6 + 1` | `131 071` | `-36 317,2` | `0,14` @ `1` | `-34 818,3` | `0,14` @ `1` | `0,15` (`88`) | `-94,1 ± 25,7` | `0` / `0` | 0 | 275 |
+| 0 | `x^17 + x^11 + 1` | `131 071` | `-36 054,8` | `0,14` @ `1` | `-34 610,1` | `0,14` @ `1` | `0,15` (`88`) | `-93,5 ± 25,8` | `0` / `0` | 0 | 271 |
+| 0 | `x^17 + x^12 + 1` | `131 071` | `-36 367,1` | `0,14` @ `1` | `-34 907,0` | `0,14` @ `1` | `0,15` (`88`) | `-94,3 ± 25,6` | `0` / `0` | 0 | 267 |
+| 0 | `x^17 + x^14 + 1` | `131 071` | `-36 383,1` | `0,13` @ `1` | `-34 966,8` | `0,13` @ `1` | `0,14` (`88`) | `-94,5 ± 26,0` | `0` / `0` | 0 | 268 |
+| LCG | alternée (TYPE_0) | `2` | `-167 931,0` | `0,00` @ `0` | `-167 900,6` | `0,00` @ `0` | `1,39` (`192`) | `-453,8 ± 122,9` | `0` / `0` | 0 | 0 |
+| 1 | `x^2 + x^1 + 1` | `12` | `-456 945,6` | `2,05` @ `1` | `-455 533,9` | `2,05` @ `1` | `2,04` (`68`) | `-1 231,2 ± 290,2` | `0` / `0` | 0 | 0 |
+| 1 | `x^3 + x^1 + 1` | `56` | `-206 117,0` | `1,85` @ `1` | `-205 477,7` | `1,85` @ `1` | `0,85` (`88`) | `-555,3 ± 144,4` | `0` / `0` | 0 | 0 |
+| 1 | `x^3 + x^2 + 1` | `56` | `-210 225,4` | `1,46` @ `1` | `-209 570,3` | `1,46` @ `1` | `0,92` (`88`) | `-566,4 ± 147,0` | `0` / `0` | 0 | 0 |
+| 1 | `x^4 + x^1 + 1` | `240` | `-93 818,6` | `6,93` @ `8` | `-92 987,0` | `6,93` @ `8` | `0,13` (`68`) | `-251,3 ± 67,4` | `0` / `0` | 0 | 1 |
+| 1 | `x^4 + x^3 + 1` | `240` | `-94 875,9` | `7,04` @ `8` | `-94 020,5` | `7,04` @ `8` | `0,12` (`15`) | `-254,1 ± 68,1` | `0` / `0` | 0 | 1 |
+| 1 | `x^5 + x^2 + 1` | `992` | `-81 608,0` | `3,73` @ `8` | `-80 479,5` | `3,73` @ `8` | `0,13` (`68`) | `-217,5 ± 58,1` | `0` / `0` | 0 | 1 |
+| 1 | `x^5 + x^3 + 1` | `992` | `-78 189,4` | `0,34` @ `5` | `-77 061,7` | `0,34` @ `5` | `0,21` (`88`) | `-208,3 ± 56,9` | `0` / `0` | 0 | 1 |
+| 1 | `x^6 + x^1 + 1` | `4 032` | `-57 602,2` | `0,24` @ `3` | `-56 260,3` | `0,24` @ `3` | `0,17` (`88`) | `-152,1 ± 40,4` | `0` / `0` | 0 | 4 |
+| 1 | `x^6 + x^5 + 1` | `4 032` | `-57 037,8` | `0,10` @ `2` | `-55 713,1` | `0,10` @ `2` | `0,18` (`88`) | `-150,6 ± 39,5` | `0` / `0` | 0 | 4 |
+| 1 | `x^7 + x^1 + 1` | `16 256` | `-43 800,9` | `0,32` @ `2` | `-42 308,7` | `0,32` @ `2` | `0,18` (`88`) | `-114,3 ± 30,0` | `0` / `0` | 0 | 15 |
+| 1 | `x^7 + x^3 + 1` | `16 256` | `-44 194,9` | `2,45` @ `8` | `-42 717,3` | `2,45` @ `8` | `0,17` (`88`) | `-115,5 ± 30,7` | `0` / `0` | 0 | 15 |
+| 1 | `x^7 + x^4 + 1` | `16 256` | `-43 936,7` | `0,95` @ `6` | `-42 587,2` | `0,95` @ `6` | `0,18` (`88`) | `-115,1 ± 30,5` | `0` / `0` | 0 | 15 |
+| 1 | `x^7 + x^6 + 1` | `16 256` | `-44 261,8` | `0,08` @ `2` | `-42 835,5` | `0,08` @ `2` | `0,16` (`88`) | `-115,8 ± 30,5` | `0` / `0` | 0 | 15 |
+| 1 | `x^9 + x^4 + 1` | `261 632` | `-31 176,2` | `0,25` @ `2` | `-29 800,7` | `0,25` @ `2` | `0,16` (`88`) | `-80,5 ± 21,3` | `0` / `0` | 0 | 552 |
 
-*Grille en cours : `27` configurations lues sur `51` (jeton `f11c611488262d18`) ; le tableau et les paragraphes qui suivent sont complétés à la fin de la grille.*
+*Grille en cours : `46` configurations lues sur `51` (jeton `f11c611488262d18`) ; le tableau et les paragraphes qui suivent sont complétés à la fin de la grille.*
 
 **Résultat.** en cours — voir le statut de la grille ci-dessus.
 
