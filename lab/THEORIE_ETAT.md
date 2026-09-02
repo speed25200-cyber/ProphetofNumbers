@@ -1574,6 +1574,203 @@ extension non écrite.
 
 ---
 
+### 7.12 Le relèvement sous le flux continu : les équations exactes, le bit de débordement, et le compte — sans algorithme sur l'archive triée, un algorithme sur les tirages ordonnés
+
+Le crible du 7.11 rend `r mod 2^m` pour tous les mots (`m = 6 + shift`),
+autonome par la récurrence ; il reste `32 − m` bits par mot initial. Cette
+section écrit exactement ce que l'archive triée dit de ces bits, et
+pourquoi quatre des cinq voies naturelles — les décompositions de la
+récurrence — n'en font pas un algorithme : c'est la frontière du 7.10,
+mise en équations. La cinquième, le réseau des tirages **ordonnés**, en
+est un, et il est mis en machine et mesuré (TYPE_1 à cinq tirages, TYPE_2
+à huit) : ce qui manque à l'archive n'est pas l'information, c'est
+l'ordre.
+
+**Les inconnues.** Posons `r_i = ℓ_i + 2^m h_i`, `ℓ_i ∈ [0, 2^m)` connu,
+`h_i ∈ [0, 2^{32−m})` inconnu. La récurrence `r_i = r_a + r_b mod 2^32`
+(`a = i − K`, `b = i − L`) se coupe en deux :
+
+    ℓ_a + ℓ_b = ℓ_i + 2^m κ_i,                     κ_i ∈ {0, 1} connu (retenue basse)
+    h_i = h_a + h_b + κ_i − 2^{32−m} c_i,          c_i ∈ {0, 1} inconnu (débordement)
+
+où `c_i = [h_a + h_b + κ_i ≥ 2^{32−m}]` est le **bit de débordement** de
+l'addition 32 bits : une inconnue binaire par mot engendré, déterminée par
+les bits hauts. Sur `Z/2^{32−m}` la seconde ligne est affine et exacte —
+`h_i = ⟨F_i, H⟩ + g_i mod 2^{32−m}` avec `F` la matrice du Fibonacci sur
+l'anneau et `g` la récurrence des `κ` — mais c'est l'**entier** `h_i` que
+l'observation contraint, et l'entier s'écrit `⟨F_i, H⟩ + g_i − 2^{32−m}
+N_i` avec `N_i = N_a + N_b + c_i` le quotient accumulé, qui croît comme
+`Σ_j |F_{ij}|`, c'est-à-dire comme `ρ^i` (`ρ` racine de `x^L − x^{L−K} −
+1`, `1,15` pour TYPE_2, `1,16` pour TYPE_1, `1,06` pour TYPE_3) : au-delà de quelques dizaines de mots, `N_i` a
+autant de bits que `h_i`.
+
+**Les observations.** Le lemme gradué donne, pour le mot `k` du tirage
+`t`, `x mod n_k ∈ A_{t,k}` avec `n_k = 80 − k = 2^{e_k} o_k` et `A_{t,k} =
+{v − 1 − k : v tiré, v ≥ k + 1}`. La partie `2^{e_k}` est acquise (`x mod
+2^{e_k}` se lit dans `ℓ` puisque `m − shift = 6 ≥ e_k`) ; elle réduit
+`A_{t,k}` aux candidats `v` de la bonne classe `mod 2^{e_k}`, et la partie
+**impaire** reste : avec `x_i = (ℓ_i ≫ shift) + 2^{m−shift} h_i` et
+`2^{m−shift}` inversible modulo `o_k`,
+
+    h_i mod o_k ∈ B_{t,k},     |B_{t,k}| ≈ (20 − k/4) / 2^{e_k}
+
+Les modules impairs sont `o = 5, 79, 39, 77, 19, 75, 37, 73, 9, 71, 35,
+69, 17, 67, 33, 65, 1, 63, 31, 61` pour `k = 0..19` : le mot 16 (`o = 1`)
+ne dit plus rien, les dix-neuf autres disent chacun `log₂(o_k/|B_{t,k}|)
+≈ 2` bits — au mot 0, `1,25` candidats en moyenne parmi `5` résidus, et
+`40 %` des tirages (`5·C(75,19)/C(80,20)`) n'en ont qu'**un** : `r_{S·t}
+mod 5` y est **exact**. Total : **`≈ 38` bits par tirage** sur les bits
+hauts, contre `S = 20` bits de débordement nouveaux par tirage et `(32 −
+m) L` bits d'état. Le compte ferme : `(32 − m)L / 18` tirages — **dix**
+pour TYPE_1, **vingt et un** pour TYPE_2 (`m = 7`), **quarante-trois** pour
+TYPE_3 — et l'archive en a soixante mille. L'information est là, en
+excès d'un facteur mille.
+
+**L'identité du débordement.** Modulo tout `q` divisant `2^32 − 1` (`3, 5,
+17, 257, 65 537` et leurs produits), `2^32 ≡ 1`, et la récurrence entière
+`r_a + r_b = r_i + 2^32 c_i` devient
+
+    c_i ≡ r_a + r_b − r_i   (mod 255)
+
+le bit de débordement **est** l'écart de la récurrence modulo `255`. Si
+`r mod 5` était connu à tous les mots, chaque `c_i` se lirait ; il n'est
+connu, et partiellement, qu'au mot `0` de chaque tirage — un mot sur `S`.
+
+**Pourquoi les cinq voies échouent, par le compte.**
+
+1. *Plans montants* (7.10, 7.11) : exacts et sans inconnue par mot — mais
+   une observation `h mod o_k` avec `o_k` impair n'est fonction d'**aucun**
+   nombre de plans bas inférieur à tous : les plans `≥ 7` ne reçoivent
+   aucune équation avant le dernier, et le crible est `2^{(32−m)L}`.
+2. *Plans descendants* : `T` plans hauts devinés (`2^{TL}`) fixent `c_i`
+   sauf au bord (`2^{−T}`), mais le plan haut de `h_i` reçoit une retenue
+   **entrante** des bits du milieu, inconnue : une inconnue binaire par mot,
+   et l'erreur se propage par `F` comme une marche aléatoire.
+3. *Débordements devinés* : `c` fixé sur une fenêtre de `W` mots rend `h_i`
+   affine **sur `Z`** et chaque observation une congruence linéaire
+   `⟨F_i, H⟩ ≡ b − g_i + 2^{32−m} N_i (mod o_k)`, `b ∈ B_{t,k}` — un réseau
+   d'indice `Π o_k`, un point dans la boîte dès `W ≈ (32 − m) L / 2` :
+   mais `2^W · Π |B_{t,k}|` choix, `≈ 2^{190} · 10^{190}` pour TYPE_2.
+4. *Chaîne modulo 5* : `L` symboles initiaux (`5^L`) et un `c_i` par mot
+   contre `2` bits d'observation au mot 0 par tirage : `20` inconnues
+   binaires pour `2` bits, à chaque tirage. C'est ici que le 7.8 **ne se
+   transporte pas** : sous le rejet, le modulo est `80` à *tous* les mots,
+   la chaîne mod 5 est observée à chaque mot, le débordement s'y **lit**
+   (`w ≡ 2(ρ_a + ρ_b + κ − ρ_i) mod 5`) et la programmation dynamique à
+   paquets tient en `5^L` états ; sous le modulo décroissant, la chaîne
+   mod 5 n'est observée qu'un mot sur vingt, et les chaînes mod `79`, `39`,
+   `77`, … ne le sont chacune qu'une fois par tirage — leur état joint est
+   `r mod lcm(o_k)`, un modulo de `71` bits, c'est-à-dire l'état entier.
+5. *Tirages ordonnés* (vidéos) : le résidu `x_k mod (80 − k)` est **exact**
+   à chaque mot, le choix `b ∈ B` disparaît, et le problème devient un
+   réseau — `(H, c) ∈ Z^{L+20T}` sous `≈ 100` bits de congruences exactes par
+   tirage (`Σ_k log₂ o_k = 100,7` ; `122,7` si l'on ne fixe que le plan 0,
+   `m = 1`), unique dès `T ≥ 25L/80` tirages, cinq pour TYPE_2. Mais les `c` centrés pèsent autant que les `H` centrés
+   (`2^{24}` chacun après mise à l'échelle) : la solution n'est plus courte
+   que l'heuristique gaussienne que d'un facteur `1,2` à `T = 5`, `4` à
+   `T = 10`, `8` à `T = 20`, `11` à `T = 40`, en dimension `115`, `215`,
+   `415`, `815` — un plus-court-vecteur unique à écart presque constant en
+   dimension croissante. Ce n'est pas le CVP du 7.8, où les `c` sont lus
+   dans la chaîne et n'entrent pas dans le réseau. Cette voie-là est la
+   seule des cinq qui soit un **algorithme**, et elle est mise en machine
+   (`lab/reseau_ordonne.py`, ci-dessous) : elle ne s'applique qu'à des
+   tirages ordonnés, que l'archive n'a pas.
+
+**La voie 5 en machine : le réseau des tirages ordonnés.** Le module
+`lab/reseau_ordonne.py` construit le réseau du point 5 pour un `m` quelconque
+— inconnues `(H, c, z)`, coordonnées centrées `(2H − 2^{32−m} z, 2^{33−m} c −
+2^{32−m} z, 2^{32−m} z)`, congruences `2^{m−1}(⟨A_i, H⟩ + ⟨C_i, c⟩ + g_i) ≡
+j_k − (ℓ_i ≫ 1) (mod 80 − k)`, c'est-à-dire `h_i` modulo `q_k = (80 − k) /
+2^{min(m−1, e_k)}`, imposées par LLL à poids, plongement de Kannan en `z` —
+puis le réduit (LLL, BKZ progressif) et régénère l'état à partir de toute
+ligne de coordonnée `z = ±2^{32−m}`. Avec `m = 7` (le crible du 7.11 donné),
+`q_k = o_k` et le réseau reçoit `100,7` bits par tirage ; avec `m = 1` (le seul
+plan 0 donné), `q_k = 80 − k` entier et il en reçoit **`122,7`** — l'écart à
+l'heuristique gaussienne y est plus grand (`3,9` contre `2,8` pour TYPE_2 à
+`T = 8`), et `m = 1` est la bonne formulation. Trois faits, tous vérifiés sur
+données plantées :
+
+- *Le réseau a des parasites plus courts que la cible.* Pour chaque mot
+  initial `r_j`, `r_j + 2^{32}` ne change rien modulo `2^{32}` : `(H_j,
+  c_{j+L}) → (H_j − 2^{32−m}, c_{j+L} − 1)` (et `c_{j+K} − 1` aussi si `j ≥ L −
+  K`) est une symétrie exacte, un vecteur de norme `2^{33,5−m}` ou `2^{33,8−m}`
+  contre `2^{35,7−m}` pour la cible ; le débordement du mot 16 du dernier
+  tirage (`o = 1`) se confond de même avec celui du mot 19 quand `m > 1`.
+  `L + 1` parasites : la cible n'est pas le plus court vecteur, elle est le
+  plus court de sa classe `z = ±1` modulo les parasites, et le décodeur ne lit
+  que `H mod 2^{32−m}` avant de vérifier par régénération.
+- *Le plan 0 se lit sans crible.* Le plan 0 de `r` n'apparaît jamais dans
+  `x = r ≫ 1`, mais il commande les retenues du plan 1, qui est le bit 0 de
+  `x`, observé **exactement** aux dix mots pairs de chaque tirage ordonné
+  (`e_k ≥ 1`). Pour chacun des `2^L` plans 0, le plan 1 est affine en ses `L`
+  bits initiaux : `10 T` équations sur `GF(2)`, une élimination de Gauss —
+  un survivant sur `2^7` pour TYPE_1 à `T = 5`, un sur `2^{15}` pour TYPE_2 à
+  `T = 8`, en une seconde. C'est le plan 0 du 7.11 sans la linéarisation
+  cubique, parce que l'ordre rend le bit exact au lieu d'un masque. Mieux :
+  la constante `δ_i(p)` du plan 1 est une forme **quadratique** en `p`
+  (`Γ_i = Γ_{i−K} ⊕ Γ_{i−L} ⊕ α_{i−K} ⊗ α_{i−L}`), et le noyau à gauche des
+  `n` équations en `y` donne `n − L` conditions `Q_λ(p) = ⟨λ, obs⟩` qui ne
+  portent que sur `p` : leur table de vérité sur les `2^L` plans 0 se
+  construit en `2^L` opérations par doublement (la restriction à `p_a = 1`
+  est la table à `p_a = 0` XOR une forme linéaire), soixante-quatre formes à
+  la fois sur `uint64`, `2^{31}` points par tranches de `2^{22}`. Le crible
+  du plan 0 est alors un calcul et non une énumération de Gauss, et `(3,
+  31)` y passe en neuf secondes — c'est le crible de `h139` (§159) : douze
+  tirages ordonnés, `32` trinômes TYPE_3 compris, deux échantillonneurs,
+  sept pas, deux shifts, deux ordres, `5 264` cellules exactes.
+- *Le compte est le bon, et le bloc mesuré est plus petit que le bloc
+  calculé.* TYPE_1 `(3, 7)`, tirages ordonnés à pas `20`, chaîne complète
+  (plan 0 par crible linéaire, `m = 1`, LLL seul) : **cinq tirages** rendent
+  l'état exact et le sixième tirage en `9 s` (graines 2, 3, 4) ; avec `ℓ = r
+  mod 2^7` donné, cinq tirages LLL `10 s`, six tirages LLL `18 s`, huit
+  tirages BKZ-30 `57 s`, écart mesuré à `T = 8` `6,6` pour `6,8` calculé.
+  TYPE_2 `(1, 15)`, `ℓ = r mod 2^7` donné, **huit tirages** : état exact et
+  neuvième tirage prédit par **BKZ-50** en `122 s` (graine 1), là où
+  l'estimation usuelle (`√(β/n)·‖v‖ ≤ δ_β^{2β−n−1}·vol^{1/n}`) demandait `β ≈
+  76`. Chaîne complète à `m = 1`, **huit tirages ordonnés et rien d'autre** :
+  plan 0 par le crible linéaire, un survivant sur `2^{15}` en `1 s`, puis
+  état exact et neuvième tirage prédit par BKZ-60 en `316 s` et `322 s`
+  (graines 1, 2) et par BKZ-50 en `130 s` (graine 3) — trois réussites sur
+  trois, pour `β ≈ 56` calculé.
+  La même estimation donne, avec `m = 1`, `β ≈ 56–58` pour TYPE_2 à `T = 8–10`
+  et `β ≈ 164` pour TYPE_3 à `T = 15` (`≈ 2^{64}` par crible) : même corrigée
+  du facteur mesuré sur TYPE_2, TYPE_3 reste hors de portée de cette machine,
+  et au-delà de `T ≈ 12` l'écart croît moins vite que la dimension et le bloc
+  requis remonte.
+
+La chaîne complète — plan 0 par `2^L` éliminations linéaires, bits hauts par
+le réseau à `m = 1` — est donc un **algorithme** pour TYPE_1 (cinq tirages,
+dix secondes) et TYPE_2 (huit tirages, deux à cinq minutes) sous le flux
+continu,
+**à la condition de connaître l'ordre des tirages**. L'archive donne les
+tirages triés ; c'est exactement ce que les points 1 à 4 ne savent pas
+surmonter : sans l'ordre, `j_k` n'est plus exact mais un ensemble `B_{t,k}`,
+le bit 0 de `x` n'est plus lu qu'à travers un masque, et le réseau perd ses
+congruences. Appliquée aux douze tirages ordonnés des vidéos (§159), la
+première moitié de la chaîne — le crible exact des plans bas, `5 264`
+cellules : `32` trinômes TYPE_3 compris, deux échantillonneurs, sept pas,
+deux shifts, deux ordres, en flux continu ou avec réamorçage journalier —
+ne rend **aucun** survivant, avec dix-neuf témoins plantés retrouvés : sur
+les vidéos, le réseau n'a rien à relever, et la conclusion du §154 (sous
+le rejet) s'étend au pas constant.
+
+Ce que le 7.7, le 7.10 et le §153 ont vu du solveur générique est le même
+mur sous un autre nom : une appartenance `h mod 79 ∈ B` ne propage rien
+tant que `h` n'est pas entier, et `h` n'est entier qu'avec ses
+débordements. Le relèvement sous le flux continu est donc un problème
+**exactement posé** — `(32 − m) L` inconnues entières bornées, un bit de
+débordement par mot lié aux bits hauts par une inégalité, `≈ 400`
+congruences à dix-neuf modules mixtes sur vingt et un tirages — dont le compte
+ferme d'un facteur mille et dont l'algorithme manque **sur l'archive
+triée**. Une identification du 7.11 en resterait une, avec cinq candidats
+sur le premier numéro tiré ; la prédiction complète des tirages passe par
+cette porte, et sur l'archive elle n'est pas ouverte. Sur des tirages
+ordonnés elle l'est — cinq tirages pour TYPE_1, huit pour TYPE_2, l'état
+entier et le tirage suivant en minutes — et les douze que l'on a disent
+non.
+
+---
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
@@ -1631,6 +1828,9 @@ TYPE_3, `35` pour TYPE_2, `17` pour TYPE_1.
 | état entier TYPE_1 (224 bits) | 17 triés | **archive — §155** |
 | état bas TYPE_2 par l'archive triée, pas constant | `2^45` hypothèses à trois plans (§7.10) | archive — calcul **non lancé** (une heure de carte graphique, des années-cœur ici) |
 | état bas TYPE_3 par l'archive triée | `2^93` (§7.10) | hors de portée |
+| état bas TYPE_1, TYPE_2, TYPE_3 et 29 trinômes sous flux continu, **tirages ordonnés** (§7.12) | `2^L` par table de vérité, `5 264` cellules exactes | **vidéos — §159 : 0 survivant sur 5 264 cellules, TYPE_1, TYPE_2, TYPE_3 exclus à pas constant** |
+| état **entier** TYPE_1 (224 bits) par des tirages ordonnés à pas constant | 5 ordonnés, plan 0 par crible linéaire puis LLL (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
+| état **entier** TYPE_2 (480 bits) par des tirages ordonnés à pas constant | 8 ordonnés, BKZ-50/60, deux à cinq minutes (§7.12) | **algorithme, témoins 3/3 ; vidéos : aucune cellule survivante (§159)** |
 | état entier TYPE_2, TYPE_3 | 35, 72 triés, **après** les bits bas, sous rejet | bits bas hors de portée par l'archive ; à pas constant, pas de relèvement (§7.10) |
 
 **Ce que le §134 ajoute, et il change la consigne de collecte.** Le plafond

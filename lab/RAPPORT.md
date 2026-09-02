@@ -16334,3 +16334,111 @@ au point (iv), sans verdict. Fichiers : `tools/lfg_trois_plans.c`,
 budget).
 
 ---
+
+## 159. Les douze tirages ordonnés sous le flux continu : le crible exact des plans bas, 5 264 cellules, TYPE_3 compris (`h139_videos_flux_continu.py`)
+
+**Ce que l'ordre change.** Les §157–158 criblent l'archive **triée** : un
+tirage n'y livre que des ensembles, le bit 0 d'un mot n'est lu qu'à
+travers un masque de résidus (`0,06` événement par tirage), et le plan 1
+exige une linéarisation cubique sur mille monômes. Les vidéos donnent
+douze tirages **ordonnés** (`lab/draws_ordered.csv` : jour A `1381023,
+26, 28, 30, 31`, jour B `1381256, 57, 58, 59, 78`, jour C `1381481, 83`).
+Le mot `k` d'un tirage ordonné est lu **exactement** modulo `80 − k`
+(§7.8), donc ses `e_k = v₂(80 − k)` bits bas sont exacts : `e = 4, 1, 2,
+1, 3, 1, 2, 1, 6, 1` aux mots pairs, **22 bits par tirage**, dont `10` au
+plan 0 de `x`, `5` au plan 1, `3` au plan 2, `2` au plan 3, `1` aux plans
+4 et 5. Douze tirages : `264` bits exacts, contre `0,06` bit par tirage
+sur l'archive triée. C'est le régime du §7.12 (voie 5) : sous le flux
+continu, les plans bas de l'état se **calculent** au lieu d'être devinés.
+
+**La théorie (§7.12).** Sous `r_i = r_{i−K} + r_{i−L} mod 2^{32}` lu `x =
+r ≫ shift`, le plan 0 de `r` est un LFSR, linéaire dans ses `L` bits
+initiaux `p` ; le plan 1 est affine dans ses `L` bits initiaux `y`, de
+constante `δ_i(p)` **quadratique** en `p` (la retenue du plan 0 : `δ_i =
+δ_{i−K} ⊕ δ_{i−L} ⊕ p⁰_{i−K} p⁰_{i−L}`, forme `Γ_i` calculée par la même
+récurrence sur les matrices, `Γ_i = Γ_{i−K} ⊕ Γ_{i−L} ⊕ α_{i−K} ⊗
+α_{i−L}`) ; le plan `q ≥ 2` est affine dans ses bits initiaux, les
+retenues étant des constantes une fois les plans inférieurs connus
+(Hensel). **Shift 1** (glibc) : le plan 0 est muet, le bit 0 de `x` est le
+plan 1 ; les `n` observations du bit 0 sont `n` équations affines en `y`,
+et le noyau à gauche `Λ` de la matrice `[α_i]` (`n − rang` vecteurs)
+donne `n − rang` conditions `Q_λ(p) = ⟨λ, obs⟩` qui ne portent **que sur
+`p`**, chacune une forme quadratique `Q_λ = ⊕ λ_i Γ_i`. Les `2^L` plans 0
+sont passés au crible par **table de vérité** : la table d'une forme
+quadratique sur `2^L` points se construit en `2^L` opérations
+(doublement : la restriction à `p_a = 1` est la table à `p_a = 0` XOR
+une forme linéaire), `64` formes à la fois par tranchage de bits sur
+`uint64`, et `2^{31}` points par tranches de `2^{22}` — le terme croisé
+haut-bas d'une forme quadratique est linéaire dans les bits bas. Un
+survivant `p` livre `y` par Gauss, puis les plans 2, 3, … par Hensel ;
+`(3, 31)` coûte `9` s par pas. **Shift 0** : le plan 0 est le bit 0 de
+`x`, tout est linéaire plan par plan. Le crible est **exact** : la cellule
+vraie survit toujours (son état bas satisfait chaque équation), une
+cellule fausse survit avec probabilité `≤ 2^{−marge}`, la marge étant `Σ
+(n_p − L)` sur les plans décidables (`n_p > L`), moins `L` au shift 1 (les
+`L` bits de `y` sont libres).
+
+**Les cellules.** `32` trinômes — les `31` primitifs `L ≤ 17` du §157 et
+`(3, 31)`, **TYPE_3 pour la première fois** sous le flux continu, la voie
+étant exacte et `2^{31}` à portée — × `{fy, shuffle}` × pas `S ∈ {20, 21,
+22, 23, 24, 79, 80}` × shift `∈ {0, 1}` × ordre d'affichage `{direct,
+inverse}`. Trois jeux : **AB**, jours A et B, dix tirages, l'état
+**continu** à travers `237` identifiants (flux continu ; les mots du
+tirage `d` sont `L + S·(d − 1381023) + k`), le jour C (`44` bits) tenu en
+**réserve** ; **A** et **B**, cinq tirages chacun, l'état libre en début
+de jour (réamorçage journalier), `L ≤ 17`. Marges : `AB` de `208` bits
+(`L = 2`) à `57` (`L = 31`, shift 1, plans 1–2) ; `A`, `B` de `98` à `24`
+(`L = 17`, shift 1, plans 1–2). Toutes les `1 792 + 1 736 + 1 736 = 5 264`
+cellules sont décisives (marge `≥ 20`) : moins de `2^{−20}` faux survivant
+attendu chacune, `0,005` en tout.
+
+**Témoins** (états plantés aux identifiants réels, avant registre) :
+sept schémas — `(3,7)` fy `20` shift 1 direct et shift 0 inverse, `(1,15)`
+fy `21` shift 1, `(4,9)` shuffle `79` shift 1 inverse, `(3,17)` shuffle
+`24` shift 0, `(3,31)` fy `20` shift 1 et shuffle `80` shift 1 inverse — ×
+trois jeux : **l'état bas planté est le survivant de sa cellule** dans les
+dix-neuf cas, la réserve C rendue (`44/44`, `40/40`, `30/30` bits) dans
+les sept cas AB ; le survivant `(3,17)` du jour A au shift 0 a un noyau de
+deux bits (`4` survivants, le planté parmi eux). Le témoin TYPE_1 est
+ensuite **relevé complètement** par le réseau du §7.12 (`lab/reseau_
+ordonne.py`, `m = 7`, quatre tirages consécutifs du jour B) : état exact
+par BKZ-2 en `5` s, le satellite `1381278`, le jour A (récurrence
+inversée, `r_i = r_{i+L} − r_{i+L−K}`) et le jour C **rejoués** — les douze
+tirages rendus. Autotests du crible : table par tranches de `2^8` = table
+directe (TYPE_2), `Γ_i(p) = δ_i(p)` simulée sur `600` mots. **Témoin
+négatif** : douze permutations aléatoires aux mêmes identifiants, toute
+la grille, `0` survivant sur `5 264` cellules.
+
+**Protocole.** Pré-enregistrement avant la lecture des tirages réels
+(`h139.videos_flux_continu`, piste B, jeton scellé `df97d5e903b8fd77` le `2026-09-02T02:54:36Z`) ; statistique
+: nombre de cellules décisives ayant au moins un état bas survivant à tous
+les plans décidables, un survivant AB devant aussi rendre la réserve C ;
+nul analytique (`≤ 2^{−20}` par cellule) et témoin négatif ; décision : `0`
+= ces échantillonneurs à flux continu (AB, `32 × 56`) et à réamorçage
+journalier (A, B, `31 × 56`) sont **exclus** pour les vidéos, la puissance
+étant mesurée ; `≥ 1` = état bas identifié, réserve rendue, relèvement
+complet et prédiction tentés et rapportés.
+
+**Résultat.** **Zéro cellule survivante sur `5 264`** (`AB` : `0/1 792`, `A` : `0/1 736`, `B` : `0/1 736` ; aucune cellule sous-déterminée), la grille entière en `104` s, consigné le `2026-09-02T02:56:20Z`. Autrement dit : aucun état bas d'aucun Fibonacci retardé additif de degré `L ≤ 17` ni de TYPE_3, lu à pas constant `20`–`24`, `79` ou `80` par Fisher-Yates partiel ou par échange avec le dernier, au shift `0` ou `1`, dans l'ordre affiché ou son inverse, ne rend les `22` bits exacts de chacun des douze tirages ordonnés — ni en flux continu à travers les jours A et B, ni avec un état libre chaque matin. Sur ces douze tirages, sous le pas constant, TYPE_1, TYPE_2 **et TYPE_3** sont exclus par leurs plans bas, avec la puissance mesurée sur dix-neuf témoins ; le relèvement complet du §7.12 (LLL à cinq tirages, BKZ à huit) n'a donc rien à relever.
+
+**Ce que cela n'est pas.** Le crible suppose un pas **constant** entre
+tirages : sous le rejet des doublons (§154) l'alignement varie et seul
+le crible du §154 s'applique (TYPE_1, TYPE_2 et TYPE_3 y sont déjà exclus
+sur ces tirages, TYPE_3 par les quatre consécutifs du jour B). Le §154 et
+le §159 sont donc les deux faces d'une même exclusion sur les vidéos :
+sous le rejet, par les retenues entre tirages consécutifs ; à pas
+constant, par les plans bas de tout le flux. Il suppose aussi un des deux échantillonneurs
+et un décalage de sortie de `0` ou `1` ; la troncature `(x·80) ≫ 32`, le
+Fibonacci soustractif, les vingt premières cases d'un shuffle restent
+hors du crible. Et il ne dit rien de l'**archive triée** : sur elle
+l'ordre manque, et le §7.12 montre pourquoi les plans bas sont tout ce
+qu'elle livre.
+
+**Ligne de registre** : `h139.videos_flux_continu`, piste B, verdict
+conforme au hasard (`0` survivant, `p = 1`), puissance : dix-neuf témoins plantés sous sept schémas (TYPE_1,
+TYPE_2, TYPE_3), tous retrouvés, le TYPE_1 relevé jusqu'à l'état complet ;
+Holm sur `60 363` lignes. Fichiers : `lab/experiments/h139_videos_flux_
+continu.py`, `lab/reseau_ordonne.py` ; journaux `/tmp/h139.log`,
+`/tmp/h139_journal.json`. Durée : `233` s en tout (autotests `128` s, grille `104` s), un cœur partagé avec `h130` et `h137`.
+
+---
