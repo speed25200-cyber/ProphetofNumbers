@@ -3942,24 +3942,35 @@ réamorçage, que le mode « par nuit » des §165, §166 et §170 teste
 séparément. Ce n'est pas « améliorer un peu les chances » : c'est
 connaître le tirage.
 
-**Ce qui n'est pas fait, et il faut le dire.** Le témoin de **bout en
-bout** — planter un TYPE_1, le détecter par la DP, relever ses `224` bits
-d'état par la recherche jointe ci-dessus, puis prédire le tirage suivant
-exactement — n'est pas fait ici. Chaque maillon a son témoin séparé (§154
-pour le réseau, §155 pour le crible, §165-§169 pour la DP), la jonction
-est chiffrée (`45,7` contre `2,85` bits par tirage), mais la jonction
-elle-même n'a pas été programmée. C'est le prochain pas naturel de cette
-série, et l'affirmer faite serait faux.
+**(vi) Le témoin de bout en bout (§171).** La jonction n'est plus une
+promesse : elle est programmée et vérifiée. Sur un TYPE_1 planté
+(`x⁷ + x³ + 1`, sortie `r >> 1`, `224` bits d'état) lu par
+l'échantillonneur à rejet, **`25` tirages triés — deux heures de jeu —
+suffisent** :
+
+| étape | coût | résultat |
+|---|---|---|
+| détection (DP sur les orbites mod 4) | `0,3` s | orbite et position trouvées, `15,6` à `29,8` bits de facteur de Bayes |
+| crible des plans 2-4 (`2^{21}` candidats) | `23` s | `15` à `157` états bas, **le vrai parmi eux, 3 fois sur 3** |
+| relèvement (réseau LLL exact, 7.8) | `2` à `16` s | **l'état 32 bits exact, 3 fois sur 3** |
+| prédiction du tirage suivant | immédiat | **ses vingt numéros exacts, 3 fois sur 3** |
+
+Le crible n'utilise qu'une contrainte, mais elle est dure : *sous rejet,
+tout mot consommé — accepté ou doublon — a sa classe `x mod 16` dans le
+tirage courant*, ce qui tue `30 %` des candidats par mot ; appliquée au
+seul intérieur sûr de chaque tirage (marge de `8` mots autour des
+frontières lissées, décalages `± 6` balayés), elle fait tomber `2^{21}` à
+quelques dizaines. Le reste est l'algèbre du 7.8.
 
 **Ce qui rend le résultat négatif significatif.** La chaîne
 détection → alignement → relèvement → état → prédiction est **complète en
 principe** :
-chacun de ses maillons existe et a son témoin positif, et le maillon qui
-manquait — l'alignement sous pas variable — est celui que cette série a
-construit. Que `D = 0` sur toutes les grilles ne dit donc pas « nous
-n'avons pas su chercher » : cela dit que le premier maillon ne se ferme
-pas, alors que tous les suivants attendaient, prêts, et qu'ils auraient
-suffi en moins de deux heures de jeu.
+elle a été **parcourue en entier**, sur générateur planté, en moins d'une
+minute de calcul et vingt-cinq tirages de données (§171). Que `D = 0` sur
+toutes les grilles ne dit donc pas « nous n'avons pas su chercher » : cela
+dit que le **premier** maillon ne se ferme pas, alors que tous les
+suivants ont été vérifiés bout à bout, et qu'ils auraient suffi en moins
+de deux heures de jeu.
 
 
 ---
