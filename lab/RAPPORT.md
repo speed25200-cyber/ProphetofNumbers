@@ -16781,7 +16781,7 @@ tirage sous `189` couples (échantillonneur, décalage)), 16 segments glibc
 par tirage, 16 glibc par bloc, 1 segment `pid`, 32 segments FreeBSD et
 musl par tirage, 9 segments 4.4BSD par tirage, 48 segments `initstate`
 TYPE_1/2/4 par bloc, 32 FreeBSD et musl par bloc, 9 4.4BSD par bloc.
-Journal (`/tmp/h141_journal.txt`) au `2026-09-02T08:03Z` :
+Journal (`/tmp/h141_journal.txt`) au `2026-09-02T10:30Z` :
 
 | segment | variante | graines | couples (éch., déc.) | touches | durée | fils |
 |---|---|---|---|---|---|---|
@@ -16789,15 +16789,20 @@ Journal (`/tmp/h141_journal.txt`) au `2026-09-02T08:03Z` :
 | `--horloge 4 300 0 8 8` | 4 FreeBSD `random(3)` (TYPE_3, amorçage récent) | `88 270 560` | `189` | **0** | `957,4 s` (`0,27 h` mur) | 2 |
 | `--horloge 5 300 0 8 8` | 5 4.4BSD `random(3)` (TYPE_3, amorçage ancien) | `88 270 560` | `189` | **0** | `950,7 s` (`0,26 h` mur) | 2 |
 | `--horloge 6 300 0 8 8` | 6 musl `random(3)` (TYPE_3) | `88 270 560` | `189` | **0** | `897,2 s` (`0,25 h` mur) | 2 |
+| `--archive 0 0 268435456 1 0` | 0 glibc TYPE_3, **par tirage**, `OP = 1, OC = 0`, graines `[0, 2²⁸)` | `268 435 456` (index inverse des `70 560` tirages) | `32` (`11` partiels × décalages `0, 1` + `10` complets × décalage `0`) | **0** | `5 818,8 s` (`1,62 h` mur) | 2 |
 
 Soit `17,7 µs` (glibc), `21,7 µs` (FreeBSD, dont l'amorçage récent
 par sa LCG de Park–Miller sur `x^31 + x^3 + 1`), `21,5 µs` (4.4BSD) et
 `20,3 µs` (musl) par graine et par fil à `189` couples : les quatre
-segments de conventions sont **terminés, 0 touche**. En cours au moment
-où ceci est écrit : le premier segment exhaustif `--archive 0 0 268435456
-1 0` (glibc TYPE_3, graines `[0, 2²⁸)`, `OP = 1, OC = 0`, index inverse
-des `70 560` tirages construit en `67,7 s`, lancé `07:06:22Z`) ; suivent
-les quinze autres segments glibc par tirage (`≈ 20 µs` par graine et par
+segments de conventions sont **terminés, 0 touche** ; le premier segment
+exhaustif `--archive 0 0 268435456 1 0` (glibc TYPE_3, graines `[0,
+2²⁸)`, `OP = 1, OC = 0`, index inverse des `70 560` tirages construit en
+`67,7 s`, lancé `07:06:22Z`) est terminé lui aussi, **0 touche** en
+`1,62 h` mur (`21,7 µs` par graine en temps mur à deux fils, pour les
+`32` combinaisons de `(OP, OC) = (1, 0)` — un quart des `2³²` de cette
+variante). En cours au moment
+où ceci est écrit : le deuxième quart `--archive 0 268435456 536870912
+1 0` ; suivent les quatorze autres segments glibc par tirage (`≈ 20 µs` par graine et par
 fil, soit `≈ 12 h` mur à deux fils pour les `2³²`), les `2³²` par bloc
 (`≈ 7,5 h`), et le reste du plan (`≈ 50 h`). Le tableau ci-dessus est **celui du journal à
 l'instant de l'écriture** ; il est repris tel quel, ligne par ligne, à
