@@ -434,7 +434,12 @@ def unitaire():
     if not os.path.exists(OUT2) or os.path.getmtime(OUT2) <= os.path.getmtime(SRC):
         subprocess.run(["gcc", "-O2", "-fopenmp", "-o", OUT2, SRC, "-lm"], check=True)
     C40 = comb(40, 20)
-    PLAN = [(2, 5, 20), (3, 5, 20), (1, 6, 500), (5, 6, 500), (3, 7, 5000)]
+    # ordre d'EXECUTION, pas de contenu : la configuration (3,7) est la seule ou la
+    # formule predit un compte NON NUL (1,19 survivant par tirage), donc la seule qui la
+    # teste vraiment. Elle passe en premier pour que le redemarrage d'un conteneur ne la
+    # laisse jamais en dernier. Les cinq configurations doivent toutes finir avant
+    # consignation, l'ordre n'y change rien.
+    PLAN = [(3, 7, 5000), (1, 6, 500), (5, 6, 500), (2, 5, 20), (3, 5, 20)]
     FJ = "/tmp/h159u_jeton.json"
     HYP = ("Le nombre de chemins de classes qu'UN SEUL tirage de l'archive laisse passer sous "
            "la troncature avec rejet est celui d'un tirage SRS : 40^L / C(40,20) par tirage "
