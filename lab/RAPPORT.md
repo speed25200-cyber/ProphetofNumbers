@@ -18367,9 +18367,12 @@ de l'archive ; le crible du §172 fournit les classes, ce §173 fait le reste.
 | `(1, 6)` | `1` | `362` | **exact** | **20/20** | `0,5` |
 | **`(3, 7)` TYPE_1** | `0` | `399` | **exact** | **20/20** | `1,1` |
 | **`(3, 7)` TYPE_1** | `1` | `399` | **exact** | **20/20** | `1,0` |
+| **`(1, 15)` TYPE_2** | `0` | `848` | **exact** | **20/20** | `189` |
 
-Six cas sur six : l'état complet est retrouvé **au mot près**, et les vingt
-numéros du tirage suivant sont prédits **juste**, en une seconde.
+Sept cas sur sept : l'état complet est retrouvé **au mot près**, et les
+vingt numéros du tirage suivant sont prédits **juste** — en une seconde
+jusqu'au degré `7`, en trois minutes pour TYPE_2 (`848` mots, soit `37`
+tirages, un cinquième d'une nuit).
 
 ### Ce que cela établit
 
