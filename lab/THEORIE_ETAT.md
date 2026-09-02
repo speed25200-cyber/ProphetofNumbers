@@ -4609,6 +4609,106 @@ brouilleur** — et s'arrête là : l'objet est ici la mathématique du
 générateur, et le mode d'emploi d'une fraude n'y figurera pas.
 
 
+
+### 7.26 Le seuil de reconstructibilité — combien d'entropie fraîche il faut par tirage, et pourquoi l'archive a toujours suffi
+
+Le 7.25 pose une fourche — entropie consommée directement, ou graine d'un
+générateur — sans dire où passe exactement la frontière. Elle se pose en une
+ligne, et elle est nette.
+
+#### (i) Le lemme du budget
+
+Soit un système qui publie, à chaque tirage, `b = log₂ C(80, 20) = 61,6165`
+bits (l'ensemble trié), dont l'état interne compte `S` bits et qui absorbe
+`R` bits d'entropie **fraîche** par tirage.
+
+> **Lemme du budget.** *Après `T` tirages, l'inconnu total vaut `S + R·T`
+> bits et l'observé `b·T`. L'état est **déterminé au sens de l'information**
+> dès que*
+>
+> `b·T ≥ S + R·T`,  c'est-à-dire  `T ≥ S / (b − R)`  si `R < b`,
+>
+> *et il ne l'est **jamais**, quels que soient `T` et la puissance de calcul,
+> si `R ≥ b`.*
+
+*Preuve.* La suite publiée est une fonction déterministe de `(état initial,
+entropie fraîche)`, donc son entropie conditionnelle sachant ces `S + R·T`
+bits est nulle. Le nombre de préimages compatibles avec `T` tirages observés
+vaut en moyenne `2^{S + R·T − b·T}` : il tombe sous `1` exactement au seuil
+annoncé, et reste `≥ 2^{S}` — donc sans espoir — si `R ≥ b`. ∎
+
+#### (ii) Le tableau, et il est brutal
+
+Nombre de tirages nécessaires pour déterminer l'état :
+
+| `S` (bits d'état) | `R = 0` | `R = 8` | `R = 16` | `R = 32` | `R = 48` | `R = 56` | `R ≥ 61,62` |
+|---|---|---|---|---|---|---|---|
+| `32` | `1` | `1` | `1` | `2` | `3` | `6` | **jamais** |
+| `64` | `2` | `2` | `2` | `3` | `5` | `12` | **jamais** |
+| `128` | `3` | `3` | `3` | `5` | `10` | `23` | **jamais** |
+| **`256`** | **`5`** | `5` | `6` | `9` | `19` | `46` | **jamais** |
+| `512` | `9` | `10` | `12` | `18` | `38` | `92` | **jamais** |
+| `1 024` | `17` | `20` | `23` | `35` | `76` | `183` | **jamais** |
+| `19 937` (MT19937) | `324` | `372` | `438` | `674` | `1 465` | `3 550` | **jamais** |
+
+> **Un CSPRNG de `256` bits réamorcé chaque nuit est déterminé par CINQ des
+> `204` tirages de la nuit.** Sa protection n'est pas informationnelle : elle
+> est **entièrement calculatoire**. Et symétriquement, une source qui verse
+> `≥ 61,62` bits d'entropie fraîche par tirage — **`7,70` octets** — est à
+> l'abri de tout, pour toujours, y compris d'une mathématique qu'on n'a pas
+> encore inventée.
+
+#### (iii) Le critère de conception, et son prix dérisoire
+
+`7,70` octets par tirage, c'est `1,53` Kio par nuit et **`0,52` Mio pour
+l'année entière**. Un Quantis produit cela en une fraction de seconde. Il
+n'y a donc **aucune raison de coût** de réamorcer un générateur plutôt que de
+tirer frais ; il n'y a qu'une raison d'architecture — on branche une source
+d'entropie sur un générateur, parce que c'est ainsi que les bibliothèques
+sont faites. C'est exactement là que se joue la fourche du 7.25, et le prix
+de la bonne branche est nul.
+
+#### (iv) Ce que ce lemme dit du dossier tout entier
+
+L'archive publie `70 560 × 61,6165 = 4,35` Mbit. **Tout générateur
+déterministe jamais proposé pour une loterie a un état très inférieur à
+`4,35` Mbit** — MT19937 et ses `19 937` bits sont déterminés par `324`
+tirages, soit une heure et demie de jeu.
+
+> **Corollaire.** *L'archive a toujours suffi, informationnellement. Toute la
+> difficulté de ce dossier était, depuis le début, **calculatoire**.*
+
+C'est pourquoi le dossier est une collection d'**algorithmes** — la DP de
+synchronisation, le faisceau, le crible de classes, le relèvement par
+réseau — et non une demande de données supplémentaires. Et cela dit
+exactement ce que le §9 peut acheter :
+
+- **plus de tirages** n'achètent rien contre un générateur déterministe
+  (déjà déterminé au bout de quelques centaines), et rien du tout contre une
+  source rafraîchie ;
+- **des tirages ordonnés**, en revanche, changent le débit : `log₂(80!/60!) =
+  122,69` bits par tirage au lieu de `61,62`, soit **exactement le double**
+  (`×1,991`). Ils divisent par deux le nombre de tirages nécessaires — `163`
+  au lieu de `324` pour MT19937, `3` au lieu de `5` pour un état de `256`
+  bits — et ils montent le seuil de sécurité à `15,34` octets frais par
+  tirage. C'est la seule donnée dont l'acquisition change un ordre de
+  grandeur, et c'est bien celle que le §9 réclame depuis le début.
+
+#### (v) Où le lemme ne dit rien, et il faut le dire
+
+Le lemme est une comptabilité d'information, pas un algorithme. « Déterminé »
+ne veut pas dire « trouvable » : les `5` tirages qui déterminent un CSPRNG de
+`256` bits ne disent pas comment le trouver, et il n'existe aucune méthode
+connue pour le faire. Tout l'écart entre les deux — entre *déterminé* et
+*trouvé* — est le sujet des 7.6 à 7.24, et le tableau ci-dessus ne fait que
+dire **combien de données il faut une fois qu'un algorithme existe**.
+
+Ce qu'il apporte, et qui manquait : la frontière est nette, elle est à
+`7,70` octets frais par tirage, et elle sépare deux mondes qui ne se
+ressemblent pas — d'un côté un problème de calcul, éventuellement soluble
+un jour ; de l'autre une impossibilité de principe, que rien ne lèvera.
+
+
 ## 8. Application à ce dossier
 
 Toutes les attaques ci-dessus fonctionnent — chacune avec un **témoin positif**
@@ -4696,7 +4796,12 @@ d'une chaîne complète et vérifiée qui ne se ferme pas sur l'archive.
 ## 9. Ce qu'il faudrait collecter
 
 Une seule donnée changerait la conclusion, et l'archive ne la contient pas :
-**des tirages ordonnés**.
+**des tirages ordonnés**. Le 7.26 dit exactement ce qu'ils valent : `log₂(80!/60!)
+= 122,69` bits par tirage au lieu de `61,62`, soit **le double** (`×1,991`) —
+ils divisent par deux le nombre de tirages nécessaires quel que soit l'état,
+et montent le seuil de sécurité de `7,70` à `15,34` octets frais par tirage.
+Plus de tirages **triés**, en revanche, n'achètent rien : `4,35` Mbit
+déterminent déjà tout état déterministe jamais proposé pour une loterie.
 
 | cible | tirages ordonnés requis | disponibles |
 |---|---|---|
