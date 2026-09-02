@@ -17637,8 +17637,9 @@ l'évasion, à `−∞` en pratique), la détection et le temps de calcul :
 | 1 | `x^9 + x^4 + 1` | `261 632` | `-31 176,2` | `0,25` @ `2` | `-29 800,7` | `0,25` @ `2` | `0,16` (`88`) | `-80,5 ± 21,3` | `0` / `0` | 0 | 552 |
 | 1 | `x^9 + x^5 + 1` | `261 632` | `-31 060,2` | `3,14` @ `21` | `-29 506,7` | `3,14` @ `21` | `0,15` (`88`) | `-79,7 ± 21,2` | `0` / `0` | 0 | 556 |
 | 1 | `x^10 + x^3 + 1` | `1 047 552` | `-27 237,0` | `0,25` @ `2` | `-25 715,1` | `0,25` @ `2` | `0,16` (`88`) | `-69,5 ± 18,5` | `0` / `0` | 0 | 2288 |
+| 1 | `x^10 + x^7 + 1` | `1 047 552` | `-27 161,1` | `4,49` @ `16` | `-25 712,9` | `4,49` @ `16` | `0,14` (`88`) | `-69,5 ± 18,4` | `0` / `0` | 0 | 2321 |
 
-*Grille en cours : `48` configurations lues sur `51` (jeton `f11c611488262d18`) ; le tableau et les paragraphes qui suivent sont complétés à la fin de la grille.*
+*Grille en cours : `49` configurations lues sur `51` (jeton `f11c611488262d18`) ; le tableau et les paragraphes qui suivent sont complétés à la fin de la grille.*
 
 **Résultat.** en cours — voir le statut de la grille ci-dessus.
 
@@ -17810,8 +17811,12 @@ d'avance, la phase pleine coûtant `150` s par nuit à `N = 2³¹`).
 | 1 | `x^15 + x^8 + 1` | flux | `1 073 709 056` | `0,10` @ `1` | `29,25` | `0` redém. | `0` | 0 | 152 |
 | 1 | `x^15 + x^11 + 1` | flux | `1 073 709 056` | `0,10` @ `1` | `29,25` | `0` redém. | `0` | 0 | 152 |
 | 1 | `x^15 + x^14 + 1` | flux | `1 073 709 056` | `3,79` @ `35` | `29,25` | `0` redém. | `0` | 0 | 152 |
+| 0 | `x^18 + x^7 + 1` | nuit | `262 143` | `11,76` @ `70 364` | `31,78` | `370` ; `0,00` ; bloc `167` | `0` | 0 | 441 |
+| 0 | `x^18 + x^11 + 1` | nuit | `262 143` | `8,44` @ `70 366` | `31,78` | `370` ; `0,00` ; bloc `236` | `0` | 0 | 494 |
+| 0 | `x^20 + x^3 + 1` | nuit | `1 048 575` | `8,91` @ `70 367` | `31,78` | `370` ; `0,00` ; bloc `89` | `0` | 0 | 486 |
+| 0 | `x^20 + x^17 + 1` | nuit | `1 048 575` | `6,68` @ `70 358` | `31,78` | `370` ; `0,00` ; bloc `107` | `0` | 0 | 486 |
 
-*Les `38` chaînes de flux sont lues — **toutes**, TYPE_3 au plan 0 et TYPE_2 au plan 1 compris : `D = 0`, maximum courant `8,59` bits contre un seuil de `29,25`. Restent les `18` configurations par nuit (en cours). Le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture ; rien n'est consigné au registre avant la fin.*
+*Grille en cours : `42` configurations lues sur `56` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -17956,8 +17961,13 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 | `100` | 0 | `x^28 + x^3 + 1` | `268 435 455` | `0,02` @ `1` | `0` | `0` | 0 | 164 |
 | `100` | 0 | `x^28 + x^9 + 1` | `268 435 455` | `0,02` @ `1` | `0` | `0` | 0 | 179 |
 | `100` | 0 | `x^28 + x^13 + 1` | `268 435 455` | `0,69` @ `45` | `0` | `0` | 0 | 152 |
+| `100` | 0 | `x^28 + x^15 + 1` | `268 435 455` | `0,02` @ `1` | `0` | `0` | 0 | 139 |
+| `100` | 0 | `x^28 + x^19 + 1` | `268 435 455` | `0,02` @ `1` | `0` | `0` | 0 | 137 |
+| `100` | 0 | `x^28 + x^25 + 1` | `268 435 455` | `0,08` @ `5` | `0` | `0` | 0 | 140 |
+| `100` | 0 | `x^29 + x^2 + 1` | `536 870 911` | `1,21` @ `47` | `0` | `0` | 0 | 197 |
+| `100` | 0 | `x^29 + x^27 + 1` | `536 870 911` | `0,34` @ `5` | `0` | `0` | 0 | 194 |
 
-*Grille en cours : `50` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
+*Grille en cours : `55` configurations lues sur `181` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
@@ -17970,6 +17980,7 @@ borne d'union `E[D] ≤ 1,8·10⁻⁵`.
 **Ligne de registre.** `h147.masque_rejet`, piste B, en cours (rien n'est consigné avant la fin des `181` configurations).
 
 ---
+
 ## 169. Le canal **mod 4** : deux bits par mot — et le générateur **partagé** redevient lisible (`h149_canal_mod4.py`, `tools/lfg_beam_mod4.c`)
 
 ### Ce que le §168 laissait
@@ -18072,8 +18083,12 @@ chacun **sans** et **avec** jumeau entrelacé. Seuil `29,25`.
 | brute | `x^7 + x^4 + 1` | non | `16 256` | `7,98` @ `68 978` | `58` | `58` | 0 | 65 |
 | brute | `x^7 + x^6 + 1` | non | `16 256` | `9,20` @ `67 994` | `58` | `58` | 0 | 73 |
 | brute | `x^9 + x^4 + 1` | non | `261 632` | `10,30` @ `68 978` | `13` | `13` | 0 | 122 |
+| brute | `x^9 + x^5 + 1` | non | `261 632` | `11,01` @ `68 674` | `14` | `14` | 0 | 101 |
+| brute | `x^10 + x^3 + 1` | non | `1 047 552` | `5,42` @ `49 199` | `6` | `6` | 0 | 217 |
+| brute | `x^10 + x^7 + 1` | non | `1 047 552` | `6,96` @ `66 488` | `10` | `10` | 0 | 220 |
+| brute | `x^11 + x^2 + 1` | non | `4 192 256` | `6,30` @ `63 889` | `2` | `2` | 0 | 506 |
 
-*Grille en cours ; rien n'est consigné avant la fin des `84` chaînes.*
+*Grille en cours : `18` configurations lues sur `84` ; le tableau est celui du journal (`/tmp/h146_journal.txt`) à l'instant de l'écriture, repris ligne par ligne à chaque configuration terminée. Rien n'est consigné au registre avant la fin.*
 
 **Résultat.**
 
