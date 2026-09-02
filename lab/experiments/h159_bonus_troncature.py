@@ -475,14 +475,19 @@ def unitaire():
     NUM = np.sort(np.asarray(ARCH.nums).astype(np.int64), axis=1)
     BON = np.asarray(ARCH.bonus).astype(np.int64)
     N = len(BON)
-    F_CLS, F_BON = "/tmp/h159_classes.txt", "/tmp/h159_bonus.txt"
-    F_UN = "/tmp/h159_unitaire_blocs.txt"
-    if not os.path.exists(F_CLS):
-        open(F_CLS, "w").write("\n".join(" ".join(str(int(v)) for v in l)
-                                         for l in (NUM - 1)) + "\n")
-        rang = (NUM == BON[:, None]).argmax(axis=1)
-        open(F_BON, "w").write("\n".join(f"{int(r)} {int(b)-1}"
-                                         for r, b in zip(rang, BON)) + "\n")
+    # Fichiers PROPRES a cette mesure. Les partager avec la grille --archive est une
+    # course : celle-ci reecrit /tmp/h159_classes.txt a chaque demarrage, et l'outil qui
+    # lisait pendant l'ecriture sortait en erreur — ce qui, sans controle du code de
+    # retour, se lisait « zero survivant ». Un zero obtenu par un outil qui a plante
+    # ressemble a une exclusion : c'est exactement ce qu'il ne faut pas laisser passer.
+    F_CLS, F_BON = "/tmp/h159u_classes.txt", "/tmp/h159u_bonus.txt"
+    F_UN = "/tmp/h159u_blocs.txt"
+    open(F_CLS, "w").write("\n".join(" ".join(str(int(v)) for v in l)
+                                     for l in (NUM - 1)) + "\n")
+    rang = (NUM == BON[:, None]).argmax(axis=1)
+    assert bool((NUM[np.arange(len(BON)), rang] == BON).all()), "bonus hors du tirage"
+    open(F_BON, "w").write("\n".join(f"{int(r)} {int(b)-1}"
+                                     for r, b in zip(rang, BON)) + "\n")
     open(F_UN, "w").write("\n".join(str(i) for i in range(N)) + "\n")
 
     say("h159 --unitaire : un tirage a la fois ; le §172 est-il INTRA-tirage ?")
@@ -509,6 +514,9 @@ def unitaire():
             t0 = time.time() - sec
         else:
             p = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            if p.returncode != 0:
+                raise RuntimeError(f"crible ({K},{L}) code {p.returncode} : "
+                                   f"{p.stderr[:200]}")
             obs, coupes = 0, 0
             for l in p.stdout.splitlines():
                 t = l.split()
