@@ -733,6 +733,21 @@ def bloc_distances():
     dit("20 est pair, donc le vecteur tout-un est dans le noyau GF(2)",
         DRAWN % 2 == 0, f"20 mod 2 = {DRAWN % 2}", "0")
 
+    # -- la variance EXACTE des justes d'une grille FIXE (§238, §239). Cette formule
+    #    remplace 40 repliques par un calcul ; elle doit donc etre verifiee, pas crue.
+    k = 10
+    vex = k * (DRAWN / POOL) * ((POOL - DRAWN) / POOL) * (POOL - k) / (POOL - 1)
+    n2 = 200_000
+    idx = rng.random((n2, POOL)).argsort(axis=1)[:, :DRAWN]
+    W2 = np.zeros((n2, POOL), bool)
+    W2[np.arange(n2)[:, None], idx] = True
+    h = W2[:, :k].sum(axis=1).astype(np.float64)
+    dit("esperance des justes d'une grille fixe de dix", proche(float(h.mean()), 2.5, 3e-3),
+        f"{h.mean():.5f}", "2,5 (theoreme)")
+    dit("variance EXACTE des justes d'une grille fixe de dix",
+        0.97 < float(h.var()) / vex < 1.03,
+        f"{h.var():.5f} contre {vex:.5f}", "rapport dans [0,97 ; 1,03]")
+
 
 
 

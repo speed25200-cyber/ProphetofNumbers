@@ -37,6 +37,7 @@ Et trois **formes** de défaut, fermées sans viser aucune famille :
 | la suite reboucle | **§228** | tous les `35 280` retards d'un coup |
 | l'espace d'états est petit | **§229** | `2 489 321 520` paires, **zéro doublon** → vivier `> 2³¹` |
 | une parité est constante | **§231** | `2¹²⁸¹` sous-ensembles sur seize tirages |
+| « chaud reste chaud » | **§239** | `24` statistiques, nulle **calculée** et non simulée, `70 000` tirages |
 
 Enfin le compte global : **`34 618 170`** tests, plus petit `p` = `1,8·10⁻⁴` contre un seuil de
 Holm de `1,4·10⁻⁹`. Il manque un facteur **`125 000`**.
@@ -102,9 +103,12 @@ zone grise.
   * **Ne pas payer un modèle de plus.** Le §236 a porté le plus gros modèle du dossier —
     non linéaire, `90` colonnes, interactions et courbures, plus la structure de paires que
     personne n'avait jamais donnée à un prédicteur. Sa règle pré-enregistrée s'est déclenchée
-    à `k = 10` (`z = +1,99`, `p = 0,059`) ; le §237 a vérifié la nulle contre laquelle elle
-    s'était déclenchée, y a trouvé un défaut de couplage, et l'a refaite. Voir §237 pour le
-    verdict.
+    à `k = 10` (`z = +1,99`, `p = 0,059`) — et trois sections ont suivi pour en avoir le cœur
+    net. Le §237 refait la nulle (défaut de couplage du bonus). Le **§238 fige la grille** :
+    celle du modèle retombe sur `2,50018` juste, soit `z = +0,02` — l'excès venait de la
+    recomposition, pas des numéros. Le **§239** tue « chaud reste chaud » à pleine puissance,
+    sans une seule simulation : `24` statistiques sur toute l'archive, `|z|` maximal `1,64`,
+    et le meilleur des « chauds » à `+0,80`.
   * **Ne pas confondre jolies grilles et prédiction.** Sous absence de biais,
     `E[justes] = k/4` **quel que soit** le choix des numéros — c'est un théorème, pas une
     observation. Chauds, froids, retards, essaims, réseaux de neurones : aucun ne déplace
