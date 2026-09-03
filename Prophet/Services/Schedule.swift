@@ -9,6 +9,7 @@ enum Schedule {
         var drawNumber: Int
         var drawDate: String
         var numbers: [Int]
+        var drawOrder: [Int]? = nil
         var boost: Int?
         var bonus: Int?
         var phase: String?
@@ -22,7 +23,8 @@ enum Schedule {
                 drawDate: drawDate,
                 numbers: numbers,
                 boost: boost,
-                bonus: bonus
+                bonus: bonus,
+                drawOrder: drawOrder
             )
         }
     }

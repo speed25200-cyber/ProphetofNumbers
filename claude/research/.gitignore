@@ -1,0 +1,14 @@
+*.o
+seedhunt
+seedhunt2
+pairs
+mtbreak
+draws.bin
+draws_*.bin
+cal_*.bin
+*.npy
+*.npz
+*.log
+__pycache__/
+*.bak_real
+*.err
