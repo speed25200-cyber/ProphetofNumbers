@@ -22421,3 +22421,91 @@ entier.
 **Ligne de registre.** `h205.canal_poids_faible`, piste B, conforme, `m_extra = 6`.
 
 ---
+
+## 227. **La borne d'information** : ce qu'aucun prédicteur ne pourra dépasser (`h206_borne_information.py`)
+
+### Pourquoi changer de registre
+
+Ce dossier compte deux cent soixante-dix-huit expériences. Presque toutes testent **un**
+prédicteur, **un** distingueur, **une** famille de générateurs — et rendent « conforme ».
+Chaque nullité ferme une porte, et il en reste toujours une autre. C'est une critique juste,
+et elle mérite une réponse d'une autre nature.
+
+> **Combien de bits prédictibles l'archive contient-elle ?**
+
+Si la réponse est `I` bits par tirage, alors **aucun** modèle — le mien, un réseau de
+neurones, un adversaire omniscient disposant de la même donnée — ne peut faire mieux que ce
+que `I` permet. Ce n'est plus une porte fermée de plus : **c'est le plafond du couloir.**
+
+### Ce qu'on mesure
+
+La **perte logarithmique hors échantillon** sur les `2 193 920` couples (tirage, numéro) de
+la tranche de mesure :
+
+    L = − moyenne [ y·log₂ p̂ + (1−y)·log₂(1−p̂) ]
+
+Sous SRS la meilleure probabilité possible est `1/4`, et la perte vaut exactement
+
+    H(1/4) = 0,811278 bit
+
+Tout gain `ΔH = H(1/4) − L` est de l'information **réellement extraite**. La perte
+logarithmique est la statistique *suffisante* de la prédictibilité : tout modèle qui
+extrairait quelque chose la ferait baisser.
+
+### Trois modèles, du plus bête au plus fort
+
+| modèle | perte `L` | `ΔH` (bit/numéro) | `ΔH` (bit/tirage) |
+|---|---|---|---|
+| `1/4` constant | `0,811278` | `−0,00000000` | `−0,000000` |
+| **marges historiques** — le meilleur modèle *statique* possible | `0,811292` | **`−0,00001391`** | `−0,001113` |
+| **31 traits du §192** — le meilleur modèle *dynamique* du dossier | `0,811287` | **`−0,00000874`** | `−0,000699` |
+
+**Les deux modèles ont un `ΔH` négatif.** Ils prédisent *moins bien* que de dire `1/4`
+partout, hors échantillon.
+
+> Ce n'est pas « je n'ai pas trouvé ». C'est que **chercher coûte**. Le modèle à trente et un
+> traits, celui qui passe neuf témoins plantés et qui détecte un générateur de Fibonacci à
+> `+10,6 σ` quand on lui en donne un, appliqué à cette archive-ci **perd** de l'information.
+
+### La loi sous SRS, et ce qu'elle apprend
+
+Le `ΔH` négatif pourrait n'être qu'un artefact d'ajustement. On rejoue donc la **même
+chaîne** — construction des traits, ajustement, mesure — sur `60` archives SRS, ce qui
+capture exactement le sur-apprentissage résiduel :
+
+| modèle | `ΔH` archive | `ΔH` sous SRS | `z` |
+|---|---|---|---|
+| `1/4` constant | `−0,00000000` | `−0,00000000 ± 0,00000000` | `+0,00` |
+| marges historiques | `−0,00001391` | `−0,00001740 ± 0,00000556` | `+0,63` |
+| `31` traits du §192 | `−0,00000874` | `−0,00000680 ± 0,00000364` | `−0,53` |
+
+L'archive se comporte **exactement** comme du SRS : le `ΔH` négatif qu'on y mesure est celui
+qu'on mesure aussi sur des données dont on sait qu'il n'y a rien. `max |z| = 0,63`.
+
+### La borne, et la précaution qui va avec
+
+La borne haute unilatérale à `95 %` sur `ΔH`, prise sur les trois modèles, vaut **`0`**.
+Par l'inégalité de Pinsker, une divergence de `ΔH` bits ne peut déplacer une probabilité de
+`1/4` que de `√(ΔH·ln2/2)` :
+
+    |Δp| ≤ 0,000000    →    taux top-1 au plus 25,0000 %    →    gain d'espérance ≤ 0,000 %
+
+**Et voici ce que cette borne ne dit pas**, parce qu'il serait malhonnête de le laisser
+croire. Pinsker est universelle **à divergence donnée** : elle vaut pour tout prédicteur
+ayant la même information mesurée. Elle ne démontre pas qu'aucun modèle plus intelligent
+n'existe — elle démontre que *les deux meilleurs modèles du dossier, dont l'un détecte un
+générateur de Fibonacci à `+10,6 σ` quand on lui en donne un, n'extraient rien de
+celle-ci*, et que l'avantage dérivable de ce qu'ils extraient est nul.
+
+### Ce que ça change dans la façon de lire tout le dossier
+
+Les deux cent soixante-dix-huit sections précédentes disent chacune « pas ici ». Celle-ci
+dit autre chose :
+
+> La quantité que toutes les autres cherchaient — de l'information exploitable — a été
+> **mesurée**, et elle est nulle à `1,4 × 10⁻⁵` bit par numéro près, soit `1,1 × 10⁻³` bit
+> par tirage sur les `61,6` que chaque tirage contient.
+
+**Ligne de registre.** `h206.borne_information`, piste B, conforme, `m_extra = 2`.
+
+---
