@@ -21352,6 +21352,14 @@ sens : `20` statistiques, seuil de Bonferroni `3,023`.
 **`max |z| = −1,566`** — la grille froide de dix du sens `H1→H2`. `p = 1,0000`.
 **Verdict : conforme.**
 
+*Et une réserve, parce que « vingt statistiques » flatte le test.* Trois des vingt n'ont
+**aucune puissance utile** : la queue haute à `k = 7, 8, 10` attend respectivement `0,86`,
+`0,15` et `0,00` jackpot sur une moitié d'archive. Observer `1`, `0` et `0` n'y exclut rien
+du tout. Les inclure dans le Bonferroni rend le seuil un peu plus sévère qu'il ne le devrait
+— c'est conservateur, donc pas faux — mais le test réel porte sur **dix-sept** statistiques,
+et sa force est concentrée dans la queue **basse**, seule assez probable pour être mesurée :
+`8 015` zéros attendus à cinq numéros, `1 615` à dix.
+
 ### Et, une fois de plus, la même leçon
 
 | `k` | queue | `z` **en échantillon** | `z` **hors échantillon** |
