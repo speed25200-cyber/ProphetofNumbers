@@ -22332,3 +22332,92 @@ Le §223 B m'avait appris qu'un échec de solveur ne prouve rien sans témoin de
 **Ligne de registre.** `h204.pas_fixe`, piste B, conforme, `m_extra = 0`.
 
 ---
+
+## 226. **Le canal de poids faible** : une faille testable sans supposer ni graine ni constantes (`h205_canal_poids_faible.py`)
+
+### Ce que cette section fait de différent
+
+Les §223 à §225 attaquent l'**état** : ils supposent une famille de générateurs, des
+constantes, un pas, et cherchent `x₀`. Quand ils rendent zéro, ils ne ferment que la
+conjonction qu'ils ont supposée — et le §225 vient de montrer qu'une conjonction mal posée
+fait chercher dans le mauvais espace.
+
+Celle-ci ne suppose **rien**. Elle teste une conséquence structurelle qui se lit directement
+sur les numéros triés.
+
+### Le raisonnement, et c'est le §7.36 lu à l'envers
+
+1. Deux des dix échantillonneurs du dossier — le **modulo** `c = w mod 80` et les **sept
+   bits bas** `c = w ∧ 127` — donnent une classe qui ne dépend que des bits de **poids
+   faible** de `w`.
+2. Pour **tout** LCG `mod 2^W`, ces bits forment un **sous-système clos** : `w mod 16` suit
+   un LCG `mod 16`, de période au plus `16`.
+
+> Le §7.36 disait : *un crible ne marche que si la sortie lit le côté de l'état qui est un
+> sous-système clos.* On l'avait lu comme une protection — la sortie lit le haut, donc rien
+> ne fuit. **Retourné, c'est une arme** : si la sortie lit le bas, tout fuit.
+
+3. Donc les `~23` mots consommés par tirage ont des résidus `mod 16` parcourant un cycle de
+   période `16` : chaque résidu sort une ou deux fois, **jamais zéro, jamais trois**.
+
+### Ce que ça prédit, et c'est énorme
+
+Chaque classe `mod 16` contient `5` numéros sur `80`. Le nombre de numéros tirés dans une
+classe suit une hypergéométrique exacte :
+
+| compte | `0` | `1` | `2` | `3` | `4` | `5` |
+|---|---|---|---|---|---|---|
+| **SRS, exact** | `0,227184` | `0,405686` | `0,270457` | `0,083935` | `0,012092` | `0,000645` |
+| **archive** | `0,227163` | `0,405912` | `0,270044` | `0,084184` | `0,012039` | `0,000659` |
+| **LCG lu par le bas** | `0` | grand | grand | `0` | `0` | `0` |
+
+### Le témoin
+
+Une archive **fabriquée** par LCG `mod 2⁶⁴` :
+
+| archive fabriquée | `P(cpt = 0)` | `P(cpt ≥ 3)` | `χ²` mod 16 |
+|---|---|---|---|
+| SRS simulée | `0,229094` | `0,098828` | `8,4` |
+| **LCG + modulo** | **`0,000000`** | **`0,000000`** | **`39 528,3`** |
+| LCG + troncature | `0,226875` | `0,098375` | `10,7` |
+
+Le canal trahit le LCG lu par le bas et laisse passer le même LCG lu par le haut. C'est
+exactement ce que le §7.36 prédit, vérifié dans les deux sens.
+
+### L'exclusion sans le moindre calcul
+
+Pour l'échantillonneur `c = w ∧ 127`, la classe **est** le canal clos. Sous un LCG `mod 2^W`
+son état ne prend que `128` valeurs, donc **il n'existe au plus que `128` tirages distincts
+possibles**.
+
+L'archive en contient **`70 560`, tous distincts** — un facteur `551`. La conjonction est
+morte sans qu'on ait rien à calculer.
+
+### Ce que dit l'archive
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| `χ²` mod `2` | `32,865` | `21,856 ± 37,613` | `+0,293` |
+| `χ²` mod `4` | `7,908` | `15,704 ± 19,235` | `−0,405` |
+| `χ²` mod `8` | `3,983` | `8,841 ± 5,133` | `−0,946` |
+| `χ²` mod `16` | `2,306` | `3,828 ± 2,817` | `−0,540` |
+| `P(compte = 0)` mod 16 | `0,22716` | `0,22715 ± 0,00028` | `+0,062` |
+| `P(compte ≥ 3)` mod 16 | `0,09688` | `0,09664 ± 0,00020` | `+1,207` |
+
+Maximum réduit `1,207` contre un 95ᵉ centile de `2,999`. **`p = 0,5572`. Conforme.**
+
+### Ce que ça ferme, et pourquoi c'est plus fort qu'une énumération
+
+Ce test exclut **toute** la famille « générateur congruentiel `mod 2^W` × échantillonneur
+lisant les bits bas » — **sans connaître ni la graine, ni le multiplicateur, ni
+l'incrément, ni le module, ni le pas**. Aucun balayage ne peut en dire autant : les §200 à
+§214 ferment `2³²` graines par famille supposée ; celui-ci ferme une famille entière d'un
+seul coup, pour tout `W` et tous paramètres.
+
+Et il ne dit rien, en revanche, d'un échantillonneur qui lit le **haut** de l'état — ce qui
+est le cas des huit autres, et c'est précisément là que le mur de `2⁵⁷·⁷` du §7.36 reste
+entier.
+
+**Ligne de registre.** `h205.canal_poids_faible`, piste B, conforme, `m_extra = 6`.
+
+---
