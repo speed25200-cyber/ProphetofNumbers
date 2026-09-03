@@ -27,6 +27,7 @@
  *      mode 5  bonus rank via u %% 20 (low bits)          2.00 bits/draw
  *      mode 6  bonus = first ball via u %% 80 (low bits)  4.00 bits/draw
  *      mode 7  bonus = first ball, Floyd sampler (k=61)   4.75 bits/draw
+ *      mode 8  boost at r=0 (its own generator stream)    1.15 bits/draw
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -120,6 +121,7 @@ static int role_bits(int mode,int r,long d,int first,int*bp,int*bv){
   else if(r==0 && (mode==1||mode==2)){ int rk=bonus_rank(d,first);
     if(rk<0) return 0; range_of_index((uint32_t)rk,20,&lo,&hi); }
   else if(r==20 && (mode==2||mode==3||mode==4)){ range_of_boost(BOOST[first+d],&lo,&hi); }
+  else if(r==0 && mode==8){ range_of_boost(BOOST[first+d],&lo,&hi); }  /* boost from its own stream */
   else return 0;
   return lead_bits(lo,hi,bp,bv);
 }
@@ -158,11 +160,11 @@ int main(int argc,char**argv){
   long D=argc>3?atol(argv[3]):5500; int T=argc>4?atoi(argv[4]):4;
   int first=argc>5?atoi(argv[5]):0, PLO=argc>6?atoi(argv[6]):0, PHI=argc>7?atoi(argv[7]):624;
   VERBOSE = (PHI-PLO)<=12;
-  const double BITS[8]={5.20,3.21,4.36,1.15,6.35,2.00,4.00,4.75};
+  const double BITS[9]={5.20,3.21,4.36,1.15,6.35,2.00,4.00,4.75,1.15};
   NFORM=D*W+PHI+2;
   double gb=(double)NFORM*TOPB*NW*8/1e9;
   printf("channel_break %s: mode=%d W=%d draws=%ld (%.0f bits for 19937 needed) threads=%d\n",
-     BIN,mode,W,D,BITS[(mode>=0&&mode<8)?mode:0]*D,T);
+     BIN,mode,W,D,BITS[(mode>=0&&mode<9)?mode:0]*D,T);
   printf("  precomputing %ld leading-bit forms  (%.2f GB)\n",NFORM,gb); fflush(stdout);
   SS=malloc((size_t)624*32*NW*8); FORMS=malloc((size_t)NFORM*TOPB*NW*8);
   if(!SS||!FORMS){fprintf(stderr,"out of memory (%.2f GB needed)\n",gb);return 1;}

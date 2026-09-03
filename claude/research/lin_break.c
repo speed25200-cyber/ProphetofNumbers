@@ -12,6 +12,7 @@
  *            3 xorshift96            4 lfsr64  5 lfsr128  6 lfsr256  7 lfsr512
  *      mode  0 bonus = first ball    1 bonus = sorted[(u*20)>>32]    3 boost only
  *            5 bonus rank via u %% 20  6 first ball via u %% 80        7 Floyd (k=61)
+ *            8 boost at r=0 (its own generator stream)
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -142,6 +143,7 @@ int main(int argc,char**argv){
       for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]){rk=q;break;}
       if(rk>=0){ range_of_index((uint32_t)rk,20,&lo,&hi); want=1; } }
     else if(r==20&&mode==3){ range_of_boost(BOOST[first+d],&lo,&hi); want=1; }
+    else if(r==0&&mode==8){ range_of_boost(BOOST[first+d],&lo,&hi); want=1; }
     else if(r==0&&mode==5){ int rk=-1;
       for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]){rk=q;break;}
       if(rk>=0){ gen_out(g); int nb=low_bits((uint32_t)rk,20,bp,bv);

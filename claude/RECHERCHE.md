@@ -15,7 +15,9 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Générateur à état ≤ 32 bits (234 variantes algorithmiques) | **Exclu** par balayage exhaustif 2³² |
 | Dérivation par hash de données publiques (« provably fair ») | **Exclu**, 390 schémas testés |
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
-| Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §5 |
+| Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
+| Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
+| Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
 exploitable, et ce n'est pas une limite de méthode — c'est mesuré et borné (§4).
@@ -174,10 +176,28 @@ Validé d'abord sur une archive synthétique xorshift64 : bon générateur → c
 (rang 64/64, 0 contradiction) ; mauvaise moitié de sortie, mauvais générateur, mauvais
 W → tous rejetés.
 
-Sur l'archive **réelle** : 8 générateurs (xorshift64 hi/lo, xorshift128 de Marsaglia,
-xorshift96, LFSR de Galois 64/128/256/512) × 6 canaux × W ∈ {20…24} = **240 essais,
-232 rejetés, 0 consistant**. Les 8 restants sont dégénérés (canal boost avec W=20 :
-il n'existe pas de 21ᵉ mot, donc zéro équation), pas une lacune.
+Sur l'archive **réelle**, balayage large — 8 générateurs (xorshift64 hi/lo,
+xorshift128 de Marsaglia, xorshift96, LFSR de Galois 64/128/256/512) × 7 canaux ×
+**W de 1 à 64** = **3 584 essais, 3 424 rejetés, 0 consistant**. Les 160 restants sont
+dégénérés (canal boost placé en r=20 avec W ≤ 20 : ce mot n'existe pas, zéro équation ;
+le mode 8 couvre ces W correctement).
+
+Balayer W jusqu'à 64 couvre aussi les **flux entrelacés** : si deux serveurs alternent
+les tirages, chaque flux ne voit qu'un tirage sur deux — ce qui revient exactement à
+doubler W. Et W ∈ {1…4} couvre l'hypothèse où le boost et le bonus proviennent d'une
+**instance de générateur distincte** de celle qui tire les numéros (192 essais
+supplémentaires, tous rejetés).
+
+### Générateurs congruentiels — `modlcg.py`
+
+Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,
+**quel que soit le multiplicateur**. Donc si l'échantillonneur écrit `j = u %% 80` et
+que `u` est constitué des bits faibles de l'état, alors `(bonus−1) mod 16 = u mod 16`
+et la suite doit vérifier `x_{d+1} = A·x_d + C (mod 16)` — 256 couples à essayer, sans
+jamais deviner le multiplicateur. Étendu aux ordres 1 et 2, modulo 2 à 16, sur six
+suites observables (bonus−1, rang du bonus, indice du boost, plus petit et plus grand
+numéro, somme du tirage). **La plus longue plage de correspondance est au niveau du
+hasard partout** (une famille congruentielle produirait un accord sur l'archive entière).
 
 ### Généralisation — tirages ordonnés nécessaires par famille
 
