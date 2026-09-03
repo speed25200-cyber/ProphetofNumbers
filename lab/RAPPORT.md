@@ -21578,3 +21578,86 @@ machine.
 **Ligne de registre.** `h198.courbe_variance_temps`, piste B, conforme, `m_extra = 1 781`.
 
 ---
+
+## 220. **La matrice de transfert** : le numéro `i` aujourd'hui dit-il quelque chose du numéro `j` demain ? (`h199_matrice_de_transfert.py`)
+
+### La case vide du tableau
+
+Rangeons ce que le dossier avait mesuré selon deux axes :
+
+| | **même tirage** | **tirages différents** |
+|---|---|---|
+| **même numéro** | trivial | §194, autocorrélation exacte à tous les retards |
+| **numéros différents** | §213, paires et triplets | **rien** |
+
+La case en bas à droite était vide. Le §209 regarde bien des tirages voisins, mais par un
+**recouvrement agrégé** ; le §194 balaie tous les retards, mais seulement pour `i = j`.
+Personne n'avait demandé : *le numéro `17` au tirage `t` rend-il le numéro `43` plus
+probable au tirage `t+1` ?*
+
+C'est pourtant exactement ce qu'un générateur à état produirait — l'état survit d'un tirage
+au suivant, et sa trace est une dépendance **croisée** entre numéros de tirages voisins. Et
+c'est immédiatement exploitable : une case qui s'écarte, et l'on sait quoi jouer.
+
+### La nulle, et elle est parfaite
+
+`C_ij(d) = #{t : i ∈ D_t et j ∈ D_{t+d}}` pour les `80 × 80` couples et les retards `1` à
+`10`, soit **`64 000` cases**. Les tirages étant indépendants, chaque case est binomiale de
+paramètre `p = (1/4)(1/4) = 1/16` **exactement** — y compris la diagonale, puisque `t` et
+`t+d` sont des tirages distincts. Attendu `4 409,9` par case, écart-type `64,30`.
+
+### Ce que le témoin m'a appris, et il m'a fait refaire l'instrument deux fois
+
+Un transfert planté — voir `13` rend `48` plus probable au tirage suivant, sur `1,17 %` des
+tirages :
+
+| ce qu'on mesure | résultat |
+|---|---|
+| la matrice le trouve | `z = +10,71`, sur **le bon couple et le bon retard** |
+| il se réplique hors échantillon | `z = +6,54` |
+| **un prédicteur qui note avec les `6 400` cases** | `z = +2,90` seulement |
+| le même, seuillé à `\|z\| ≥ 3` (`11` cases) | `z = +3,27` |
+| **la règle « si `13` sort, joue `48` »** | **`28,62 %` contre `25 %`, `z = +7,24`** |
+
+> Un transfert réel vu à `+10,7` dans la matrice ne rend que `+2,9` en prédiction si l'on
+> note avec les six mille quatre cents cases : **la seule vraie se noie dans le bruit des
+> autres.** Et un transfert `i → j` ne peut rien dire des trois quarts des tirages, ceux qui
+> ne contiennent pas `i` — les y inclure dilue l'avantage d'un facteur quatre.
+
+D'où la forme finale, qui est celle que lit un joueur : *quand `i` sort, joue `j`*, mesurée
+**seulement sur les tirages où `i` sort**. Conditionnellement à leur nombre, chacun de leurs
+successeurs contient `j` avec probabilité `1/4` exactement et indépendamment : la nulle reste
+exacte, et la mesure est deux fois et demie plus nette.
+
+### Ce que dit l'archive
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| `max \|z\|` sur `64 000` cases | `4,808` | `4,428 ± 0,318` | `+1,194` |
+| énergie `Σ z²` | `61 062` | `64 168 ± 4 412` | `−0,704` |
+
+Maximum réduit `1,194` contre un 95ᵉ centile de `2,373`. Le maximum tombe sur
+`76 → 65` au retard `2`, à `+4,808`, là où `√(2 ln 64 000) = 4,71` l'attendait.
+*(L'écart-type des `z` vaut `0,9768` et non `1` : la somme d'une ligne valant `20` fois le
+nombre de sorties de `i`, les quatre-vingts cases d'une ligne sont liées — le même effet de
+contrainte qu'au §213, et les répliques le capturent exactement.)*
+
+### La règle de pari, et c'est le résultat le plus lisible du dossier
+
+| sens | couple retenu | `z` **en échantillon** | la règle, **hors échantillon** |
+|---|---|---|---|
+| `H1→H2` | `4 → 71` | `+3,63` | `2 166/8 884` = **`24,3809 %`**, `z = −1,35` |
+| `H2→H1` | `51 → 62` | `+3,48` | `2 199/8 887` = **`24,7440 %`**, `z = −0,56` |
+
+Et le prédicteur complet, quatre variantes × cinq tailles : `max |z| = −2,179` contre un
+seuil de Bonferroni de `3,124`. **`p = 0,3930`. Verdict : conforme.**
+
+> On ne peut pas être plus concret que ça. J'ai cherché, parmi `6 400` couples, celui dont
+> l'archive dit le plus fort qu'il annonce le suivant. Je l'ai joué sur la moitié des
+> tirages qui ne l'avaient pas choisi. **Il sort à `24,38 %` là où le hasard donne `25 %`.**
+> C'est la sixième fois de cette session qu'un écart choisi sur ses propres données change
+> de signe dès qu'on le mesure ailleurs.
+
+**Ligne de registre.** `h199.matrice_de_transfert`, piste B, conforme, `m_extra = 64 029`.
+
+---
