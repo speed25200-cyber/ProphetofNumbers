@@ -102,6 +102,21 @@ Deux écarts apparents ont été poursuivis jusqu'à réfutation, pas écartés 
   synthétiques donnent 2848, 2954, 2848, 2968 — la valeur réelle est **inférieure**
   à toutes. Aucun effet.
 
+**Test non paramétrique par analogues** (`analog.c`) — le test de score et le modèle
+logistique sont linéaires en leurs features ; celui-ci ne l'est pas. Pour chaque tirage
+retenu, on cherche les contextes historiques (1 à 3 tirages précédents) les plus
+ressemblants, on met en commun ce qui les a effectivement suivis, et on joue les
+numéros les plus fréquents. Toute structure locale — biais conditionnel, attracteur,
+motif répétitif que les tests linéaires moyennent — apparaîtrait ici.
+
+| voisins | numéros joués | contexte | z (choix) | z (anti-choix) |
+|---|---|---|---|---|
+| 400 | 10 | 2 tirages | **−0,07** | +0,58 |
+| 100 | 5 | 1 tirage | +1,17 | +1,46 |
+| 2000 | 20 | 3 tirages | −0,89 | +1,23 |
+
+Une vraie structure séparerait les deux colonnes ; ici elles bougent ensemble.
+
 Modèle prédictif hors-échantillon (13 460 tirages retenus, 13 features, pas de Newton exact) :
 gain de log-loss **−8,9·10⁻⁶ bit**, et le tirage des k meilleurs numéros est
 indistinguable du tirage des k pires (k = 5 : z = +1,19 ; k = 10 : z = −0,09).
