@@ -5872,3 +5872,62 @@ couverte contienne **ce qu'on aurait employé en pratique**. Un dossier qui bala
 générateurs et les six échantillonneurs qu'un ingénieur choisirait vraiment a fermé la
 porte par laquelle on serait entré — pas toutes les portes concevables, et il doit dire
 laquelle est laquelle.
+
+---
+
+### 7.36 Pourquoi le crible qui a cassé Java meurt sur PCG — le côté de l'état que la sortie regarde
+
+Le §7.33 dit que les générateurs modernes à un seul pas sont hors de portée « parce que
+leur état fait `64` bits ». C'est vrai mais paresseux : le §128 a bien cassé un état de
+`48` bits, et sans énumérer `2⁴⁸`. La vraie raison est ailleurs, et elle se mesure.
+
+**Ce qui a rendu Java attaquable (§128).** `java.util.Random` est un LCG modulo `2⁴⁸` dont
+la sortie est un **décalage fixe**, `s >>> 17`. Or « modulo `2^k` » est une congruence :
+les bits **bas** d'un LCG modulo `2^W` évoluent **entre eux**, sans rien devoir aux bits
+hauts. Comme `80 = 16 × 5`, le numéro publié donne `(v−1) mod 16 = (s >>> 17) mod 16`,
+c'est-à-dire quatre bits **bas** de l'état — et le crible descend sur `2²¹` au lieu de
+`2⁴⁸`. Même mécanique pour les sept LCG nommés du §131.
+
+> Le crible marche parce que la sortie regarde le **bas** de l'état, et que le bas d'un
+> LCG est un sous-système fermé.
+
+**Ce que PCG fait, et pourquoi cela suffit.** `PCG32` sort
+`rotr32( ((s>>18) ^ s) >> 27 , s>>59 )`. Deux mesures :
+
+> **(i)** La sortie ne dépend que des **trente-sept bits hauts** de l'état.
+> *Vérifié* : sur `20 000` états, faire varier les vingt-sept bits bas ne change **jamais**
+> la sortie — `0/20 000`.
+>
+> *Raison.* Le bit `i` de `(s>>18)^s` vaut `s_i ⊕ s_{i+18}` ; on n'en lit que les bits `27`
+> à `58`, qui ne mobilisent donc que `s₂₇..s₆₃`. La rotation, elle, lit `s>>59`, déjà
+> dedans.
+
+> **(ii)** Avancer d'un mot **mélange les bits bas dans les hauts**.
+> *Vérifié* : deux états de mêmes trente-sept bits hauts et de bits bas différents donnent
+> une sortie suivante différente **à chaque fois** — `20 000/20 000`.
+
+Les deux ensemble ferment la porte. La première invite à cribler les `2³⁷` bits hauts ; la
+seconde interdit d'utiliser une **deuxième** observation pour continuer, puisqu'il faudrait
+les vingt-sept bits bas pour avancer.
+
+**Le meilleur crible constructible, chiffré.** Une classe observée coupe l'espace des
+trente-sept bits hauts par `80`, soit `2³⁷/80 = 1,72·10⁹` candidats — parfaitement
+énumérable. Mais chacun se relève ensuite sur `2²⁷` bits bas libres :
+
+        2³⁷/80 × 2²⁷  =  2⁶⁴/80  =  2,3·10¹⁷ .
+
+> **Le gain vaut exactement un facteur `80`, et rien de plus** — c'est-à-dire l'information
+> d'**une seule** observation. Toutes les autres sont inutilisables tant que l'état complet
+> n'est pas fixé. À `2,3·10⁵` états/s/cœur, cela reste `3,2·10⁴` années-cœur.
+
+**L'énoncé général, qui vaut au-delà de PCG.**
+
+> Un crible d'état par les bits ne fonctionne que si la sortie observée lit **le côté de
+> l'état qui forme un sous-système fermé** sous la transition. Pour un LCG modulo `2^W`,
+> c'est le bas. Lire le haut — ce que font PCG par décalage, `splitmix64` par mélange et
+> `xoshiro` par rotation — suffit à détruire la décomposition, sans rien changer à la
+> taille de l'état.
+
+C'est donc le **côté** que la sortie regarde, et non le nombre de bits, qui sépare un
+générateur criblable d'un générateur qui ne l'est pas. Un état de `48` bits lu par le bas
+tombe ; un état de `64` bits lu par le haut ne tombe pas.
