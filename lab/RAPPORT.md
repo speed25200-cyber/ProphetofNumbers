@@ -19959,6 +19959,14 @@ famille B), ni modèle ajusté (§190 : `51,207 %`, `z = +0,16`).
 `70 560` sur `70 560`. Mais son facteur quatre exige de connaître les vingt numéros,
 c'est-à-dire d'être **après** le tirage.
 
+*Vérification de non-circularité.* Un théorème de cette forme mériterait d'être une
+illusion d'analyse syntaxique — si le collecteur avait dérivé `bonus` des vingt
+numéros, l'énoncé serait vide. Il ne l'est pas : `bonus` est une **colonne
+indépendante** du CSV brut (`id,unix_utc,n1..n20,boost,bonus`), elle prend les
+**quatre-vingts** valeurs de `1` à `80`, elle n'est vide sur aucune des `70 560`
+lignes, et c'est en relisant les huit fichiers source ligne à ligne, sans passer par
+le cache, que le compte de `70 560` sur `70 560` est retrouvé.
+
 **Les vingt numéros** ne cèdent rien. Écart marginal maximal sur les quatre-vingts :
 `0,4436` point de pourcentage. Meilleur prédicteur hors échantillon : `5,00230`
 (§192), borne à `95 %` de `+0,0191` numéro par tirage.
@@ -19991,5 +19999,53 @@ Ce qu'on en retire :
 Ce n'est pas une figure de style : c'est exactement ce qu'un générateur correctement
 construit doit produire. Un exploitant publie du calendrier, une loi de paiement
 fixe, une redondance interne, et rien d'autre.
+
+---
+## 195. **Les prédictions, écrites et notées** (`h179_prediction_archive.py` → `lab/prediction_archive.txt`)
+
+Tout le dossier parle de prédiction en `z`, en bornes et en pourcentages. C'est juste,
+et c'est abstrait. La question posée était « prédire les tirages de l'archive » : ce
+fichier produit donc des **prédictions écrites**, tirage par tirage, avec leur note en
+face — et il est écrit pour qu'on ne puisse pas se tromper en le lisant.
+
+Le modèle est celui du §192 (`31` traits, neuf témoins plantés passés), ajusté sur les
+tirages `2 000..43 135` et appliqué en marche avant aux `27 424` suivants
+(identifiants `1 352 750` à `1 380 173`), qu'il n'a jamais vus.
+
+| champ | juste | sur | taux | référence aveugle |
+|---|---|---|---|---|
+| identifiant | `27 424` | `27 424` | **`100,0000 %`** | — |
+| horodatage, exact | `27 416` | `27 424` | **`99,9708 %`** | — |
+| horodatage, à `± 5 s` | `27 424` | `27 424` | **`100,0000 %`** | — |
+| multiplicateur | `14 043` | `27 424` | **`51,2070 %`** | `1,250 %` |
+| bonus (**post hoc**) | `1 304` | `27 424` | `4,7550 %` | `1,250 %` |
+| **les vingt numéros** | — | — | **`5,00230` sur `20`** | `5,00000`, exact |
+
+Meilleur tirage : `12` numéros justes sur `20`. Pire : `0`. Écart normalisé `+0,225`.
+
+### Ce que le fichier dit de lui-même
+
+Les trois premières lignes sont du **calendrier**. La quatrième est une **loi de
+paiement** : le multiplicateur se prévoit à sa fréquence et rien ne fait mieux. La
+cinquième est **post hoc** — elle suppose les vingt numéros déjà connus, donc d'être
+*après* le tirage — et elle est marquée comme telle dans le fichier plutôt que comptée
+avec les autres.
+
+> **La seule ligne qui aurait de la valeur est la dernière, et elle dit non.**
+
+Un extrait, pour que ce soit concret :
+
+```
+tirage 1380134   (6 numeros justes sur 20)
+   predits  13 21 23 24 25 29 31 32 53 55 56 57 59 61 62 63 64 65 66 68
+   sortis    1 10 19 25 30 34 37 41 48 50 51 56 59 60 61 64 67 68 71 73
+   justes   25 56 59 61 64 68
+```
+
+Six sur vingt — au-dessus de cinq, et parfaitement banal : la loi hypergéométrique
+donne `6` ou plus une fois sur trois.
+
+**Ce fichier est le livrable.** Il ne remplace aucune section ; il rend vérifiable, à
+la main et tirage par tirage, ce que les §188 à §194 établissent en agrégat.
 
 ---
