@@ -228,6 +228,12 @@ static int engendre(Etat *e, int g, int s, uint64_t *m0, uint64_t *m1)
     return 1;
 }
 
+/* Le pilote ci-dessous est compile seul. `graine_plages.c` inclut ce fichier avec
+   SANS_MAIN defini afin de reutiliser EXACTEMENT les memes generateurs, les memes six
+   echantillonneurs et la meme table de hachage — ceux que le temoin 30/30 du §211 a
+   valides. Une seconde copie serait une seconde chose qui peut deriver. */
+#ifndef SANS_MAIN
+
 int main(int argc, char **argv)
 {
     if (argc < 4) {
@@ -294,3 +300,5 @@ int main(int argc, char **argv)
     free(C); free(Ha); free(Hb); free(Hi);
     return 0;
 }
+
+#endif  /* SANS_MAIN */

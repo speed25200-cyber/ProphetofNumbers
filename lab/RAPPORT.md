@@ -20957,3 +20957,78 @@ contre une marge de maison de trente à cinquante pour cent sur ce type de jeu. 
 `h191b.chasse_grille`, piste B, NON RÉPLIQUÉ.
 
 ---
+
+## 211. **Les six échantillonneurs** : le défaut le plus grave du dossier, et sa réparation (`h187_echantillonneurs.py`)
+
+### Ce que je m'étais caché
+
+Les §200 à §205 balayent `1,56 × 10¹¹` graines et concluent chaque fois « conforme ». J'ai
+écrit ces sections avec la satisfaction de qui ferme une porte. Elles étaient **borgnes**,
+et de la pire façon : pas dans la dimension qu'elles annonçaient, mais dans une autre,
+tacite, que je n'avais jamais énoncée.
+
+Tous supposent que l'échantillonneur — la partie qui transforme un mot de trente-deux bits
+en une classe de `0` à `79` — est **la troncature** `(w·80) >> 32` ou **le modulo**
+`w mod 80`. Ce sont deux façons parmi beaucoup. Si la machine emploie
+
+* le **modulo débiaisé par rejet** — c'est `java.util.Random.nextInt(80)`, donc une part
+  considérable du logiciel de loterie existant ;
+* la méthode de **Lemire** — le C++, le Rust et le Go modernes ;
+* un **double de 53 bits** construit sur **deux mots** — c'est `Math.random()*80`, donc
+  tout ce qui est écrit en JavaScript ;
+* les **sept bits bas** avec rejet — l'implémentation naïve de qui craint le modulo,
+
+alors **aucun** de ces `1,56 × 10¹¹` essais ne *pouvait* apparier, et leur résultat négatif
+ne disait rien de la graine. Il disait seulement que la machine n'est pas *à la fois*
+amorcée comme je le supposais *et* échantillonnée comme je le supposais.
+
+> Un balayage exhaustif dans une dimension et borgne dans une autre ne prouve rien de plus
+> que le produit de ses couvertures (§7.35). J'avais couvert `2³²` graines sur `2³²`, et
+> deux échantillonneurs sur un nombre que je n'avais même pas essayé de compter.
+
+### La réparation
+
+Six échantillonneurs, les quatre manquants ajoutés à `graine_exhaustive.c` :
+
+| | règle | où on la trouve |
+|---|---|---|
+| `0` | troncature `c = (w·80) >> 32` | numpy, beaucoup de C |
+| `1` | modulo `c = w mod 80` | le réflexe du débutant |
+| `2` | modulo débiaisé : rejet si `w ≥ 2³² − (2³² mod 80)`, puis `w mod 80` | `java.util.Random` |
+| `3` | Lemire : `m = w·80` ; rejet si `m mod 2³² < 16` ; `c = m >> 32` | C++, Rust, Go |
+| `4` | double 53 bits sur **deux mots** : `c = ⌊80·u⌋` | `Math.random()*80` |
+| `5` | sept bits bas : `c = w ∧ 127`, rejet si `c ≥ 80` | l'implémentation naïve |
+
+`2³² mod 80 = 16` exactement, ce qui fixe les seuils de rejet de `2` et de `3`.
+L'échantillonneur `4` consomme **deux** mots par candidat, ce qui décale tout le flux : il
+ne peut en aucun cas être simulé par un des cinq autres.
+
+### Le témoin
+
+Trente couples générateur × échantillonneur, une graine plantée dans chacun, retrouvée par
+l'outil : **30/30**. Le miroir Python de `engendre` reproduit les six règles, rejets
+compris, et sert à planter.
+
+### Le résultat
+
+`2³² × 5 générateurs × 6 échantillonneurs = 1,2885 × 10¹¹ essais`, comparés à la table de
+hachage des `70 560` masques — donc à l'archive **entière**, non tirage par tirage.
+
+**Zéro appariement.** Faux attendus : `2,57 × 10⁻³`.
+
+### Ce que ça vaut, et ce que ça ne vaut pas
+
+Ça ferme le trou de modèle, et c'est important : la question « un tirage quelconque de
+l'archive est-il le premier tirage d'un générateur moderne amorcé sur une graine de trente-
+deux bits, quelle qu'en soit l'origine, et réduit par l'un des six échantillonneurs
+courants ? » a maintenant une réponse, et c'est non.
+
+Ça ne prouve toujours pas que l'ensemble des échantillonneurs est épuisé. Six n'est pas
+tous. Un Fisher-Yates partiel sur un tableau de quatre-vingts, un tirage par ordre de tri
+de quatre-vingts clés aléatoires, un rejet sur un intervalle décalé — chacun est un
+septième cas. **La différence est qu'à présent je le dis**, au lieu de laisser l'hypothèse
+tacite se faire passer pour une preuve.
+
+**Ligne de registre.** `h187.echantillonneurs`, piste B, conforme, `m_extra = 0`.
+
+---
