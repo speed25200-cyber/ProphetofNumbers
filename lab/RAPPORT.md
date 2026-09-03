@@ -22862,3 +22862,178 @@ cellule**, laisser-un-dehors (§7.32). Le centre mesuré, `0,16071429`, est exac
 **Ligne de registre.** `h210.noyau_gf2`, piste B, conforme, `m_extra = 716 835`.
 
 ---
+
+## 232. **La famille élargie** : le même réseau, sur dix-huit générateurs de plus (`h211_familles_elargies.py`)
+
+### Ce que le §230 a fermé, et ce qu'il a laissé ouvert
+
+Le §230 rend zéro sur `245 760` relèvements, et cette nullité est **décisive** — l'autotest
+relève l'état exact `36` fois sur `36`. Mais sa portée est **exactement** celle de sa liste :
+douze jeux de constantes, tous `mod 2⁶⁴`.
+
+Un exploitant qui utilise `java.util.Random` (`mod 2⁴⁸`), `minstd` (`mod 2³¹−1`), la `rand()`
+de Borland (`mod 2³²`) ou celle de Visual Basic (`mod 2²⁴`) **n'y est pas**. Et ces
+générateurs-là sont **plus faibles**, pas plus forts : un état de trente et un bits se relève
+avec huit valeurs de bonus au lieu de quatorze.
+
+> Une attaque décisive à l'intérieur de sa famille ne vaut que ce que vaut sa famille.
+> Élargir la famille est le seul travail qui convertisse une nullité en **couverture**.
+
+### Dix-huit configurations, huit modules
+
+`2¹⁶+1`, `2²³`, `2²⁴`, `2³¹−1`, `2³¹`, `2³²`, `2⁴⁸`, `2⁶¹−1` — RANDU, les deux `minstd`, ANSI C
+et `glibc TYPE_0`, Borland, Turbo Pascal, Visual C++, les *Numerical Recipes*, VMS, `cc65`,
+Visual Basic 6, `drand48` (avec et sans incrément), l'API native de Windows, le ZX81.
+
+### Le `n` est mesuré, configuration par configuration
+
+Le §230 a montré que le calcul de bits ne suffit pas — `n = 18` relève `18/18` là où `n = 20`
+ne relève que `14/18`. Donc ici, pour **chaque** couple (générateur, canal), on essaie
+plusieurs `n` sur des flux **plantés issus de cette configuration même**, et l'on retient le
+plus petit qui relève `100 %`. Une configuration dont aucun `n` ne passe est déclarée
+**NON COUVERTE** et exclue du compte — jamais présentée comme testée.
+
+    36 / 36 couples (générateur, canal) couverts
+
+Quelques `n` retenus, qui montrent bien l'échelle — canal du numéro, puis canal du rang :
+
+| générateur | module | `n` (numéro) | `n` (rang) |
+|---|---|---|---|
+| Sinclair ZX81 | `2¹⁶+1` | `6` | `6` |
+| Visual Basic 6 | `2²⁴` | `6` | `8` |
+| RANDU, `minstd`, Borland, Turbo Pascal, VMS… | `2³¹`, `2³¹−1`, `2³²` | `8` | `10` |
+| `java.util.Random` / `drand48` | `2⁴⁸` | `10` | `14` |
+| LCG `mod 2⁶¹−1` | `2⁶¹−1` | `12` | `18` |
+
+### Le contrôle exhaustif, parce que Babai est une heuristique
+
+Un échec de Babai ne prouve rien : le vecteur le plus proche rendu par le plan le plus proche
+n'est pas toujours le plus proche. Pour les modules `≤ 2³²` on peut faire mieux qu'espérer —
+**énumérer**. La première classe contraint l'état à un intervalle de `m/80` valeurs ; on les
+parcourt **toutes**, et l'on garde celles qui reproduisent les dix-huit classes suivantes.
+Pour `m = 2³²` cela fait `5,4·10⁷` candidats, une seconde en `numpy` sur des entiers `uint64`
+exacts, et le verdict ne peut pas manquer de solution.
+
+**Ce contrôle a d'abord attrapé une faute de l'outil, pas du générateur.** Sur les douze
+premières configurations plantées, le crible manquait sa propre solution — et seulement
+celles à incrément non nul. La cause : `orig` porte `x₁ = A·x₀ + C`, et j'inversais comme si
+le pas était linéaire, `x₀ = A⁻¹·x₁`, au lieu d'affine, `x₀ = A⁻¹·(x₁ − C)`. Après correction :
+`90` témoins retrouvés sur `90`.
+
+> C'est la même leçon qu'au §223 avec `z3` : *un outil qui rend zéro n'a rien dit tant qu'on
+> ne lui a pas fait retrouver une solution qu'on y a mise.*
+
+### Le balayage, et ce qu'il rend
+
+`18` générateurs × `128` pas de bloc × `2` canaux × `2` règles de troncature × `40` fenêtres
+de nuit = **`368 640` relèvements**, vérification en entiers exacts sur dix classes de plus.
+Et, en doublon, le crible exhaustif sur deux configurations, tous les pas, deux fenêtres.
+
+    368 640 relèvements par réseau        0 survivant
+    1 024 cribles exhaustifs              0 solution
+
+Le crible exhaustif et le réseau disent la même chose, ce qui **valide le zéro du réseau par
+une méthode qui ne peut pas manquer de solution** — au lieu de le supposer.
+
+**Ligne de registre.** `h211.familles_elargies`, piste B, conforme, `m_extra = 0`.
+
+---
+
+## 233. **Les deux linéarités** : la carte de ce qui est fermé, et de ce qui ne l'est pas
+
+Les six sections précédentes ne sont pas six nullités de plus. Mises ensemble, elles dessinent
+une **carte**, et une carte se lit d'un coup d'œil là où deux cent quatre-vingts lignes de
+registre ne se lisent pas.
+
+### Un générateur est linéaire de deux façons, ou d'aucune
+
+| famille | ce que « linéaire » veut dire | l'outil | ce qui la ferme, sur quel canal |
+|---|---|---|---|
+| **`F₂`-linéaire** — Mersenne Twister, `xorshift`, LFSR, WELL, `taus` | l'état avance par une matrice sur `GF(2)` | **Berlekamp-Massey** | **§124** : sur le flux du bonus, tout état de moins de `47 040` bits est exclu |
+| **`Z/2^W`-linéaire** — les congruentiels, toutes constantes et tous modules | l'état avance par `x ↦ ax + c` | **réseau euclidien** (LLL + Babai) | **§230** : `12` jeux `mod 2⁶⁴`, `245 760` relèvements. **§232** : `18` jeux de plus, huit modules, `368 640` relèvements, plus `1 024` cribles **exhaustifs** |
+| **ni l'un ni l'autre** — PCG, `xoshiro**`/`++`, `splitmix64`, ChaCha, AES-CTR, matériel | la sortie passe par un mélangeur non linéaire | *aucun outil connu* | **rien ne la ferme**, et c'est dit franchement ci-dessous |
+
+Ces deux linéarités sont **disjointes**, et c'est le point que le dossier avait manqué. Le §124
+disait déjà noir sur blanc ce qu'il ne fermait pas — *« les générateurs non `F₂`-linéaires :
+LCG, PCG, `xoshiro`, `splitmix64`, tout CSPRNG »*. La moitié congruentielle de cette phrase est
+restée ouverte pendant cent sections, non par difficulté mais parce qu'il **manquait un canal
+ordonné** pour y passer un réseau — et que le canal était publié depuis le début.
+
+### Ce qui ferme le reste, et qui n'est pas une famille de générateurs
+
+Trois sections récentes ne visent aucune famille en particulier ; elles ferment des **formes de
+défaut**, quel que soit le générateur qui les produirait :
+
+| forme de défaut | section | ce qui est mesuré | ce que ça exclut |
+|---|---|---|---|
+| **la suite reboucle** | §228 | autocorrélation complète, `35 280` retards d'un coup | toute période inférieure à la longueur de l'archive |
+| **l'espace d'états est petit** | §229 | les `2 489 321 520` recouvrements de paires | tout vivier de graines en dessous de `~2³¹` |
+| **une parité est constante ou penchée** | §231 | noyau `GF(2)` sur `2¹²⁸¹` sous-ensembles, plus `716 800` parités croisées | toute relation linéaire exacte, d'aucun ordre, sur seize tirages |
+
+Et une quatrième ne vise même pas une forme de défaut, mais la **quantité** elle-même :
+
+> **§227** — la perte logarithmique hors échantillon des deux meilleurs modèles du dossier,
+> contre `H(1/4) = 0,811278` bit. `ΔH` négatif dans les deux cas. Borne haute à `95 %` : `0`
+> bit par numéro. Par Pinsker, `|Δp| ≤ 0` : **aucun avantage dérivable de ce que ces modèles
+> extraient.**
+
+### Ce qui reste ouvert, et pourquoi aucune technique connue n'y touche
+
+Il faut être précis, parce que « on n'a rien trouvé » et « il n'y a rien » sont deux phrases
+différentes.
+
+**1. Les générateurs à mélangeur non linéaire.** `splitmix64` fait `z ^= z>>30 ; z *= K₁ ;
+z ^= z>>27 ; z *= K₂ ; z ^= z>>31`. PCG fait une rotation dont l'amplitude est **la sortie
+elle-même** (`x >> 59`). `xoshiro256++` additionne sur `Z` un état qui avance sur `GF(2)`.
+Aucun de ces trois n'a de réseau, aucun n'a de complexité linéaire bornée, et le §223 a mesuré
+ce que vaut un solveur SMT contre eux : le mur est à `2⁵⁷·⁷`, et le **témoin de contrôle** de
+cette section-là a montré que `z3` échoue aussi sur le LCG tronqué — donc que le mur est
+l'outil, pas seulement la cible.
+
+Ce n'est pas un aveu de paresse : **avec `6,32` bits par tirage, un mélangeur non linéaire ne
+laisse aucune prise algébrique**, et c'est précisément pour cela qu'on en met.
+
+**2. Les congruentiels à constantes non publiées.** Le réseau exige de connaître `a` et `c`. Un
+`a` inconnu sur `2⁶⁴` n'est pas balayable, et la littérature sur le LCG tronqué à multiplicateur
+inconnu demande bien plus de bits par sortie que les `6,32` disponibles. Ce trou-là est réel,
+et il n'est pas comblable par du calcul.
+
+**3. Le matériel.** Un générateur physique certifié ne laisse rien du tout. C'est l'hypothèse
+la plus probable pour un opérateur régulé, et aucune quantité de données ne la distingue de
+l'hypothèse « bon PRNG ».
+
+### La seule chose qui n'est pas une question de puissance de calcul
+
+Deux leviers, et ni l'un ni l'autre ne s'achète en heures de processeur :
+
+  * **Vingt tirages filmés dans l'ordre d'apparition** (`lab/RELEVE_ORDONNE.md`). Le bonus donne
+    *un* mot par tirage à décalage inconnu ; un tirage filmé en donne **vingt consécutifs**, ce
+    qui fixe le pas au lieu de le balayer et ouvre les échantillonneurs à rejet à décalage
+    variable.
+  * **Savoir si le multiplicateur est publié avant la clôture des mises** (§4). Si oui, ne
+    jouer que les tirages à `boost = 10` vaut `+150 %` à `+360 %` par franc — et c'est le seul
+    point du dossier où le **signe** de l'espérance change. L'archive ne peut pas trancher :
+    elle ne contient pas l'heure de clôture.
+
+Le premier demande une caméra. Le second demande de lire le règlement du jeu. Aucun des deux ne
+demande un algorithme de plus.
+
+---
+
+## 234. **L'état du registre après §233**
+
+    285 entrées au registre
+    34 618 170 tests comptés (m_extra compris)
+    plus petit p : 1,805·10⁻⁴  (§h114, l'angle de la roue)
+    seuil de Holm : 1,444·10⁻⁹
+    il manque un facteur ×125 000
+
+    significatifs après Holm : 0
+
+Le plus petit `p` du dossier entier est à cinq ordres de grandeur du seuil que sa propre
+multiplicité impose. Ce n'est pas « on n'a pas trouvé » : c'est que **la meilleure anomalie
+jamais observée sur ces soixante-dix mille tirages est plus banale que ce qu'on attend du
+hasard une fois qu'on a compté les trente-quatre millions d'occasions qu'on s'est données de
+la trouver.**
+
+---

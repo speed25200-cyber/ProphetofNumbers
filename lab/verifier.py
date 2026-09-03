@@ -735,6 +735,55 @@ def bloc_distances():
 
 
 
+
+# ======================================================================================
+# 15. L'OUTIL ALGEBRIQUE DU §230-§232, ET LA FAUTE QU'IL A FAILLI CACHER
+# ======================================================================================
+
+def bloc_reseau_bonus():
+    print("\n15. LE RESEAU SUR LE FLUX DU BONUS (§230, §232)")
+    sys.path.insert(0, os.path.join(ROOT, "experiments"))
+    import h209_reseau_sur_le_bonus as H9
+    import h211_familles_elargies as H11
+
+    # -- l'outil retrouve un etat de 64 bits a partir de 14 classes tronquees
+    VRAI = 0x0123456789ABCDEF
+    A, C = H9.affine(6364136223846793005, 1442695040888963407, 23)
+    x, cs = VRAI, []
+    for _ in range(24):
+        x = (A * x + C) % H9.M64
+        cs.append(H9.classe(x, 80, 64))
+    Ai, red, gso = H9.prepare(A, 14)
+    got = H9.attaque(cs[:14], Ai, red, gso, H9.increments(A, C, 14), 80, 64)
+    dit("reseau + Babai : etat de 64 bits releve depuis 14 numeros de bonus",
+        got == VRAI, "EXACT" if got == VRAI else f"{got}", "l'etat plante")
+
+    # -- LA FAUTE : le pas d'un LCG est AFFINE, pas lineaire. Inverser x1 en A^-1 x1
+    #    au lieu de A^-1 (x1 - C) fait manquer la solution des que C != 0 — et un crible
+    #    qui manque sa propre solution rend zero en ayant l'air de travailler.
+    m, a, c = 1 << 32, 1664525, 1013904223
+    A2, C2 = H11.affine(a, c, 7, m)
+    x0 = 12345678 % m
+    x, cs2 = x0, []
+    for _ in range(12):
+        x = (A2 * x + C2) % m
+        cs2.append(H11.classe(x, m, 80, 0))
+    x1 = (A2 * x0 + C2) % m
+    ia = pow(A2, -1, m)
+    dit("l'inverse LINEAIRE du pas manque la solution (la faute attrapee)",
+        (int(x1) * ia) % m != x0, "manquee", "manquee")
+    dit("l'inverse AFFINE la retrouve", ((int(x1) - C2) * ia) % m == x0,
+        "retrouvee", "retrouvee")
+    sol = H11.crible_exhaustif(cs2, A2, C2, m, 80, 0)
+    dit("crible exhaustif corrige : la solution plantee est dedans", x0 in sol,
+        f"{len(sol)} solution(s)", "contient l'etat plante")
+
+    # -- la regle modulo est exclue gratuitement : 16 divise 80
+    dit("16 divise 80, donc bonus-1 mod 16 = w mod 16 (sous-systeme clos)",
+        POOL % 16 == 0, f"80 mod 16 = {POOL % 16}", "0")
+
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -754,6 +803,7 @@ if __name__ == "__main__":
     bloc_bareme()
     bloc_ordonnes()
     bloc_distances()
+    bloc_reseau_bonus()
 
     print("\n" + "=" * 78)
     if ECHECS:

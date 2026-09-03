@@ -113,6 +113,32 @@ au-delà de `t-1`, et `leak_check` réécrit les cumuls en même temps que les
 tirages — un décalage d'indice y est donc attrapé, jamais masqué par un
 cache périmé.
 
+## Les deux linéarités (§230, §232, §233)
+
+Un générateur peut être linéaire de **deux** façons, et ce sont deux mondes
+disjoints qui demandent deux outils sans rapport :
+
+| famille | outil | ce qui la ferme |
+|---|---|---|
+| **`F₂`-linéaire** — Mersenne Twister, `xorshift`, LFSR, WELL | **Berlekamp-Massey** | §124, sur le flux du bonus : tout état de moins de `47 040` bits |
+| **`Z/2^W`-linéaire** — les congruentiels | **réseau euclidien** (LLL + Babai) | §230 (`12` jeux `mod 2⁶⁴`) et §232 (`18` jeux, huit modules, plus un crible **exhaustif** de contrôle) |
+| **ni l'un ni l'autre** — PCG, `xoshiro`, `splitmix64`, CSPRNG, matériel | *aucun outil connu* | rien — et le §233 dit pourquoi |
+
+Le §124 avait fermé la première et écrivait noir sur blanc ce qu'il ne fermait
+pas : *« les générateurs non `F₂`-linéaires : LCG, PCG, xoshiro, splitmix64,
+tout CSPRNG »*. La moitié congruentielle est restée ouverte cent sections
+durant, non par difficulté mais faute d'un **canal ordonné** où passer un
+réseau — et ce canal était publié depuis le début : le `bonus` est toujours
+l'un des vingt (§77), donc un mot précis du flux, à pas constant sous le
+budget de bloc fixe du §225.
+
+**La leçon de méthode, réutilisable :** un outil qui rend zéro n'a rien dit
+tant qu'on ne lui a pas fait retrouver une solution qu'on y a mise. Le crible
+exhaustif du §232 manquait sa propre solution plantée sur toutes les
+configurations à incrément non nul — le pas d'un LCG est *affine*, et je
+l'inversais comme s'il était *linéaire*. Le bloc `15` du vérificateur garde
+cette faute sous contrôle permanent.
+
 ## Détecter, identifier, gagner — trois choses différentes
 
 Une borne de détectabilité (« ce biais aurait-il été vu ? ») n'est pas une
