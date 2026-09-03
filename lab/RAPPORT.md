@@ -22247,3 +22247,88 @@ est non linéaire, il n'existe **aucun** réseau, et le crible optimal gagne exa
 **Ligne de registre.** `h203.reseau_sur_le_boost`, piste B, conforme, `m_extra = 0`.
 
 ---
+
+## 225. **Le pas fixe** : une faille dans mon propre §224 (`h204_pas_fixe.py`)
+
+### La faute, trouvée une heure après avoir écrit la section
+
+Le §224 attaque le flux du multiplicateur par réseau, et il pose une condition : que
+l'échantillonneur n'ait **aucun rejet** — Fisher-Yates partiel ou tri de clés — pour que le
+pas entre tirages soit constant.
+
+**Cette condition est suffisante. Je l'ai prise pour nécessaire.**
+
+Si la machine consomme un **bloc de mots de taille fixe** par tirage — un tampon de `32`,
+`48`, `64` mots, avec le rejet **à l'intérieur** du bloc — alors le pas est constant
+**malgré le rejet**. C'est une implémentation parfaitement banale : on demande `N` mots à la
+source, on s'en sert, on jette le reste. La gigue du §7.33 disparaît exactement de la même
+façon, et l'attaque redevient possible pour **tous** les échantillonneurs.
+
+> Le §224 n'a donc pas testé un cas particulier de plus. **Il a testé le mauvais espace.**
+
+### Et une seconde faute, de paresse celle-là
+
+Le §224 énumère quatre positions du mot de boost dans le tirage. C'était du travail pour
+rien : les puissances d'une même application affine commutent, donc
+
+    L^(t·P + pos)(x₀) = L^(t·P)( L^pos(x₀) )
+
+**La position s'absorbe dans l'inconnue.** Résoudre avec `pos = 0` couvre *tous* les
+décalages — vérifié numériquement, et le témoin le confirme en retrouvant `L^pos(x₀)` et non
+`x₀`.
+
+### Ce que ça permet de balayer, et la nouveauté qui compte
+
+| | §224 | §225 |
+|---|---|---|
+| pas `P` | `21` et `81` seulement | **`32` tailles de bloc, de `20` à `256`** |
+| position du mot | `4` énumérées | **absorbée, gratuite** |
+| module | `2⁶⁴` | `2⁶⁴`, **`2⁴⁸`**, `2³²`, `2³¹−1` |
+| échantillonneurs couverts | sans rejet seulement | **tous** |
+
+**`java.util.Random`** entre ici pour la première fois, et c'est important : c'est le
+générateur non cryptographique le plus déployé au monde, son état vaut `2⁴⁸`, et cet espace
+est **hors de portée** des balayages `2³²` des §200 à §214 — `65 536` fois trop grand. Le
+réseau le traverse **sans énumérer**.
+
+### Le témoin
+
+`java.util.Random` mod `2⁴⁸`, bloc fixe de `48` mots, mot de boost en position `13` : l'état
+est retrouvé **exact** en `1,68` s, vérifié sur `4 000` tirages — et il retrouve bien
+`L^13(x₀)`, ce qui confirme l'absorption du décalage.
+
+### Ce que dit l'archive
+
+`19` configurations × `32` tailles de bloc × `720` arrangements de secteurs =
+**`437 760` résolutions de réseau**, `608` réductions, `1 134` secondes.
+
+**`0` candidat. Verdict : conforme.**
+
+### Ce que ça ferme, et ce que ça ne ferme pas
+
+Ça ferme la conjonction **générateur congruentiel × pas fixe × constantes publiées**, pour
+tous les modules de `2³¹` à `2⁶⁴` et toutes les tailles de bloc plausibles — y compris
+l'espace `2⁴⁸` de `java.util.Random`, que **aucune énumération de ce dossier n'aurait pu
+atteindre**.
+
+Ça ne ferme pas, et il faut le dire :
+
+* un LCG à constantes **non publiées** — retrouver `a` inconnu depuis des troncatures à
+  `6,3` bits est un problème ouvert que je ne sais pas traiter ici ;
+* un **mélangeur non linéaire**, qui n'a aucun réseau (§7.36) ;
+* un **pas variable**, c'est-à-dire la gigue du §7.33, contre laquelle il faudrait énumérer
+  les mots consommés à chaque tirage — `21¹⁶` combinaisons pour seize contraintes.
+
+### La leçon de méthode, et c'est la troisième de la session
+
+Le §223 B m'avait appris qu'un échec de solveur ne prouve rien sans témoin de contrôle. Le
+§219 m'avait appris qu'un seuil fixé à la main peut condamner un instrument qui marche. Ici :
+
+> **Une condition suffisante prise pour nécessaire fait chercher dans le mauvais espace.**
+> Le §224 disait « pas constant *donc* pas de rejet ». Il fallait lire « pas de rejet *donc*
+> pas constant » — l'implication ne se retourne pas, et le bloc de taille fixe vit
+> exactement dans l'écart entre les deux.
+
+**Ligne de registre.** `h204.pas_fixe`, piste B, conforme, `m_extra = 0`.
+
+---
