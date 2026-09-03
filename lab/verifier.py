@@ -299,6 +299,46 @@ def bloc_cache(ids, ts, nums, bonus, boost):
     dit("masque = numeros", bool((rec == M).all()), "identiques", "")
 
 
+# ======================================================================================
+# 9. LE FLUX MINCE (§7.34, §197, §198) — le lemme et la nulle exacte, par enumeration
+# ======================================================================================
+
+def bloc_flux_mince():
+    print("\n9. LE FLUX MINCE (§7.34) — lemme et nulle exacte, par enumeration")
+
+    # (a) le lemme c = 4b + k avec k dans {0,1,2,3}, verifie sur tout le domaine utile
+    M32 = 1 << 32
+    u = np.unique(np.r_[np.arange(0, M32, 9973), M32 - 1]).astype(np.int64)
+    c = (u * POOL) >> 32
+    b = (u * DRAWN) >> 32
+    k = c - 4 * b
+    dit("lemme c = 4b + k, k dans {0,1,2,3}",
+        bool((k >= 0).all() and (k <= 3).all()), f"k dans [{k.min()}, {k.max()}]",
+        "[0, 3]")
+    dit("les quatre valeurs de k sont atteintes", len(np.unique(k)) == 4,
+        sorted(np.unique(k).tolist()), "[0, 1, 2, 3]")
+
+    # (b) E[T2] = 0,8|S| par tirage : enumeration exhaustive sur les 20x20 blocs
+    B = [set(range(4 * j, 4 * j + 4)) for j in range(DRAWN)]
+    for S in ([0], [0, 1], [0, 1, 2, 3]):
+        tot = 0
+        for b1 in B:
+            for b2 in B:
+                for uu in b1:
+                    for vv in b2:
+                        for dd in S:
+                            w = (uu + vv + dd) % POOL
+                            tot += sum(w in bt for bt in B)
+        moy = tot / (DRAWN * DRAWN * DRAWN)          # moyenne sur les trois blocs
+        dit(f"|S|={len(S)} : E[T2] par tirage", proche(moy, 0.8 * len(S), 1e-12),
+            f"{moy:.6f}", f"{0.8*len(S):.6f}")
+
+    # (c) la grille du boost : les p theoriques somment a 1
+    P = np.array([41, 19, 12, 4, 2, 2]) / POOL
+    dit("les six p theoriques somment a 1", proche(float(P.sum()), 1.0, 1e-12),
+        f"{P.sum():.6f}", "1")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -312,6 +352,7 @@ if __name__ == "__main__":
     bloc_autocorrelation()
     bloc_registre()
     bloc_cache(ids, ts, nums, bonus, boost)
+    bloc_flux_mince()
 
     print("\n" + "=" * 78)
     if ECHECS:

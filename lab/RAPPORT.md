@@ -20179,3 +20179,131 @@ zéro résultat significatif.
 faits. Il n'y a rien à pré-enregistrer et rien à corriger de la multiplicité.
 
 ---
+## 197. **Le flux mince du bonus** : l'observable le plus net de l'archive, jamais traité comme un flux (`h178_flux_mince.py`)
+
+Tout le dossier lit les **vingt numéros**. C'est l'observable le plus gros et le
+moins **net**, et il fallait le dire.
+
+Vingt parmi quatre-vingts, c'est `61,62` bits pour environ `22,85` mots consommés,
+soit `2,70` bits par mot — et l'ensemble est **trié**, donc on ignore quel mot a
+produit quel élément. Chaque mot n'est contraint que par « ma classe est dans cet
+ensemble de vingt », et son identité dans le flux est ambiguë.
+
+Le bonus est d'une autre nature.
+
+> **Lemme (§7.34).** Sous la troncature, `c = 4b + k` avec `k ∈ {0,1,2,3}`,
+> exactement — où `b` est le rang du bonus parmi les vingt et `c` la classe du mot
+> qui l'a produit.
+>
+> *Démonstration.* Avec `x = 20u/2³²`, on a `80u/2³² = 4x` et
+> `⌊4x⌋ = 4⌊x⌋ + ⌊4{x}⌋`, le second terme valant `0`, `1`, `2` ou `3`. ∎
+
+Le rang du bonus fixe donc la classe d'**un mot précis** — le `(N+1)`-ième du tirage —
+à quatre valeurs sur quatre-vingts : `4,32` bits sur un mot **identifié**, contre
+`2,70` bits dilués et anonymes pour les numéros. L'archive porte ainsi une seconde
+suite de `70 560` mots fortement contraints, espacés de `E[N] + 2 = 24,85` mots.
+**C'est un flux, et rien dans le dossier ne l'avait traité comme tel.**
+
+### La nulle y est exacte, et plus simple qu'au §184
+
+Les vingt blocs `B_j = {4j..4j+3}` **partitionnent** `Z/80`. Pour une cible `w`
+quelconque, `P(w ∈ B_t) = 1/20` exactement, sans dépendre de `w`. D'où, pour tous
+décalages `g₁, g₂ ≥ 1` :
+
+        E[T2] = 4 · 4 · |S| / 20 = 0,8 · |S|        par tirage, exactement.
+
+Aucune énumération de configurations de coïncidence, contrairement au §184 : les
+décalages étant tous `≥ 1`, le tirage cible est toujours distinct des opérandes, et
+le résultat tient même quand `g₁ = g₂`. Vérifié à l'énumération exhaustive sur les
+`20³` triples de blocs (`verifier.py`, bloc 9).
+
+### Le résultat
+
+| famille | cases | max `\|z\|` |
+|---|---|---|
+| **A** autocorrélation exacte du rang, `20 × 35 280` | `705 600` | `+5,203` (rang `17`, décalage `2 042`) |
+| **B** énergie à deux termes, `21` couples | `21` | — |
+| **C** énergie à trois termes, `20` triplets | `20` | `+2,605` en `(4,4)` |
+
+Énergie mesurée : `3,20217` par tirage contre `3,20000` **exact**. Seuil de
+Bonferroni sur `705 641` cases : `5,389`. Maximum observé `5,203`, `p = 0,1382`.
+**Conforme.**
+
+### Un témoin m'a contredit, et c'est le plus instructif
+
+J'avais dérivé qu'un additif de retards courts en mots — `(3, 7)` — serait **hors de
+portée** du flux mince : rapportés à un espacement de `24,85`, ces retards donnent des
+portées de `0,12` et `0,28`, et aucun couple entier ne peut les lire.
+
+Il rend `+0,53` par tirage, du même ordre que les générateurs plantés exprès à portée
+`(1,2)` ou `(2,1)`.
+
+> **La récurrence se chaîne.** Sur les vingt-cinq pas qui séparent deux mots du bonus,
+> un mot est une combinaison linéaire de nombreux mots antérieurs, et la trace survit
+> à la composition. Le détecteur couvre donc à la fois les retards courts et ceux à
+> l'échelle du tirage.
+
+C'est la troisième fois qu'un témoin planté réfute une limitation que j'avais
+**déduite**. Une portée se mesure ; elle ne se déduit pas.
+
+**Ligne de registre.** `h178.flux_mince`, piste B, conforme, `m_extra = 705 640`.
+
+---
+
+## 198. **Le second flux mince** : le multiplicateur, et une nulle exacte sans une seule simulation (`h179_flux_boost.py`)
+
+Le §106 a établi que la loi du multiplicateur est portée par la grille `1/80` en six
+secteurs `(41, 19, 12, 4, 2, 2)`. Sa valeur est donc `m = f(c)` où `c` est la classe
+d'**un mot précis** — le `(N+2)`-ième, immédiatement après celui du bonus — et `f` une
+partition de `Z/80` en six blocs de ces tailles.
+
+Quand le multiplicateur prend l'une de ses deux valeurs les plus rares, il fixe la
+classe de ce mot à **deux valeurs sur quatre-vingts** : `5,32` bits sur un mot
+identifié, contre `4,32` pour le bonus et `2,70` pour les numéros. C'est l'observable
+le plus net de toute l'archive.
+
+### Ce qui est hors d'atteinte, et pourquoi
+
+La partition `f` est **inconnue** : on sait qu'il existe un bloc de `41` classes, un
+de `19`, et ainsi de suite, mais pas lesquelles. Toute statistique qui dépend de `f`
+— l'énergie additive au premier chef, qui a besoin des classes elles-mêmes — est donc
+inaccessible. Il faut le dire plutôt que de l'omettre.
+
+Reste ce qui est **invariant par renommage des blocs** : l'autocorrélation de la suite
+des valeurs. Une période, un cycle de réamorçage, une réutilisation de flux
+apparaîtraient dans `(m_t)` quelle que soit `f`.
+
+### La nulle est exacte, et c'est ce qui distingue ce test du §189
+
+Le §189 avait dû calibrer l'autocorrélation du boost **par permutation**, et
+seulement jusqu'au décalage `100`. Ici, le §106 donne les probabilités **théoriques
+exactes**, donc le centrage se fait sur la vraie valeur et non sur une moyenne
+estimée — et le théorème du §7.29 s'applique tel quel :
+
+        Var(C_j(d)) = n_d · (p_j(1−p_j))²        exactement.
+
+**Centrer sur la moyenne empirique détruirait l'exactitude** : c'est précisément
+pourquoi le §189 avait besoin de permutations et pas celui-ci. Six transformées de
+Fourier, aucune simulation, et un balayage à `35 280` décalages au lieu de `100`.
+
+### Le résultat, et une confirmation en passant
+
+| valeur | secteur | `p` théorique | `p` mesuré | max `\|z\|` | décalage |
+|---|---|---|---|---|---|
+| `1` | `41` | `0,51250` | `0,51193` | `−3,951` | `29 596` |
+| `2` | `19` | `0,23750` | `0,23797` | `+4,600` | `8 177` |
+| `3` | `12` | `0,15000` | `0,15060` | `+4,600` | `21 722` |
+| `4` | `4` | `0,05000` | `0,04996` | `+4,211` | `5 279` |
+| `5` | `2` | `0,02500` | `0,02465` | `+4,416` | `15 831` |
+| `10` | `2` | `0,02500` | `0,02490` | `+5,042` | `6 256` |
+
+Seuil de Bonferroni sur `211 680` cases : `5,168`. Maximum observé `5,042`,
+`p = 0,0975`. **Conforme.**
+
+Et les six fréquences mesurées collent aux valeurs théoriques à moins de `0,06` point
+de pourcentage : **la grille `1/80` du §106 se trouve confirmée par un chemin
+entièrement indépendant**, puisque ce test ne l'utilisait que comme centrage.
+
+**Ligne de registre.** `h179.flux_boost`, piste B, conforme, `m_extra = 211 679`.
+
+---
