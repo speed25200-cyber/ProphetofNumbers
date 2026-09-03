@@ -21494,3 +21494,87 @@ au-delà de cinq, on quitte la plus petite grille que le barème vende.
 `m_extra = 24 040 015`.
 
 ---
+
+## 219. **La courbe variance-temps** : le défaut diffus qu'un maximum ne peut pas voir (`h198_courbe_variance_temps.py`)
+
+### Le trou était dans la statistique elle-même
+
+Le §194 calcule l'autocorrélation **exacte** de chaque numéro à chaque retard jusqu'à
+`35 280`, et retient le **maximum** de `|z|`. Il agrège aussi sur les quatre-vingts numéros
+**à retard fixé**. Ce qu'il ne fait **jamais**, c'est agréger **sur les retards** — et c'est
+là qu'une classe entière de défauts se cache.
+
+Soit une corrélation diffuse `ρ(d) = δ` pour tout `d ≤ D`. Chaque retard pris seul donne
+`z = δ√n`, invisible si `δ` est petit. Mais
+
+    Var(S_L) = L·γ(0) + 2·Σ_{d=1}^{L−1}(L−d)·γ(d)     ⟹     F(L) = 1 + δ·(L−1)
+
+**Le facteur de Fano croît linéairement avec l'échelle.** À `L = 2048`, une corrélation
+diffuse de `δ = 10⁻³` — parfaitement invisible retard par retard — donne `F = 3`.
+
+### Ce que ça vise, et ce n'est pas une abstraction
+
+C'est le mode de défaillance **classique** des vraies machines de loterie :
+
+* un **quota** — « chaque numéro doit sortir `n/4` fois par période » — donne `F < 1` à
+  l'échelle de la période, et nulle part ailleurs ;
+* une **dérive** lente des marges donne `F > 1` croissant ;
+* un **réservoir rebattu** tous les `k` tirages donne un creux exactement à `L = k`.
+
+Aucun des trois ne déplace la marge globale, aucun ne fait de pic à un retard particulier,
+et **les trois seraient exploitables** : sous quota, un numéro en retard est *réellement*
+plus probable — la seule circonstance où le raisonnement du joueur serait juste.
+
+### Les témoins, et les deux fautes qu'ils m'ont values
+
+`1 782` statistiques : `A` les `80` numéros × `21` échelles de `2` à `2 048` sur fenêtres
+disjointes ; `B` l'agrégée `S(L) = Σ_i (F̂_i(L)−1)/√80` à chaque échelle ; `C` alignée sur
+la **nuit** (`204` tirages, `345` nuits complètes).
+
+| témoin | ce qu'il produit | vu à |
+|---|---|---|
+| **quota parfait** — chaque nuit équilibrée à `51` sorties par numéro | `F(204) = 0,0000` | `z = −99,0` |
+| **corrélation diffuse** — poids sinusoïdaux de période `12 000` | `B` : `+0,00 → +0,13 → +2,01 → +7,37` | `z = +24,9` |
+
+*Et mes deux premiers témoins étaient faux, tous les deux.* Le premier exigeait que
+l'agrégée du quota descende sous `−20` : c'est **impossible**, `S = Σ(F−1)/√80` valant au
+mieux `−√80 = −8,944` quand tous les `F` sont nuls, c'est-à-dire quand le quota est
+*parfait*. Le seuil condamnait un instrument qui marchait. Le second, censé produire une
+corrélation **diffuse**, ne produisait qu'un effet de **retard 1** — il ne pouvait pas
+montrer la croissance qu'on lui demandait de montrer. Les seuils sont maintenant pris sur
+répliques, jamais fixés à la main.
+
+### Ce que dit l'archive
+
+| échelle | fenêtres | `F` moyen | `F` min | `F` max | `B` agrégée |
+|---|---|---|---|---|---|
+| `2` | `35 280` | `1,00109` | `0,9842` | `1,0136` | `+0,010` |
+| `32` | `2 205` | `0,99891` | `0,9015` | `1,0695` | `−0,010` |
+| `256` | `275` | `0,99778` | `0,7940` | `1,2357` | `−0,020` |
+| `1024` | `68` | `1,03051` | `0,6262` | `1,6076` | `+0,273` |
+| `2048` | `34` | `1,02994` | `0,5015` | `1,7130` | `+0,268` |
+| **nuit `204`** | `345` | `1,00328` | `0,7483` | `1,2498` | `+0,029` |
+
+Les `z` réduits de la famille `B`, d'un bout à l'autre de la ladder :
+
+`+1,82  −0,29  +1,70  +0,27  −1,11  −0,51  −0,73  −0,56  −0,40  −0,38  −0,61  +0,82
++0,36  +0,11  −0,23  +0,50  +0,50  +0,41  +1,60  +0,95  +1,16`
+
+**Aucune croissance.** La courbe erre autour de zéro, là où le témoin diffus montait de
+`+0,00` à `+7,37`. Maximum réduit `3,994` (numéro `53`, échelle `1024`) contre un
+95ᵉ centile de `4,693`. **`p = 0,3035`. Verdict : conforme.**
+
+### Ce que ça borne
+
+Il n'y a **ni quota, ni dérive, ni réservoir** — à aucune des vingt et une échelles, ni à
+celle de la nuit, qui est la seule à laquelle un quota serait implémenté. En ordre de
+grandeur, la sensibilité atteinte exclut une dérive sinusoïdale de longue période dont
+l'amplitude sur les poids dépasserait environ **`1 %`**.
+
+Cela ferme la dernière justification possible du pari le plus répandu chez les joueurs :
+**« ce numéro est en retard, il doit sortir »**. Il n'y a pas de comptable derrière la
+machine.
+
+**Ligne de registre.** `h198.courbe_variance_temps`, piste B, conforme, `m_extra = 1 781`.
+
+---
