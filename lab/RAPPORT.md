@@ -20443,3 +20443,42 @@ deux moitiés de `64` bits.
 **Ligne de registre.** `h181.graine_moderne`, piste B, conforme.
 
 ---
+## 201. **L'échauffement** : l'angle mort que je m'étais créé au §200 (`h182_echauffement.py`)
+
+Le §200 balaye `9,83·10⁹` graines d'horloge et ne trouve rien. Mais il suppose, **sans
+le dire**, que le premier mot tiré après l'amorçage est le premier mot du tirage.
+
+Une machine réelle ne se comporte presque jamais ainsi. Elle s'amorce, puis consomme
+quelques mots pour autre chose — une initialisation, un identifiant, un mélange
+préalable, un test — avant de tirer les numéros. Le décalage est petit, inconnu, et il
+suffit à faire échouer **tout** le balayage précédent.
+
+C'est un angle mort que j'ai créé moi-même en écrivant l'outil, et le §200 aurait été
+un résultat négatif trompeur si je m'y étais arrêté.
+
+### Le troisième axe
+
+Même panel — cinq générateurs à un seul pas × deux échantillonneurs × graines
+d'horloge — plus le nombre de mots **jetés après l'amorçage**, de `0` à `300` :
+
+| balayage | cibles | fenêtre | essais | appariements |
+|---|---|---|---|---|
+| **A** débuts de nuit | `346` | `±3 600 s` | `7,500·10⁹` | **`0`** |
+| **B** échantillon réparti | `2 000` | `±60 s` | `7,284·10⁸` | **`0`** |
+
+**`8,228·10⁹` essais de plus, zéro appariement.** Avec le §200, le total des deux
+sections atteint **`1,81·10¹⁰` essais de graine**, pour une espérance de faux de
+`5,1·10⁻⁹`.
+
+*Témoin.* Cinq graines plantées **avec** échauffement — `37`, `5`, `128`, `200` et `0`
+mots, sur cinq couples générateur × échantillonneur différents — sont toutes retrouvées
+à l'échauffement exact. `5/5`.
+
+Un détail qui n'en est pas un : l'outil rend aussi l'échauffement `38` et `39` quand
+`37` est planté, parce que les mots jetés à ces positions donnaient des classes déjà
+vues. C'est le comportement correct, et le vérifier évite de prendre une redondance
+pour un défaut.
+
+**Ligne de registre.** `h182.echauffement`, piste B, conforme.
+
+---
