@@ -47,9 +47,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import h181_graine_moderne as G                                        # noqa: E402
 
 POOL, DRAWN = 80, 20
-EXP_ID = "h183.graines_derivees"
-FJETON = "/tmp/h183_jeton.json"
-FEN = 100
+EXP_ID = "h183b.graines_derivees"
+FJETON = "/tmp/h183b_jeton.json"
+FJOURNAL = "/tmp/h183b_journal.json"
+# Le premier jeton (h183) declarait une fenetre de +-100 et un echauffement de 0 a 50, soit
+# 5,8e10 essais — environ quatre heures, sans reprise possible entre deux redemarrages du
+# conteneur. Il a ete ABANDONNE AVANT TOUT RESULTAT, et re-scelle ici sur une grille
+# executable et journalisee. Aucune donnee n'avait ete regardee : ce n'est pas un choix
+# apres coup, c'est un choix de faisabilite.
+FEN = 20
 WMAX = 50
 
 
@@ -154,19 +160,24 @@ if __name__ == "__main__":
 
     say(f"h183 : {N} tirages, {len(BASES)} bases, fenetre +-{FEN}, "
         f"echauffement 0..{WMAX}")
+    J = json.load(open(FJOURNAL, encoding="utf-8")) if os.path.exists(FJOURNAL) else {}
     trouves = []
     total = 0.0
     for nom, base in BASES:
-        G.ecrire_cibles("/tmp/h183.bin", zip(base, M0, M1))
-        out = G.lancer("/tmp/h183.bin", 3, FEN, 1, WMAX)
-        n_app = 0
-        for L in out.splitlines():
-            if L.startswith("APPARIEMENT"):
-                trouves.append(f"[{nom}] {L}")
-                say("   " + f"[{nom}] {L}")
-                n_app += 1
         e = N * (2 * FEN + 1) * 10 * (WMAX + 1)
         total += e
+        if nom in J:
+            n_app, lignes = J[nom]["n"], J[nom]["lignes"]
+        else:
+            G.ecrire_cibles("/tmp/h183b.bin", zip(base, M0, M1))
+            out = G.lancer("/tmp/h183b.bin", 3, FEN, 1, WMAX)
+            lignes = [L for L in out.splitlines() if L.startswith("APPARIEMENT")]
+            n_app = len(lignes)
+            J[nom] = {"n": n_app, "lignes": lignes}
+            json.dump(J, open(FJOURNAL, "w", encoding="utf-8"))
+        for L in lignes:
+            trouves.append(f"[{nom}] {L}")
+            say("   " + f"[{nom}] {L}")
         say(f"   {nom:>24} : {e:.3e} essais, {n_app} appariement(s)"
             + ("   (espace couvert ENTIEREMENT)"
                if nom in ("numero de nuit", "numero dans la nuit") else ""))

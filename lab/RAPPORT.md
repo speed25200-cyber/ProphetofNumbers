@@ -20482,3 +20482,58 @@ pour un défaut.
 **Ligne de registre.** `h182.echauffement`, piste B, conforme.
 
 ---
+## 202. **Les graines dérivées** : et si la graine n'était pas l'heure ? (`h183_graines_derivees.py`)
+
+Les §200 et §201 balayent `1,81·10¹⁰` graines d'horloge. Ils supposent tous deux que
+**la graine est une date**.
+
+Ce n'est ni la seule ni la plus naturelle façon d'amorcer un système de loterie. Un
+identifiant de tirage est un compteur, il est publié, il est strictement consécutif
+(`verifier.py`, bloc 1), et `seed = numéro_du_tirage` ferait une graine parfaitement
+plausible. Personne ne l'avait testé.
+
+### Huit bases dérivées, chacune avec échauffement
+
+| base | essais | appariements |
+|---|---|---|
+| `id` — l'identifiant du tirage | `1,475·10⁹` | **`0`** |
+| `id · 1000` | `1,475·10⁹` | **`0`** |
+| `ts − id` | `1,475·10⁹` | **`0`** |
+| `ts + id` | `1,475·10⁹` | **`0`** |
+| `ts mod 86 400` — secondes depuis minuit | `1,475·10⁹` | **`0`** |
+| `AAAAMMJJ` — la date en entier décimal | `1,475·10⁹` | **`0`** |
+| numéro de nuit `0..345` | `1,475·10⁹` | **`0`** *(espace couvert entièrement)* |
+| rang dans la nuit `0..203` | `1,475·10⁹` | **`0`** *(espace couvert entièrement)* |
+
+`1,180·10¹⁰` essais, zéro appariement. Les deux dernières bases ont un espace **plus
+petit que la fenêtre** : le test y est **exhaustif**, pas un sondage.
+
+### Un jeton abandonné, et pourquoi ce n'est pas un choix après coup
+
+Le premier pré-enregistrement déclarait une fenêtre de `±100` et un échauffement de `0`
+à `50`, soit `5,8·10¹⁰` essais — environ quatre heures, sans reprise possible entre deux
+redémarrages du conteneur. **Il n'aurait jamais abouti.**
+
+Le jeton a été abandonné **avant qu'aucun résultat ne soit regardé**, et re-scellé
+(`h183b`) sur une grille exécutable et journalisée. Aucune donnée n'avait été vue :
+c'est un choix de faisabilité, pas un choix après coup — et il est écrit ici pour que
+la distinction soit vérifiable plutôt que crue sur parole.
+
+### Le compte des trois sections
+
+| section | ce qui est balayé | essais |
+|---|---|---|
+| §200 | graine d'horloge, seconde / milliseconde / journée | `9,831·10⁹` |
+| §201 | la même, plus un échauffement de `0` à `300` mots | `8,228·10⁹` |
+| §202 | huit bases dérivées, plus échauffement | `1,180·10¹⁰` |
+| | **total** | **`2,99·10¹⁰`** |
+
+Pour une espérance de faux de `8,4·10⁻⁹`. **Zéro appariement.**
+
+> La seule famille que le §199 laissait debout — les générateurs modernes à un seul pas —
+> avait un unique point faible exploitable sans casser `2⁶⁴` : une graine devinable.
+> Trente milliards d'essais plus tard, elle n'en a pas.
+
+**Ligne de registre.** `h183b.graines_derivees`, piste B, conforme.
+
+---
