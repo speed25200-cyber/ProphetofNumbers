@@ -339,6 +339,45 @@ def bloc_flux_mince():
         f"{P.sum():.6f}", "1")
 
 
+# ======================================================================================
+# 10. LES SECTIONS DE GRAINE (§200-§205) et l'esperance a TROIS termes du flux mince
+# ======================================================================================
+
+def bloc_graines():
+    print("\n10. LES SECTIONS DE GRAINE, et l'esperance a trois termes du flux mince")
+    import lab
+    L = {r["id"]: r for r in lab.ledger()}
+    for cle in ("h181.graine_moderne", "h182.echauffement", "h183b.graines_derivees",
+                "h184.graine_exhaustive", "h185.sous_seconde"):
+        e = L.get(cle)
+        dit(f"{cle} : zero appariement",
+            bool(e) and e["verdict"] == "conforme" and e["observed"] == 0.0,
+            f"{e['observed']:.0f} appariement(s)" if e else "ABSENTE", "0")
+
+    # l'esperance a TROIS termes du flux mince : 4^3 |S| / 20, verifiee par enumeration.
+    # C'est la valeur que h180 appliquait a tort a 3,2 dans sa premiere version.
+    B = [set(range(4 * j, 4 * j + 4)) for j in range(DRAWN)]
+    S = [0, 1, 2, 3]
+    tot = 0
+    for b1 in B:
+        for b2 in B:
+            for b3 in B:
+                for uu in b1:
+                    for vv in b2:
+                        for ww in b3:
+                            for dd in S:
+                                w = (uu + vv + ww + dd) % POOL
+                                tot += sum(w in bt for bt in B)
+    moy = tot / (DRAWN ** 4)
+    dit("E[T3] du flux mince = 4^3|S|/20", proche(moy, 64 * len(S) / 20.0, 1e-12),
+        f"{moy:.6f}", f"{64*len(S)/20.0:.6f}")
+
+    # et la moyenne du vecteur mixte des 41 statistiques de h178
+    m = (21 * 0.8 * len(S) + 20 * 64 * len(S) / 20.0) / 41
+    dit("moyenne des 41 statistiques melangees", proche(m, 7.8829, 1e-3),
+        f"{m:.4f}", "7,8829")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -353,6 +392,7 @@ if __name__ == "__main__":
     bloc_registre()
     bloc_cache(ids, ts, nums, bonus, boost)
     bloc_flux_mince()
+    bloc_graines()
 
     print("\n" + "=" * 78)
     if ECHECS:
