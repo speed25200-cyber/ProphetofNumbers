@@ -22509,3 +22509,169 @@ dit autre chose :
 **Ligne de registre.** `h206.borne_information`, piste B, conforme, `m_extra = 2`.
 
 ---
+
+## 228. **Le spectre des retards** : tous les retards à la fois, pas seulement les courts (`h207_spectre_des_retards.py`)
+
+### Le trou que le dossier avait laissé
+
+Le §219 mesure la corrélation jusqu'à l'échelle `2 048`. Le §220 mesure le transfert au
+retard `1`. Le §221 le mesure au retard d'une nuit. Le §199 balaie quelques retards choisis.
+
+> **Aucune de ces expériences ne peut voir un retard de `31 417`.**
+
+Or c'est exactement la forme qu'aurait le défaut le plus exploitable de tous : un générateur
+qui **reboucle**. Un LCG `mod 2³²` mal ensemencé, un compteur qui repasse, une graine tirée
+d'un vivier trop petit — tout cela produit une répétition à un retard **unique et
+arbitraire**, invisible à qui ne regarde que le voisinage.
+
+### L'arme : l'autocorrélation complète par FFT
+
+On centre l'archive **exactement**, `c[i,n] = x[i,n] − 1/4`, ce qui a deux vertus qui ne
+sont pas des approximations :
+
+  * `E[c] = 0` sous SRS exactement — la marge est `20/80` par construction ;
+  * `Σ_n c[i,n] = 0` exactement pour chaque tirage — vingt numéros sur quatre-vingts.
+
+On calcule alors, pour **tous** les retards d'un coup,
+
+    R(d) = Σ_n Σ_i c[i,n]·c[i+d,n]     par     R = irfft( Σ_n |rfft(c_n)|² )
+
+Quatre-vingts transformées, une seule inverse, **`35 280` retards couverts** là où la boucle
+naïve demanderait `2·10¹¹` produits. Le contrôle d'exactitude est direct : aux retards `1`,
+`5` et `977`, la FFT et le produit terme à terme donnent les mêmes six décimales.
+
+La statistique est `T(d) = R(d)/√(N−d)`, de variance à peu près constante en `d`, et le test
+porte sur `max_d |T(d)|`, calibré par la **loi empirique du maximum** (§7.32) sur `200`
+répliques SRS avec normalisation laisser-un-dehors.
+
+### Le témoin planté, et ce qu'il coûte de le lire honnêtement
+
+On plante une répétition partielle au retard `31 417` : sur **un tirage sur trente-sept**,
+on force `m` numéros communs avec le tirage situé `31 417` plus loin.
+
+| `m` numéros forcés | `\|T(31417)\|` | `max_d \|T(d)\|` | à quel retard |
+|---|---|---|---|
+| `0` (témoin vide) | `1,90` | `7,52` | `25 455` |
+| `2` | `4,44` | `6,65` | `12 066` |
+| **`3`** | **`12,37`** | `12,37` | **`31 417`** |
+| `4` | `15,73` | `15,73` | `31 417` |
+| `6` | `22,08` | `22,08` | `31 417` |
+
+**Le seuil est `m = 3`, pas `m = 2`.** J'avais écrit dans le pré-enregistrement qu'à `m = 2`
+le retard planté ressortirait déjà : c'est faux, `4,44` reste sous un fond de `6,65`. La
+ligne de registre a été corrigée en conséquence, avec la mention explicite de la correction —
+un pré-enregistrement scelle l'hypothèse et la statistique, pas les affirmations *post hoc*
+sur la sensibilité, qui doivent suivre la mesure.
+
+Et l'échelle du défaut complet : une répétition **totale** de période `P` donnerait
+`T(P) = 1 058 400/√(N−P)`, soit plus de **mille écarts-types**. Toute période inférieure à la
+longueur de l'archive serait vue avec certitude, pas avec probabilité.
+
+### Ce que rend l'archive
+
+    |T| max brut = 6,80   au retard 25 027
+    max |z|      = 4,542
+    95e centile sous SRS = 5,102        p empirique = 0,33
+
+Les huit retards les plus forts (`25 027`, `29 685`, `21 691`, `14 623`, `7 849`, `17 278`,
+`12 047`, `33 030`) n'ont aucune structure commune : ni multiples, ni diviseurs, ni voisins.
+C'est la signature d'un maximum de bruit sur trente-cinq mille tirages au sort, pas celle
+d'une période.
+
+> **Le générateur ne reboucle pas dans la fenêtre de l'archive**, et cette phrase couvre
+> désormais *tous* les retards, pas une liste.
+
+**Ligne de registre.** `h207.spectre_des_retards`, piste B, conforme, `m_extra = 35 279`.
+
+---
+
+## 229. **La distribution des distances** : les 2,49 milliards de paires de tirages (`h208_distribution_des_distances.py`)
+
+### L'objet que le dossier n'avait jamais formé
+
+Toutes les expériences précédentes regardent l'archive **tirage par tirage** (les marges),
+**numéro par numéro** (les paires, les parités), ou **retard par retard** (les transferts).
+
+Aucune ne la regarde comme un **nuage de `70 560` points** dans l'espace des
+`C(80,20) = 3,5·10¹⁸` tirages possibles, pour mesurer comment ces points sont répartis **les
+uns par rapport aux autres**. C'est pourtant l'objet naturel : en théorie des codes, c'est la
+**distribution des distances**, et c'est le premier endroit où une structure — linéarité,
+classes latérales, espace d'états trop petit — devient visible.
+
+On calcule donc, pour les `C(70560,2) = 2 489 321 520` paires, le recouvrement
+`ov(i,j) = |tirage_i ∩ tirage_j|` et l'histogramme complet de ses vingt-et-une valeurs.
+`2·10¹¹` multiplications-accumulations en blocs BLAS, une minute.
+
+### La nulle est exacte, et c'est un théorème
+
+On pourrait croire qu'un histogramme sur des paires **qui partagent des tirages** exige une
+calibration par répliques. Il y a mieux.
+
+> **Théorème.** Sous SRS, les indicatrices `1[ov(i,j) = k]` sont deux à deux **non
+> corrélées**, donc `Var(h_k) = C(N,2)·p_k(1−p_k)` exactement.
+
+*Preuve.* Deux paires disjointes sont indépendantes. Deux paires partageant un tirage `i` :
+conditionnellement à `X_i`, les deux indicatrices sont indépendantes, et
+`E[1[ov(i,j)=k] | X_i] = p_k` — **la même valeur pour tout `X_i`**, parce que le recouvrement
+d'un ensemble *fixe* de vingt numéros avec un tirage uniforme suit la loi hypergéométrique
+**quel que soit** cet ensemble. Donc `E[produit] = E[p_k²] = p_k²`, et la covariance est
+nulle. ∎
+
+La règle du labo veut une nulle simulée, parce que l'audit s'était trompé trois fois en
+prenant une formule pour une espérance. On fait donc **les deux** : la formule est vérifiée
+contre `60` répliques SRS à deux tailles d'archive avant d'être appliquée à taille réelle.
+
+| taille | rapport `sd` empirique / `sd` exacte (cellules `3, 5, 8, 11`) | écart de la moyenne |
+|---|---|---|
+| `5 000` | `0,98`  `0,91`  `0,83`  `1,12` | `2,17` erreurs-types |
+| `20 000` | `0,87`  `0,84`  `0,92`  `1,00` | `1,85` erreurs-types |
+
+L'empirique est légèrement **sous** la formule. C'est du bruit d'estimation : un écart-type
+sur soixante répliques est connu à `±9 %` près, et les quatre cellules d'une même série sont
+liées par leur marge. Le bloc `14` du vérificateur refait la mesure sur `300` répliques et
+rend `0,94`, `1,03`, `0,99` — la formule est juste. Il y vérifie aussi le **cœur du
+théorème** par énumération exhaustive sur l'analogue réduit `8` sur `4` : les soixante-dix
+ensembles possibles donnent **une seule et même** loi de recouvrement, et c'est bien
+l'hypergéométrique. C'est exactement l'hypothèse dont dépend la covariance nulle.
+
+### Ce que rend l'archive
+
+| `k` | observé | attendu | `sd` exacte | `z` |
+|---|---|---|---|---|
+| `0` | `2 951 942` | `2 951 602,72` | `1 717,00` | `+0,20` |
+| `3` | `310 838 371` | `310 825 937,38` | `16 492,88` | `+0,75` |
+| `5` | `580 719 501` | `580 710 761,39` | `21 100,76` | `+0,41` |
+| `7` | `282 003 731` | `282 028 815,66` | `15 813,80` | `−1,59` |
+| `10` | `9 811 528` | `9 808 175,60` | `3 125,62` | `+1,07` |
+| `13` | `21 160` | `21 080,77` | `145,19` | `+0,55` |
+| `15` | `65` | `59,62` | `7,72` | `+0,70` |
+| `16` | `2` | `1,66` | `1,29` | `+0,26` |
+| `17` … `20` | `0` | `0,027` … `7·10⁻¹⁰` | | |
+
+`max |z| = 1,586` (cellule `k = 7`), `p = 0,113`. **Les vingt-et-une cellules tiennent dans
+`±1,6 σ`.** Le recouvrement maximal de toute l'archive vaut `16` — deux paires, pour `1,66`
+attendues.
+
+### Et voici le point, qui n'est pas une nullité de plus
+
+Si le générateur est ré-ensemencé depuis un vivier de `S` états, deux tirages issus de la
+même graine sont **identiques**, et le nombre de doublons attendu vaut `C(N,2)/S` :
+
+| vivier `S` | doublons attendus | probabilité d'en voir au moins un |
+|---|---|---|
+| `2²⁴` | `148` | `1 − 10⁻⁶⁴` |
+| `2³¹` | `1,16` | `69 %` |
+| `2³²` | `0,58` | `44 %` |
+| `2³⁴` | `0,14` | `13 %` |
+
+**Doublons exacts observés : zéro.** Un seul aurait valu `p = 7·10⁻¹⁰` et aurait *nommé*
+l'ordre de grandeur de l'espace d'états. Il n'y en a pas.
+
+> Le §212 avait balayé `4,33·10¹¹` graines candidates sans en trouver une. Cette section-ci
+> dit la même chose **sans balayer** : quelle que soit la famille de générateurs, quelle que
+> soit la fonction de graine, si le vivier faisait `2³¹` états, l'archive porterait des
+> tirages identiques. Elle n'en porte aucun.
+
+**Ligne de registre.** `h208.distribution_des_distances`, piste B, conforme, `m_extra = 25`.
+
+---

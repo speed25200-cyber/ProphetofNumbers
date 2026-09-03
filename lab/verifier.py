@@ -668,6 +668,73 @@ def bloc_ordonnes():
         f"{var:.4f}", "1,7500")
 
 
+
+# ======================================================================================
+# 14. LES DEUX NULLES EXACTES DU §228 ET DU §229
+# ======================================================================================
+
+def bloc_distances():
+    print("\n14. LES NULLES EXACTES DES DISTANCES ET DU SPECTRE (§228, §229)")
+
+    # -- le coeur du theoreme du §229, verifie par ENUMERATION sur un analogue reduit :
+    #    le recouvrement d'un ensemble FIXE avec un tirage uniforme suit la meme loi
+    #    hypergeometrique quel que soit cet ensemble. C'est de la que vient la covariance
+    #    nulle entre deux paires partageant un tirage, donc Var = C(N,2) p (1-p) exacte.
+    from itertools import combinations
+    P8, D4 = 8, 4
+    tous = list(combinations(range(P8), D4))
+    lois = set()
+    for x in tous:
+        h = [0] * (D4 + 1)
+        for y in tous:
+            h[len(set(x) & set(y))] += 1
+        lois.add(tuple(h))
+    dit("loi du recouvrement independante de l'ensemble fixe (8 sur 4, 70 ensembles)",
+        len(lois) == 1, f"{len(lois)} loi(s) distincte(s)", "1")
+    from math import comb
+    exact = tuple(comb(D4, k) * comb(P8 - D4, D4 - k) for k in range(D4 + 1))
+    dit("et cette loi est bien l'hypergeometrique", lois.pop() == exact,
+        "identique", "C(4,k)C(4,4-k)")
+
+    # -- la variance exacte, contre simulation
+    rng = np.random.default_rng(1229)
+    n0, reps = 700, 300
+    F = np.zeros((reps, DRAWN + 1))
+    for r in range(reps):
+        m = np.zeros((n0, POOL), np.float32)
+        idx = np.argsort(rng.random((n0, POOL)), axis=1)[:, :DRAWN]
+        m[np.arange(n0)[:, None], idx] = 1.0
+        G = m @ m.T
+        F[r] = np.bincount(G[np.triu_indices(n0, 1)].astype(np.intp), minlength=DRAWN + 1)
+    npair = n0 * (n0 - 1) // 2
+    tot = comb(POOL, DRAWN)
+    for k in (4, 5, 6):
+        pk = comb(DRAWN, k) * comb(POOL - DRAWN, DRAWN - k) / tot
+        ex = (npair * pk * (1 - pk)) ** 0.5
+        em = float(F[:, k].std(ddof=1))
+        dit(f"ecart-type exact de h_{k} (formule contre {reps} repliques)",
+            0.85 < em / ex < 1.18, f"{em:.2f} contre {ex:.2f}", "rapport dans [0,85 ; 1,18]")
+
+    # -- l'identite FFT du §228 : R(d) par transformee == R(d) terme a terme
+    n1 = 3000
+    m = np.zeros((n1, POOL))
+    idx = np.argsort(rng.random((n1, POOL)), axis=1)[:, :DRAWN]
+    m[np.arange(n1)[:, None], idx] = 1.0
+    C = m - 0.25
+    L = 1 << int(np.ceil(np.log2(2 * n1)))
+    Cp = np.zeros((POOL, L))
+    Cp[:, :n1] = C.T
+    R = np.fft.irfft((np.abs(np.fft.rfft(Cp, axis=1)) ** 2).sum(axis=0), n=L)
+    ecart = max(abs(float((C[:-d] * C[d:]).sum()) - float(R[d])) for d in (1, 7, 113, 977))
+    dit("autocorrelation par FFT identique au produit terme a terme",
+        ecart < 1e-6, f"ecart max {ecart:.2e}", "< 1e-6")
+
+    # -- la parite de vingt : le noyau trivial du §231
+    dit("20 est pair, donc le vecteur tout-un est dans le noyau GF(2)",
+        DRAWN % 2 == 0, f"20 mod 2 = {DRAWN % 2}", "0")
+
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -686,6 +753,7 @@ if __name__ == "__main__":
     bloc_dependance()
     bloc_bareme()
     bloc_ordonnes()
+    bloc_distances()
 
     print("\n" + "=" * 78)
     if ECHECS:
