@@ -17,6 +17,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
 | Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
+| LCG 2⁶⁴ à sortie de poids fort | **NON exclu** — 6,32 bits/tirage, sous le seuil de LLL (§6 ter) |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
@@ -198,6 +199,39 @@ jamais deviner le multiplicateur. Étendu aux ordres 1 et 2, modulo 2 à 16, sur
 suites observables (bonus−1, rang du bonus, indice du boost, plus petit et plus grand
 numéro, somme du tirage). **La plus longue plage de correspondance est au niveau du
 hasard partout** (une famille congruentielle produirait un accord sur l'archive entière).
+
+### Ce qui n'est PAS exclu — et pourquoi, chiffré
+
+Une famille classique résiste : le **LCG modulo 2⁶⁴ à sortie de poids fort**
+(`out = s >> 32`) avec un état 64 bits arbitraire. Le balayage 2³² couvre tout LCG
+modulo 2³² et tout LCG 64 bits atteignable depuis une graine 32 bits ; l'algèbre F2
+ne s'applique pas à une mise à jour congruentielle ; `modlcg` ne voit qu'une sortie
+en bits **faibles**. Reste ce cas.
+
+L'outil naturel est la réduction de réseau : le canal bonus fixe chaque état à un
+intervalle de 2⁵⁷·⁷ sur 2⁶⁴, la différence élimine l'incrément, et il reste un
+*Hidden Number Problem*. **Ça ne marche pas ici, et `lcg_lll.py` mesure pourquoi**
+plutôt que de l'affirmer :
+
+| K échantillons | dimension | norme cible | heuristique gaussienne | marge | facteur LLL requis |
+|---|---|---|---|---|---|
+| 13 | 14 | 2⁵⁹·⁶ | 2⁵⁸·⁸ | 2⁻⁰·⁷ | 2³·⁵ |
+| 20 | 21 | 2⁵⁹·⁹ | 2⁶⁰·⁸ | 2⁺⁰·⁹ | 2⁵·² |
+| 30 | 31 | 2⁶⁰·² | 2⁶²·² | 2⁺²·⁰ | 2⁷·⁸ |
+| 60 | 61 | 2⁶⁰·⁶ | 2⁶³·⁸ | 2⁺³·¹ | 2¹⁵·² |
+| 120 | 121 | 2⁶¹·¹ | 2⁶⁴·⁸ | 2⁺³·⁷ | 2³⁰·² |
+
+LLL fournit environ 2^(n/4) ; la marge devrait le dépasser — elle plafonne à 2³·⁷.
+En dessous de K ≈ 20 le vecteur cible n'est même pas le plus court. La raison est
+simple : les attaques classiques sur LCG tronqué supposent qu'on voit **la moitié**
+des bits de chaque sortie ; ici on en voit **6,32 sur 64**.
+
+Le self-test le confirme empiriquement : sur un LCG64 synthétique de multiplicateur
+et de W connus, l'attaque **échoue aussi**. Aucun résultat négatif n'est donc rapporté
+depuis cet outil — c'est une lacune, pas une exclusion.
+
+Et c'est précisément la lacune que l'ordre de tirage referme : 20 indices ordonnés
+font 126 bits par tirage, très au-delà de ce que le réseau exige.
 
 ### Généralisation — tirages ordonnés nécessaires par famille
 
