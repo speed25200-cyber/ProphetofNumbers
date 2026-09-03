@@ -21213,6 +21213,117 @@ C'est là, et nulle part ailleurs, que subsiste une place pour une grille exploi
 
 ---
 
+## 214. **Les échantillonneurs structurels** : le balayage qui teste mon propre argument (`h194_echantillonneurs_structurels.py`, `tools/graine_structurels.c`)
+
+### Nommer un trou n'est pas le fermer
+
+Le §211 se termine sur un aveu que j'avais cru suffisant :
+
+> « Six n'est pas tous. Un Fisher-Yates partiel sur un tableau de quatre-vingts, un tirage
+> par ordre de tri de quatre-vingts clés aléatoires, un rejet sur un intervalle décalé —
+> chacun est un septième cas. **La différence est qu'à présent je le dis.** »
+
+Le dire valait mieux que de le taire. Ce n'était toujours pas l'avoir fermé, et un dossier
+qui se contente de nommer ses angles morts finit par en vivre.
+
+### Quatre règles, et elles n'ont pas la même forme que les six
+
+Les six échantillonneurs du §211 partagent une structure : réduire **un** mot à **une**
+classe, et recommencer en rejetant les doublons jusqu'à en tenir vingt. Les quatre d'ici
+sont d'une autre espèce.
+
+| | règle | mots consommés | rejet |
+|---|---|---|---|
+| `0` | **Fisher-Yates partiel, modulo** — `k = j + (w mod (80−j))`, échange, on sort `tab[j]` | exactement `20` | aucun |
+| `1` | **Fisher-Yates partiel, troncature** — `k = j + ⌊w(80−j)/2³²⌋` | exactement `20` | aucun |
+| `2` | **Tri de 80 clés** — quatre-vingts mots, on garde les indices des vingt plus petits. C'est `sorted(range(80), key=random)[:20]` | exactement `80` | aucun |
+| `3` | **Sélection séquentielle (Knuth S)** — on parcourt `0..79` et l'on retient `i` avec probabilité `(20−m)/(80−i)` | au plus `80` | aucun |
+
+Le `3` sort **trié naturellement**, ce qui en fait le candidat le plus vraisemblable pour
+une machine qui publie des numéros triés.
+
+### Pourquoi ce n'est pas une couverture de plus
+
+Le §7.33 démontre que la **gigue** du rejet — le nombre de mots consommés par tirage varie
+autour de `E[N] = 22,8487` — désaligne le flux et rend invisible toute relation creuse à
+l'échelle du tirage. C'est l'argument central qui, dans tout ce dossier, protège les
+générateurs modernes ; c'est lui qui rend le §7.36 possible et qui justifie d'avoir arrêté
+la famille d'attaques par alignement.
+
+**Cet argument ne s'applique à aucun des quatre.** Leur pas est **constant** — vingt mots,
+ou quatre-vingts — la gigue est **nulle**, et l'alignement est exact pour toujours.
+
+> Ce fichier ne teste donc pas une hypothèse de plus. **Il teste l'hypothèse dont dépend la
+> validité de mon principal argument négatif.** Si la machine échantillonne ainsi, non
+> seulement ce balayage peut apparier, mais toute la famille d'attaques que le §7.33 avait
+> déclarées mortes redevient vivante.
+
+### Le témoin, en deux parties
+
+`graine_structurels.c` fait `#include "graine_exhaustive.c"` avec le pilote débranché : les
+cinq générateurs et la table de hachage sont *le même code objet* que celui validé au §211.
+
+L'autotest vérifie **deux** choses, et la seconde parce qu'un défaut y serait muet :
+
+1. **vingt graines plantées, vingt retrouvées** — `20/20` ;
+2. **les marges des quatre règles sont uniformes à `1/4`** sur `40 000` tirages, `max |z| <
+   3,31` partout. Ce contrôle existe parce qu'un Fisher-Yates mal écrit — le `k = w mod 80`
+   au lieu de `k = j + (w mod (80−j))`, la faute classique — produit des doublons, donc des
+   tirages à moins de vingt numéros distincts, donc un masque qui **ne peut jamais**
+   apparier. Le balayage chercherait un objet qui n'existe pas, et ne dirait rien.
+
+Le harnais de vérification pousse ce point plus loin (bloc `11`) : par énumération exacte
+sur un analogue réduit, il montre que le mélange naïf donne `15` ensembles de sortie au lieu
+de `10`, dont des ensembles à **un seul élément**, avec des probabilités `1/25` et `2/25`.
+Ma première version de ce contrôle comparait les **marges** et le déclarait conforme —
+comptées avec multiplicité, ses cinq marges valent exactement `2/5`, comme celles du bon.
+Le bon invariant est la loi de l'**ensemble**, uniforme sur les `C(n,k)` parties.
+
+### Les douze tirages ordonnés en éliminent un, gratuitement
+
+`lab/draws_ordered.csv` contient douze tirages dont **l'ordre de sortie** est visible. Ils
+ne servaient jusqu'ici qu'aux cribles du §159. Ils tranchent aussi ici, et sans calcul :
+
+* **aucun des douze n'est croissant.** Or la sélection séquentielle de Knuth parcourt
+  `0 … 79` dans l'ordre et retient au passage : sous sa forme naturelle, elle sort donc
+  **triée par indice**, et les douze devraient l'être. La probabilité d'observer zéro
+  croissant sur douze si la machine faisait cela vaut `0`. **La règle `3` est éliminée sous
+  sa forme d'affichage naturelle.**
+* le nombre de **montées** vaut `9,333` en moyenne contre `9,500` attendues sous permutation
+  uniforme de vingt éléments, de variance exacte `(n+1)/12 = 1,75`, soit `z = −0,44`. C'est
+  conforme, et c'est ce que produisent le rejet, le Fisher-Yates partiel et le tri de clés —
+  tous trois donnent un ordre uniforme.
+
+*Ce que cela n'élimine pas.* Le balayage teste l'**ensemble** produit, qui est correct quel
+que soit l'ordre d'affichage : la machine pourrait très bien sélectionner à la Knuth puis
+mélanger avant d'afficher. La règle `3` reste donc dans le balayage, et c'est la bonne
+décision — mais son implémentation la plus vraisemblable, elle, est morte.
+
+### Le résultat
+
+`2³² × 5 générateurs × 4 échantillonneurs structurels = 8,5899 × 10¹⁰ essais`, comparés à la
+table de hachage des `70 560` masques — donc à l'archive **entière**. Faux attendus
+`1,714 × 10⁻³`.
+
+**Zéro appariement.**
+
+### Ce que ça vaut, et c'est plus que la ligne du registre
+
+Ce balayage ne ferme pas seulement quatre cas de plus. **Il teste l'hypothèse dont dépend le
+principal argument négatif du dossier.** Si l'un de ces quatre échantillonneurs était le bon,
+la gigue serait nulle, l'alignement exact pour toujours, et toute la famille d'attaques que
+le §7.33 avait déclarées mortes redeviendrait vivante — c'est d'ailleurs exactement ce que le
+§224 a ensuite exploité pour porter l'attaque par réseau aux `70 560` tirages.
+
+Les deux sections se répondent : le §214 dit qu'aucune graine de `32` bits ne produit
+l'archive sous un échantillonneur sans rejet, et le §224 dit qu'aucun LCG `mod 2⁶⁴` à
+constantes publiées ne le fait non plus. La conjonction la plus favorable qui restait est
+close des deux côtés.
+
+**Ligne de registre.** `h194.echantillonneurs_structurels`, piste B, conforme, `m_extra = 0`.
+
+---
+
 ## 215. **Les parités d'ordre quatre** : le seul trou que le §7.37 laissait ouvert (`h195_parites_ordre_quatre.py`)
 
 ### Ce n'était pas une idée de plus, c'était la seule qui restait
@@ -21300,6 +21411,196 @@ générateur dont la relation la plus courte porte sur cinq classes et pas moins
 une hypothèse nettement plus étroite que celle qui vient de tomber. Le §216 la chiffre.
 
 **Ligne de registre.** `h195.parites_ordre_quatre`, piste B, conforme, `m_extra = 1 581 579`.
+
+---
+
+## 216. **La réponse, troisième version** : ce qui reste possible, chiffré
+
+Les §176 et §206 donnaient déjà « la réponse ». Elles disaient *non*. Un *non* n'est pas
+une réponse tant qu'il n'a pas de nombre attaché — celui-ci en a.
+
+### 0. La question posée, et sa réponse en un tableau
+
+Le but demandait : *« si tu arrives à prédire même cinq, dix ou moins de numéros, ce serait
+bien »*. C'est exactement ce que le §208 mesure, hors échantillon, sur `27 424` tirages que
+l'ajustement n'a jamais vus — et il faut le lire avant tout le reste :
+
+| on joue | les `k` meilleurs choix du modèle | `z` |
+|---|---|---|
+| `1` numéro | **`24,493 %`** | `−1,94` |
+| `2` numéros | `24,677 %` | `−1,76` |
+| `3` numéros | `24,763 %` | `−1,59` |
+| **`5` numéros** | **`24,946 %`** | `−0,47` |
+| `10` numéros | `24,953 %` | `−0,60` |
+| `20` numéros | `25,011 %` | `+0,23` |
+
+Le hasard donne `25,000 %`. **Les six lignes sont sous le hasard, sauf la dernière qui est
+dessus de `0,011` point.** Ce n'est pas « je n'ai pas trouvé d'avance » : c'est que le
+meilleur modèle du dossier, celui à trente et un traits qui passe neuf témoins plantés,
+choisit un peu **moins bien** qu'en tirant au sort — et d'autant moins bien qu'il est plus
+confiant, puisque le déficit est maximal sur le tout premier choix.
+
+Les quatre paris populaires, mesurés sans aucun modèle sur les mêmes tirages, disent la même
+chose : le plus chaud `24,847 %`, le plus froid `25,117 %`, le plus en retard `25,248 %`, le
+plus récent `25,084 %` — tous à moins d'un écart-type de `25 %`.
+
+Le reste de cette section dit **de combien** il n'y a rien, et ce que « rien » vaut.
+
+### 1. Ce qui est fermé, et de combien
+
+| ce qui est borné | par quoi | la borne, simultanée à 95 % |
+|---|---|---|
+| le taux de sortie d'un **numéro fixe** | §210 A, `80` statistiques, nulle binomiale exacte | `≤ 25,5576 %`, soit **`+2,23 %`** en relatif |
+| le taux d'une **paire** | §213 A, `3 160` statistiques | `± 6,3 %` en relatif |
+| le taux d'un **triplet** | §213 B, `82 160` statistiques | `± 15,6 %` |
+| une **parité d'ordre 4** | §215, `1 581 580` statistiques | portée par `≤ 2,2 %` des tirages |
+| une **parité d'ordre 5** | §218, `24 040 016` statistiques | portée par `≤ 2,3 %` des tirages |
+| les **deux queues**, `P(k/k)` et `P(0/k)`, hors échantillon | §217, cinq tailles du barème, deux sens | `max |z| = 1,57` pour un seuil de `3,02` |
+| la **variance à toute échelle** — quota, dérive, réservoir | §219, `1 782` statistiques, 21 échelles | dérive de longue période `≤ ~1 %` |
+| le **transfert croisé** `i` → `j` entre tirages | §220 (retards 1–10), §221 (retards de nuit) | `128 000` cases, rien |
+| la **chaîne du bonus**, un symbole identifié par tirage | §222, 20 retards | rien |
+| l'**état d'un LCG `mod 2⁶⁴`** par attaque algébrique | §223 (12 tirages ordonnés), §224 (70 560 via le boost) | `73 152` réseaux, `0` candidat |
+| la **graine**, si la machine s'amorce sur `32` bits ou sur une horloge | §200 à §214 | **`4,33 × 10¹¹` essais, zéro appariement** |
+
+L'écart-type d'un compte de numéro vaut `115,02` sorties sur `70 560`, soit `0,1630` point
+de pourcentage. Le maximum réellement observé sur les quatre-vingts est `|z| = 2,72`, soit
+un taux de `25,4434 %`.
+
+### 2. Ce que ça vaut en francs, et le calcul ne dépend pas de la mise
+
+Le barème relevé (`lab/bareme_observed.csv`) donne l'espérance **exacte** sous SRS :
+
+| grille | `5` | `6` | `7` | `8` | `10` |
+|---|---|---|---|---|---|
+| `E[gain]` | `1,17111` | `1,17646` | `1,19712` | `1,16682` | `1,17612` |
+
+Ces cinq nombres tiennent dans un rapport de `1,026`. Ce n'est pas un hasard : **l'opérateur
+a normalisé son barème sur un rendement cible**, ce qui permet de parler d'*une* marge de
+maison et non de cinq. Pour une mise `s`, le rendement vaut `1,171/s` et il faut donc
+multiplier son espérance par `s/1,171` pour atteindre l'équilibre.
+
+Et voici le chiffre qui tranche, **sans avoir besoin de connaître `s`** :
+
+> La meilleure grille de cinq que ce dossier ait su trouver hors échantillon (§213 D) a
+> `29` jackpots sur `35 280`. Prise à sa **borne haute unilatérale à 95 %** — donc en
+> traitant un artefact de sélection comme s'il était réel — elle multiplie `P(5/5)` par
+> `1,664`, ce qui multiplie l'espérance de gain par **`1,132`**.
+>
+> Il faudrait `s/1,171`. À la mise usuelle de `2` CHF, cela fait `1,708`.
+
+Même en poussant l'absurde jusqu'au bout — en supposant que **toute** la loi des gains, et
+pas seulement sa queue, monte du facteur `1,664` — l'espérance atteindrait `1,949`, encore
+sous `2`. Or c'est impossible : les marges bornent la moyenne à `+2,23 %`.
+
+*Et l'option EXTRA n'est pas l'échappatoire qu'on croirait.* Elle paie `1 000` sur `5/5`,
+donc bien plus convexe en apparence. Mais sa loi complète dit le contraire :
+
+| justes | `0` | `1` | `2` | `3` | `4` | `5` |
+|---|---|---|---|---|---|---|
+| probabilité | `0,2272` | `0,4057` | `0,2705` | `0,0839` | `0,0121` | `0,000645` |
+| gain EXTRA | `0` | `12` | `7` | `30` | `100` | `1 000` |
+| contribution | `0` | `4,87` | `1,89` | `2,52` | `1,21` | `0,65` |
+
+Le jackpot ne pèse que `5,8 %` de `E[EXTRA] = 11,13`, tandis que **le tier « un seul
+juste » en pèse `43,7 %`** — et « un seul juste » est le résultat le plus probable du jeu.
+L'option est donc construite pour que son espérance vive dans l'échec ordinaire et non dans
+le jackpot, ce qui la rend **moins** sensible à un avantage de queue, pas plus : la même
+borne haute de `P(5/5)` ne l'améliore que de `×1,0385`, et l'ensemble base + EXTRA de
+`×1,0473`.
+
+(Le prix de l'option EXTRA n'est pas relevé, donc sa marge de maison n'est pas calculable
+ici. Le **rapport** d'amélioration, lui, ne dépend d'aucun prix — et c'est lui qui tranche.)
+
+### 3. Ce qui reste ouvert, sans habillage
+
+1. **Une dépendance d'ordre `≥ 6`** dont toutes les marges d'ordre inférieur seraient
+   exactement uniformes. Constructible — c'est un code correcteur — mais il faut alors un
+   générateur dont la relation la plus courte porte sur six numéros publiés et pas moins.
+   On s'est arrêté à cinq pour une raison économique : cinq est la plus petite grille que
+   le barème vende (§218).
+2. **Un échantillonneur hors des dix testés.** Six au §211, quatre au §214. Ce n'est pas
+   tous, et je ne prétends plus le contraire.
+3. **Une machine qui ne s'amorce jamais dans la fenêtre de l'archive.** Tous les balayages
+   de graine cherchent le *premier* tirage issu d'un amorçage. Si le générateur tourne en
+   continu depuis avant le premier tirage archivé, ou si son état vient de `/dev/urandom`
+   et non d'une graine de `32` bits, **aucun** balayage ne peut mordre — quel qu'en soit le
+   nombre d'essais. Le §7.35 le dit : un balayage exhaustif dans une dimension et borgne
+   dans une autre ne prouve que le produit de ses couvertures.
+
+### 4. La donnée qui changerait la réponse, et elle est petite
+
+L'archive publie les vingt numéros **triés**. Or
+
+    log₂ C(80,20) = 61,617 bits          (l'ensemble, ce qui est publié)
+    log₂ 20!      = 61,077 bits          (l'ordre, ce qui ne l'est pas)
+    log₂ 80!/60!  = 122,694 bits         (le tirage complet)
+
+**Le tri jette `49,8 %` de l'information de chaque tirage** — et il jette la moitié qui
+compte le plus pour reconstruire un état, parce que l'ordre de sortie épingle la **suite
+des mots** au lieu d'un ensemble invariant par permutation. Toute la difficulté du §7.33
+— la gigue du rejet désaligne le flux — vient de là : avec l'ordre, l'alignement se lit
+directement.
+
+> Cent tirages **ordonnés**, capturés à l'écran, vaudraient mieux, pour reconstruire l'état,
+> que les soixante-dix mille tirages triés dont je dispose. C'est la seule demande que ce
+> dossier a envie de formuler.
+
+### 5. La réponse
+
+**Non, il n'y a rien à prédire dans cette archive.** Pas « je n'ai pas trouvé » : les
+bornes du tableau 1 disent *de combien* il n'y a rien. Et même en accordant à chaque écart
+le bénéfice du doute, le tableau 2 montre que le résultat resterait perdant.
+
+Ce que la session a réellement produit, et qui vaut mieux qu'un *non* de plus :
+
+* **cinq brèches réelles** trouvées dans mes propres raisonnements — un balayage de graine
+  borgne sur l'échantillonneur (§211), un modèle d'amorçage jamais testé (§212), la loi
+  jointe que l'argument du §210 laissait libre (§213), l'ordre `≥ 4` que le §7.37 nommait
+  (§215, §218), et la queue basse que le barème paie (§217) ;
+* **quatre démonstrations** que le même écart de six sigmas s'évapore en changeant de
+  fenêtre de mesure (§213, §215, §217, §218). C'est le résultat le plus transposable du
+  dossier : *un `z` obtenu sur les données qui ont choisi l'hypothèse mesure la taille de
+  la recherche, pas la qualité de l'hypothèse.*
+
+### 6. Ce que la méthode a réellement produit, puisque ce n'est pas une prédiction
+
+Le §223 mérite d'être relu à froid, parce qu'il contient le seul progrès **technique** de
+la session, et qu'il vient d'une nouvelle extérieure : RSA-260 tombé le `3` septembre `2026`
+à une technique, non à `2 700` ans de calcul.
+
+| l'outil | sur un LCG `mod 2⁶⁴` tronqué à 80 classes |
+|---|---|
+| énumération | `2⁵⁷·⁷` essais |
+| `z3` (SMT) | `unknown` après `60` s |
+| **réseau + Babai** | **état exact de 64 bits, 12 classes, `0,58` s** |
+
+Et le témoin de contrôle du §223 B a retourné mon diagnostic : `z3` échoue **aussi** sur le
+cas linéaire, celui qu'on sait résoudre. Le mur n'était pas le générateur, **c'était
+l'outil**.
+
+> *Un échec de solveur ne prouve rien tant qu'on n'a pas montré que le solveur réussit sur
+> un cas soluble.* C'est la règle que cette session ajoute au dossier, et elle vaut au-delà
+> de lui.
+
+Le §224 a porté cette attaque des `12` tirages ordonnés aux `70 560`, en remarquant que
+quatre des échantillonneurs du §214 **n'ont aucun rejet** — donc que le mot du multiplicateur
+serait un échantillon *exactement périodique*. `69 120` réseaux résolus en `217` secondes.
+Rien. C'était la conjonction la plus favorable qui restait : sans gigue, linéaire,
+constantes publiées.
+
+### 7. Ce qu'il faudrait, et ce n'est pas du calcul
+
+RSA-260 est tombé à quelqu'un **qui avait le nombre**. Ici l'asymétrie est inverse : j'ai
+l'outil — le §223 le démontre — et il me manque l'**entrée**.
+
+| ce qui débloquerait | pourquoi | ce que j'en ferais |
+|---|---|---|
+| **cent tirages ordonnés** (numéros dans l'ordre de sortie) | rend les `61,08` bits que le tri jette | `h202` tel quel, le jour même |
+| le **nom du logiciel** ou du fournisseur de RNG | supprime le balayage aveugle des familles | attaque ciblée |
+| une **seconde source** du même tirage | horodatage sous-seconde, donc graine d'horloge | `h192` avec une fenêtre étroite |
+
+**Vingt tirages ordonnés suffiraient à essayer.** C'est la seule demande que ce dossier ait
+à formuler, et elle est petite.
 
 ---
 
