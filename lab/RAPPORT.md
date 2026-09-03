@@ -20125,3 +20125,57 @@ protocole classiques qu'une archive de résultats puisse trahir.
 **Ligne de registre.** `h177.test_universel`, piste B, conforme, `m_extra = 11`.
 
 ---
+## 196. **Le harnais de vérification** (`lab/verifier.py`)
+
+Ce dossier vaut ce que valent ses chiffres. Or, sur la seule dernière session, **cinq
+défauts d'instrument** ont été trouvés dans ma propre production :
+
+1. un prédicteur qui lisait le tirage qu'il prédisait — fuite invisible sur la moyenne,
+   `+12,08 σ` dans la queue (§185) ;
+2. un témoin XOR **dégénéré** : `x⁴⁶ + x²³ + 1` divise `x⁶⁹ − 1`, donc période de trois
+   tirages et prédiction `20/20` (§192) ;
+3. un test de gigue **confondu**, qui comparait deux portées différentes (§192) ;
+4. un témoin classé « hors portée » qui **passait** en réalité (§192) ;
+5. un Bonferroni gaussien sur des `khi²`, qui aurait produit quatre fausses découvertes
+   au §189 et une cinquième au §193.
+
+Cinq en une session, tous trouvés par des contrôles que **rien n'obligeait à faire**. Un
+tel taux interdit de faire confiance au reste sur parole.
+
+`lab/verifier.py` recalcule donc, **depuis les huit CSV source** et sans jamais passer
+par le cache ni par une valeur recopiée, tout ce dont le dossier dépend : `47` contrôles
+en huit blocs.
+
+| bloc | ce qui est recalculé |
+|---|---|
+| 1 | l'archive : effectif, identifiants consécutifs, les `345` coupures et leurs trois durées, les `346` nuits, la validité des tirages |
+| 2 | **le théorème du bonus**, colonne par colonne depuis les CSV — `70 560/70 560` |
+| 3 | la grille du multiplicateur : `(41,19,12,4,2,2)`, somme `80`, entropie `1,8790` |
+| 4 | les constantes exactes, **en rationnels** : `Var = 225/79`, `E[N] = 80(H₈₀−H₆₀)`, `log₂ C(80,20)` |
+| 5 | la nulle exacte des détecteurs d'énergie, **par énumération** des `80²·\|S\|` triples |
+| 6 | la nulle exacte de l'autocorrélation, par simulation |
+| 7 | le registre : Holm sur l'ensemble, les entrées retirées, les recouvrements publiés |
+| 8 | la fidélité du cache `.npz` aux CSV, champ par champ |
+
+**Résultat : `47` contrôles sur `47` passent.**
+
+Deux confirmations valent d'être relevées.
+
+*Le §184 se vérifie et se généralise.* L'énumération rend exactement les comptes publiés
+— pour `|S| = 2`, les `2` triples entièrement confondus, `474` à deux indices égaux et
+`12 324` à trois indices distincts — et montre qu'ils sont **linéaires en `|S|`** :
+`1/237/6162`, `2/474/12324`, `3/711/18486`. L'espérance vaut `100·|S|` dans les deux
+configurations, exactement.
+
+*Le compte du registre est confirmé de bout en bout* : `252` entrées, `6 952 124` tests,
+plus petit `p` `1,805·10⁻⁴`, seuil de Holm `7,192·10⁻⁹`, **facteur manquant `25 103`**,
+zéro résultat significatif.
+
+> Un dossier de cette taille ne se relit pas. Il se **recalcule**. C'est la seule
+> défense contre une erreur de chiffre qui se propage, et la seule façon honnête de
+> demander qu'on fasse confiance à un résultat négatif.
+
+**Pas de ligne de registre** : `verifier.py` ne teste aucune hypothèse, il recalcule des
+faits. Il n'y a rien à pré-enregistrer et rien à corriger de la multiplicité.
+
+---

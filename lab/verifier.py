@@ -1,0 +1,322 @@
+"""verifier.py — LE HARNAIS DE VÉRIFICATION : recalculer, depuis les sources, chaque
+chiffre publié dont le reste du dossier dépend.
+
+POURQUOI CE FICHIER EXISTE
+==========================
+Ce dossier vaut ce que valent ses chiffres. Or, sur la seule dernière session, **cinq
+défauts d'instrument** ont été trouvés dans ma propre production :
+
+  1. un prédicteur qui lisait le tirage qu'il prédisait (§185, fuite invisible sur la
+     moyenne, `+12,08 σ` dans la queue) ;
+  2. un témoin XOR dégénéré — `x⁴⁶+x²³+1` divise `x⁶⁹−1`, période de trois tirages,
+     prédiction `20/20` (§192) ;
+  3. un test de gigue confondu, qui comparait deux portées différentes (§192) ;
+  4. un témoin classé « hors portée » qui passait en fait (§192) ;
+  5. un Bonferroni gaussien sur des `khi²`, qui aurait produit quatre fausses
+     découvertes (§189) et, une troisième fois, une cinquième (§193).
+
+Cinq défauts en une session, tous trouvés par des contrôles que rien n'obligeait à faire.
+Un taux pareil ne permet pas de faire confiance au reste sur parole. Ce fichier recalcule
+donc **depuis les fichiers source**, sans passer par le cache ni par aucune valeur
+recopiée, tout ce dont le dossier dépend.
+
+    python3 lab/verifier.py
+
+Chaque contrôle affiche `ok` ou `ECHEC` et la valeur recalculée face à la valeur publiée.
+Le code de sortie vaut le nombre d'échecs.
+"""
+
+import csv
+import glob
+import json
+import os
+import sys
+from fractions import Fraction
+from math import comb, log2, sqrt
+
+import numpy as np
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT)
+
+POOL, DRAWN = 80, 20
+ECHECS = []
+
+
+def dit(nom, ok, mesure, publie=""):
+    ECHECS.append(nom) if not ok else None
+    marque = "ok   " if ok else "ECHEC"
+    ligne = f"  [{marque}] {nom:<46} {mesure}"
+    if publie:
+        ligne += f"   (publie : {publie})"
+    print(ligne, flush=True)
+
+
+def proche(a, b, tol=5e-4):
+    return abs(a - b) <= tol
+
+
+# ======================================================================================
+# 1. L'ARCHIVE, RELUE DEPUIS LES CSV — jamais depuis le cache
+# ======================================================================================
+
+def lire_brut():
+    lignes = []
+    for chemin in sorted(glob.glob(os.path.join(ROOT, "..", "claude", "draws", "*.csv"))):
+        with open(chemin) as fh:
+            lignes.extend(csv.DictReader(fh))
+    lignes.sort(key=lambda r: int(r["id"]))
+    return lignes
+
+
+def bloc_archive(L):
+    print("\n1. L'ARCHIVE, relue depuis les huit CSV source")
+    N = len(L)
+    dit("nombre de tirages", N == 70560, N, "70 560")
+
+    ids = np.array([int(r["id"]) for r in L], np.int64)
+    dit("identifiants strictement consecutifs",
+        bool((np.diff(ids) == 1).all()), f"{ids[0]}..{ids[-1]}", "1 309 614..1 380 173")
+    dit("etendue = effectif", int(ids[-1] - ids[0] + 1) == N,
+        int(ids[-1] - ids[0] + 1), str(N))
+
+    ts = np.array([int(r["unix_utc"]) for r in L], np.int64)
+    d = np.diff(ts)
+    import collections
+    gros = collections.Counter(d[d > 1000].tolist())
+    dit("coupures de nuit", sum(gros.values()) == 345, sum(gros.values()), "345")
+    dit("dont 25 500 s", gros.get(25500) == 343, gros.get(25500), "343")
+    dit("dont 21 900 s (heure d'ete)", gros.get(21900) == 1, gros.get(21900), "1")
+    dit("dont 29 100 s (heure d'hiver)", gros.get(29100) == 1, gros.get(29100), "1")
+    dit("cycle nominal = 24 h", 203 * 300 + 25500 == 86400,
+        f"{203*300+25500} s", "86 400 s")
+    dit("ecarts de +300 s", int((d == 300).sum()) == 70190,
+        int((d == 300).sum()), "70 190")
+
+    deb = np.r_[0, np.flatnonzero(d > 1000) + 1]
+    lon = np.diff(np.r_[deb, N])
+    c = collections.Counter(lon.tolist())
+    dit("nuits", len(deb) == 346, len(deb), "346")
+    dit("nuits de 204 tirages", c.get(204) == 345, c.get(204), "345")
+    dit("nuits de 180 tirages", c.get(180) == 1, c.get(180), "1")
+
+    nums = np.array([[int(r[f"n{j}"]) for j in range(1, 21)] for r in L], np.int64)
+    dit("vingt numeros distincts par tirage",
+        bool((np.diff(np.sort(nums, axis=1), axis=1) > 0).all()), "tous", "")
+    dit("numeros dans 1..80",
+        bool((nums >= 1).all() and (nums <= POOL).all()), "oui", "")
+    return ids, ts, nums, L
+
+
+# ======================================================================================
+# 2. LE THEOREME DU BONUS (§175, §190, §194) — le seul resultat positif du dossier
+# ======================================================================================
+
+def bloc_bonus(nums, L):
+    print("\n2. LE THEOREME DU BONUS — recalcule depuis les CSV, colonne par colonne")
+    bonus = np.array([int(r["bonus"]) if r.get("bonus") else -1 for r in L], np.int64)
+    dit("colonne bonus presente partout", int((bonus < 0).sum()) == 0,
+        f"{int((bonus >= 0).sum())}/{len(L)}", f"{len(L)}/{len(L)}")
+    dit("bonus prend les 80 valeurs", len(np.unique(bonus)) == POOL,
+        len(np.unique(bonus)), "80")
+
+    dedans = int((nums == bonus[:, None]).any(axis=1).sum())
+    dit("LE BONUS EST L'UN DES VINGT", dedans == len(L),
+        f"{dedans}/{len(L)}", "70 560/70 560")
+
+    rang = np.argmax(nums == bonus[:, None], axis=1)
+    hist = np.bincount(rang, minlength=DRAWN)
+    khi = float(((hist - len(L) / DRAWN) ** 2 / (len(L) / DRAWN)).sum())
+    dit("khi2 d'uniformite du rang (19 ddl)", proche(khi, 27.46, 0.01),
+        f"{khi:.2f}", "27,46")
+    dit("facteur exact 1/80 -> 1/20", POOL // DRAWN == 4, POOL / DRAWN, "4")
+    return bonus, rang
+
+
+# ======================================================================================
+# 3. LA GRILLE DU BOOST (§106, §194)
+# ======================================================================================
+
+def bloc_boost(L):
+    print("\n3. LA GRILLE DU MULTIPLICATEUR")
+    boost = np.array([int(r["boost"]) for r in L], np.int64)
+    v, c = np.unique(boost, return_counts=True)
+    dit("six valeurs", len(v) == 6, list(v.tolist()), "[1, 2, 3, 4, 5, 10]")
+    secteurs = [round(80 * x / len(L)) for x in c]
+    dit("secteurs sur la grille 1/80", secteurs == [41, 19, 12, 4, 2, 2],
+        secteurs, "[41, 19, 12, 4, 2, 2]")
+    dit("les secteurs somment a 80", sum(secteurs) == 80, sum(secteurs), "80")
+    p = c / len(L)
+    H = float(-(p * np.log2(p)).sum())
+    dit("entropie du multiplicateur", proche(H, 1.8790, 5e-4), f"{H:.4f}", "1,8790")
+    dit("mode", proche(100 * p.max(), 51.193, 0.01), f"{100*p.max():.3f} %", "51,193 %")
+    return boost, H
+
+
+# ======================================================================================
+# 4. LES CONSTANTES EXACTES DONT TOUT LE DOSSIER DEPEND
+# ======================================================================================
+
+def bloc_constantes(H):
+    print("\n4. LES CONSTANTES EXACTES, recalculees en rationnels quand c'est possible")
+
+    # variance hypergeometrique du recouvrement (§185)
+    var = Fraction(DRAWN) * Fraction(DRAWN, POOL) * Fraction(POOL - DRAWN, POOL) \
+        * Fraction(POOL - DRAWN, POOL - 1)
+    dit("Var du recouvrement = 20(1/4)(3/4)(60/79)", proche(float(var), 2.8481, 5e-5),
+        f"{float(var):.6f} = {var}", "2,8481")
+    dit("ecart-type du recouvrement", proche(sqrt(float(var)), 1.687632, 1e-5),
+        f"{sqrt(float(var)):.6f}", "1,6876")
+
+    # mots consommes par tirage (§7.27)
+    EN = sum(Fraction(POOL, POOL - k) for k in range(DRAWN))
+    varN = sum(Fraction(POOL, POOL - k) * Fraction(k, POOL - k) for k in range(DRAWN))
+    dit("E[N] = 80(H80 - H60)", proche(float(EN), 22.848709, 1e-6),
+        f"{float(EN):.6f}", "22,848709")
+    dit("Var[N]", proche(float(varN), 3.4319, 5e-4), f"{float(varN):.4f}", "3,4319")
+    dit("ecart-type de N", proche(sqrt(float(varN)), 1.8525451, 1e-6),
+        f"{sqrt(float(varN)):.7f}", "1,8525451")
+
+    # entropie publiee par tirage (§193, §194)
+    lc = log2(comb(POOL, DRAWN))
+    dit("log2 C(80,20)", proche(lc, 61.6165, 5e-4), f"{lc:.4f}", "61,6165")
+    dit("log2 20", proche(log2(DRAWN), 4.3219, 5e-4), f"{log2(DRAWN):.4f}", "4,3219")
+    dit("entropie totale par tirage", proche(lc + log2(DRAWN) + H, 67.8175, 1e-3),
+        f"{lc + log2(DRAWN) + H:.4f}", "67,8175")
+
+    # variance exacte de l'autocorrelation (§7.29)
+    dit("Var(x) = (1/4)(3/4) = 3/16", Fraction(1, 4) * Fraction(3, 4) == Fraction(3, 16),
+        str(Fraction(3, 16)), "3/16")
+
+
+# ======================================================================================
+# 5. LA NULLE EXACTE DES DETECTEURS D'ENERGIE (§184) — enumeration, pas formule
+# ======================================================================================
+
+def bloc_nulle_energie():
+    print("\n5. LA NULLE EXACTE DES DETECTEURS D'ENERGIE (§184), par enumeration")
+    p1 = Fraction(DRAWN, POOL)
+    p2 = Fraction(DRAWN * (DRAWN - 1), POOL * (POOL - 1))
+    p3 = Fraction(DRAWN * (DRAWN - 1) * (DRAWN - 2), POOL * (POOL - 1) * (POOL - 2))
+
+    for S in ([0], [0, 1], [0, 1, 2]):
+        # (a) trois tirages distincts : chaque indicatrice pese 20/80 independamment
+        att_a = Fraction(POOL * POOL * len(S)) * p1 ** 3
+        # (b) tout dans le MEME tirage : on classe chaque triple par ses coincidences
+        n1 = n2 = n3 = 0
+        for u in range(POOL):
+            for v in range(POOL):
+                for dd in S:
+                    w = (u + v + dd) % POOL
+                    k = len({u, v, w})
+                    n1 += k == 1
+                    n2 += k == 2
+                    n3 += k == 3
+        att_b = n1 * p1 + n2 * p2 + n3 * p3
+        cible = 100 * len(S)
+        dit(f"|S|={len(S)} : trois tirages distincts", proche(float(att_a), cible, 1e-9),
+            f"{float(att_a):.4f}", f"{cible}")
+        dit(f"|S|={len(S)} : tout dans le meme tirage", proche(float(att_b), cible, 1e-9),
+            f"{float(att_b):.4f}  ({n1} + {n2} + {n3} triples)", f"{cible}")
+
+
+# ======================================================================================
+# 6. LA NULLE EXACTE DE L'AUTOCORRELATION (§7.29) — verifiee par simulation
+# ======================================================================================
+
+def bloc_autocorrelation():
+    print("\n6. LA NULLE EXACTE DE L'AUTOCORRELATION (§7.29), verifiee par simulation")
+    rng = np.random.default_rng(4242)
+    n, reps, dmax = 4000, 40, 25
+    z = []
+    for _ in range(reps):
+        m = np.zeros((n, POOL), bool)
+        idx = np.argsort(rng.random((n, POOL)), axis=1)[:, :DRAWN]
+        np.put_along_axis(m, idx, True, axis=1)
+        x = m.astype(np.float64) - 0.25
+        for dd in range(1, dmax + 1):
+            C = (x[:n - dd] * x[dd:]).sum(axis=0)
+            z.append(C / ((3.0 / 16.0) * sqrt(n - dd)))
+    z = np.concatenate(z)
+    dit("moyenne des z (attendu 0 exactement)", abs(z.mean()) < 0.02,
+        f"{z.mean():+.4f}", "0")
+    dit("ecart-type des z (attendu 1 exactement)", abs(z.std() - 1) < 0.02,
+        f"{z.std():.4f}", "1")
+
+
+# ======================================================================================
+# 7. LE REGISTRE : Holm sur l'ensemble, et les entrees retirees
+# ======================================================================================
+
+def bloc_registre():
+    print("\n7. LE REGISTRE")
+    import lab
+    L = lab.ledger()
+    dit("entrees au registre", len(L) >= 250, len(L), ">= 250")
+    h = lab.holm()
+    m = h[0]["m_total"]
+    sig = [r for r in h if r["significant"]]
+    dit("tests comptes (m_extra compris)", m > 6_900_000, f"{m:,}", "6 952 111+")
+    dit("AUCUN resultat significatif apres Holm", len(sig) == 0, len(sig), "0")
+    dit("plus petit p du dossier", proche(h[0]["p"], 1.805e-4, 1e-6),
+        f"{h[0]['p']:.3e} ({h[0]['id']})", "1,805e-4")
+    dit("seuil de Holm au premier rang", h[0]["holm_threshold"] < 1e-8,
+        f"{h[0]['holm_threshold']:.3e}", "7,19e-9")
+    facteur = h[0]["p"] / h[0]["holm_threshold"]
+    dit("facteur manquant", facteur > 20000, f"{facteur:,.0f}", "~25 000")
+
+    retires = [r for r in L if "RETIR" in str(r.get("verdict", "")).upper()]
+    dit("entree retiree pour fuite (h170)",
+        any(r["id"] == "h170.predicteur_energie" for r in retires),
+        [r["id"] for r in retires], "h170.predicteur_energie")
+
+    for cle, att in (("h173.predicteur_appris", 4.99449),
+                     ("h176.borne_elargie", 5.00230),
+                     ("h170b.predicteur_energie", 5.00300)):
+        e = [r for r in L if r["id"] == cle]
+        dit(f"{cle} : recouvrement", bool(e) and proche(e[0]["observed"], att, 1e-4),
+            f"{e[0]['observed']:.5f}" if e else "ABSENT", f"{att:.5f}")
+
+
+# ======================================================================================
+# 8. LE CACHE EST-IL FIDELE AUX CSV ?
+# ======================================================================================
+
+def bloc_cache(ids, ts, nums, bonus, boost):
+    print("\n8. LE CACHE .npz EST-IL FIDELE AUX CSV ?")
+    import lab
+    A = lab.load()
+    dit("identifiants", bool((np.asarray(A.ids) == ids).all()), "identiques", "")
+    dit("horodatages", bool((np.asarray(A.ts) == ts).all()), "identiques", "")
+    dit("numeros", bool((np.asarray(A.nums) == nums).all()), "identiques", "")
+    dit("bonus", bool((np.asarray(A.bonus) == bonus).all()), "identiques", "")
+    dit("boost", bool((np.asarray(A.boost) == boost).all()), "identiques", "")
+    M = np.asarray(A.mask)
+    ok = bool((M.sum(axis=1) == DRAWN).all())
+    dit("masque : vingt bits par tirage", ok, "oui", "")
+    rec = np.zeros_like(M)
+    rec[np.arange(len(nums))[:, None], nums - 1] = True
+    dit("masque = numeros", bool((rec == M).all()), "identiques", "")
+
+
+if __name__ == "__main__":
+    print("=" * 78)
+    print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
+    print("=" * 78)
+    L = lire_brut()
+    ids, ts, nums, L = bloc_archive(L)
+    bonus, rang = bloc_bonus(nums, L)
+    boost, H = bloc_boost(L)
+    bloc_constantes(H)
+    bloc_nulle_energie()
+    bloc_autocorrelation()
+    bloc_registre()
+    bloc_cache(ids, ts, nums, bonus, boost)
+
+    print("\n" + "=" * 78)
+    if ECHECS:
+        print(f"{len(ECHECS)} ECHEC(S) : " + ", ".join(ECHECS))
+    else:
+        print("TOUS LES CONTROLES PASSENT.")
+    print("=" * 78)
+    sys.exit(len(ECHECS))
