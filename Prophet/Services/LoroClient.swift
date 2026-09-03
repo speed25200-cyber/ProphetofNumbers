@@ -368,7 +368,7 @@ actor LoroClient {
             out.append(n)
         }
         let positions = positioned.map(\.0)
-        if Set(positions).count == positions.count, positions != Array(positions.sorted()) {
+        if Set(positions).count == positions.count, positions != positions.sorted() {
             return positioned.sorted { $0.0 < $1.0 }.map(\.1)
         }
         return out
