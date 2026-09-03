@@ -94,6 +94,25 @@ def bloc_archive(L):
     dit("ecarts de +300 s", int((d == 300).sum()) == 70190,
         int((d == 300).sum()), "70 190")
 
+    # Les ecarts anormaux INTRA-NUIT viennent en paires consecutives qui se compensent
+    # exactement : un tirage en avance de delta, le suivant en retard de delta, somme 600 s.
+    # Le calendrier se RECALE, donc l'horodatage ne porte presque aucune entropie propre —
+    # ce qui explique que les balayages de graine d'horloge (§200-§212) le couvrent si bien.
+    anom = np.flatnonzero((d != 300) & (d < 1000))
+    paires = comp = 0
+    i = 0
+    while i < len(anom):
+        if i + 1 < len(anom) and anom[i + 1] == anom[i] + 1:
+            paires += 1
+            comp += int(d[anom[i]]) + int(d[anom[i] + 1]) == 600
+            i += 2
+        else:
+            i += 1
+    dit("ecarts anormaux intra-nuit", len(anom) == 24, len(anom), "24")
+    dit("ils viennent tous en paires consecutives", paires == 12, paires, "12")
+    dit("et TOUTES se compensent a 600 s", comp == 12 and comp == paires,
+        f"{comp}/{paires}", "12/12")
+
     deb = np.r_[0, np.flatnonzero(d > 1000) + 1]
     lon = np.diff(np.r_[deb, N])
     c = collections.Counter(lon.tolist())
