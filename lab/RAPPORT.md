@@ -21380,3 +21380,117 @@ La grille froide de dix sortait à `5,39 %` sur la moitié qui l'avait choisie, 
 **Ligne de registre.** `h196.les_deux_queues`, piste B, conforme, `m_extra = 19`.
 
 ---
+
+## 218. **Les parités d'ordre cinq** : où s'arrête la tour, et pourquoi là (`h197_parites_ordre_cinq.py`)
+
+### La question que le §215 laisse, et qui n'a pas de réponse statistique
+
+Le §215 exclut toute relation de parité entre **quatre** numéros, et se termine en nommant
+ce qui reste : une dépendance d'ordre **cinq ou plus** dont toutes les marges inférieures
+seraient exactement uniformes.
+
+Il y a une tour infinie d'ordres. On ne peut pas les fermer tous, et la question honnête
+n'est donc pas « jusqu'où puis-je aller » mais **« où le fait de s'arrêter cesse-t-il de
+coûter quelque chose »**. Cette question-là n'est pas statistique.
+
+> Le barème de l'opérateur vend des grilles de `5, 6, 7, 8, 10` numéros. **Cinq est la plus
+> petite grille achetable.** Une dépendance d'ordre cinq est donc exactement *le jackpot de
+> la grille la moins chère* — le dernier ordre dont un écart se convertit directement en
+> francs sur ce barème-là. Au-delà, la même structure devient une hypothèse sur un objet
+> que personne ne vend seul.
+
+C'est le critère d'arrêt, il est explicite, et il vaut mieux qu'un arrêt par fatigue.
+
+### Ce que ça ajoute au §213 D, qui mesurait déjà `P(5/5)`
+
+Le §213 D et le §217 mesurent, hors échantillon, le taux de `5/5` d'une grille de cinq
+cherchée sur l'autre moitié. C'est un **comptage** : il exige la coïncidence complète, ne
+voit qu'un **doublement** (`22,75` attendus, écart-type `4,77`), et ne mesure qu'**une**
+grille choisie.
+
+La parité est un autre instrument :
+
+    W_S = (1/N) · Σ_t (−1)^{|S ∩ D_t|}
+
+Elle somme les cinq indicateurs **avec des signes** au lieu d'exiger leur coïncidence. Une
+relation portée par une fraction `ε` des tirages y sort à `z ≈ 260·ε` : le test voit
+`2 %` des tirages. Et il balaie les `C(80,5) = 24 040 016` parties avec une loi du maximum
+propre, là où le §213 D en choisissait une seule.
+
+### Le calcul, et le système de numération combinatoire
+
+Même identité qu'au §215, avec `1 + 5 + 10 + 10 + 5 + 1` termes :
+
+    N · W_S  =  Σ_{T ⊆ S} (−2)^{|T|} · C_T
+
+L'indexation à plat en base `80` du §215 demanderait `80⁵ = 3,3 × 10⁹` cases. On passe donc
+au **rang colexicographique**
+
+    rang({a₁<…<a_k}) = Σ_i C(a_i, i)
+
+qui numérote les parties de taille `k` exactement sur `0 … C(80,k)−1` — le tableau des
+quintuplets tient alors en `24 040 016` cases. L'assemblage se fait par tranches d'un
+million pour ne jamais matérialiser les trente et un index à la fois.
+
+*Une note d'arithmétique.* Les termes de `N·W_S` atteignent `513 680` en magnitude pour un
+résultat de `1 374` : deux ordres de grandeur d'annulation. Ce serait fatal en virgule
+flottante ordinaire, mais tous les termes sont des **entiers** très en dessous de `2⁵³`,
+donc chaque somme partielle est exacte et l'annulation ne coûte aucun chiffre. L'autotest
+le constate — écart à la parité directe **exactement `0`** sur trente parties tirées au
+hasard.
+
+### La nulle est exacte
+
+    E₅ = Σ_h (−1)^h C(5,h)·C(75,20−h)/C(80,20) = 3079/158158 = 0,01946787
+
+contre `(1/2)⁵ = 0,03125`. Le harnais la recalcule par **deux dérivations indépendantes**
+qui doivent coïncider : l'espérance hypergéométrique, et la forme fermée
+`Σ_h (−1)^h C(20,h)C(60,5−h)/C(80,5)`.
+
+### Le témoin
+
+Le système de numération vérifié contre `itertools` et bijectif sur `0 … C(n,k)−1` ;
+l'identité vérifiée à l'écart exactement nul ; la variance confirmée sur répliques ; et une
+parité plantée à `6 %` sur `30 000` tirages retrouvée **sur la bonne partie**, à `z = +8,01`.
+
+### Ce que dit l'archive
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| `max |z|` | `5,694` | `5,577 ± 0,219` | `+0,535` |
+| énergie `N·Σ(W−E₅)²` | `24 024 738` | `24 042 903 ± 95 603` | `−0,190` |
+
+Les `24 040 016` valeurs de `z` ont pour moyenne `−0,0000` et pour écart-type `0,9999`.
+Maximum réduit `0,535` contre un 95ᵉ centile de `2,753`. **`p = 0,8846`. Verdict :
+conforme.**
+
+Le maximum tombe sur `{5, 34, 51, 53, 74}` à `z = +5,694`, exactement où l'on attend le
+maximum de vingt-quatre millions de statistiques : `√(2 ln 24 040 016) = 5,83`.
+
+### Et, pour la cinquième fois de la session
+
+La partie la plus extrême de la première moitié valait `z = +5,44` sur les données qui
+l'avaient choisie. Sur la seconde : **`z = +0,16`**.
+
+Cinq fois, sur cinq instruments différents — grilles convexes (§213), parités d'ordre
+quatre (§215), les deux queues (§217), et ici. Ce n'est plus une anecdote, c'est une
+propriété du problème :
+
+> Sur `24` millions de candidats, il **existe toujours** une partie à `+5,4 σ`. Sa présence
+> ne dit rien du générateur ; elle dit seulement qu'on a regardé vingt-quatre millions de
+> fois. La seule quantité qui porte de l'information est celle mesurée sur des données qui
+> n'ont pas servi à la choisir, et elle vaut `+0,16`.
+
+### Ce que ça borne
+
+La parité d'ordre cinq est bornée à `± 5,94` en `z` simultané à 95 %, c'est-à-dire qu'une
+relation `F₂`-linéaire entre cinq numéros publiés ne peut être portée par plus de
+**`2,3 %` des tirages** — la même borne, à un cheveu près, que l'ordre quatre (`2,2 %`).
+
+Et c'est le dernier ordre que ce dossier ferme, pour la raison économique dite en tête :
+au-delà de cinq, on quitte la plus petite grille que le barème vende.
+
+**Ligne de registre.** `h197.parites_ordre_cinq`, piste B, conforme,
+`m_extra = 24 040 015`.
+
+---
