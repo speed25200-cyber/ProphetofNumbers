@@ -32,6 +32,10 @@
  *                  1 = graine en MILLISECONDES (ts*1000 + delta)
  *                  2 = graine en secondes, mais l'etat avance de `saut` tirages avant
  *                      le tirage cible (amorcage en debut de nuit)
+ *                  3 = ECHAUFFEMENT : graine en secondes, et l'on balaye le nombre de
+ *                      mots jetes apres l'amorcage, de 0 a `saut`. C'est le cas qu'un
+ *                      balayage de graine simple manque : la machine s'amorce, consomme
+ *                      quelques mots pour autre chose, puis tire.
  *     fenetre    : |delta| maximal
  *     pas        : increment de delta (defaut 1)
  *
@@ -182,7 +186,8 @@ int main(int argc, char **argv)
     fclose(f);
 
     long nd = 2 * fen / pas + 1;
-    double essais = (double)nc * (double)nd * NGEN * NECH;
+    double essais = (double)nc * (double)nd * NGEN * NECH
+                  * ((mode == 3) ? (double)(saut + 1) : 1.0);
     printf("cibles %ld ; mode %d ; fenetre %ld ; pas %ld ; saut %d\n",
            nc, mode, fen, pas, saut);
     printf("graines par cible %ld ; essais totaux %.3e\n", nd, essais);
@@ -195,22 +200,28 @@ int main(int argc, char **argv)
         for (int g = 0; g < NGEN; g++)
             for (int s = 0; s < NECH; s++)
                 for (long d = -fen; d <= fen; d += pas) {
-                    Etat e;
-                    amorce(&e, (uint64_t)(base + d));
-                    uint64_t a, b;
-                    if (mode == 2)
-                        for (int k = 0; k < saut; k++)
-                            if (!engendre(&e, g, s, &a, &b, 200)) goto suivant_graine;
-                    if (!engendre(&e, g, s, &a, &b, 200)) goto suivant_graine;
-                    if (a == C[i].m0 && b == C[i].m1) {
-                        printf("APPARIEMENT cible %ld ts %lld generateur %s "
-                               "echantillonneur %s graine %lld (delta %ld)\n",
-                               i, (long long)C[i].ts, NOMGEN[g], NOMECH[s],
-                               (long long)(base + d), d);
-                        fflush(stdout);
-                        trouves++;
+                    int wmax = (mode == 3) ? saut : 0;
+                    for (int w = 0; w <= wmax; w++) {
+                        Etat e;
+                        amorce(&e, (uint64_t)(base + d));
+                        uint64_t a, b;
+                        if (mode == 3)
+                            for (int k = 0; k < w; k++) suivant(&e, g);
+                        if (mode == 2)
+                            for (int k = 0; k < saut; k++)
+                                if (!engendre(&e, g, s, &a, &b, 200)) goto suivant_w;
+                        if (!engendre(&e, g, s, &a, &b, 200)) goto suivant_w;
+                        if (a == C[i].m0 && b == C[i].m1) {
+                            printf("APPARIEMENT cible %ld ts %lld generateur %s "
+                                   "echantillonneur %s graine %lld (delta %ld) "
+                                   "echauffement %d\n",
+                                   i, (long long)C[i].ts, NOMGEN[g], NOMECH[s],
+                                   (long long)(base + d), d, w);
+                            fflush(stdout);
+                            trouves++;
+                        }
+                    suivant_w: ;
                     }
-                suivant_graine: ;
                 }
         if ((i + 1) % 500 == 0) {
             printf("  ... %ld/%ld cibles\n", i + 1, nc);
