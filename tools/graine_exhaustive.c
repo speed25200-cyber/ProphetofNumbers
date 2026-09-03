@@ -128,8 +128,29 @@ static uint32_t suivant(Etat *e, int g)
 static const char *NOMGEN[NGEN] = {
     "splitmix64", "xoshiro256++", "xoshiro128**", "pcg32", "pcg64"
 };
-#define NECH 2
-static const char *NOMECH[NECH] = { "troncature", "modulo" };
+/* ------------------------------------------------------------- echantillonneurs
+ *
+ * SIX, ET C'EST LE POINT. Les §200 a §205 ne balayaient que la troncature et le modulo,
+ * c'est-a-dire deux facons de reduire UN mot de 32 bits a une classe. Si la machine
+ * utilise nextDouble(), Lemire, ou un modulo debiaise, tous ces balayages testaient un
+ * modele qui ne pouvait pas apparier — et leur resultat negatif ne disait rien de la
+ * graine. Un balayage exhaustif en graines mais borgne en echantillonneurs ne prouve
+ * rien : il faut les deux.
+ *
+ *   0  troncature        c = (w * 80) >> 32
+ *   1  modulo            c = w % 80
+ *   2  modulo debiaise   rejet si w >= 2^32 - (2^32 mod 80), puis w % 80
+ *   3  Lemire            m = w * 80 ; rejet si (m & 0xFFFFFFFF) < (2^32 mod 80) ;
+ *                        c = m >> 32
+ *   4  double 53 bits    deux mots -> u = ((w1>>5)*2^26 + (w2>>6)) / 2^53 ; c = 80u
+ *   5  sept bits bas     c = w & 127 ; rejet si c >= 80
+ */
+#define NECH 6
+static const char *NOMECH[NECH] = {
+    "troncature", "modulo", "modulo debiaise", "Lemire", "double 53 bits",
+    "sept bits bas"
+};
+#define SEUIL80 ((uint32_t)((1ULL << 32) % 80))   /* 2^32 mod 80 = 16 */
 
 /* ------------------------------------------------------ table de hachage des cibles */
 
@@ -170,9 +191,35 @@ static int engendre(Etat *e, int g, int s, uint64_t *m0, uint64_t *m1)
     uint64_t a = 0, b = 0;
     int pris = 0, tours = 0;
     while (pris < DRAWN) {
-        if (++tours > 200) return 0;
+        if (++tours > 400) return 0;
+        int c;
         uint32_t w = suivant(e, g);
-        int c = (s == 0) ? (int)(((uint64_t)w * POOL) >> 32) : (int)(w % POOL);
+        switch (s) {
+        case 0: c = (int)(((uint64_t)w * POOL) >> 32); break;
+        case 1: c = (int)(w % POOL); break;
+        case 2:
+            if (w >= (uint32_t)(0xFFFFFFFFu - SEUIL80 + 1)) continue;
+            c = (int)(w % POOL);
+            break;
+        case 3: {
+            uint64_t m = (uint64_t)w * POOL;
+            if ((uint32_t)m < SEUIL80) continue;
+            c = (int)(m >> 32);
+            break;
+        }
+        case 4: {
+            uint32_t w2 = suivant(e, g);
+            double u = ((double)(w >> 5) * 67108864.0 + (double)(w2 >> 6))
+                     / 9007199254740992.0;
+            c = (int)(u * POOL);
+            if (c >= POOL) c = POOL - 1;
+            break;
+        }
+        default:
+            c = (int)(w & 127u);
+            if (c >= POOL) continue;
+            break;
+        }
         uint64_t *p = (c < 64) ? &a : &b;
         int k = (c < 64) ? c : c - 64;
         if (!((*p >> k) & 1ULL)) { *p |= 1ULL << k; pris++; }
