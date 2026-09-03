@@ -17,7 +17,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
 | Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
-| LCG 2⁶⁴ à sortie de poids fort | attaque par réseau construite et validée — voir §6 bis |
+| LCG 2⁶⁴ à sortie de poids fort | **Exclu** — 2 880 réductions de réseau (12 multiplicateurs standards × 48 W × 5 fenêtres), 0 correspondance |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
@@ -384,6 +384,19 @@ L'implémentation Python (fractions exactes) sert de référence ; `lcg_lll.c` r
 même calcul avec la base en `__int128` et le Gram-Schmidt en `long double`, soit
 quelques microsecondes par réduction au lieu de plusieurs minutes.
 
+**Résultat sur l'archive réelle** — 12 multiplicateurs standards × W de 1 à 48 ×
+5 fenêtres de départ = **2 880 réductions de réseau, 0 correspondance** :
+
+```
+  MMIX / PCG   L'Ecuyer a/b/c   ranqd1-64   Lehmer64   drand48
+  glibc LCG    MSVC             Numerical Recipes      PCG-XSL-RR   Knuth 64
+  -> no fit at any W ; total hits: 0
+```
+
+La dernière famille classique est donc exclue elle aussi. Réserve honnête : l'attaque
+exige de **deviner le multiplicateur**. Un multiplicateur maison lui échappe — mais
+c'est aussi le seul degré de liberté qui reste, et l'ordre de tirage le referme.
+
 
 ---
 
@@ -477,7 +490,8 @@ Ce qui **reste ouvert** :
   troncature simple de l'état — PCG (permutation dépendante de l'état), xoshiro\*\*
   (multiplication en sortie), splitmix64 (mélange bijectif) : le canal donne bien
   6,32 bits par tirage, mais pas sous la forme « bits de tête de l'état » dont le
-  réseau a besoin. Le LCG 2⁶⁴ à troncature simple, lui, **est** testé (§6 bis) ;
+  réseau a besoin. Le LCG 2⁶⁴ à troncature simple, lui, est **exclu** (§6 bis) ;
+- un LCG 2⁶⁴ à **multiplicateur non standard** : l'attaque par réseau doit le deviner ;
 - un boost dérivé autrement que par des seuils sur `u/2³²` — par exemple
   `u % 1000 < 512` — ne livre aucun bit linéaire et échappe à l'attaque par canaux ;
 - un échantillonneur à **consommation variable** (rejet avec redraw) : le nombre de
