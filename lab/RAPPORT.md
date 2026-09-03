@@ -21734,3 +21734,73 @@ aucune hypothèse sur la forme du générateur.
 **Ligne de registre.** `h200.transfert_de_nuit`, piste B, conforme, `m_extra = 70 404`.
 
 ---
+
+## 222. **Les chaînes du bonus et du multiplicateur** : l'observable la plus propre, testée comme une chaîne de Markov (`h201_chaines_bonus_boost.py`)
+
+### Pourquoi ce flux-là
+
+Les vingt numéros d'un tirage sont un **ensemble** : l'ordre est perdu et chaque numéro
+n'est qu'un mot parmi une vingtaine, dilué (§7.34 : `2,70` bits utiles par mot).
+
+Le **bonus** est autre chose. C'est **un seul symbole par tirage**, identifié, uniforme sur
+les quatre-vingts, correspondant à **un mot précis** du générateur. C'est l'observable la
+plus propre du dossier. Le §197 y a mesuré une **énergie** — des sommes de corrélations à
+des retards choisis. Personne n'avait mesuré sa **chaîne** : la table de contingence
+`80 × 80` de `b_t` vers `b_{t+d}`, qui est le test standard d'une structure de Markov, fin
+là où l'énergie est grossière.
+
+Et c'est **la prédiction la plus directe qui soit** : prédire le bonus, c'est prédire *un*
+numéro — pas vingt, pas cinq.
+
+### Le témoin, et ce qu'il apprend sur les deux instruments
+
+Une mémoire plantée dans le flux du bonus — avec probabilité `ε`, `b_{t+1} = b_t + 7 mod 80` :
+
+| `ε` | la **chaîne** (`max \|z\|`) | le **prédicteur** (top-1) |
+|---|---|---|
+| `0` | `5,77` (au mauvais retard) | `1,2115 %`, `z = −0,65` |
+| `1 %` | `5,76` — **ne la voit pas** | `1,4543 %`, **`z = +3,44`** |
+| `3 %` | `13,02`, au bon retard et au bon couple | `4,1715 %`, `z = +49,19` |
+
+> Le prédicteur voit une mémoire de `1 %` que le maximum de la chaîne manque, parce qu'il
+> **agrège toute une ligne** au lieu de retenir une case. Les deux instruments ne sont pas
+> redondants : le maximum trouve *où* est la structure, le prédicteur dit *si* elle paie.
+
+### Ce que dit l'archive
+
+La marge du bonus d'abord : `χ² = 92,34` sur `79` degrés de liberté, `z = +1,06`. Les
+quatre-vingts valeurs sont équiprobables.
+
+`136 727` statistiques sur vingt retards, calibrées sur `200` répliques passant par une
+**archive SRS complète** — le bonus et son rang y sont couplés comme dans l'archive, ce
+qu'un tirage de trois flux indépendants aurait cassé.
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| bonus `max \|z\|` | `5,41` | `5,22 ± 0,35` | `+0,556` |
+| bonus `χ²` | `128 912` | `127 889 ± 731` | `+1,401` |
+| multiplicateur `max \|z\|` | `3,30` | `3,30 ± 0,40` | `+0,006` |
+| multiplicateur `χ²` | `474` | `700 ± 122` | `−1,862` |
+| rang `max \|z\|` | `4,04` | `4,03 ± 0,30` | `+0,040` |
+| rang `χ²` | `8 474` | `7 992 ± 280` | `+1,722` |
+
+Maximum réduit `1,862` contre un 95ᵉ centile de `3,120`. **`p = 0,3234`.**
+
+### Prédire un numéro, et un seul
+
+| sens | `k` | justes | taux | hasard | `z` |
+|---|---|---|---|---|---|
+| `H1→H2` | `1` | `430/35 279` | `1,2189 %` | `1,2500 %` | `−0,53` |
+| `H1→H2` | `10` | `4 495/35 279` | `12,7413 %` | `12,500 %` | `+1,37` |
+| `H2→H1` | `1` | `449/35 279` | `1,2727 %` | `1,2500 %` | `+0,38` |
+| `H2→H1` | `5` | `2 282/35 279` | `6,4684 %` | `6,250 %` | `+1,69` |
+
+`max |z| = +1,695` contre un seuil de Bonferroni de `2,734`. **Verdict : conforme.**
+
+> C'est la forme la plus dépouillée de la question posée. Un symbole, quatre-vingts
+> possibilités, `35 279` occasions de deviner, et la meilleure chaîne que l'archive puisse
+> fournir. Résultat : `1,22 %` et `1,27 %` là où le hasard donne `1,25 %`.
+
+**Ligne de registre.** `h201.chaines_bonus_boost`, piste B, conforme, `m_extra = 136 726`.
+
+---
