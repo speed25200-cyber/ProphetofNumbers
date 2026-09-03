@@ -21661,3 +21661,76 @@ seuil de Bonferroni de `3,124`. **`p = 0,3930`. Verdict : conforme.**
 **Ligne de registre.** `h199.matrice_de_transfert`, piste B, conforme, `m_extra = 64 029`.
 
 ---
+
+## 221. **Le transfert de nuit** : la signature qu'un réamorçage nocturne laisserait (`h200_transfert_de_nuit.py`)
+
+### L'archive a une coupure, et elle est énorme
+
+Le bloc `1` du harnais le revérifie à chaque exécution : `345` coupures, dont `343` de
+`25 500` secondes **exactement** — sept heures cinq minutes d'arrêt entre la fin d'une nuit
+et le début de la suivante, `204` tirages plus tard. C'est la seule discontinuité
+structurelle de tout le dossier, et c'est **le moment où une machine se réamorcerait si
+elle se réamorçait**.
+
+Si elle le fait, sa trace n'est ni au retard `1` ni sur la diagonale, mais au retard `204`
+**et en travers** :
+
+> Le numéro `i` au tirage `t` rend-il le numéro `j` plus probable au tirage `t + 204`,
+> c'est-à-dire au **même créneau de la nuit suivante** ?
+
+Aucun instrument ne l'atteignait. Le §194 balaie tous les retards, y compris ceux d'une
+journée, mais **seulement pour `i = j`**. Le §220 balaie les couples croisés, mais s'arrête
+au retard `10`. La conjonction — couples croisés × retards de nuit — était vierge.
+
+### Le témoin
+
+Un transfert planté `31 → 62` au retard `204`, sur `10 %` des occurrences : la matrice le
+trouve à `z = +15,99`, **au bon couple et à la bonne nuit**, et la règle de pari donne
+`32,75 %` contre `25 %`, `z = +18,01`.
+
+### Ce que dit l'archive
+
+**A — la matrice aux retards de nuit**, `64 000` cases aux retards `204` à `2 040` :
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| `max \|z\|` | `4,411` | `4,413 ± 0,304` | **`−0,005`** |
+| énergie `Σ z²` | `61 183` | `63 873 ± 4 119` | `−0,653` |
+
+Le maximum de l'archive tombe à `0,005` écart-type du maximum attendu. On ne fait pas plus
+conforme que ça. Maximum réduit `0,653` contre un 95ᵉ centile de `2,263`, **`p = 0,7463`**.
+
+**B — la règle de pari à une nuit**, couple choisi sur une moitié et joué sur l'autre :
+
+| sens | règle | hors échantillon | `z` |
+|---|---|---|---|
+| `H1→H2` | « si `42` sort, joue `42` demain au même créneau » | `2 281/8 853` = `25,7653 %` | `+1,66` |
+| `H2→H1` | « si `29` sort, joue `65` demain au même créneau » | `2 208/8 674` = `25,4554 %` | `+0,98` |
+
+Seuil de Bonferroni `2,498`. **C'est le plus fort `z` hors échantillon de toutes les
+familles de transfert du dossier, et il ne suffit pas.** À noter que le couple retenu est
+`42 → 42`, donc **sur la diagonale** — c'est-à-dire une quantité que le §194 mesurait déjà
+parmi ses `6 889 050` statistiques, et qui n'y ressortait pas non plus.
+
+**C — les `346` premiers tirages de nuit**, la sous-suite qui suivrait immédiatement un
+réamorçage : `max |z| = +4,546` sur `6 400` cases, et le recouvrement moyen entre premiers
+tirages de nuits consécutives vaut `4,97681` contre `5,00000` exactement, `z = −0,26`.
+
+*Sa puissance est faible et il faut le dire* : `345` paires seulement, donc `21,6` attendus
+par case. C'est la famille la plus **ciblée** du dossier et de loin la moins **puissante** ;
+elle exclut un réamorçage grossier, pas un réamorçage fin. Le seul chiffre de `C` qui ait
+une vraie puissance est le recouvrement moyen, d'écart-type `0,0908`.
+
+**Verdict : conforme.** `p = 0,3853`.
+
+### Ce que ça ferme
+
+L'hypothèse du réamorçage nocturne était la plus plausible du dossier — elle a une
+discontinuité physique de sept heures pour l'appuyer. Elle est morte de deux façons
+indépendantes : par le **balayage de graine** (§200–§214, `4,3 × 10¹¹` essais, dont les
+`346` débuts de nuit à la microseconde) et maintenant par la **statistique**, qui n'exige
+aucune hypothèse sur la forme du générateur.
+
+**Ligne de registre.** `h200.transfert_de_nuit`, piste B, conforme, `m_extra = 70 404`.
+
+---
