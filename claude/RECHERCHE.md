@@ -59,8 +59,26 @@ sur 15 fenêtres (W = 2 … 4000) : tous les ratios à 1,000 ± 0,006.
 | **score** | **250 prédicteurs (lags 1–200, fenêtres 2–30 000, gaps, co-occurrence, créneaux, bonus)** | **0 test au-delà de \|z\| = 3**, Σz² = 239,2/250 | 250 ± 22 |
 | **NIST** | Flux uniforme 2 798 192 bits extrait des rangs colex : monobit, blocs, runs, rang matriciel 32×32, DFT, serial m=8/12/16, cusum, **complexité linéaire** | tout conforme (L = 2500,22 vs 2500,17) | — |
 | — | Compression zlib / bzip2 / lzma | **incompressible** (+0,02 %) | — |
+| E22 | Histogramme d'overlap lag-1 vs hypergéométrique exact | χ²=30,1 df=12 → **ne se réplique pas** (E29) | 12 |
+| E23 | Overlap triple \|Aₜ ∩ Aₜ₊₁ ∩ Aₜ₊₂\| | χ²=5,66 df=6, moyenne 1,2484 vs 1,25 | 6 |
+| E24/E28 | Composition en 21 gaps, paires de gaps consécutifs | χ²=2759 — **sous les 4 contrôles SRS** (2848–2968) : artefact du modèle nul | — |
+| E26 | #impairs, #bas, somme vs hypergéométrique exact | z = +1,82 / +0,72 / +1,29 | — |
 | **hash** | 390 schémas « provably fair » (6 hashs × 13 entrées publiques × 5 dérivations) | chance pure (max 11/20) | ~10/20 |
 | **seed** | Balayage 2³² × 234 combinaisons (16 familles PRNG × 4 mappings × 4 échantillonneurs, + .NET, V8, Python `random.sample`, PHP `mt_rand`) | meilleur 15/20 = exactement le bruit attendu (4,0 attendus) | — |
+
+### Discipline sur les faux positifs
+
+Deux écarts apparents ont été poursuivis jusqu'à réfutation, pas écartés à la main :
+
+- **χ² du lag-1 = 30,1 (z = +3,69).** Profil sur les lags 1…60 : moyenne 12,46 pour
+  E = 12, et lag-1 n'est que le maximum de 60 tirages de χ²₁₂ (p ≈ 0,15).
+  Réplication moitié/moitié : **5/12 cellules de même signe** (p = 0,77), la cellule
+  k=8 passe de +1,05 à +3,50, et la corrélation inter-moitiés du taux de répétition
+  par numéro vaut **−0,133** (elle devrait être positive). Fluctuation.
+- **χ² des paires de gaps = 2759 (z = +274).** Mon modèle nul était faux : les 21 gaps
+  somment à 60, donc ils sont dépendants par construction. Quatre archives SRS
+  synthétiques donnent 2848, 2954, 2848, 2968 — la valeur réelle est **inférieure**
+  à toutes. Aucun effet.
 
 Modèle prédictif hors-échantillon (13 460 tirages retenus, 13 features, pas de Newton exact) :
 gain de log-loss **−8,9·10⁻⁶ bit**, et le tirage des k meilleurs numéros est
@@ -162,6 +180,40 @@ ce que l'outil exploite pour balayer les hypothèses automatiquement (`SCAN=1`).
 
 Familles F2-linéaires : `mtbreak.c` s'applique tel quel (changer la récurrence).
 Familles congruentielles : même compte d'information, réduction de réseau (LLL).
+
+### `keno_break.c` — l'outil déployable
+
+`mtbreak.c` est la démonstration ; `keno_break.c` est l'outil qu'on braque sur une
+vraie capture. Il lit un fichier de tirages ordonnés (20 numéros par ligne, dans
+l'ordre de sortie) et balaye **3 échantillonneurs × 3 mappings** :
+
+| mapping | bits F2-linéaires extraits | tirages nécessaires |
+|---|---|---|
+| `mulhi` `(u·k)>>32` | préfixe commun de l'intervalle, ~4,5 bits/sortie | **300** |
+| `u % k` | `u mod 2^v2(k)` — 22 bits/tirage (k=64 en donne 6 à lui seul) | **1400** |
+| `(u>>16) % k` | mêmes bits, décalés en position 16 | **1400** |
+
+Vérifié de bout en bout sur des captures synthétiques (graine cachée, préchauffage
+inconnu de 41 sorties) :
+
+```
+$ ./keno_break scanfile ordered_demo.txt
+  already-sorted lines: 0/420  (0.0%; a real draw order gives ~0%)
+  rank of the first drawn ball inside the sorted set: 24 18 22 24 19 21 29 20 ...
+    sampler 0 mapping 0 : rank 19937/19968, 35544 eqs -> replayed 395/395, predicted 25/25
+  *** CONSISTENT: sampler 0, mapping 0 — generator recovered ***
+
+$ ./keno_break scanfile sorted_demo.txt
+  already-sorted lines: 420/420  (100.0%)
+  -> the feed publishes sorted numbers; the order attack cannot run.
+```
+
+Le second cas est **l'état actuel de l'archive** : l'outil détecte tout seul que
+l'ordre a été perdu et refuse de tourner. C'est le verrou à lever.
+
+Les échantillonneurs et mappings faux ne coûtent rien : le système devient
+**incohérent** (35 000 équations pour 19 968 inconnues), l'outil abandonne en 0,2 s
+et passe à l'hypothèse suivante.
 
 ---
 
