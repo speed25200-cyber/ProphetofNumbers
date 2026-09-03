@@ -19725,6 +19725,12 @@ mesure, l'écart-type de la justesse du bonus vaut `0,132` point de pourcentage.
 ---
 ## 191. **La réponse** : ce qui se reconstitue, ce qui se prédit, et ce qui ne se prédit pas
 
+> **Cette section est datée.** Elle a été écrite avant les §192 à §205, qui élargissent la
+> borne à six familles de défauts de plus, traitent les deux **flux minces**, mesurent la
+> **frontière** des instruments, et épuisent `1,56·10¹¹` graines. Le compte à jour est au
+> **§206**, qui la remplace. Elle est conservée telle quelle : une synthèse qu'on réécrit
+> sans dire qu'on l'a réécrite est une synthèse à laquelle on ne peut plus se fier.
+
 Ce dossier a une question et il faut y répondre en clair.
 
 ### 1. La théorie de reconstitution existe, et elle fonctionne
@@ -20663,5 +20669,113 @@ en début de nuit, **les huit** devraient apparier — et un seul aurait suffi.
 > Le mur qui reste est celui de `2⁶⁴`, et il n'est pas contournable par un balayage.
 
 **Ligne de registre.** `h185.sous_seconde`, piste B, conforme.
+
+---
+## 206. **La réponse, deuxième version** : le compte à jour
+
+Le §191 répondait à la question du dossier avant les §192 à §205. Ceux-ci ont élargi la
+borne, ouvert deux observables neufs, mesuré la frontière des instruments et épuisé
+`1,56·10¹¹` graines. Voici le compte à jour.
+
+### 1. La théorie existe, et elle produit des numéros
+
+Écrite aux §7.1 à §7.34, avec des équations exactes et des bornes démontrées. Les quatre
+pièces neuves de cette série :
+
+* **§7.29** — l'autocorrélation exacte : la covariance des termes qui partagent un tirage
+  s'annule **identiquement**, d'où `Var(C_v(d)) = n_d·(3/16)²` sans une simulation.
+* **§7.31** — comment un test négatif se convertit en garantie chiffrée, et les deux
+  conditions (hors échantillon, causalité stricte) qui n'ont rien de décoratif.
+* **§7.32** — le maximum permuté : pourquoi un Bonferroni gaussien sur des `khi²` est faux
+  **des deux côtés à la fois**. Sans lui, ce dossier aurait publié cinq fausses découvertes.
+* **§7.34** — le **flux mince** : `c = 4b + k` avec `k ∈ {0,1,2,3}`, exactement — le rang
+  du bonus fixe la classe d'un mot **identifié** à quatre valeurs sur quatre-vingts.
+
+Et la chaîne complète *détecter → relever l'état → prédire les vingt numéros suivants* a
+été exécutée de bout en bout sur générateurs plantés, avec relèvement exact par réseau et
+prédiction `20/20`. **La théorie n'est pas conditionnelle : elle a produit des numéros
+justes.** Simplement pas sur cette archive-ci.
+
+### 2. Ce qui se prédit dans l'archive
+
+| champ | à l'aveugle | avec la théorie | facteur | vérification |
+|---|---|---|---|---|
+| identifiant | — | exact | — | consécutif, `70 560/70 560` |
+| horodatage | — | `99,97 %` | — | `70 190` écarts de `300 s` |
+| multiplicateur | `1/6` | `51,19 %` | `×3` | secteur majoritaire |
+| **bonus** | `1/80` | **`1/20`** | **`×4`** | **`70 560/70 560`, exact** |
+| **les vingt numéros** | `5,000` | **`5,002`** | **aucun** | `z = +0,225` |
+
+### 3. Les bornes, à jour
+
+| ce qui est mesuré | borne à `95 %` |
+|---|---|
+| numéros, prédicteur appris à `31` traits, hors échantillon (§192) | `+0,0191` numéro par tirage, soit `0,38 %` |
+| bonus, modèles temporel et interne (§190) | `5,18 %` au lieu de `5,00 %` |
+| boost, modèle temporel (§190) | `51,70 %` au lieu de `51,16 %` |
+
+Neuf témoins plantés sur neuf les accompagnent, de `+3,66` à `+30,13`.
+
+### 4. Ce que les instruments voient, et ce qu'ils ne voient pas (§199)
+
+**Pris** : les familles classiques — récurrences à plusieurs pas, retards courts,
+relations creuses entre sorties. Un Fibonacci `(3,7)` sort à `22,22`.
+
+**Invisibles** : toute conception moderne à **un seul pas** — `xorshift32`, `splitmix64`,
+`PCG32`, `xoshiro128**` — et `os.urandom` avec elles. C'est structurel : un générateur
+`x_{i+1} = M(x_i)` n'a aucune relation creuse entre sorties à l'échelle du tirage
+(§7.33), et son état de `64` à `256` bits met tout crible hors de portée. **Les deux voies
+du dossier sont fermées en même temps par la même famille.**
+
+### 5. La graine, épuisée (§200–§205)
+
+| § | ce qui est balayé | essais |
+|---|---|---|
+| 200 | horloge : seconde, milliseconde, journée | `9,83·10⁹` |
+| 201 | + échauffement `0..300` mots | `8,23·10⁹` |
+| 202 | huit bases dérivées + échauffement | `1,18·10¹⁰` |
+| 203 | **les `2³²` graines, sans hypothèse d'origine** | `4,30·10¹⁰` |
+| 204 | microseconde et nanoseconde | `8,35·10¹⁰` |
+| | **total** | **`1,56·10¹¹`** |
+
+**Zéro appariement.** Ce sont des tests sans nulle : une coïncidence fausse vaut
+`2,0·10⁻¹⁴` par essai. Un succès aurait donné la prédiction **complète**, pas un écart.
+
+### 6. Le compte du registre
+
+`259` entrées, **`7 869 450` tests** toutes voies confondues. Le plus petit `p` du dossier
+vaut `1,805·10⁻⁴` ; le seuil de Holm au premier rang vaut `6,354·10⁻⁹` :
+
+> **il manque un facteur `28 415`.** Aucune anomalie ne survit.
+
+### 7. Ce que ce dossier prouve, et ce qu'il ne prouve pas
+
+* **Il prouve** que l'archive n'est engendrée par aucun générateur des familles
+  classiques, ni par aucun générateur moderne dont la graine soit accessible — ce qui
+  couvre tout ce qui s'est cassé historiquement dans les loteries.
+* **Il ne prouve pas**, et ne peut pas prouver à partir de `70 560` tirages de vingt parmi
+  quatre-vingts, que l'archive vient d'un vrai hasard plutôt que d'un `splitmix64` bien
+  graine. **Ces deux hypothèses sont indiscernables sur ces données** — le §199 le montre
+  au lieu de l'affirmer.
+* **Il ne ferme pas** la classe d'attaques qui ne laisse aucune trace dans les résultats
+  publiés : résultat consultable avant l'heure, initié, fuite hors bande. Aucune archive
+  de résultats ne le pourra jamais — c'est une frontière méthodologique, pas statistique.
+
+### 8. Neuf défauts trouvés dans mes propres instruments
+
+C'est le chiffre qui dit ce que vaut le reste. Sur cette série : une fuite de prédicteur
+visible seulement dans la queue d'une loi (`+12,08 σ`) ; un témoin XOR **dégénéré**
+(`x⁴⁶+x²³+1` divise `x⁶⁹−1`) ; un test de gigue confondu ; un témoin mal classé ; une
+hypothèse (« la gigue ») formée sur un fait qui n'existait pas ; une référence prise sur
+une seule réalisation SRS, qui classait un CSPRNG comme détecté ; une moyenne exacte
+appliquée à des statistiques qui n'avaient pas la même ; un multiplicateur `128` bits
+tronqué en silence par un littéral `ULL` ; et **quatre fois** le même Bonferroni gaussien
+sur un maximum de statistiques corrélées.
+
+> Aucun n'a été trouvé par une intuition. Tous l'ont été par un contrôle que rien
+> n'obligeait à faire — un témoin planté, un contrôle SRS, une loi entière regardée au
+> lieu de sa seule moyenne. C'est la seule raison pour laquelle les chiffres de ce dossier
+> méritent qu'on s'y fie, et `lab/verifier.py` permet de les recalculer tous depuis les
+> sources.
 
 ---
