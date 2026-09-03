@@ -5820,3 +5820,55 @@ déduit pas.**
 > chance, un multiplicateur porté par une grille. Sa suite est un flux mince : plus net que
 > le tirage principal, identifié mot par mot, et de nulle exacte. C'est là qu'un défaut de
 > générateur se verrait en premier.
+
+---
+
+### 7.35 La **dimension du modèle** — ce qu'un balayage de graine suppose sans le dire, et comment le borner
+
+Un balayage de graine énonce toujours plus que ce qu'il croit énoncer. Écrit sans
+raccourci, son résultat est :
+
+> Aucune graine de l'ensemble `G` ne reproduit un tirage de l'archive **sous le modèle
+> `(générateur, échantillonneur)` choisi**.
+
+Trois quantificateurs, pas un. Et les deux derniers ne sont pas symétriques du premier :
+
+* `G`, l'ensemble des graines, **peut** être épuisé — `2³²` l'a été (§203).
+* L'ensemble des générateurs peut être couvert **par famille**, et le §199 mesure ce
+  qu'une famille laisse voir.
+* L'ensemble des échantillonneurs **ne peut pas** être épuisé. Il n'y a pas de liste
+  finie de façons de réduire un mot à une classe.
+
+**La leçon que ce dossier a apprise à ses dépens.** Les §200 à §205 balayent `1,56·10¹¹`
+graines sous **deux** échantillonneurs — troncature et modulo. Si la machine en emploie un
+troisième, ces cent cinquante-six milliards d'essais ne pouvaient pas apparier, et leur
+résultat négatif ne disait rien de la graine. Le §206 bis porte le compte à six, mais six
+n'est pas *tous*.
+
+> **Un balayage exhaustif dans une dimension et borgne dans une autre ne prouve rien de
+> plus que le produit de ses couvertures.** L'exhaustivité en graines n'achète pas
+> l'exhaustivité en modèles, et l'annoncer comme telle est une faute.
+
+**Comment on borne quand même.** Trois règles, toutes appliquées ici :
+
+1. **Prendre les échantillonneurs des bibliothèques réelles, pas ceux qu'on imagine.**
+   `nextInt` de Java rejette pour débiaiser ; `C++`, Rust et Go modernes utilisent Lemire ;
+   `Math.random()*n` construit un double de cinquante-trois bits sur **deux** mots.
+   Chacun consomme les mots différemment, et cette consommation est ce que le crible voit.
+
+2. **Un témoin planté par échantillonneur, pas un par famille.** Le témoin du §203 en
+   validait deux ; celui du §206 bis en valide trente — cinq générateurs × six
+   échantillonneurs. Un échantillonneur qu'aucun témoin n'allume est un échantillonneur
+   **non couvert**, et le compte des essais ne le dit pas.
+
+3. **Énoncer le modèle dans le résultat.** « Zéro appariement sur `1,29·10¹¹` essais »
+   n'est pas un résultat ; « zéro appariement sur `2³²` graines × cinq générateurs à un
+   seul pas × six échantillonneurs de bibliothèque » en est un. La différence n'est pas
+   rhétorique : la seconde formulation dit **ce qu'il resterait à faire**.
+
+**Ce que cela vaut pour un résultat négatif.** Il reste conditionnel, et il faut l'écrire.
+Mais sa valeur ne tient pas à une exhaustivité impossible : elle tient à ce que la classe
+couverte contienne **ce qu'on aurait employé en pratique**. Un dossier qui balaye les cinq
+générateurs et les six échantillonneurs qu'un ingénieur choisirait vraiment a fermé la
+porte par laquelle on serait entré — pas toutes les portes concevables, et il doit dire
+laquelle est laquelle.
