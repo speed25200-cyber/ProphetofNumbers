@@ -503,6 +503,61 @@ def bloc_dependance():
         "conforme")
 
 
+def bloc_bareme():
+    """12. LE BAREME (§216) — ce que la nullite vaut en francs, recalcule depuis le CSV.
+
+    Un dossier de nullites ne dit rien d'utile tant qu'il n'est pas converti en argent.
+    Le bareme releve sur l'ecran donne l'esperance de gain EXACTE sous SRS, et le facteur
+    par lequel un joueur devrait la multiplier pour atteindre l'equilibre.
+    """
+    from fractions import Fraction as F
+    print("\n12. LE BAREME, et ce que la nullite vaut en francs")
+
+    lignes = [r for r in csv.DictReader(
+        l for l in open(os.path.join(ROOT, "bareme_observed.csv"), encoding="utf-8")
+        if not l.startswith("#"))]
+    par = {}
+    for r in lignes:
+        par.setdefault(int(r["mise"]), {})[int(r["hits"])] = int(r["gain_base"])
+    dit("tailles de grille au bareme", sorted(par) == [5, 6, 7, 8, 10],
+        sorted(par), "[5, 6, 7, 8, 10]")
+
+    def binom(n, r):
+        v = F(1)
+        for i in range(r):
+            v *= F(n - i, i + 1)
+        return v
+
+    esp = {}
+    for k in sorted(par):
+        P = [binom(k, h) * binom(POOL - k, DRAWN - h) / binom(POOL, DRAWN)
+             for h in range(k + 1)]
+        dit(f"loi des justes somme a 1 (grille de {k:2d})", sum(P) == 1, str(sum(P)), "1")
+        esp[k] = sum(P[h] * par[k].get(h, 0) for h in range(k + 1))
+        print(f"          grille de {k:2d} : E[gain] = {float(esp[k]):.5f} CHF, "
+              f"P({k}/{k}) = {float(P[k]):.4e}")
+
+    # La constance de E[gain] a travers les tailles est la signature d'un rendement cible
+    # fixe : l'operateur a normalise son bareme. Elle est ce qui permet de parler d'UNE
+    # marge de maison, et non de cinq.
+    lo, hi = float(min(esp.values())), float(max(esp.values()))
+    dit("E[gain] quasi constant sur les cinq tailles", hi / lo < 1.03,
+        f"{lo:.5f} a {hi:.5f}, rapport {hi/lo:.4f}", "rapport < 1,03")
+
+    # Le facteur d'amelioration que le dossier justifie AU MIEUX : la meilleure grille de
+    # cinq trouvee hors echantillon (§213 D) a 29 jackpots sur 35 280, dont la borne haute
+    # unilaterale a 95 % vaut (29 + 1,645 racine(29))/35 280.
+    P5 = [binom(5, h) * binom(POOL - 5, DRAWN - h) / binom(POOL, DRAWN) for h in range(6)]
+    haut = (29 + 1.645 * sqrt(29)) / 35280
+    dit("borne haute 95 % de la meilleure grille de cinq",
+        proche(haut / float(P5[5]), 1.664, 5e-3), f"x{haut/float(P5[5]):.3f}", "x1,664")
+    ameliore = (360 * haut + 36 * float(P5[4]) + 6 * float(P5[3])) / float(esp[5])
+    dit("gain de rendement que le dossier justifie au mieux",
+        proche(ameliore, 1.132, 5e-3), f"x{ameliore:.3f}", "x1,132")
+    print(f"          -> pour l'equilibre il faudrait multiplier E[gain] par mise/"
+          f"{float(esp[5]):.3f} ; le dossier n'offre que x{ameliore:.3f}")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -519,6 +574,7 @@ if __name__ == "__main__":
     bloc_flux_mince()
     bloc_graines()
     bloc_dependance()
+    bloc_bareme()
 
     print("\n" + "=" * 78)
     if ECHECS:
