@@ -21144,3 +21144,73 @@ C'est là, et nulle part ailleurs, que subsiste une place pour une grille exploi
 **Ligne de registre.** `h193.dependance_interne`, piste B, conforme, `m_extra = 85 329`.
 
 ---
+
+## 217. **Les deux queues** : le barème paie aussi pour ZÉRO (`h196_les_deux_queues.py`)
+
+### Ce que le barème dit, et que tout le dossier avait ignoré
+
+Le barème relevé sur l'écran (`lab/bareme_observed.csv`) a deux propriétés que je n'avais
+jamais regardées, parce que je cherchais depuis le début à prédire les numéros qui
+**sortent** :
+
+* **l'option EXTRA n'est pas monotone.** À *chaque* taille de grille, **un** juste paie
+  plus que **deux** justes : `12` contre `7` à cinq numéros, `10` contre `6` à six, `10`
+  contre `4` à huit, `12` contre `4` à dix.
+* **à dix numéros, ZÉRO juste paie** — `2` en base et `2` en EXTRA.
+
+Le gain est donc une fonction convexe **aux deux bouts**. Le §213 a fermé la queue haute :
+`P(les k sortent)` ne s'écarte pas. L'autre n'avait jamais été mesurée.
+
+> Le §210 avait bien joué une grille **froide** — mais il en mesurait le **taux de sortie
+> moyen**, c'est-à-dire la seule chose que les marges bornent déjà. La queue basse,
+> `P(aucun des k ne sort)`, dépend de la loi jointe et **rien dans le dossier ne la
+> bornait**.
+
+Une dépendance **négative** — des numéros qui s'évitent — laisse les marges intactes, ne
+se voit pas dans la queue haute, et **paie** sur ce barème-ci. C'est la brèche symétrique
+de celle du §213, et elle était ouverte.
+
+### Le témoin
+
+Dix numéros plantés qui s'évitent dans `3 %` de `40 000` tirages synthétiques. Le faisceau
+de la queue basse **les retrouve exactement**, hors échantillon, à `z = +19,19` — et rend
+`z = −0,05` sur la queue haute, où il n'y a rien. L'instrument voit la bonne queue.
+
+### Ce que dit l'archive
+
+Nulles **exactes** : `P_k = ∏_{j<k}(20−j)/(80−j)` et `Q_k = ∏_{j<k}(60−j)/(80−j)`.
+
+| `k` | `P(k/k)` | `P(0/k)` | attendus haut sur `35 280` | attendus bas |
+|---|---|---|---|---|
+| `5` | `6,449 × 10⁻⁴` | `0,2271842` | `22,75` | `8 015,1` |
+| `6` | `1,290 × 10⁻⁴` | `0,1666018` | `4,55` | `5 877,7` |
+| `7` | `2,440 × 10⁻⁵` | `0,1215743` | `0,86` | `4 289,1` |
+| `8` | `4,346 × 10⁻⁶` | `0,0882662` | `0,15` | `3 114,0` |
+| `10` | `1,122 × 10⁻⁷` | `0,0457907` | `0,00` | `1 615,5` |
+
+Recherche par **faisceau de largeur 100** sur une moitié, mesure sur l'autre, dans les deux
+sens : `20` statistiques, seuil de Bonferroni `3,023`.
+
+**`max |z| = −1,566`** — la grille froide de dix du sens `H1→H2`. `p = 1,0000`.
+**Verdict : conforme.**
+
+### Et, une fois de plus, la même leçon
+
+| `k` | queue | `z` **en échantillon** | `z` **hors échantillon** |
+|---|---|---|---|
+| `5` | haute | `+5,50` | `+0,26` |
+| `5` | basse | `+5,64` | `−1,51` |
+| `8` | basse | `+6,68` | `−0,54` |
+| `10` | basse | `+7,27` | `−1,57` |
+
+La grille froide de dix sortait à `5,39 %` sur la moitié qui l'avait choisie, contre
+`4,58 %` attendus — `+7,27 σ`. Sur la moitié suivante : `4,40 %`, soit `−1,57 σ`.
+
+> C'est la troisième fois dans cette session qu'un écart de six ou sept sigmas s'évapore en
+> changeant de fenêtre. Ce n'est pas de la malchance : c'est **la même quantité mesurée
+> deux fois**, une fois par un instrument qui a choisi son point de mesure et une fois par
+> un instrument qui ne l'a pas choisi. Seule la seconde mesure quoi que ce soit.
+
+**Ligne de registre.** `h196.les_deux_queues`, piste B, conforme, `m_extra = 19`.
+
+---
