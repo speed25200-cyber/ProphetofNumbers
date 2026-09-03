@@ -20386,3 +20386,60 @@ instruments manquent de puissance sur les familles cassables — ils prennent un
 la portée des instruments.
 
 ---
+## 200. **La graine d'horloge des générateurs modernes** : le trou que le §199 avait ouvert (`h181_graine_moderne.py`, `tools/graine_moderne.c`)
+
+Le §199 a montré que les générateurs modernes **à un seul pas** — `splitmix64`,
+`xoshiro`, `PCG` — échappent à la fois aux détecteurs de relation et aux cribles
+d'état, et qu'ils constituent donc la seule famille encore debout après deux cents
+sections.
+
+Elle a pourtant un point faible, et c'est exactement celui que l'utilisateur du dépôt
+avait nommé : **la graine**. Un état de `64` à `128` bits est hors de portée de tout
+crible. Une graine tirée de l'horloge ne l'est pas du tout — et l'archive donne
+l'horodatage **exact** de chaque tirage, à la seconde.
+
+Les §161 et suivants ont balayé les graines d'horloge, mais pour `glibc random()`,
+Java `48` bits et V8. **Aucun n'avait couvert les générateurs modernes.**
+
+### Le balayage
+
+Cinq générateurs × deux échantillonneurs (troncature `(w·80) >> 32`, modulo `w mod 80`)
+× trois modes de graine :
+
+| mode | cibles | fenêtre | graines par cible | essais | appariements |
+|---|---|---|---|---|---|
+| **seconde** `ts + δ` | les `70 560` tirages | `±3 600 s` | `7 201` | `5,081·10⁹` | **`0`** |
+| **milliseconde** `ts·1000 + δ` | `346` débuts de nuit | `±600 000 ms` | `1 200 001` | `4,152·10⁹` | **`0`** |
+| **journée** `ts + δ` | `346` débuts de nuit | `±86 400 s` | `172 801` | `5,979·10⁸` | **`0`** |
+
+**Total : `9,831·10⁹` essais, zéro appariement.**
+
+### Ce test n'a pas de nulle, et c'est sa force
+
+Un appariement fortuit sur les vingt numéros a une probabilité de
+`1/C(80,20) = 2,8·10⁻¹⁹`. Sur `9,83·10⁹` essais, l'espérance de faux vaut
+`2,75·10⁻⁹`. Il n'y a donc **rien à calibrer, rien à corriger de la multiplicité, et
+aucun seuil à choisir** : le résultat est binaire. Ou bien la graine est trouvée — et
+alors l'état est connu, et **tout ce qui suit le tirage apparié est prédit** — ou bien
+il n'y a rien.
+
+C'est le seul test du dossier dont un succès aurait donné la prédiction complète, et
+non un simple écart.
+
+### Le témoin, et il est obligatoire
+
+Un balayeur qui ne retrouve pas une graine **plantée** ne prouve rien.
+
+1. `splitmix64` est ancré sur ses **vecteurs de test publiés** : graine `0` →
+   `0xE220A8397B1DCDAF`, `0x6E789E6AA1B965F4`, `0x06C45D188009454F`. Conformes.
+2. Pour chacun des **dix** couples générateur × échantillonneur, une graine d'horloge
+   plantée est retrouvée. `10/10`.
+
+*Un défaut corrigé en route.* Le multiplicateur `128` bits de PCG64 était **tronqué
+silencieusement** par un littéral `ULL` — `gcc` n'en fait qu'un avertissement, et le
+générateur aurait été faux sans que rien ne le signale. Il est désormais construit en
+deux moitiés de `64` bits.
+
+**Ligne de registre.** `h181.graine_moderne`, piste B, conforme.
+
+---
