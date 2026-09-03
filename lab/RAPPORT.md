@@ -21033,6 +21033,74 @@ tacite se faire passer pour une preuve.
 
 ---
 
+## 212. **La graine reprise à chaque tirage** : le modèle d'amorçage que neuf balayages ont manqué (`h192_graine_par_tirage.py`, `tools/graine_plages.c`)
+
+### Le modèle du programmeur pressé
+
+Les §200 à §211 balayent `2,85 × 10¹¹` graines. **Tous** supposent que la machine s'amorce
+**une fois** — au début d'une nuit, sur un identifiant, sur une date — puis déroule son
+flux. C'est le modèle du programmeur soigneux, et je ne m'étais jamais demandé pourquoi je
+le supposais.
+
+Le modèle du programmeur pressé est autre, et c'est de très loin le plus répandu au monde :
+
+    pour chaque tirage :  amorcer sur l'horloge, puis tirer vingt numéros
+
+Le générateur est **repris de l'horloge à chaque tirage**. C'est le bogue de génération
+aléatoire le plus commun qui existe, et rien dans le dossier ne l'avait testé comme tel.
+
+### La moitié qui était déjà fermée, par accident
+
+À la **seconde**, ce modèle était déjà mort — et je ne le savais pas. Le §211 balaie les
+`2³²` graines en comparant chacune à l'archive **entière** par table de hachage. Or tout
+horodatage unix de l'archive vaut `1,76 × 10⁹`, donc **inférieur à `2³² = 4,29 × 10⁹`** :
+toute graine « seconde du tirage » avait donc déjà été essayée, avec les cinq générateurs
+et les six échantillonneurs.
+
+C'est un point de méthode qui vaut d'être noté : **une couverture exhaustive dans un espace
+abstrait ferme des modèles concrets qu'on n'avait pas en tête en la construisant.** Encore
+faut-il vérifier l'inclusion plutôt que la supposer, dans un sens comme dans l'autre.
+
+### Ce qui restait ouvert
+
+La **sous-seconde par tirage**. Le §204 ne visite les millisecondes et les microsecondes
+qu'autour des `346` **débuts de nuit**. Si la machine reprend l'horloge à chaque tirage, la
+graine du tirage `t` vaut `ts_t · 1000 + ms` ou `ts_t · 10⁶ + µs` — des valeurs allant
+jusqu'à `1,77 × 10¹⁵`, donc **très au-delà** des `2³²` du §211, et jamais visitées ailleurs
+qu'aux 346 débuts de nuit.
+
+| | couverture | graines | essais |
+|---|---|---|---|
+| **A** milliseconde, totale | les `70 560` tirages, plage complète de `1000` | `7,056 × 10⁷` | `2,12 × 10⁹` |
+| **B** microseconde, profonde | `2 000` tirages régulièrement espacés, plage complète de `10⁶` | `2,000 × 10⁹` | `6,00 × 10¹⁰` |
+
+Si la machine s'amorce à la milliseconde de son propre tirage, **les 70 560** doivent
+apparier ; à la microseconde, **les 2 000** du balayage B. Une seule suffirait.
+
+### L'outil, et pourquoi il n'est pas une copie
+
+`graine_plages.c` balaie une **liste de plages** arbitraires au lieu d'un intervalle
+unique. Il fait `#include "graine_exhaustive.c"` avec le pilote débranché par `SANS_MAIN` :
+les cinq générateurs, les six échantillonneurs et la table de hachage sont donc *le même
+code objet* que celui validé par le témoin `30/30` du §211. Une seconde copie aurait été
+une seconde chose capable de dériver.
+
+Le témoin plante trente graines de l'ordre de `1,76 × 10¹²` — hors d'atteinte du §211 — au
+milieu d'une plage, réparties sur trois plages et deux blocs : **30/30**. Il vérifie du même
+coup que l'outil traite bien une liste et son découpage.
+
+### Le résultat
+
+`6,2117 × 10¹⁰ essais`, faux attendus `1,24 × 10⁻³`. **Zéro appariement.**
+
+Le modèle « la machine reprend l'horloge à chaque tirage » est donc mort à la seconde
+(§211, par inclusion), à la milliseconde (ici, sans aucun trou), et à la microseconde sur
+deux mille chances indépendantes.
+
+**Ligne de registre.** `h192.graine_par_tirage`, piste B, conforme, `m_extra = 0`.
+
+---
+
 ## 213. **La dépendance interne** : la brèche que le §210 laisse dans son propre argument (`h193_dependance_interne.py`)
 
 ### L'argument du §210, et son défaut
@@ -21142,6 +21210,96 @@ Un résultat nul devient utile quand il porte un nombre. Simultanément, à 95 %
 C'est là, et nulle part ailleurs, que subsiste une place pour une grille exploitable.
 
 **Ligne de registre.** `h193.dependance_interne`, piste B, conforme, `m_extra = 85 329`.
+
+---
+
+## 215. **Les parités d'ordre quatre** : le seul trou que le §7.37 laissait ouvert (`h195_parites_ordre_quatre.py`)
+
+### Ce n'était pas une idée de plus, c'était la seule qui restait
+
+Le §7.37 découpe ce qu'un dossier de nullités garantit, et le découpage désigne un unique
+survivant :
+
+* la **moyenne** de toute grille est fixée par les marges — conformes ;
+* la **variance** de toute grille est fixée par les paires — `± 6,3 %` (§213 A) ;
+* les **triplets** sont bornés à `± 15,6 %` (§213 B) ;
+* les ordres **`≥ 4`** ne sont bornés **par rien de ce qui précède**.
+
+Et ce n'est pas une échappatoire théorique. La construction qui vit exactement là est la
+plus banale de la cryptographie : une dépendance de **type parité**, dont toute marge
+d'ordre inférieur est *exactement* uniforme et dont seule la coïncidence complète est
+biaisée. C'est la signature d'un générateur **`F₂`-linéaire** — LFSR, xorshift, Mersenne
+Twister — réduit à quatre-vingts classes.
+
+> Le trou que le §7.37 nomme est donc précisément la forme qu'aurait le défaut du
+> générateur le plus probable de tous.
+
+### La quantité mesurée, et l'identité qui rend le calcul possible
+
+Pour chacune des `C(80,4) = 1 581 580` parties `S`,
+
+    W_S = (1/N) · Σ_t (−1)^{|S ∩ D_t|}
+
+Naïvement, `70 560 × 1 581 580 = 1,1 × 10¹¹` évaluations. Mais avec `y_i = 1 − 2x_i ∈ {±1}`
+on a `(−1)^{|S∩D|} = ∏_{i∈S} y_i`, et en développant :
+
+    N · W_S  =  Σ_{T ⊆ S} (−2)^{|T|} · C_T
+
+où `C_T` compte les tirages contenant **tout** `T`. Quatre `bincount` suffisent donc, et
+l'assemblage est vectoriel. L'autotest vérifie l'identité par calcul direct de la parité
+sur quarante parties tirées au hasard : **écart maximal exactement `0`**.
+
+### La nulle est exacte, et ce n'est pas `(1/2)⁴`
+
+    E[(−1)^{|S∩D|}] = Σ_h (−1)^h C(4,h)·C(76,20−h)/C(80,20) = 3799/79079 = 0,04804057
+
+contre `(1/2)⁴ = 0,0625`. L'écart vient de la contrainte « exactement vingt par tirage »,
+la même qui rabote les sommes de `z²` du §213. Le produit valant `±1`, sa variance vaut
+`1 − E²` exactement, d'où `σ(W_S) = 0,00376027` sur `70 560` tirages.
+
+*Et un contrôle que j'ai dû réécrire.* Ma première version de l'autotest annonçait « NULLE
+CONFIRMÉE » parce que la moyenne empirique de `W_S` sur toutes les parties retrouvait `E₄`
+à huit décimales. C'est vrai, et **sans aucune valeur** : pour un tirage donné,
+`Σ_{|S|=4} (−1)^{|S∩D|} = Σ_h (−1)^h C(20,h)C(60,4−h)`, qui ne dépend que de `|D| = 20`.
+La moyenne est donc une **identité algébrique**, vraie de n'importe quelle collection de
+tirages `20/80` — elle ne *pouvait pas* ne pas coïncider. Le contrôle vérifie mon
+assemblage, ce qui est utile, et ce n'est pas la même chose. Le contenu statistique de la
+nulle est sa **variance**, vérifiée séparément sur répliques : `0,013067` mesuré contre
+`0,012895` attendu.
+
+### Le témoin
+
+Une parité plantée sur une partie de quatre, portée par `5 %` de `40 000` tirages : le
+maximum ressort à `z = +8,07` et **sur la bonne partie**.
+
+### Ce que dit l'archive
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| `max |z|` | `5,298` | `5,137 ± 0,289` | `+0,559` |
+| énergie `N·Σ(W−E₄)²` | `1 575 094` | `1 581 318 ± 12 560` | `−0,496` |
+
+Moyenne des `z` : `+0,0000`, écart-type `0,9991`. Maximum réduit `0,559` contre un
+95ᵉ centile de `2,069`. **`p = 0,8780`. Verdict : conforme.**
+
+Le maximum tombe sur la partie `{6, 40, 61, 65}` à `z = −5,298`, exactement là où l'on
+attend le maximum d'un million et demi de statistiques indépendantes — `√(2 ln 1 581 580)
+= 5,34`.
+
+### Et, pour la quatrième fois de la session
+
+La partie la plus extrême de la première moitié valait `z = +5,06` sur les données qui
+l'avaient choisie. Sur la seconde moitié : **`z = +0,42`**.
+
+### Ce que ça ferme, et ce que ça ne ferme pas
+
+Toute relation `F₂`-linéaire entre **quatre** classes est exclue. Reste une dépendance
+d'ordre **cinq ou plus** dont toutes les marges d'ordre inférieur seraient exactement
+uniformes. Elle est constructible — c'est un code correcteur — mais elle demande un
+générateur dont la relation la plus courte porte sur cinq classes et pas moins, ce qui est
+une hypothèse nettement plus étroite que celle qui vient de tomber. Le §216 la chiffre.
+
+**Ligne de registre.** `h195.parites_ordre_quatre`, piste B, conforme, `m_extra = 1 581 579`.
 
 ---
 
