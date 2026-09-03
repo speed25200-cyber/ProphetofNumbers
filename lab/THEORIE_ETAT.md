@@ -5931,3 +5931,104 @@ trente-sept bits hauts par `80`, soit `2³⁷/80 = 1,72·10⁹` candidats — pa
 C'est donc le **côté** que la sortie regarde, et non le nombre de bits, qui sépare un
 générateur criblable d'un générateur qui ne l'est pas. Un état de `48` bits lu par le bas
 tombe ; un état de `64` bits lu par le haut ne tombe pas.
+
+## 7.37 — La moyenne, la variance, et le jackpot : ce que les marges bornent et ce qu'elles ne bornent pas
+
+Le §210 conclut, et c'est exact :
+
+> « Une grille ne peut pas battre le hasard si aucun de ses membres n'est biaisé. »
+
+Cette phrase est vraie **de la moyenne**, et de rien d'autre. Elle mérite d'être découpée,
+parce que le découpage dit exactement ce qu'un dossier de nullités permet de garantir.
+
+### La moyenne : bornée par les marges, et par elles seules
+
+Soit `G` une grille fixe de `k` numéros, `D` l'ensemble des vingt numéros sortis, et
+`X_G = |G ∩ D|` le nombre de justes. Par linéarité,
+
+    E[X_G] = Σ_{i ∈ G} p_i,     p_i = P(i ∈ D).
+
+C'est **exactement** une fonction des marges, sans aucune hypothèse d'indépendance. Les
+marges de l'archive étant conformes (§210 A, `max |z| = 2,72` sur quatre-vingts), aucune
+grille ne bat la moyenne. Démontré, définitif.
+
+### La variance : bornée par les paires
+
+    Var(X_G) = Σ_{i∈G} p_i(1−p_i) + Σ_{i≠j ∈ G} (p_ij − p_i p_j).
+
+La variance ne dépend donc **que** des marges et des lois de paires. Sous SRS,
+
+    Var(X_G) = k · (1/4) · (3/4) · (80−k)/79     exactement,
+
+soit `0,8900` pour `k = 5`. Le §213 mesure les `3 160` paires : le maximum de `|z|` vaut
+`3,682` contre une loi empirique de maximum de moyenne `3,694` et d'écart-type `0,333`.
+Le 95ᵉ centile simultané est donc `4,24`, et comme `N·p₂ = 4 242,5` avec un écart-type de
+`63,15` :
+
+> **Toute** paire de l'archive a un taux de co-sortie à moins de **`6,3 %`** en valeur
+> relative de sa valeur SRS `19/316`, simultanément, à 95 %.
+
+La variance de n'importe quelle grille est donc elle aussi épinglée à quelques pour cent.
+
+### Le jackpot : **non borné** par ce qui précède, et c'est le point
+
+On n'est pas payé à la moyenne. Le gain d'un keno est
+
+    Π = Σ_h π_h · 1{X_G = h},     E[Π] = Σ_h π_h · P(X_G = h),
+
+et `π` est **convexe** : on paie sur `4/5`, sur `5/5`. Or pour `k ≥ 3`, `P(X_G = k)` n'est
+pas une fonction des marges ni des paires. Définissons le **relèvement d'ordre `k`**
+
+    λ_G = P(G ⊆ D) / ∏_{j<k} (20−j)/(80−j).
+
+Une grille de `λ_G > 1` est rentable, à marges rigoureusement conformes, dès que le
+barème concentre le gain sur `h = k`. **C'est la brèche que laisse l'argument du §210.**
+
+Ce que le §213 en borne :
+
+| ordre | statistiques | 95ᵉ centile du max | borne sur `λ − 1` |
+|---|---|---|---|
+| `2` paires | `3 160` | `4,24` | `± 6,3 %` |
+| `3` triplets | `82 160` | `4,90` | `± 15,6 %` |
+| `≥ 4` | — | — | **non borné par ce qui précède** |
+
+### La limite honnête
+
+Un relèvement d'ordre cinq peut exister avec des paires et des triplets rigoureusement
+nuls. La construction est classique : prendre une dépendance de type parité, où toute
+marge d'ordre `< k` est exactement uniforme et où seule la coïncidence complète est
+biaisée. Aucune borne d'ordre deux ou trois ne l'atteint.
+
+C'est pourquoi le §213 mesure **aussi** la grille convexe directement, hors échantillon,
+pour `k = 2, 3, 4, 5` et dans les deux sens. Mais la puissance y est faible : on attend
+`22,75` jackpots de `5/5` sur `35 280` tirages avec un écart-type de `4,77`, de sorte que
+le test ne tranche que sur un **doublement** du taux. Il exclut une dépendance d'ordre cinq
+forte, non une dépendance fine.
+
+> **Ce qui reste possible après le §213** : une dépendance d'ordre quatre ou plus, de
+> relèvement inférieur à environ deux, invisible à tous les ordres inférieurs. Rien
+> d'autre. C'est peu, ce n'est pas rien, et le dire est plus utile que d'écrire
+> « conforme ».
+
+### Le corollaire de méthode, et il vaut pour tout le dossier
+
+Le §213 mesure, sur la première moitié, la grille de `k` numéros de plus fort taux de
+`k/k`, puis la joue sur la seconde :
+
+| `k` | `z` **en échantillon** (choix) | `z` **hors échantillon** (mesure) |
+|---|---|---|
+| `2` | `+3,24` | `+0,26` |
+| `3` | `+4,44` | `−1,16` |
+| `4` | `+5,58` | `−1,07` |
+| `5` | `+6,34` | `−0,79` |
+
+Le `z` en échantillon **croît avec `k`** — parce que le nombre de grilles parmi lesquelles
+on choisit croît avec `k`, de `3 160` à `1,58 million`. Ce n'est pas un signal qui se
+renforce : c'est un biais de sélection qui s'amplifie. Hors échantillon, tout s'effondre à
+zéro.
+
+> Toute « grille chaude » trouvée par recherche affiche un `z` spectaculaire. Ce `z` mesure
+> la taille de la recherche, pas la qualité de la grille. C'est la raison mathématique pour
+> laquelle un dossier de prédiction sans fenêtre de mesure disjointe ne vaut rien — et
+> pourquoi le seul chiffre à regarder, ici comme ailleurs, est celui de la colonne de
+> droite.

@@ -21032,3 +21032,115 @@ tacite se faire passer pour une preuve.
 **Ligne de registre.** `h187.echantillonneurs`, piste B, conforme, `m_extra = 0`.
 
 ---
+
+## 213. **La dépendance interne** : la brèche que le §210 laisse dans son propre argument (`h193_dependance_interne.py`)
+
+### L'argument du §210, et son défaut
+
+Le §210 conclut, et c'est exact :
+
+> « Une grille ne peut pas battre le hasard si aucun de ses membres n'est biaisé. »
+
+C'est vrai **de la moyenne**. `E[X_G] = Σ_{i∈G} p_i` par simple linéarité — les marges
+étant conformes, aucune grille ne bat l'espérance. Définitif.
+
+**Mais on n'est pas payé à la moyenne.** Un keno paie sur `4/5`, sur `5/5` ; jamais sur
+« `1,25` en espérance ». Le gain est une fonction **convexe** du nombre de justes, et
+
+    P(les cinq sortent) ne dépend PAS des marges. Elle dépend de la loi JOINTE.
+
+Deux grilles aux marges identiques, l'une aux membres indépendants, l'autre aux membres
+positivement liés, ont **la même espérance de justes et des taux de jackpot différents**.
+La seconde est rentable là où la première ne l'est pas.
+
+Or aucune section du dossier n'avait jamais mesuré la loi jointe **à l'intérieur d'un
+tirage**. Tout était soit par numéro à travers le temps (marges §210 A, autocorrélation
+§194, budget de nuit §195), soit agrégé entre tirages (recouvrements §209). La question
+« les numéros `17` et `43` sortent-ils ensemble trop souvent ? » n'avait jamais été posée.
+
+### Le témoin, d'abord
+
+Une clique de cinq numéros plantée dans `2 %` de `40 000` tirages synthétiques. La famille
+A la voit à `max |z| = 17,5` ; la famille D **retrouve exactement les cinq**, hors
+échantillon, à `z = +115`. L'instrument n'est pas aveugle.
+
+### Ce que dit l'archive
+
+`3 160` paires, `82 160` triplets, nulle **exacte** partout —
+`P(i,j) = 19/316`, `P(i,j,k) = 57/4108` — et loi du maximum **empirique** sur `120`
+répliques SRS, chacune laissée hors de sa propre normalisation (§7.32).
+
+| statistique | archive | répliques | `z` réduit |
+|---|---|---|---|
+| `max |z|` paires | `3,682` | `3,694 ± 0,333` | `−0,034` |
+| `max |z|` triplets | `4,732` | `4,492 ± 0,250` | `+0,959` |
+| `Σ z²` paires | `3 052,1` | `3 142,8 ± 173,6` | `−0,522` |
+| `Σ z²` triplets | `81 436` | `81 988 ± 1 703` | `−0,324` |
+
+Maximum réduit `0,959` contre un 95ᵉ centile de `2,720`. **`p = 0,7273`.**
+
+*Un détail qui vaut confirmation.* Les sommes de `z²` des répliques valent `3 142,8` pour
+`3 160` paires et `81 988` pour `82 160` triplets — systématiquement **en dessous** du
+nombre de statistiques. Ce n'est pas du bruit : chaque tirage porte exactement vingt
+numéros, donc `Σ_{i<j} C_ij = N·190` est une **constante**, ce qui contraint les `z` et
+rabote leur variance. Une nulle gaussienne naïve aurait manqué ce facteur ; la calibration
+par répliques le capte exactement.
+
+### La grille convexe, hors échantillon
+
+On cherche sur une moitié la grille de `k` numéros au plus fort taux de `k/k` — donc la
+plus positivement liée — et on la joue sur l'autre.
+
+| sens | `k` | grille | mesure `k/k` | `z` |
+|---|---|---|---|---|
+| `H1→H2` | `2` | `22, 37` | `6,046 %` | `+0,26` |
+| `H1→H2` | `3` | `41, 42, 54` | `1,315 %` | `−1,16` |
+| `H1→H2` | `4` | `12, 39, 42, 46` | `0,275 %` | `−1,07` |
+| `H1→H2` | `5` | `8, 28, 37, 51, 61` | `0,054 %` | `−0,79` |
+| `H2→H1` | `2` | `69, 72` | `5,901 %` | `−0,88` |
+| `H2→H1` | `3` | `12, 14, 76` | `1,417 %` | `+0,48` |
+| `H2→H1` | `4` | `16, 44, 56, 76` | `0,334 %` | `+0,96` |
+| `H2→H1` | `5` | `48, 54, 57, 71, 73` | `0,082 %` | `+1,31` |
+
+`max |z| = +1,31` contre un seuil de Bonferroni de `2,734`. **Verdict : conforme.**
+
+### La leçon de méthode, et c'est le chiffre le plus instructif du dossier
+
+Comparons, pour la même grille, le `z` **du choix** et le `z` **de la mesure** :
+
+| `k` | `z` en échantillon | `z` hors échantillon |
+|---|---|---|
+| `2` | `+3,24` | `+0,26` |
+| `3` | `+4,44` | `−1,16` |
+| `4` | `+5,58` | `−1,07` |
+| `5` | `+6,34` | `−0,79` |
+
+Le `z` en échantillon **croît avec `k`** — de `+3,2` à `+6,3` — parce que le nombre de
+grilles parmi lesquelles on choisit croît de `3 160` à `1,58 million`. Ce n'est pas un
+signal qui se renforce, c'est un biais de sélection qui s'amplifie. Hors échantillon, tout
+s'effondre.
+
+> Une grille de cinq numéros à `+6,34 σ` sur les données qui l'ont choisie vaut `−0,79 σ`
+> sur les données suivantes. **Ce `z` mesurait la taille de ma recherche, pas la qualité de
+> la grille.** C'est la raison mathématique pour laquelle toute « méthode » de loterie
+> exhibée sans fenêtre de mesure disjointe est sans valeur, quelle que soit l'ampleur du
+> chiffre affiché.
+
+### Ce que ça borne vraiment (§7.37)
+
+Un résultat nul devient utile quand il porte un nombre. Simultanément, à 95 % :
+
+* la **moyenne** de toute grille est fixée par les marges — définitif ;
+* la **variance** de toute grille est fixée par les paires, et **aucune** des `3 160` ne
+  s'écarte de plus de `6,3 %` en relatif de sa valeur SRS ;
+* aucun des `82 160` triplets ne s'écarte de plus de `15,6 %` ;
+* **les ordres `≥ 4` ne sont pas bornés par ce qui précède.** Une dépendance de type parité
+  peut avoir toutes ses marges d'ordre inférieur exactement uniformes. La famille D
+  l'attaque directement mais avec peu de puissance : `22,75` jackpots attendus d'écart-type
+  `4,77`, donc elle ne tranche que sur un **doublement**.
+
+C'est là, et nulle part ailleurs, que subsiste une place pour une grille exploitable.
+
+**Ligne de registre.** `h193.dependance_interne`, piste B, conforme, `m_extra = 85 329`.
+
+---

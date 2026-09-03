@@ -28,6 +28,7 @@ Le code de sortie vaut le nombre d'échecs.
 
 import csv
 import glob
+import itertools
 import json
 import os
 import sys
@@ -378,6 +379,130 @@ def bloc_graines():
         f"{m:.4f}", "7,8829")
 
 
+def bloc_dependance():
+    """11. LA LOI JOINTE INTERNE (§213, §7.37) et LES REGLES D'ECHANTILLONNAGE (§214).
+
+    Tout est etabli par fractions exactes ou par enumeration complete ; aucune simulation,
+    et en particulier aucune valeur reprise d'un fichier d'experience.
+    """
+    from fractions import Fraction as F
+    print("\n11. LA LOI JOINTE INTERNE, et les regles d'echantillonnage")
+
+    # -- les probabilites jointes exactes du §213
+    for k, publie in ((2, F(19, 316)), (3, F(57, 4108))):
+        p = F(1)
+        for j in range(k):
+            p *= F(DRAWN - j, POOL - j)
+        dit(f"P({k}/{k}) = produit (20-j)/(80-j)", p == publie, str(p), str(publie))
+
+    # -- la loi de X_G est hypergeometrique : moyenne k/4 et variance k(1/4)(3/4)(80-k)/79,
+    #    verifiees par la loi complete, en fractions
+    def binom(n, r):
+        v = F(1)
+        for i in range(r):
+            v *= F(n - i, i + 1)
+        return v
+
+    for k in (1, 2, 3, 5, 10, 20):
+        loi = [binom(k, h) * binom(POOL - k, DRAWN - h) / binom(POOL, DRAWN)
+               for h in range(k + 1)]
+        dit(f"loi de X_G somme a 1 (k = {k:2d})", sum(loi) == 1, str(sum(loi)), "1")
+        esp = sum(h * loi[h] for h in range(k + 1))
+        var = sum(h * h * loi[h] for h in range(k + 1)) - esp * esp
+        dit(f"E[X_G] = k/4 (k = {k:2d})", esp == F(k, 4), str(esp), str(F(k, 4)))
+        dit(f"Var(X_G) = k(3/16)(80-k)/79 (k = {k:2d})",
+            var == F(k * 3, 16) * F(POOL - k, POOL - 1), str(var),
+            str(F(k * 3, 16) * F(POOL - k, POOL - 1)))
+
+    # -- le seuil de rejet des echantillonneurs 2 et 3 du §211
+    dit("2^32 mod 80 = 16", (1 << 32) % POOL == 16, str((1 << 32) % POOL), "16")
+
+    # -- les regles du §214 sont-elles CORRECTES ? Enumeration EXHAUSTIVE sur un analogue
+    #    reduit (pool 5, tirage 2), tous les mots parcourus, en fractions exactes.
+    #
+    #    Le bon invariant n'est PAS la marge. Une premiere version de ce controle comparait
+    #    les marges et declarait le melange naif conforme : en comptant AVEC MULTIPLICITE,
+    #    ses cinq marges valent exactement 2/5 comme celles du bon. C'est faux et ca cachait
+    #    sa vraie faute. Le melange naif `k = w mod n` peut sortir DEUX FOIS LE MEME NUMERO
+    #    -- il produit ici quinze ensembles au lieu de dix, dont des ensembles a un seul
+    #    element, et ses marges d'appartenance valent 9/25 au lieu de 2/5.
+    #
+    #    L'invariant qui tranche est donc : la loi de l'ENSEMBLE de sortie doit etre
+    #    uniforme sur les C(n,k) parties, ce qui exige d'abord k valeurs DISTINCTES.
+    P5, D2 = 5, 2
+
+    def loi_fy(faux):
+        """melange partiel ; `faux` remplace k = j + w mod (n-j) par la faute k = w."""
+        c, plages = {}, [P5] * D2 if faux else [P5 - j for j in range(D2)]
+        tot = F(1)
+        for p in plages:
+            tot *= p
+        for ws in itertools.product(*[range(p) for p in plages]):
+            tab, out = list(range(P5)), []
+            for j, w in enumerate(ws):
+                k = w if faux else j + w
+                tab[j], tab[k] = tab[k], tab[j]
+                out.append(tab[j])
+            c[frozenset(out)] = c.get(frozenset(out), F(0)) + F(1) / tot
+        return c
+
+    def loi_knuth():
+        """selection sequentielle : recurrence EXACTE sur (i, m), sans aucun tirage."""
+        c, etat = {}, {(0, (), 0): F(1)}
+        for i in range(P5):
+            suiv = {}
+            for (ii, pris, m), pr in etat.items():
+                if m == D2:
+                    suiv[(ii, pris, m)] = suiv.get((ii, pris, m), F(0)) + pr
+                    continue
+                q = F(D2 - m, P5 - i)                    # probabilite de retenir i
+                for cle, w in (((i + 1, pris + (i,), m + 1), q),
+                               ((i + 1, pris, m), 1 - q)):
+                    if w:
+                        suiv[cle] = suiv.get(cle, F(0)) + pr * w
+            etat = suiv
+        for (_, pris, _), pr in etat.items():
+            c[frozenset(pris)] = c.get(frozenset(pris), F(0)) + pr
+        return c
+
+    def loi_tri():
+        """tri de n cles : enumeration des n! ordres, tous equiprobables."""
+        c = {}
+        for perm in itertools.permutations(range(P5)):
+            s = frozenset(sorted(range(P5), key=lambda i: perm[i])[:D2])
+            c[s] = c.get(s, F(0)) + F(1, 120)
+        return c
+
+    att = F(1, 10)                                        # 1/C(5,2)
+    for nom, f, doit in (("Fisher-Yates partiel", lambda: loi_fy(False), True),
+                         ("tri de n cles", loi_tri, True),
+                         ("selection sequentielle", loi_knuth, True),
+                         ("melange NAIF (k = w mod n)", lambda: loi_fy(True), False)):
+        c = f()
+        distincts = all(len(s) == D2 for s in c)
+        bon = distincts and len(c) == 10 and all(v == att for v in c.values())
+        dit(f"loi de l'ensemble uniforme : {nom}", bon == doit,
+            f"{len(c)} ensembles, "
+            + ("tous a 1/10" if bon else
+               f"tailles {sorted({len(s) for s in c})}, probas "
+               f"{sorted({str(v) for v in c.values()})}"),
+            "uniforme sur 10" if doit else "NON uniforme, et c'est voulu")
+
+    # -- les lignes de registre des sections nouvelles
+    import lab
+    L = {r["id"]: r for r in lab.ledger()}
+    for cle in ("h187.echantillonneurs", "h192.graine_par_tirage",
+                "h194.echantillonneurs_structurels"):
+        e = L.get(cle)
+        dit(f"{cle} : zero appariement",
+            bool(e) and e["verdict"] == "conforme" and e["observed"] == 0.0,
+            f"{e['observed']:.0f} appariement(s)" if e else "ABSENTE", "0")
+    e = L.get("h193.dependance_interne")
+    dit("h193.dependance_interne : conforme",
+        bool(e) and e["verdict"] == "conforme", e["verdict"] if e else "ABSENTE",
+        "conforme")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -393,6 +518,7 @@ if __name__ == "__main__":
     bloc_cache(ids, ts, nums, bonus, boost)
     bloc_flux_mince()
     bloc_graines()
+    bloc_dependance()
 
     print("\n" + "=" * 78)
     if ECHECS:
