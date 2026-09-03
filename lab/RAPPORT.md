@@ -20307,3 +20307,82 @@ entièrement indépendant**, puisque ce test ne l'utilisait que comme centrage.
 **Ligne de registre.** `h179.flux_boost`, piste B, conforme, `m_extra = 211 679`.
 
 ---
+## 199. **La frontière du dossier** : ce que mes instruments attrapent, et ce qui leur est invisible (`h180_frontiere.py`)
+
+Après deux cents sections de résultats négatifs, un lecteur a le droit de poser la
+seule question qui compte :
+
+> **« L'archive est-elle propre, ou tes instruments sont-ils aveugles ? »**
+
+La réponse honnête n'est pas un serment, c'est une **carte**. On plante neuf
+générateurs couvrant les grandes familles, du plus faible au cryptographique, on
+passe chacun dans les instruments du dossier, et on regarde qui est pris.
+
+### Les nulles exactes se confirment au passage
+
+| | mesuré sur `30` réplicats SRS | exact |
+|---|---|---|
+| énergie à deux termes, par tirage (§184) | `199,9761` | `200` |
+| flux mince, par tirage (§197) | `7,8899` | `7,8829` |
+
+### La carte, à `30 000` tirages par générateur
+
+| générateur | A énergie | B autocorr. | C appris | D flux mince | |
+|---|---|---|---|---|---|
+| **1 SRS** (contrôle) | `2,80` | `4,58` | `−1,01` | `2,84` | *invisible, comme il se doit* |
+| **2 Fibonacci (3,7)** | **`22,22`** | `4,65` | **`+7,57`** | `2,72` | **PRIS** |
+| **3 Fibonacci (2,3,7)** | `1,73` | `4,65` | `−0,64` | `2,27` | invisible |
+| **4 LCG 32 bits** | `2,67` | `4,85` | `+0,05` | `3,95` | pris, *de justesse* |
+| **5 xorshift32** | `1,18` | `4,30` | `−0,01` | `2,77` | invisible |
+| **6 splitmix64** | `3,00` | `4,43` | `+0,83` | `2,59` | invisible |
+| **7 PCG32** | `2,06` | `4,57` | `−0,50` | `2,53` | invisible |
+| **8 xoshiro128\*\*** | `3,41` | `4,41` | `+1,25` | `2,65` | pris, *de justesse* |
+| **9 os.urandom** (crypto) | `2,46` | `4,59` | `−1,36` | `2,30` | invisible |
+
+Seuils, un par instrument, chacun à son propre `95`-ième centile sous la nulle :
+`A > 3,26`, `B > 5,11`, `C > 3,00`, `D > 3,58`.
+
+### Ce qu'il faut lire, sans embellir
+
+**Un seul générateur est pris de façon décisive** : le Fibonacci `(3,7)`, à `22,22` et
+`+7,57`. Les deux autres — `LCG 32` à `3,95` contre `3,58`, `xoshiro128**` à `3,41`
+contre `3,26` — sont **marginaux**, et avec huit générateurs × quatre instruments =
+`32` comparaisons à `5 %`, on attend environ `1,6` faux positif. Je ne les compte donc
+pas comme des détections solides.
+
+Et la carte **sous-estime** la portée réelle : elle est faite à `30 000` tirages quand
+l'archive en a `70 560`, soit un facteur `√2,35 = 1,53` sur tous les `z`. Le
+Fibonacci `(2,3,7)`, invisible ici, est bien détecté au §192 sur l'archive entière par
+le trait dédié (`+3,66`).
+
+### La frontière, énoncée
+
+> Les instruments de ce dossier attrapent les familles **classiques** — récurrences à
+> plusieurs pas, retards courts, relations creuses entre sorties. Ils sont **aveugles**
+> à toute conception moderne à **un seul pas** : `splitmix64`, `PCG32`, `xoshiro`,
+> `xorshift`. Et ils ne distinguent pas ces dernières d'un vrai générateur
+> cryptographique.
+
+C'est la raison de fond, et elle est structurelle, pas circonstancielle. Un générateur
+à un seul pas `x_{i+1} = M(x_i)` n'a **aucune relation creuse entre sorties** à des
+retards de l'ordre du tirage — c'est le corollaire du §7.33 — et son état de `64` à
+`256` bits met tout crible hors de portée. Les deux voies du dossier, détecter une
+relation et énumérer un état, sont fermées **en même temps** par la même famille.
+
+### Ce que le dossier prouve, et ce qu'il ne prouve pas
+
+* **Il prouve** que l'archive n'est engendrée par aucun générateur de la première
+  classe — et cela couvre tout ce qui se cassait historiquement dans les loteries.
+* **Il ne prouve pas**, et ne peut pas prouver à partir de `70 560` tirages de vingt
+  parmi quatre-vingts, que l'archive vient d'un vrai hasard plutôt que d'un
+  `splitmix64` bien graine. **Ces deux hypothèses sont indiscernables sur ces
+  données**, et le tableau ci-dessus le montre plutôt que de l'affirmer.
+
+C'est aussi pourquoi la prédiction des vingt numéros n'a pas abouti : non parce que les
+instruments manquent de puissance sur les familles cassables — ils prennent un Fibonacci
+à `22` écarts-types — mais parce que la famille qui reste ne laisse **rien à prendre**.
+
+**Pas de ligne de registre** : `h180` ne teste aucune hypothèse sur l'archive, il mesure
+la portée des instruments.
+
+---
