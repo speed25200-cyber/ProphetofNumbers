@@ -417,6 +417,43 @@ def bloc_dependance():
     # -- le seuil de rejet des echantillonneurs 2 et 3 du §211
     dit("2^32 mod 80 = 16", (1 << 32) % POOL == 16, str((1 << 32) % POOL), "16")
 
+    def binom2(n, r):
+        v = F(1)
+        for i in range(r):
+            v *= F(n - i, i + 1)
+        return v
+
+    # -- les queues basses du §217 : Q_k = produit (60-j)/(80-j)
+    for k, publie in ((5, "0,2271842"), (10, "0,0457907")):
+        q = F(1)
+        for j in range(k):
+            q *= F(POOL - DRAWN - j, POOL - j)
+        dit(f"Q({k}) = P(aucun des {k} ne sort)", proche(float(q), float(
+            publie.replace(",", ".")), 5e-7), f"{float(q):.7f} = {q}", publie)
+
+    # -- les parites exactes des §215 et §218, par DEUX derivations independantes :
+    #    l'esperance hypergeometrique, et la forme fermee somme_h (-1)^h C(20,h) C(60,k-h)
+    #    / C(80,k) qui vient du fait que la moyenne sur toutes les parties de taille k est
+    #    une identite algebrique pour n'importe quelle collection de tirages 20/80.
+    for k, publie in ((4, "3799/79079"), (5, "3079/158158")):
+        e1 = sum((-1) ** h * binom2(k, h) * binom2(POOL - k, DRAWN - h)
+                 / binom2(POOL, DRAWN) for h in range(k + 1))
+        e2 = sum((-1) ** h * binom2(DRAWN, h) * binom2(POOL - DRAWN, k - h)
+                 for h in range(k + 1)) / binom2(POOL, k)
+        dit(f"E[parite] ordre {k}, deux derivations",
+            str(e1) == publie and e1 == e2, f"{e1} et {e2}", publie)
+        dit(f"E[parite] ordre {k} != (1/2)^{k}", e1 != F(1, 2 ** k),
+            f"{float(e1):.8f} contre {0.5**k:.8f}", "differentes")
+
+    # -- le systeme de numeration combinatoire du §218 : rang = somme_i C(a_i, i) numerote
+    #    les parties de taille k exactement sur 0..C(n,k)-1, sans trou ni collision
+    for n, k in ((10, 3), (14, 4), (16, 5)):
+        r = sorted(sum(int(binom2(a, i + 1)) for i, a in enumerate(p))
+                   for p in itertools.combinations(range(n), k))
+        dit(f"rang colex bijectif sur C({n},{k})",
+            r == list(range(int(binom2(n, k)))), f"{len(r)} rangs, max {r[-1]}",
+            f"0..{int(binom2(n,k))-1}")
+
     # -- les regles du §214 sont-elles CORRECTES ? Enumeration EXHAUSTIVE sur un analogue
     #    reduit (pool 5, tirage 2), tous les mots parcourus, en fractions exactes.
     #
@@ -497,10 +534,11 @@ def bloc_dependance():
         dit(f"{cle} : zero appariement",
             bool(e) and e["verdict"] == "conforme" and e["observed"] == 0.0,
             f"{e['observed']:.0f} appariement(s)" if e else "ABSENTE", "0")
-    e = L.get("h193.dependance_interne")
-    dit("h193.dependance_interne : conforme",
-        bool(e) and e["verdict"] == "conforme", e["verdict"] if e else "ABSENTE",
-        "conforme")
+    for cle in ("h193.dependance_interne", "h195.parites_ordre_quatre",
+                "h196.les_deux_queues", "h197.parites_ordre_cinq"):
+        e = L.get(cle)
+        dit(f"{cle} : conforme", bool(e) and e["verdict"] == "conforme",
+            e["verdict"] if e else "ABSENTE", "conforme")
 
 
 def bloc_bareme():
