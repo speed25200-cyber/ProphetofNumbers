@@ -20049,3 +20049,79 @@ donne `6` ou plus une fois sur trois.
 la main et tirage par tirage, ce que les §188 à §194 établissent en agrégat.
 
 ---
+## 193. **Le test universel** : l'archive est-elle incompressible ? (`h177_test_universel.py`)
+
+Les six cent et quelques tests du dossier ont tous la même forme : *je suppose une
+forme de défaut, je construis la statistique qui la lit, je mesure*. Le §192 pousse
+cette logique à son terme — trente et un traits, neuf familles, un témoin planté par
+famille — et reste prisonnier de la même limite : il ne voit que ce que ses traits
+savent lire, comme son seul trou nommé le prouve.
+
+Il existe une classe de détecteurs qui échappe à cette limite : les **compresseurs**.
+Un compresseur ne suppose rien. Il cherche *toute* régularité qu'il sait exprimer —
+répétitions à n'importe quelle distance, périodes, blocs récurrents, biais de contexte
+— et rend son verdict en une seule quantité, le nombre de bits. C'est littéralement la
+définition opérationnelle du hasard : une suite est aléatoire si elle n'est pas
+compressible.
+
+### L'encodage est optimal, et vérifié
+
+Chaque tirage publie `61,6165 + 4,3219 + 1,8790 = 67,8175` bits, soit `584,1` Kio pour
+l'archive entière. Le sous-ensemble est converti en son **indice combinatoire**
+`rang = Σ_j C(n_j, j+1)`, une bijection sur `[0, C(80,20))`, et la bijection est
+vérifiée par décodage. Aucun bit n'est gaspillé par la représentation : **tout ce
+qu'un compresseur gagne ensuite est de la structure**, pas de la mise en forme.
+
+### La nulle est dégénérée — et cela interdit le `z`
+
+| flux / compresseur | archive | nulle SRS | `sd` | gain | `p` |
+|---|---|---|---|---|---|
+| numéros / `xz` | `546 928` | `546 928,0` | **`0,0`** | `+0` | `1,0000` |
+| numéros / `bzip2` | `549 812` | `549 757,4` | `76,1` | `−55` | `0,7705` |
+| numéros / `zlib` | `547 016` | `547 016,0` | **`0,0`** | `+0` | `1,0000` |
+| trois champs / `xz` | `617 492` | `617 492,0` | **`0,0`** | `+0` | `1,0000` |
+| trois champs / `bzip2` | `620 711` | `620 684,1` | `73,2` | `−27` | `0,6393` |
+| trois champs / `zlib` | `617 596` | `617 596,0` | **`0,0`** | `+0` | `1,0000` |
+| différences / `xz` | `546 920` | `546 920,0` | **`0,0`** | `+0` | `1,0000` |
+| différences / `bzip2` | `549 705` | `549 762,2` | `105,8` | `+57` | `0,1639` |
+| différences / `zlib` | `547 009` | `547 009,0` | **`0,0`** | `+0` | `1,0000` |
+| masque / `xz` | `583 048` | `583 063,9` | `26,9` | `+16` | `0,2623` |
+| masque / `bzip2` | `629 724` | `629 916,1` | `96,9` | `+192` | **`0,0492`** |
+| masque / `zlib` | `586 261` | `586 249,8` | `73,7` | `−11` | `0,5574` |
+
+Sur les flux incompressibles, `xz` et `zlib` rendent **exactement la même taille** aux
+soixante réplicats : écart-type **nul**. Six statistiques sur douze ont donc une nulle
+dégénérée, et un `z` n'y existe pas. Ce n'est pas une faiblesse — c'est la situation
+la plus favorable qui soit, puisque la moindre taille sous le minimum de la nulle est
+déjà une anomalie — mais elle impose de tout lire en `p` **empirique**. Et l'archive
+tombe **exactement** sur la valeur de la nulle dans les six cas.
+
+### Et le `p` de `0,0492` n'est pas une découverte
+
+Le plus petit `p` du lot vaut `0,0492` (masque / `bzip2`, gain `+192` octets sur
+`629 724`, soit `0,0305 %`). Lu seul, il passerait le seuil de `5 %`. Corrigé de la
+multiplicité par la loi du `p` **minimal** calculée sur les réplicats eux-mêmes, chacun
+laissé de côté dans son propre calcul (§7.32) :
+
+> **`p` global `= 0,1639`.** Conforme.
+
+C'est la troisième fois dans ce dossier qu'une lecture naïve d'un extremum aurait
+produit une fausse découverte, et la troisième fois que la loi du maximum permuté la
+dissout.
+
+### Ce que ce test ferme, concrètement
+
+L'autotest plante un bloc de `60` tirages recopié deux fois dans une archive de
+`20 000` : sept des douze statistiques le rendent, chacune **hors du support de la
+nulle**, et `masque / xz` avec un gain de `997` octets contre un écart-type de `24`.
+Le gain est absolu, donc l'échelle ne change pas sur `70 560` tirages.
+
+> **Toute répétition de dix tirages consécutifs ou plus, n'importe où dans l'archive
+> et à n'importe quelle distance, aurait été prise.** Il n'y en a aucune.
+
+Cela ferme définitivement la réutilisation de flux — la seule des quatre fautes de
+protocole classiques qu'une archive de résultats puisse trahir.
+
+**Ligne de registre.** `h177.test_universel`, piste B, conforme, `m_extra = 11`.
+
+---
