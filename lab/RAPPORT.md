@@ -22508,6 +22508,13 @@ dit autre chose :
 
 **Ligne de registre.** `h206.borne_information`, piste B, conforme, `m_extra = 2`.
 
+> **Correction apportée par le §235.** La référence `80·H(1/4) = 64,902250` bits par tirage
+> utilisée ici **n'est pas** l'entropie d'un tirage : un tirage n'est pas quatre-vingts pièces
+> indépendantes mais un sous-ensemble de *exactement* vingt numéros, d'entropie
+> `log₂ C(80,20) = 61,616545`. Le plafond était trop haut de `3,285705` bit, soit `5,3 %`.
+> Les modèles mesurés ici ignorent la contrainte et n'en profitent donc pas — la conclusion
+> tient — mais la **règle graduée** était fausse, et le §235 refait la mesure sur la bonne.
+
 ---
 
 ## 228. **Le spectre des retards** : tous les retards à la fois, pas seulement les courts (`h207_spectre_des_retards.py`)
@@ -23120,5 +23127,117 @@ le trait de contrôle — l'écart au rythme SRS, dont le poids **doit** rester 
 capture déjà exactement — sort à `+0,00139`. L'assemblage est sain.
 
 **Ligne de registre.** `h212.codeur_exact`, piste B, conforme, `m_extra = 0`.
+
+---
+
+## 236. **Le modèle non linéaire** : la question du joueur, posée au plus gros modèle du dossier (`h213_modele_non_lineaire.py`)
+
+### Ce que tous les prédicteurs du dossier ont en commun
+
+Le §192 apprend `31` traits — **linéairement**. Le §227 mesure ce même modèle. Le §235 y
+ajoute le contexte intra-tirage — linéairement encore. Le §193 cherche des grilles convexes,
+le §220 des règles conditionnelles : tout cela reste dans la famille des **fonctions linéaires
+des traits**. La critique est juste, et elle a une réponse chiffrable.
+
+    12 traits causaux  +  66 produits croisés  +  12 carrés  =  90 colonnes
+
+Une logistique sur ces `90` colonnes **est** un modèle non linéaire des douze traits : elle
+porte toutes les interactions d'ordre deux et toutes les courbures. Ajustée par **Newton
+exact** — pas de descente à régler — sur `3,3` millions de couples (tirage, numéro).
+
+Les douze traits sont tous **causaux au niveau du tirage**, donc **jouables** : rien du tirage
+courant n'y entre, contrairement au §235 dont les traits intra-tirage mesuraient une structure
+sans être misables.
+
+### Le trait que personne n'avait donné à un prédicteur
+
+Le §193 a mesuré la dépendance interne — quels numéros sortent ensemble — et l'a trouvée
+conforme. **Aucun modèle ne s'en était jamais servi.** On calcule donc, sur la seule tranche
+d'ajustement, le levier de co-occurrence
+
+    Ĉ(n,m) = P(n et m ensemble) / (P(n)·P(m)) − 1
+
+et l'on donne au modèle, pour chaque tirage `t` et chaque numéro `n`, la somme des `Ĉ(n,m)`
+sur les vingt numéros du tirage `t−1`. C'est causal, c'est neuf, et c'est exactement le canal
+que le §7.37 désigne comme celui qui paie.
+
+### La mesure est celle du joueur
+
+On ne mesure pas un `z` sur une statistique abstraite : on **joue** les `k` meilleurs numéros
+du modèle, tirage après tirage, hors échantillon sur `27 424` tirages, et l'on compte les
+justes. La nulle est un **théorème** : sous SRS, `E[justes] = k/4` quel que soit le choix des
+numéros.
+
+### Le témoin planté, converti en écart de marge mesuré
+
+On surpondère dix numéros dans un tirage de Gumbel, et l'on **mesure** la marge obtenue plutôt
+que d'annoncer un `ε` :
+
+| surpondération | marge des dix | `k = 5` | `k = 10` | `k = 20` |
+|---|---|---|---|---|
+| `0` | `0,24976` | `1,2487` | `2,4962` | `4,9923` |
+| `+2 %` | `0,25477` | `1,2527` | `2,5131` | `5,0196` |
+| `+5 %` | `0,25923` | `1,2980` | `2,5809` | `5,0929` |
+
+### Ce que rend l'archive
+
+| `k` | archive | nulle exacte |
+|---|---|---|
+| `1` | `0,24712` | `0,25` |
+| `5` | `1,25609` | `1,25` |
+| `10` | `2,51276` | `2,50` |
+| `20` | `5,01014` | `5,00` |
+
+Et la nulle, `16` répliques rejouant **toute** la chaîne — traits, levier de co-occurrence,
+expansion à `90` colonnes, Newton, sélection des `k` meilleurs :
+
+| `k` | archive | sous SRS | `z` | `95ᵉ` centile |
+|---|---|---|---|---|
+| `1` | `0,24712` | `0,25024 ± 0,00206` | `−1,51` | `0,25353` |
+| `5` | `1,25609` | `1,24942 ± 0,00687` | `+0,97` | `1,26369` |
+| **`10`** | **`2,51276`** | `2,49901 ± 0,00692` | **`+1,99`** | **`2,50883`** |
+| `20` | `5,01014` | `4,99946 ± 0,00898` | `+1,19` | `5,01203` |
+
+Les moyennes sous SRS tombent sur le théorème à `10⁻³` près — la chaîne ne fabrique pas
+d'excès par elle-même. Mais **`k = 10` dépasse son `95ᵉ` centile**, à `z = +1,99`, `p = 0,059`.
+
+> **La règle pré-enregistrée s'est déclenchée.** Elle est consignée comme telle, verdict
+> `BIAIS EXPLOITABLE`, et le §237 en fait ce qu'il faut en faire — non pas l'expliquer, mais
+> **vérifier la nulle contre laquelle elle s'est déclenchée**. Elle avait un défaut, et c'était
+> le même qu'au §222.
+
+### Et voici le chiffre qui tranche
+
+Le barème est relevé (`Prophet/Models/PayTable.swift`, §56), donc on peut poser la question
+autrement : **quelle marge faudrait-il pour que le jeu devienne rentable ?**
+
+La loi exacte d'un biais qui garde vingt numéros tirés est la **hypergéométrique non centrale
+de Fisher** : les dix numéros joués reçoivent une cote `w`, les soixante-dix autres la cote
+`1`, et l'on conditionne sur exactement vingt sorties. Elle se calcule sans simulation :
+
+| cote `w` | marge des dix | justes sur une grille de dix | `E[base]` |
+|---|---|---|---|
+| `1,00` (nulle) | `0,25000` | `2,5000` | `1,17612` CHF |
+| `1,02` | `0,25330` | `2,5330` | `1,23471` CHF |
+| `1,10` | `0,26612` | `2,6612` | `1,49869` CHF |
+| `1,20` | `0,28132` | `2,8132` | `1,90214` CHF |
+
+Le prix du ticket est borné à `> CHF 1,20` par le barème lui-même (§56), et les mises
+admissibles sont `1,50`, `2`, `2,50`, `3`. D'où le seuil de rentabilité :
+
+    equilibre a CHF 1,50 : marge 0,26618  (+0,01618)  ->  2,6618 justes sur dix
+    equilibre a CHF 2,00 : marge 0,28446  (+0,03446)  ->  2,8446 justes
+    equilibre a CHF 3,00 : marge 0,30918  (+0,05918)  ->  3,0918 justes
+
+Donc, à la mise la moins chère, il faudrait **`+0,162` juste** sur une grille de dix pour seulement rentrer dans ses
+frais — alors que l'écart-type du taux sous SRS vaut `0,0069`, soit un seuil de détection à
+trois sigma de `+0,021` juste.
+
+> **Le seuil de rentabilité est à `+0,162` juste. Le seuil de détection est à `+0,021`.**
+> Un biais assez gros pour rapporter de l'argent serait à **`+23` écarts-types** — il aurait
+> été vu il y a longtemps, et pas de justesse. Ce que l'archive montre, `+0,013`, en est le
+> douzième.
+
+**Ligne de registre.** `h213.modele_non_lineaire`, piste A, **BIAIS EXPLOITABLE** (règle déclenchée, voir §237), `m_extra = 3`.
 
 ---
