@@ -5540,7 +5540,7 @@ l'autre : la seconde est la projection de la première sur la direction constant
 et sa nulle se calcule par un chemin entièrement différent.
 
 **Version masquée.** Si les tirages sont posés sur une grille d'horloge à trous
-(l'archive a `343` coupures de nuit), on annule `x` hors du masque et l'on compte
+(l'archive en a `345`), on annule `x` hors du masque et l'on compte
 les paires réellement présentes par autocorrélation du masque. Les deux
 autocorrélations se calculent par une seule paire de transformées de Fourier, et
 la formule de variance devient `n_d · (3/16)²` avec `n_d` = nombre de paires

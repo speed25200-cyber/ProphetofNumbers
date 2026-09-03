@@ -19477,7 +19477,9 @@ du §185, de variance exacte `2,8481` — les deux familles se contrôlent l'une
 | **C** numéro × décalage | **horloge**, pas de `300 s` | `3 981 600` | `+5,240` (n° 21, `d = 8 489`) |
 | **D** somme | horloge | `49 770` | `+4,203` |
 
-A et C ne coïncident pas : l'archive a `343` coupures de nuit de `25 500 s`, et la
+A et C ne coïncident pas : l'archive a `345` coupures de nuit — `343` de `25 500 s`,
+plus une de `21 900` et une de `29 100`, soit `± 3 600` : les deux changements
+d'heure (§194) — et la
 grille d'horloge compte `99 540` créneaux dont `70,9 %` sont pleins. Un générateur
 réensemencé sur l'heure laisserait une trace en horloge et aucune en indice ; un
 générateur qui coule sans interruption fait l'inverse. **Les deux sont muets.**
@@ -19913,5 +19915,81 @@ la large pour la large.
 
 **Ligne de registre.** `h176.borne_elargie`, piste B, conforme (correction de
 classement appliquée).
+
+---
+## 194. **Ce qui est prévisible dans l'archive**, champ par champ (`h178_ce_qui_est_previsible.py`)
+
+La question posée à ce dossier est « prédire les tirages de l'archive ». La réponse
+honnête n'est ni oui ni non : c'est un **tableau**. L'archive publie cinq champs, et
+ils ne se valent pas du tout. Les voici, avec pour chacun la référence sans
+connaissance, la règle, sa justesse **mesurée**, et le facteur gagné.
+
+| champ | référence aveugle | règle | justesse | facteur |
+|---|---|---|---|---|
+| identifiant | — | `id(t+1) = id(t) + 1` | **`100,0000 %`** (`70 559`/`70 559`) | déterministe |
+| horodatage | — | `+300 s`, sauf coupure de nuit | **`99,9632 %`** à la seconde, `99,9972 %` à `5 s` | déterministe |
+| multiplicateur | `1,250 %` (grille `1/80`) | jouer le mode | **`51,193 %`** | `× 41,0` |
+| bonus, sachant les vingt | `1,250 %` | l'un des vingt | **`5,000 %`** | **`× 4`, exact** |
+| **vingt numéros** | `5` sur `20` | tout ce que j'ai su construire | **`5,00230`** | **`× 1,0005`** |
+
+### Ce que chaque ligne vaut vraiment
+
+**L'identifiant** est parfaitement consécutif : `1 309 614` à `1 380 173`, étendue
+`70 560` pour `70 560` tirages. Aucun tirage n'a été retiré de la fenêtre — ce qui
+ferme au passage l'hypothèse d'un flux qui aurait avancé sans publier.
+
+**L'horodatage** obéit à un cycle exact : `203 × 300 + 25 500 = 86 400 s`, soit
+vingt-quatre heures pile. Sur `345` coupures de nuit, `343` valent `25 500 s` — et
+les deux autres valent `21 900` et `29 100`, c'est-à-dire `25 500 ∓ 3 600`.
+
+> Ce sont **les deux changements d'heure**. L'ordonnanceur de l'exploitant est donc
+> ancré sur l'**heure locale**, pas sur UTC. C'est une information neuve sur le
+> protocole, obtenue sans rien d'autre que deux valeurs aberrantes sur trois cent
+> quarante-cinq — et elle n'aide en rien à prédire les numéros.
+
+Reste `24` écarts de `295` à `305 s` : la gigue d'horloge de la machine.
+
+**Le multiplicateur** tombe exactement sur la grille `1/80` : `41`, `19`, `12`, `4`,
+`2`, `2` secteurs pour `51,193 %`, `23,797 %`, `15,060 %`, `4,996 %`, `2,465 %`,
+`2,490 %`. Entropie `1,8790` bit. Jouer toujours le mode donne `51,193 %` — et
+**rien ne fait mieux** : ni mémoire (§189, famille F), ni quota de nuit (§187,
+famille B), ni modèle ajusté (§190 : `51,207 %`, `z = +0,16`).
+
+**Le bonus** est le seul vrai théorème du lot, et il est démontré, pas estimé :
+`70 560` sur `70 560`. Mais son facteur quatre exige de connaître les vingt numéros,
+c'est-à-dire d'être **après** le tirage.
+
+**Les vingt numéros** ne cèdent rien. Écart marginal maximal sur les quatre-vingts :
+`0,4436` point de pourcentage. Meilleur prédicteur hors échantillon : `5,00230`
+(§192), borne à `95 %` de `+0,0191` numéro par tirage.
+
+### Le compte, en bits par tirage
+
+| | bits |
+|---|---|
+| publiés par l'archive | `67,8175` |
+| dont les vingt numéros | `61,6165` |
+| dont le rang du bonus | `4,3219` |
+| dont le multiplicateur | `1,8790` |
+
+Ce qu'on en retire :
+
+| | bits gagnés | contre quelle référence |
+|---|---|---|
+| numéros | `< 0,002` | l'hypergéométrique exacte |
+| bonus | `2,0000` | `1/80` — mais seulement une fois les vingt connus |
+| multiplicateur | `4,4429` | uniforme sur la grille `1/80` |
+| multiplicateur | `0,7060` | uniforme sur ses six valeurs |
+
+### La phrase qui résume le dossier
+
+> **Quatre champs sur cinq se prévoient. Aucun des quatre n'a la moindre valeur** —
+> l'identifiant et l'horodatage sont du calendrier, le multiplicateur se prévoit à sa
+> fréquence et pas mieux, et le bonus exige de connaître le tirage. **Le seul champ
+> qui aurait une valeur est le seul qui ne cède pas.**
+
+Ce n'est pas une figure de style : c'est exactement ce qu'un générateur correctement
+construit doit produire. Un exploitant publie du calendrier, une loi de paiement
+fixe, une redondance interne, et rien d'autre.
 
 ---
