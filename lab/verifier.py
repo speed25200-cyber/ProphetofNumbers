@@ -595,6 +595,27 @@ def bloc_bareme():
     print(f"          -> pour l'equilibre il faudrait multiplier E[gain] par mise/"
           f"{float(esp[5]):.3f} ; le dossier n'offre que x{ameliore:.3f}")
 
+    # L'option EXTRA paie 1 000 sur 5/5 et parait donc bien plus convexe. Sa loi complete
+    # dit le contraire : son esperance vit dans l'ECHEC ORDINAIRE, pas dans le jackpot,
+    # ce qui la rend MOINS sensible a un avantage de queue et non plus.
+    ext = {}
+    for r in lignes:
+        ext.setdefault(int(r["mise"]), {})[int(r["hits"])] = int(r["gain_extra"])
+    Ee = sum(P5[h] * ext[5].get(h, 0) for h in range(6))
+    part5 = float(P5[5] * ext[5][5] / Ee)
+    part1 = float(P5[1] * ext[5][1] / Ee)
+    dit("E[EXTRA] pour une grille de cinq", proche(float(Ee), 11.13364, 5e-5),
+        f"{float(Ee):.5f}", "11,13364")
+    dit("le jackpot ne pese presque rien dans EXTRA", proche(part5, 0.058, 2e-3),
+        f"{100*part5:.1f} % de E[EXTRA]", "5,8 %")
+    dit("le tier « un seul juste » pese le plus", proche(part1, 0.437, 2e-3),
+        f"{100*part1:.1f} % de E[EXTRA]", "43,7 %")
+    Pb = [float(x) for x in P5]
+    Pb[5] = haut
+    ame_e = sum(Pb[h] * ext[5].get(h, 0) for h in range(6)) / float(Ee)
+    dit("EXTRA est MOINS ameliorable que la base", ame_e < ameliore,
+        f"x{ame_e:.4f} contre x{ameliore:.4f} en base", "moins")
+
 
 if __name__ == "__main__":
     print("=" * 78)
