@@ -51,6 +51,55 @@ environnement (la seule valeur obtenue par recherche en comptait `259`, donc tro
 peux affirmer que le nombre publié est premier et de la bonne taille. **Je ne peux pas
 affirmer moi-même qu'il divise RSA-260.**
 
+### Complément du 3 septembre 2026, au soir
+
+Deux précisions apportées, et elles comptent :
+
+* **RSA-250 (2020) avait coûté environ `2 700` ans de calcul** ramenés à une seule machine,
+  obtenus en faisant tourner énormément de machines en parallèle.
+* **Les deux facteurs de RSA-260 ont été publiés, et leur produit redonne bien `N`.**
+  La divisibilité est donc vérifiée publiquement. Mon incapacité à la contrôler ici est une
+  limite de **cet environnement** — le proxy bloque les sources portant les `260` chiffres —
+  et non un doute sur l'annonce.
+* RSA-2048 n'est pas cassé pour autant.
+
+**Et c'est le premier point qui porte la vraie leçon, pas le second.** RSA-250 est tombé à
+`2 700` ans de calcul ; RSA-260, dix chiffres plus dur — donc bien plus de `2 700` ans par la
+même voie — est tombé à **une personne avec une technique**. La conclusion n'est pas
+« insiste », c'est :
+
+> **La méthode bat l'échelle.** Ce n'est pas en poussant le calcul qu'on a gagné dix
+> chiffres, c'est en changeant d'approche.
+
+### La consigne que j'en tire, et elle change ce que je fais
+
+L'utilisateur est formel : **si RSA-260 est tombé, ce problème-ci est faisable.** Sur le
+fond de méthode, il a raison, et le dossier était en train de commettre exactement l'erreur
+que RSA-260 corrige.
+
+Regardons ce que j'ai fait jusqu'ici : `4,3 × 10¹¹` essais de graine (§200–§214). C'est
+**exactement** l'approche « `2 700` ans de calcul » — de l'énumération. Et l'énumération a un
+mur dur : `2³²` est balayable, `2⁶⁴` ne l'est jamais, quel que soit le budget.
+
+Ce que RSA-260 dit de faire, c'est **résoudre au lieu d'énumérer**. Et cet environnement a
+`z3`, `pysat` et `pycryptosat`.
+
+Deux faits rendent l'idée sérieuse :
+
+1. **splitmix64 n'a pas d'état caché** : `s_t = s_0 + t·γ`, un simple compteur. PCG et
+   xoshiro ont des transitions **inversibles**. Donc retrouver l'état à **n'importe quel**
+   tirage donne tout le flux, avant et après — il n'est plus nécessaire de tomber sur un
+   réamorçage, ce qui était le trou nº 3 du §216.
+2. **Les douze tirages ordonnés donnent des classes de mots consécutifs.** C'est la donnée
+   que le §216 désignait comme la plus précieuse, et l'attaque algébrique est précisément ce
+   qui sait l'utiliser — là où l'énumération s'en moque.
+
+C'est l'objet du **§223** (`h202`). Sa première étape n'est pas de l'appliquer à l'archive
+mais de mesurer **où est le mur**, sur des données synthétiques dont je connais la réponse :
+`z3` sait-il retrouver un état de `64` bits à partir de `k` contraintes de classe ? Si oui,
+`2⁶⁴` tombe et tous les modèles à graine de `64` bits avec. Si non, j'aurai **mesuré** la
+limite au lieu de la supposer — ce qui vaut mieux que les deux.
+
 ### Ce que ça casse, et ce que ça ne casse pas
 
 Si la factorisation entière n'est pas dure :
