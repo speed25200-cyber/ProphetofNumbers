@@ -5754,3 +5754,69 @@ d'être de deux instruments là où un seul semblerait suffire :
 > aucun des deux ne subsume l'autre.** Le détecteur voit loin en degré et ne voit que
 > les relations creuses ; le crible voit toute forme et ne voit pas loin. Une borne
 > qui ne cite qu'un des deux ment par omission.
+
+---
+
+### 7.34 Le **flux mince** — l'observable le plus net d'une archive de loterie, et pourquoi ce n'est pas celui qu'on regarde
+
+Tout le dossier lit les vingt numéros. C'est l'observable le plus **gros** et le moins
+**net**, et il vaut la peine de dire pourquoi.
+
+**La netteté d'un observable.** Appelons *netteté* le nombre de bits qu'un observable fixe
+sur un mot **identifié** du flux. Un tirage de vingt parmi quatre-vingts publie `61,62`
+bits pour environ `22,85` mots consommés, soit `2,70` bits par mot — mais l'ensemble est
+**trié**, donc on ignore quel mot a produit quel élément. Chaque mot n'est contraint que
+par « ma classe appartient à cet ensemble de vingt », et son identité dans le flux est
+ambiguë.
+
+Le bonus est d'une autre nature. Le §175 établit `bonus = triés[⌊20u/2³²⌋]`, donc le rang
+`b` vaut `⌊20u/2³²⌋`, tandis que la classe du même mot vaut `c = ⌊80u/2³²⌋`.
+
+> **Lemme.** `c = 4b + k` avec `k ∈ {0,1,2,3}`, exactement.
+>
+> *Démonstration.* Posons `x = 20u/2³²`. Alors `80u/2³² = 4x`, et pour tout réel positif
+> `⌊4x⌋ = 4⌊x⌋ + ⌊4{x}⌋` avec `{x} ∈ [0,1)`, donc `⌊4{x}⌋ ∈ {0,1,2,3}`. ∎
+
+Le rang du bonus fixe donc la classe d'**un mot précis** — le `(N+1)`-ième du tirage — à
+quatre valeurs sur quatre-vingts, soit `4,32` bits sur un mot **identifié**. C'est
+`1,6` fois la netteté des numéros, et surtout sans ambiguïté d'identité.
+
+> L'archive porte ainsi une seconde suite, de `70 560` mots fortement contraints, espacés
+> de `E[N] + 2 = 24,85` mots. Je l'appelle le **flux mince**. Il est plus court, plus
+> régulier et plus net que celui des numéros, et rien dans le dossier ne l'avait traité
+> comme un flux.
+
+**La nulle exacte y est plus simple qu'ailleurs.** Les vingt blocs `B_j = {4j..4j+3}`
+**partitionnent** `Z/80`. Donc, pour une cible `w` quelconque, `P(w ∈ B_t) = 1/20`
+exactement, sans dépendre de `w`. D'où, pour tout couple de décalages `g₁, g₂ ≥ 1` :
+
+        E[T2] = |B| · |B| · |S| · (1/20) = 16·|S|/20 = 0,8·|S|   par tirage, exactement.
+
+Aucune énumération de configurations de coïncidence n'est nécessaire, contrairement au
+§184 : les décalages étant tous `≥ 1`, le tirage cible est toujours distinct des tirages
+opérandes, et le résultat vaut même quand `g₁ = g₂`. *Vérifié* : `3,20217` mesuré sur
+l'archive contre `3,20000` exact pour `|S| = 4`.
+
+**Le chaînage — mesuré, et contre ma propre prédiction.** J'avais dérivé qu'une récurrence
+de retards courts en mots, disons `(3, 7)`, serait **hors de portée** du flux mince :
+rapportés à un espacement de `24,85`, ces retards donnent des portées de `0,12` et `0,28`,
+et aucun couple entier ne peut les lire. La mesure dit le contraire — un tel générateur
+planté rend un écart de `+0,53` par tirage, du même ordre que les générateurs plantés
+exprès à portée `(1,2)` ou `(2,1)`.
+
+> **La récurrence se chaîne.** Sur les vingt-cinq pas qui séparent deux mots du bonus, un
+> mot est une combinaison linéaire de **nombreux** mots antérieurs, et la trace survit à la
+> composition. Un détecteur sur le flux mince couvre donc à la fois les retards courts et
+> les retards à l'échelle du tirage — plus large que sa dérivation ne le laissait croire.
+
+C'est la troisième fois dans ce dossier qu'un témoin planté contredit une limitation que
+j'avais dérivée, et c'est la raison d'être des témoins : **une portée se mesure, elle ne se
+déduit pas.**
+
+**La recette, générale.** Elle ne tient pas à cette loterie :
+
+> Dans toute archive de loterie, chercher le champ dont la valeur est une **troncature
+> déterministe d'un seul mot** — une balle bonus tirée parmi les principales, un numéro
+> chance, un multiplicateur porté par une grille. Sa suite est un flux mince : plus net que
+> le tirage principal, identifié mot par mot, et de nulle exacte. C'est là qu'un défaut de
+> générateur se verrait en premier.
