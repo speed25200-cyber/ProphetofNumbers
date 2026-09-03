@@ -20537,3 +20537,69 @@ Pour une espérance de faux de `8,4·10⁻⁹`. **Zéro appariement.**
 **Ligne de registre.** `h183b.graines_derivees`, piste B, conforme.
 
 ---
+## 203. **Le balayage exhaustif de l'espace de graine 32 bits** (`h184_graine_exhaustive.py`, `tools/graine_exhaustive.c`)
+
+Les §200 à §202 balayent `2,99·10¹⁰` graines **dérivées** du tirage — l'heure,
+l'identifiant, la date, avec et sans échauffement. Elles supposent donc toutes que la
+graine est **devinable à partir de ce que l'archive publie**.
+
+Si la machine s'amorce sur autre chose — `srand(getpid())`, une constante de
+configuration, un hachage, un compteur interne — aucun de ces balayages ne la trouve.
+Le trou est réel, et il est large.
+
+Ce test ne suppose rien sur l'origine de la graine : **il les essaie toutes.**
+
+### L'astuce qui rend l'exhaustif faisable
+
+Naïvement il faudrait `2³² × 70 560` essais, ce qui est hors de portée. Mais la
+comparaison peut se faire **dans l'autre sens** :
+
+> Pour chaque graine, on engendre **un** tirage et l'on demande : « ce tirage est-il
+> **dans** l'archive ? » Une table de hachage des `70 560` masques répond en temps
+> constant.
+
+Le balayage devient `2³² × 5 générateurs × 2 échantillonneurs = 4,295·10¹⁰` essais pour
+couvrir l'archive **entière** — et non par tirage. Mesuré : `105` minutes sur un cœur,
+`48` sur quatre.
+
+### Le résultat
+
+| bloc | graines | essais | appariements |
+|---|---|---|---|
+| 0 | `[0, 2³⁰)` | `1,0737·10¹⁰` | **`0`** |
+| 1 | `[2³⁰, 2³¹)` | `1,0737·10¹⁰` | **`0`** |
+| 2 | `[2³¹, 3·2³⁰)` | `1,0737·10¹⁰` | **`0`** |
+| 3 | `[3·2³⁰, 2³²)` | `1,0737·10¹⁰` | **`0`** |
+| | **total** | **`4,295·10¹⁰`** | **`0`** |
+
+**L'espace de graine `32` bits est épuisé.** Aucun tirage de l'archive n'est le premier
+tirage d'un générateur moderne amorcé sur `32` bits, quelle qu'en soit l'origine.
+
+Une coïncidence fausse a une probabilité de `70 560/C(80,20) = 2,0·10⁻¹⁴` par essai, soit
+`8,6·10⁻⁴` sur l'ensemble : un appariement serait resté réel à **mille contre un**.
+
+*Témoin.* Trois graines de `32` bits plantées — `3 141 592 653` sous
+`splitmix64`+troncature, `2 718 281 828` sous `pcg32`+modulo, `1 234 567 890` sous
+`pcg64`+troncature — noyées dans `5 000` tirages de bruit, sont retrouvées **toutes les
+trois**, chacune avec le bon générateur, le bon échantillonneur et la bonne cible.
+
+Ce balayage n'a pas de puissance à estimer : **il a une couverture**.
+
+### Le compte des quatre sections de graine
+
+| section | ce qui est balayé | essais |
+|---|---|---|
+| §200 | horloge : seconde, milliseconde, journée | `9,831·10⁹` |
+| §201 | la même, plus échauffement `0..300` mots | `8,228·10⁹` |
+| §202 | huit bases dérivées, plus échauffement | `1,180·10¹⁰` |
+| §203 | **les `2³² ` graines, sans hypothèse d'origine** | `4,295·10¹⁰` |
+| | **total** | **`7,28·10¹⁰`** |
+
+> **Ce qui reste après cela.** Un espace de graine de `64` bits demanderait
+> `4·10⁹` fois plus de temps — des milliards d'années au rythme mesuré. La dernière
+> attaque faisable est donc épuisée, et le mur qui reste est celui de `2⁶⁴`, exactement
+> comme le §7.33 l'annonçait.
+
+**Ligne de registre.** `h184.graine_exhaustive`, piste B, conforme.
+
+---
