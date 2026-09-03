@@ -17,7 +17,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
 | Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
-| LCG 2⁶⁴ à sortie de poids fort | attaque par réseau construite et validée — voir §6 ter |
+| LCG 2⁶⁴ à sortie de poids fort | attaque par réseau construite et validée — voir §6 bis |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
@@ -201,77 +201,6 @@ tirage n'ont pas besoin d'être connus : une hypothèse fausse rend le système
 **incohérent** (35 842 équations pour 19 968 inconnues ⇒ détection certaine),
 ce que l'outil exploite pour balayer les hypothèses automatiquement (`SCAN=1`).
 
-### `lin_break.c` — les générateurs F2-linéaires de 33 à 1024 bits
-
-Le balayage 2³² couvre tout état ≤ 32 bits ; `channel_break` couvre les 19 937 de
-MT19937. `lin_break` ferme l'intervalle : mêmes canaux auxiliaires, mais 64 à 512
-inconnues au lieu de 19 968, donc chaque essai prend quelques millisecondes.
-
-Validé d'abord sur une archive synthétique xorshift64 : bon générateur → consistant
-(rang 64/64, 0 contradiction) ; mauvaise moitié de sortie, mauvais générateur, mauvais
-W → tous rejetés.
-
-Sur l'archive **réelle**, balayage large — 8 générateurs (xorshift64 hi/lo,
-xorshift128 de Marsaglia, xorshift96, LFSR de Galois 64/128/256/512) × 7 canaux ×
-**W de 1 à 64** = **3 584 essais, 3 424 rejetés, 0 consistant**. Les 160 restants sont
-dégénérés (canal boost placé en r=20 avec W ≤ 20 : ce mot n'existe pas, zéro équation ;
-le mode 8 couvre ces W correctement).
-
-Balayer W jusqu'à 64 couvre aussi les **flux entrelacés** : si deux serveurs alternent
-les tirages, chaque flux ne voit qu'un tirage sur deux — ce qui revient exactement à
-doubler W. Et W ∈ {1…4} couvre l'hypothèse où le boost et le bonus proviennent d'une
-**instance de générateur distincte** de celle qui tire les numéros (192 essais
-supplémentaires, tous rejetés).
-
-### Générateurs congruentiels — `modlcg.py`
-
-Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,
-**quel que soit le multiplicateur**. Donc si l'échantillonneur écrit `j = u %% 80` et
-que `u` est constitué des bits faibles de l'état, alors `(bonus−1) mod 16 = u mod 16`
-et la suite doit vérifier `x_{d+1} = A·x_d + C (mod 16)` — 256 couples à essayer, sans
-jamais deviner le multiplicateur. Étendu aux ordres 1 et 2, modulo 2 à 16, sur six
-suites observables (bonus−1, rang du bonus, indice du boost, plus petit et plus grand
-numéro, somme du tirage). **La plus longue plage de correspondance est au niveau du
-hasard partout** (une famille congruentielle produirait un accord sur l'archive entière).
-
-### LCG 64 bits à sortie de poids fort — attaque par réseau
-
-Une famille classique échappe à tout ce qui précède : le **LCG modulo 2⁶⁴ à sortie de
-poids fort** (`out = s >> 32`) avec un état 64 bits arbitraire. Le balayage 2³² couvre
-tout LCG modulo 2³² et tout LCG 64 bits atteignable depuis une graine 32 bits ;
-l'algèbre F2 ne s'applique pas à une mise à jour congruentielle ; `modlcg` ne voit
-qu'une sortie en bits **faibles**. Reste ce cas.
-
-Montage : le canal bonus fixe chaque état à un intervalle de 2⁵⁷·⁷ sur 2⁶⁴ (6,32 bits),
-la différence `D_d = s_{d+1} − s_d` élimine l'incrément inconnu puisque
-`D_{d+1} = A·D_d`, et en centrant on obtient `e_d = A^d·e_0 + b_d (mod 2⁶⁴)` avec tous
-les `|e_d| ≤ 2⁵⁸·⁷` — un *Hidden Number Problem* que LLL résout. Le multiplicateur est
-pris dans la liste standard, W est balayé.
-
-**Correction d'une prédiction erronée de ma part.** Mon estimation analytique disait
-que ça ne pouvait pas marcher : la marge entre la norme du vecteur cible et
-l'heuristique gaussienne plafonne à 2³·⁷ alors que le facteur d'approximation de LLL
-vaut ~2^(n/4), soit 2⁵ dès la dimension 21. Le test empirique dit l'inverse — **LLL
-récupère l'état** à K = 12, 16, 20 et 24. En pratique LLL fait très largement mieux que
-sa borne pire-cas sur ce type de réseau. La leçon vaut d'être notée : la borne
-analytique ne remplace pas le contrôle positif.
-
-Contrôles (LCG64 synthétique, multiplicateur et W cachés) :
-
-| K | bon (a, W) | mauvais W | mauvais a | données aléatoires |
-|---|---|---|---|---|
-| 12 | **récupéré** | faux positif | rejeté | rejeté |
-| 16 | **récupéré** | rejeté | rejeté | rejeté |
-| 20 | **récupéré** | rejeté | rejeté | rejeté |
-| 24 | **récupéré** | rejeté | rejeté | rejeté |
-
-À partir de K = 16 l'attaque discrimine proprement ; K = 12 produit des faux positifs
-et n'est pas utilisable. Les résultats sur l'archive réelle sont donc lancés à K = 20.
-
-L'implémentation Python (fractions exactes) sert de référence ; `lcg_lll.c` refait le
-même calcul avec la base en `__int128` et le Gram-Schmidt en `long double`, soit
-quelques microsecondes par réduction au lieu de plusieurs minutes.
-
 ### Généralisation — tirages ordonnés nécessaires par famille
 
 90 bits utiles par tirage, marge ×1,35 mesurée :
@@ -384,6 +313,78 @@ se contredit immédiatement. Le générateur de Loto Express **n'est pas MT19937
 ces dispositions, et cela est établi **depuis l'archive triée seule**, ce que ni le
 balayage 2³² ni aucun test statistique ne pouvait faire.
 
+### `lin_break.c` — les générateurs F2-linéaires de 33 à 1024 bits
+
+Le balayage 2³² couvre tout état ≤ 32 bits ; `channel_break` couvre les 19 937 de
+MT19937. `lin_break` ferme l'intervalle : mêmes canaux auxiliaires, mais 64 à 512
+inconnues au lieu de 19 968, donc chaque essai prend quelques millisecondes.
+
+Validé d'abord sur une archive synthétique xorshift64 : bon générateur → consistant
+(rang 64/64, 0 contradiction) ; mauvaise moitié de sortie, mauvais générateur, mauvais
+W → tous rejetés.
+
+Sur l'archive **réelle**, balayage large — 8 générateurs (xorshift64 hi/lo,
+xorshift128 de Marsaglia, xorshift96, LFSR de Galois 64/128/256/512) × 7 canaux ×
+**W de 1 à 64** = **3 584 essais, 3 424 rejetés, 0 consistant**. Les 160 restants sont
+dégénérés (canal boost placé en r=20 avec W ≤ 20 : ce mot n'existe pas, zéro équation ;
+le mode 8 couvre ces W correctement).
+
+Balayer W jusqu'à 64 couvre aussi les **flux entrelacés** : si deux serveurs alternent
+les tirages, chaque flux ne voit qu'un tirage sur deux — ce qui revient exactement à
+doubler W. Et W ∈ {1…4} couvre l'hypothèse où le boost et le bonus proviennent d'une
+**instance de générateur distincte** de celle qui tire les numéros (192 essais
+supplémentaires, tous rejetés).
+
+### Générateurs congruentiels — `modlcg.py`
+
+Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,
+**quel que soit le multiplicateur**. Donc si l'échantillonneur écrit `j = u %% 80` et
+que `u` est constitué des bits faibles de l'état, alors `(bonus−1) mod 16 = u mod 16`
+et la suite doit vérifier `x_{d+1} = A·x_d + C (mod 16)` — 256 couples à essayer, sans
+jamais deviner le multiplicateur. Étendu aux ordres 1 et 2, modulo 2 à 16, sur six
+suites observables (bonus−1, rang du bonus, indice du boost, plus petit et plus grand
+numéro, somme du tirage). **La plus longue plage de correspondance est au niveau du
+hasard partout** (une famille congruentielle produirait un accord sur l'archive entière).
+
+### LCG 64 bits à sortie de poids fort — attaque par réseau
+
+Une famille classique échappe à tout ce qui précède : le **LCG modulo 2⁶⁴ à sortie de
+poids fort** (`out = s >> 32`) avec un état 64 bits arbitraire. Le balayage 2³² couvre
+tout LCG modulo 2³² et tout LCG 64 bits atteignable depuis une graine 32 bits ;
+l'algèbre F2 ne s'applique pas à une mise à jour congruentielle ; `modlcg` ne voit
+qu'une sortie en bits **faibles**. Reste ce cas.
+
+Montage : le canal bonus fixe chaque état à un intervalle de 2⁵⁷·⁷ sur 2⁶⁴ (6,32 bits),
+la différence `D_d = s_{d+1} − s_d` élimine l'incrément inconnu puisque
+`D_{d+1} = A·D_d`, et en centrant on obtient `e_d = A^d·e_0 + b_d (mod 2⁶⁴)` avec tous
+les `|e_d| ≤ 2⁵⁸·⁷` — un *Hidden Number Problem* que LLL résout. Le multiplicateur est
+pris dans la liste standard, W est balayé.
+
+**Correction d'une prédiction erronée de ma part.** Mon estimation analytique disait
+que ça ne pouvait pas marcher : la marge entre la norme du vecteur cible et
+l'heuristique gaussienne plafonne à 2³·⁷ alors que le facteur d'approximation de LLL
+vaut ~2^(n/4), soit 2⁵ dès la dimension 21. Le test empirique dit l'inverse — **LLL
+récupère l'état** à K = 12, 16, 20 et 24. En pratique LLL fait très largement mieux que
+sa borne pire-cas sur ce type de réseau. La leçon vaut d'être notée : la borne
+analytique ne remplace pas le contrôle positif.
+
+Contrôles (LCG64 synthétique, multiplicateur et W cachés) :
+
+| K | bon (a, W) | mauvais W | mauvais a | données aléatoires |
+|---|---|---|---|---|
+| 12 | **récupéré** | faux positif | rejeté | rejeté |
+| 16 | **récupéré** | rejeté | rejeté | rejeté |
+| 20 | **récupéré** | rejeté | rejeté | rejeté |
+| 24 | **récupéré** | rejeté | rejeté | rejeté |
+
+À partir de K = 16 l'attaque discrimine proprement ; K = 12 produit des faux positifs
+et n'est pas utilisable. Les résultats sur l'archive réelle sont donc lancés à K = 20.
+
+L'implémentation Python (fractions exactes) sert de référence ; `lcg_lll.c` refait le
+même calcul avec la base en `__int128` et le Gram-Schmidt en `long double`, soit
+quelques microsecondes par réduction au lieu de plusieurs minutes.
+
+
 ---
 
 ## 7. Ce qui a été appris sur le jeu
@@ -402,6 +403,18 @@ balayage 2³² ni aucun test statistique ne pouvait faire.
   toujours par paires compensées exactes (300+δ puis 300−δ, δ ≤ 5 s) : un tirage
   isolé publié en retard, la grille se recale au suivant. Les timestamps sont donc
   mesurés, pas planifiés.
+- **Cotes exactes** (`odds.py`, hypergéométrique 20/80) — l'entrée de tout calcul
+  d'espérance, sans aucune prédiction :
+
+  | numéros joués | espérance de bons numéros | probabilité de tout toucher | soit 1 sur |
+  |---|---|---|---|
+  | 5 | 1,25 | 6,449·10⁻⁴ | 1 551 |
+  | 6 | 1,50 | 1,290·10⁻⁴ | 7 753 |
+  | 7 | 1,75 | 2,440·10⁻⁵ | 40 979 |
+  | 8 | 2,00 | 4,346·10⁻⁶ | 230 115 |
+  | 9 | 2,25 | 7,243·10⁻⁷ | 1 380 688 |
+  | 10 | 2,50 | 1,122·10⁻⁷ | 8 911 711 |
+
 - **Provenance de l'archive.** Deux marqueurs indiquent une capture réelle plutôt
   qu'une fabrication : les 24 décrochages d'horloge en paires exactement compensées
   (un artefact d'ordonnanceur que personne ne fabriquerait), et la table du boost qui
@@ -460,9 +473,17 @@ Ce qui est **exclu** :
 
 Ce qui **reste ouvert** :
 
-- LCG modulo 2⁶⁴ à sortie de poids fort, et plus généralement tout générateur
-  **non-F2-linéaire d'état ≥ 64 bits** (PCG, xoshiro\*\*, splitmix64) : 6,32 bits par
-  tirage sont sous le seuil de la réduction de réseau (§6 ter) ;
+- tout générateur **non-F2-linéaire d'état ≥ 64 bits** dont la sortie n'est pas une
+  troncature simple de l'état — PCG (permutation dépendante de l'état), xoshiro\*\*
+  (multiplication en sortie), splitmix64 (mélange bijectif) : le canal donne bien
+  6,32 bits par tirage, mais pas sous la forme « bits de tête de l'état » dont le
+  réseau a besoin. Le LCG 2⁶⁴ à troncature simple, lui, **est** testé (§6 bis) ;
+- un boost dérivé autrement que par des seuils sur `u/2³²` — par exemple
+  `u % 1000 < 512` — ne livre aucun bit linéaire et échappe à l'attaque par canaux ;
+- un échantillonneur à **consommation variable** (rejet avec redraw) : le nombre de
+  mots par tirage n'est alors plus constant, et l'attaque par canaux suppose un W fixe.
+  L'hypothèse « boost/bonus sur une instance séparée » (W ∈ 1…4) contourne ce cas et a
+  été testée ;
 - un CSPRNG (ChaCha20, AES-CTR-DRBG) ou un RNG matériel : dans ce cas la partie est
   close mathématiquement, quelle que soit la quantité de données.
 
@@ -500,8 +521,10 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
 - Le balayage des 624 alignements de tampon était **inutile** : la récurrence MT
   s'inverse en arrière, tout alignement est consistant (§6 bis). Le contrôle négatif
   l'a révélé avant que le résultat ne soit publié.
-- L'attaque par réseau sur LCG64 **échoue aussi sur son propre self-test** ; aucun
-  résultat négatif n'en est tiré (§6 ter).
+- J'ai prédit analytiquement que l'attaque par réseau sur LCG64 **ne pouvait pas
+  marcher** (marge 2³·⁷ contre un facteur LLL de 2⁵). Le contrôle positif dit le
+  contraire : LLL récupère l'état à K = 12…24. La borne pire-cas ne remplace pas
+  l'expérience.
 - Les tests statistiques n'ont **aucun pouvoir** contre un PRNG à petit état : un
   xorshift32 cassable en secondes est indiscernable d'un PCG64 (§5). C'est la raison
   pour laquelle tout l'effort a basculé vers l'algèbre.
