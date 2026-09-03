@@ -20855,3 +20855,105 @@ réponse ne change pas.
 **Ligne de registre.** `h189.haut_du_classement`, piste B, conforme, `m_extra = 31`.
 
 ---
+## 209. Le **test du successeur** : une ressemblance se prolonge-t-elle ? (`tools/successeurs.c`)
+
+Si l'état du générateur collisionne, même partiellement, deux tirages éloignés se
+ressemblent **et leurs successeurs aussi**. C'est le seul mécanisme qui donnerait une
+prédiction utilisable sans rien casser : on repère une paire qui se ressemble, et l'on
+joue la suite de la première.
+
+Le dossier avait mesuré le recouvrement **maximal** entre paires (`audit.antirejeu`,
+`16/20` sur `2,49` milliards de paires). Il n'avait jamais regardé ce que font les
+**successeurs** des paires les plus ressemblantes.
+
+| seuil de ressemblance | paires (archive) | successeurs | paires (SRS) | successeurs |
+|---|---|---|---|---|
+| `≥ 10` | `11 807 287` | `4,99999` | `11 805 744` | `4,99995` |
+| `≥ 11` | `1 995 759` | `5,00023` | `1 997 932` | `4,99814` |
+| `≥ 12` | `249 386` | `5,00383` | `249 110` | `5,00223` |
+| `≥ 13` | `22 599` | `5,00372` | `22 553` | `5,00470` |
+| `≥ 14` | `1 439` | `5,09173` | `1 479` | **`5,09872`** |
+| `≥ 15` | `67` | `5,10448` | `70` | `4,80000` |
+
+Le contrôle SRS reproduit le **même profil à chaque seuil**, et la bosse du seuil `14` y
+est même **légèrement plus haute** que dans l'archive (`+2,25` contre `+2,06` en `z` brut).
+Les comptes de paires coïncident aussi. La bosse est un artefact de la statistique — les
+paires ne sont pas indépendantes, `(i,j)` et `(i,k)` partageant le successeur `i+1` — et
+c'est le contrôle apparié qui le dit à ma place.
+
+> **Manquement au protocole, assumé.** Ce test a été lancé sur l'archive **avant** d'être
+> pré-enregistré, dans l'élan d'un nouveau cap. Il est consigné `EXPLORATOIRE` et ne fonde
+> aucune découverte. C'est la règle du dossier, et elle vaut aussi quand elle me dérange.
+
+**Ligne de registre.** `h190.successeurs`, piste B, conforme (exploratoire).
+
+---
+
+## 210. **La grille** : peut-on choisir cinq numéros qui valent mieux que cinq au hasard ? (`h191_grille.py`, `h191b_chasse_grille.py`)
+
+Tout le dossier demande « le générateur a-t-il un défaut ». Cette section demande la seule
+question qui ait une valeur pratique : **existe-t-il un petit ensemble de numéros qui sorte
+plus souvent ?** On ne mise pas sur vingt numéros, on mise sur trois ou cinq — et un joueur
+n'a besoin d'aucune théorie du générateur, il lui suffit que certains numéros sortent plus.
+
+### A — les marges, qui sont la borne ultime
+
+| rang | numéro | sorties | taux | `z` |
+|---|---|---|---|---|
+| `1` | `76` | `17 953` | `25,4436 %` | `+2,72` |
+| `2` | `42` | `17 914` | `25,3883 %` | `+2,38` |
+| `80` | `50` | `17 427` | `24,6981 %` | `−1,85` |
+
+Écart-type d'un compte : `115,0` sorties, soit `0,163` point. Le maximum sur
+quatre-vingts numéros vaut `2,72`, là où le maximum attendu du bruit pur vaut `2,6`.
+
+> **Aucun numéro n'est biaisé.** Et une grille ne peut pas valoir mieux que ses membres.
+
+### B — le créneau, jamais mesuré ainsi
+
+Le taux de chaque numéro à chaque **position dans la nuit** : `204 × 80 = 16 320` cases,
+`346` observations chacune. Moyenne des `z` : `−0,0000`. Écart-type : `1,0065`. La nulle
+est exactement juste. Max `|z| = 4,445` (position `190`, numéro `77`) pour un seuil de
+`4,668`. Et le premier tirage de la nuit — celui où un réamorçage se verrait — donne
+`3,663` au plus.
+
+### C — la grille hors échantillon, et sa chasse
+
+Choix des `k` numéros de plus fort taux sur la première moitié, joués sur la seconde :
+
+| `k` | grille chaude | `z` | grille froide | `z` |
+|---|---|---|---|---|
+| `3` | `25,2504 %` | `+1,91` | `25,1909 %` | `+1,45` |
+| `5` | **`25,2392 %`** | **`+2,38`** | `25,1281 %` | `+1,28` |
+
+`+2,38` n'est pas significatif — le seuil sur les `16 410` statistiques vaut `4,668` — mais
+c'est le seul chiffre du dossier qui ressemble à quelque chose d'exploitable. **Je l'ai
+donc chassé, avec une décision fixée avant de regarder.**
+
+Schéma roulant sur quatre quarts, trois mesures sur fenêtres **disjointes** :
+
+| `k = 5` | mesure | `z` |
+|---|---|---|
+| choix `Q1` → `Q2` | `25,1667 %` | `+1,17` |
+| choix `Q1Q2` → `Q3` | `25,2698 %` | `+1,90` |
+| choix `Q1Q2Q3` → `Q4` | `25,1315 %` | `+0,93` |
+| renversé `H2` → `H1` | `25,1440 %` | `+1,43` |
+
+`Z = (1,17 + 1,90 + 0,93)/√3 = +2,308`, `p = 0,021`. **Les quatre mesures sont positives.**
+
+Le seuil pré-enregistré était `Z > 3`. **Verdict : NON RÉPLIQUÉ**, et je m'y tiens.
+
+*Ce qu'il faut dire honnêtement.* Quatre mesures positives sur quatre, ce n'est pas rien —
+mais le `Z` n'a pas **grandi** : le §210 donnait `+2,38` sur `35 280` tirages, la chasse
+donne `+2,31` sur `52 920`. Un effet réel aurait dû monter à `+2,9`. Il est resté sur
+place, ce qui est la signature du bruit et non d'une avance.
+
+Et l'argument qui ferme : **une grille ne peut pas battre le hasard si aucun de ses membres
+n'est biaisé**, et la famille A montre qu'aucun ne l'est. Quand bien même l'avance serait
+réelle, elle vaudrait `+0,24` point sur une base de `25 %`, soit `+0,96 %` en relatif —
+contre une marge de maison de trente à cinquante pour cent sur ce type de jeu. Sans valeur.
+
+**Lignes de registre.** `h191.grille`, piste B, conforme, `m_extra = 16 409` ;
+`h191b.chasse_grille`, piste B, NON RÉPLIQUÉ.
+
+---
