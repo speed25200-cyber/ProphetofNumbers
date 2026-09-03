@@ -19811,3 +19811,107 @@ instruments — quatre défauts trouvés et corrigés, dont une fuite qui n'appa
 que dans la queue d'une loi — qu'avec le générateur.
 
 ---
+## 192. La **borne élargie** : six familles de défauts de plus, et un témoin planté pour chacune (`h176_borne_elargie.py`, `h176b_gigue.py`)
+
+Le §188 borne la prédiction à `+0,0113` numéro par tirage. Mais le §7.31 le dit sans
+détour : **une borne ne vaut que pour la classe que ses traits savent lire**, et un
+témoin manquant est un trou invisible. Le §188 en a fait la démonstration à ses
+dépens — sans le trait d'énergie, son témoin Fibonacci rendait `z = −1,07`.
+
+Ce fichier porte le modèle de `14` à `31` traits en ajoutant six familles — densité
+locale, canal modulaire (`2, 4, 5, 8`), ordre dans le tirage précédent, énergie à
+trois termes, énergie XOR sur les six bits de tête, périodicité longue (une nuit,
+deux nuits, une semaine) — et **un témoin planté par famille**.
+
+### Le témoin se juge sur son propre trait
+
+Un témoin vérifie qu'un *trait* lit un *défaut* : c'est donc le trait seul qui doit
+être jugé. Dilué dans trente et un traits, un signal faible se perd — le trait à
+trois termes rend `+3,66` seul et `+2,42` accompagné. Chaque témoin est donc mesuré
+deux fois : sur sa famille (c'est la porte) et sur le modèle complet (c'est
+l'information).
+
+| témoin | famille | `z` famille | `z` modèle complet |
+|---|---|---|---|
+| T1 main chaude `30 %` | classique | `+30,13` | `+30,13` |
+| T2 additif mots `(3,7)` | énergie 2 termes | `+10,60` | `+13,50` |
+| T3 densité locale | `L` | `+4,59` | `+6,73` |
+| T4 canal `mod 4` | `M` | `+23,81` | `+23,00` |
+| T5 le plus petit d'hier | `O` | `+19,32` | `+18,29` |
+| T6 période `204` | `P` | `+15,95` | `+15,95` |
+| T7 additif mots `(2,3,7)` | `T` | `+3,66` | `+2,42` |
+| T8 classe XOR de tête | `X` | `+20,07` | `+37,05` |
+| T9 additif mots `(23,46,69)` | `T` | `+6,72` | `+5,91` |
+| **X1 xorshift32** | `X` | **`−0,97`** | `−1,20` |
+
+**Neuf témoins sur neuf passent.** Contrôle SRS : `z = +0,83`, gain de vraisemblance
+`−8,1·10⁻⁷` — la chaîne ne fuit pas.
+
+### Le seul trou, et il est nommé
+
+`X1` échoue, et c'est déclaré d'avance : un **xorshift32** est `F₂`-linéaire mais à
+*un seul pas*. Ses sorties ne satisfont aucune relation à deux ou trois termes à
+l'échelle du tirage — les multiples de poids `3` de son polynôme caractéristique
+tombent à des degrés bien supérieurs. Aucun trait de ce fichier ne peut l'allumer.
+Cette famille n'est donc **pas** fermée par la borne ; elle l'est ailleurs, par le
+crible de classes (`h127`, `972` designs × `2³²` sous troncature) et par les §163
+et §164. Un trou nommé et fermé ailleurs vaut mieux qu'un trou passé sous silence.
+
+### Deux témoins qu'il a fallu refaire, et une hypothèse réfutée
+
+1. `x⁴⁶ + x²³ + 1` divise `x⁶⁹ − 1`. Mon premier témoin XOR, de retards `(23, 46)`,
+   avait donc une période de **soixante-neuf mots**, soit trois tirages : il se
+   prédisait `20/20`, `z = +754`. **Un témoin dégénéré est pire qu'un témoin
+   absent** — il fait passer pour validé un trait qu'il n'a pas testé.
+2. Un additif de retards `(23, 46, 69)` a d'abord paru invisible (`z = +0,85`), et
+   j'en ai tiré une explication : la **gigue de consommation**. La machine consomme
+   `22,85` mots par tirage avec un écart-type de `1,85` (§7.27), donc un partenaire
+   situé `d` mots en arrière *flotte* au lieu de tomber dans un tirage fixe.
+
+   L'explication est fausse, **et le fait qu'elle expliquait l'était aussi**. Le
+   `+0,85` venait d'un essai à `N = 20 000` mené avec un jeu de triplets qui ne
+   contenait pas `(3,2,1)`. À la taille de l'archive et avec le bon triplet, le même
+   générateur rend `+6,72`.
+
+   L'hypothèse méritait tout de même d'être tranchée pour elle-même, puisqu'elle
+   porte sur la validité de la règle de portée et donc sur *tous* les détecteurs des
+   §177 à §184. `h176b` compare deux régimes à **portée nominale égale** :
+
+   | régime | portée | `z` |
+   |---|---|---|
+   | A échantillonneur naturel, retards `(23,46,69)` | `1,006 ; 2,013 ; 3,019`, flottante | `+5,29` |
+   | B bloc fixe de `45` mots, retards `(45,90,135)` | `1 ; 2 ; 3`, exacte | `+3,15` |
+   | C contrôle SRS | — | `+0,75` |
+
+   **La gigue est disculpée** : le régime qui flotte lit *mieux* que celui qui ne
+   flotte pas. La règle de portée du §7.28 n'a pas de clause manquante (§7.33).
+
+   *Et ma première version de ce test était elle aussi confondue* : elle comparait le
+   même générateur `(45,90,135)` sous les deux régimes, alors que sous le régime à
+   gigue sa portée vaut `(1,97 ; 3,94 ; 5,91)` — ni entière, ni même présente dans le
+   trait. Le régime A y échouait pour une raison étrangère à la gigue.
+
+### La mesure, et la borne
+
+| | recouvrement | `z` | gain de vraisemblance |
+|---|---|---|---|
+| contrôle SRS | `5,00850` | `+0,83` | `−8,1·10⁻⁷` |
+| **archive** | `5,00230` | **`+0,225`** | — |
+
+La loi entière est plate : aucune case au-delà de `1,34` écart-type. Les poids appris
+sur l'archive sont tous sous `0,005` en valeur absolue, le plus fort étant la densité
+locale à `10` (`+0,0046`).
+
+> **Borne à `95 %` : aucun prédicteur de cette classe ne gagne plus de `+0,0191`
+> numéro par tirage sur les vingt, soit `0,38 %`.**
+
+Cette borne est **plus lâche** que celle du §188 (`+0,0113`) alors que la classe est
+**plus large** — et c'est normal : le point mesuré est passé de `−0,0055` à `+0,0023`.
+Une classe plus riche déplace légèrement l'estimation vers le haut, donc relâche la
+borne. Les deux se lisent ensemble : la borne étroite vaut pour la classe étroite,
+la large pour la large.
+
+**Ligne de registre.** `h176.borne_elargie`, piste B, conforme (correction de
+classement appliquée).
+
+---

@@ -5693,3 +5693,64 @@ cherche à éviter.
 « conforme » (`p > 0,05`) mais pas proclamer une découverte forte. C'est le bon
 compromis : un test de balayage sert à **écarter**, et une découverte se chasse
 ensuite sur sa propre statistique, où l'on peut se payer bien plus de réplicats.
+
+---
+
+### 7.33 La règle de portée **résiste à la gigue** — et le seul défaut qu'aucun détecteur d'énergie ne peut lire
+
+La règle de portée du §7.28 convertit un retard en **mots** `d` en un retard en
+**tirages** `g = d / E[N]`, avec `E[N] = 22,8487`. Elle suppose implicitement que le
+partenaire d'un mot du tirage `t`, situé `d` mots en arrière, tombe dans le tirage
+`t − g`. Or ce n'est pas exact : l'indice du premier mot du tirage `t` vaut
+`W_t = Σ_{s<t} N_s`, une **marche aléatoire** de moyenne `22,8487·t` et d'écart-type
+`1,8525·√t` (§7.27). Le partenaire **flotte**.
+
+*Fallait-il en conclure que la règle a une clause manquante ?* Non — c'est mesuré.
+
+> **Proposition (la gigue ne casse pas la portée, au moins jusqu'à `g = 3`).**
+> À portée nominale égale, un régime à consommation variable lit la relation **au
+> moins aussi bien** qu'un régime à consommation constante.
+
+*Vérification* (`h176b`, `70 560` tirages plantés, trait à trois termes seul) :
+
+| régime | retards en mots | portée | flottement | `z` |
+|---|---|---|---|---|
+| A | `(23, 46, 69)` | `1,006 ; 2,013 ; 3,019` | `1,85` à `3,21` mots | `+5,29` |
+| B | `(45, 90, 135)`, bloc fixe `45` | `1 ; 2 ; 3` | nul | `+3,15` |
+| C | contrôle SRS | — | — | `+0,75` |
+
+*Pourquoi cela marche.* Le flottement à la portée `g` a pour écart-type `1,85·√g`,
+soit `1,85`, `2,62` et `3,21` mots pour `g = 1, 2, 3`. Un tirage occupe `22,85` mots.
+Le partenaire reste donc **dans le bon tirage** dans la très grande majorité des cas,
+et la relation ne se disperse pas. La clause à retenir n'est pas « consommation
+constante » mais la condition, bien plus faible :
+
+        1,8525 · √g  ≪  E[N] = 22,8487        c'est-à-dire        g ≪ 152 .
+
+Tant que la portée reste très inférieure à cent cinquante tirages, la gigue est
+négligeable. Elle ne devient une limite que pour des retards de plusieurs milliers de
+mots, hors de portée de tout le catalogue.
+
+**Le corollaire négatif, qui est le vrai contenu.** Un détecteur d'énergie lit une
+**relation entre sorties** : deux ou trois mots liés par une somme ou un XOR. Il ne
+lit rien d'un générateur qui n'en a pas.
+
+> Un générateur `F₂`-linéaire à **un seul pas** — `x_{i+1} = M x_i`, dont les
+> xorshift sont l'exemple — ne satisfait aucune relation de poids `2` ou `3` entre
+> sorties à des retards de l'ordre du tirage. Ses multiples de poids `3` existent,
+> mais à des degrés dictés par son polynôme caractéristique, très supérieurs. **Aucun
+> détecteur d'énergie ne peut donc le voir**, quelle que soit la longueur de
+> l'archive.
+
+Mesuré : `z = −0,97` sur un xorshift32 planté de `70 560` tirages, contre `+20,07`
+sur une relation XOR à deux termes plantée à portée `(1, 2)`.
+
+Cette famille se ferme donc **ailleurs et autrement** : par le crible de classes, qui
+énumère l'état au lieu de chercher une relation (`h127`, `972` designs × `2³²` sous
+troncature), et par les distingueurs sans état des §163 et §164. C'est la raison
+d'être de deux instruments là où un seul semblerait suffire :
+
+> **Un détecteur de relation et un crible d'état ne couvrent pas la même chose, et
+> aucun des deux ne subsume l'autre.** Le détecteur voit loin en degré et ne voit que
+> les relations creuses ; le crible voit toute forme et ne voit pas loin. Une borne
+> qui ne cite qu'un des deux ment par omission.
