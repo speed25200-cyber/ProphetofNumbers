@@ -20603,3 +20603,65 @@ Ce balayage n'a pas de puissance à estimer : **il a une couverture**.
 **Ligne de registre.** `h184.graine_exhaustive`, piste B, conforme.
 
 ---
+## 204. **Les graines sous-seconde** : la résolution que le §200 n'atteignait pas (`h185_sous_seconde.py`)
+
+Le §200 balaye les graines d'horloge à la **seconde** et à la **milliseconde**. Or les
+sources d'amorçage les plus répandues dans un programme réel ne sont ni l'une ni
+l'autre :
+
+| appel | résolution |
+|---|---|
+| `clock_gettime(CLOCK_REALTIME)` | nanoseconde |
+| `System.nanoTime()` | nanoseconde |
+| `gettimeofday()` | microseconde |
+
+Une graine prise à la microseconde vaut `ts·10⁶ + µs`, à la nanoseconde `ts·10⁹ + ns`.
+Le §200, qui ne descend qu'au millième, **les manque toutes les deux**.
+
+### Ce qui rend le balayage possible
+
+Les graines sous-seconde d'un tirage forment une plage **contiguë** :
+
+    microseconde   [ ts·10⁶ , (ts+1)·10⁶ )     10⁶ graines
+    nanoseconde    [ ts·10⁹ , (ts+1)·10⁹ )     10⁹ graines
+
+C'est exactement ce que l'outil du §203 sait balayer — et comme il compare chaque graine
+à l'archive **entière** par table de hachage, une plage attrape aussi n'importe quel
+autre tirage qui en serait né.
+
+### Le résultat
+
+| balayage | plages | résolution | essais | appariements |
+|---|---|---|---|---|
+| **A** les `346` débuts de nuit | `346 × 10⁶` | microseconde | `3,460·10⁹` | **`0`** |
+| **B** huit débuts de nuit | `8 × 10⁹` | nanoseconde | `8,000·10¹⁰` | **`0`** |
+| | | **total** | **`8,346·10¹⁰`** | **`0`** |
+
+Les deux balayages sont **exhaustifs sur leur résolution** pour les secondes retenues :
+toute microseconde des `346` secondes de début de nuit, toute nanoseconde des huit
+secondes retenues. Il n'y a pas de puissance à estimer, il y a une **couverture**.
+
+Le balayage B suffit d'ailleurs à trancher : si la machine s'amorçait à la nanoseconde
+en début de nuit, **les huit** devraient apparier — et un seul aurait suffi.
+
+### Le compte final des balayages de graine
+
+| section | ce qui est balayé | essais |
+|---|---|---|
+| §200 | horloge : seconde, milliseconde, journée | `9,831·10⁹` |
+| §201 | la même, plus échauffement `0..300` mots | `8,228·10⁹` |
+| §202 | huit bases dérivées, plus échauffement | `1,180·10¹⁰` |
+| §203 | les `2³²` graines, sans hypothèse d'origine | `4,295·10¹⁰` |
+| §204 | microseconde et nanoseconde | `8,346·10¹⁰` |
+| | **total** | **`1,56·10¹¹`** |
+
+**Cent cinquante-six milliards d'essais de graine. Zéro appariement.**
+
+> Ce que cela ferme définitivement : la famille que le §199 laissait debout — les
+> générateurs modernes à un seul pas — n'a **aucune graine accessible**, ni dérivée de
+> ce que l'archive publie, ni de `32` bits quelle qu'en soit l'origine, ni sous-seconde.
+> Le mur qui reste est celui de `2⁶⁴`, et il n'est pas contournable par un balayage.
+
+**Ligne de registre.** `h185.sous_seconde`, piste B, conforme.
+
+---
