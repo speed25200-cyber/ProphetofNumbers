@@ -175,9 +175,9 @@ Validé d'abord sur une archive synthétique xorshift64 : bon générateur → c
 W → tous rejetés.
 
 Sur l'archive **réelle** : 8 générateurs (xorshift64 hi/lo, xorshift128 de Marsaglia,
-xorshift96, LFSR de Galois 64/128/256/512) × 3 canaux × W ∈ {20…24} = 120 essais,
-**112 rejetés**. Les 8 restants sont dégénérés (canal boost avec W=20 : il n'existe
-pas de 21ᵉ mot, donc zéro équation), pas une lacune.
+xorshift96, LFSR de Galois 64/128/256/512) × 6 canaux × W ∈ {20…24} = **240 essais,
+232 rejetés, 0 consistant**. Les 8 restants sont dégénérés (canal boost avec W=20 :
+il n'existe pas de 21ᵉ mot, donc zéro équation), pas une lacune.
 
 ### Généralisation — tirages ordonnés nécessaires par famille
 
@@ -274,6 +274,14 @@ Contrôles sur une archive synthétique MT19937 (graine et préchauffage cachés
 | bonus = 1ʳᵉ boule | 24 | 19 949 | 19 937 | 3 | **rejeté** |
 | bonus = rang trié | 22 | 19 941 | 19 937 | 3 | **rejeté** |
 | **boost seul** (24 000 tirages) | 21 | 19 949 | 19 937 | 3 | **rejeté** |
+| **boost seul** (24 000 tirages) | 22 | — | 19 937 | ≥3 | **rejeté** |
+| bonus = 1ʳᵉ boule via `u % 80` | 20 / 21 / 22 | 19 940–19 944 | 19 936–19 937 | 3–4 | **rejeté** |
+| bonus = 1ʳᵉ boule, Floyd (k=61) | 21 / 22 | 19 949 | 19 937 | 4–5 | **rejeté** |
+
+Les variantes `% ` couvrent le style de code `j = i + u %% (80-i)` : 80 = 16·5, donc
+`u %% 80` fixe `u mod 16`, soit 4 bits **de poids faible**. Validé sur une archive
+synthétique générée avec ce mapping — mode 6 consistant, mode 0 (mulhi) rejeté,
+mauvais W rejeté.
 
 Le test `boost seul` est le plus léger en hypothèses : il ne suppose rien sur le
 bonus — seulement MT19937, W mots par tirage, et un boost issu de seuils sur `u/2³²`.

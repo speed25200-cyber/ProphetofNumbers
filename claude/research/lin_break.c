@@ -11,6 +11,7 @@
  *      gen   0 xorshift64(out=hi32)  1 xorshift64(out=lo32)  2 xorshift128(Marsaglia)
  *            3 xorshift96            4 lfsr64  5 lfsr128  6 lfsr256  7 lfsr512
  *      mode  0 bonus = first ball    1 bonus = sorted[(u*20)>>32]    3 boost only
+ *            5 bonus rank via u %% 20  6 first ball via u %% 80        7 Floyd (k=61)
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,6 +95,12 @@ static void insert_eq(uint64_t*row,int rhs){
       else { memcpy(PIV[p],row,NWB*8); PRHS[p]=rhs; USED[p]=1; NPIV++; return; } } }
   if(rhs) CONTRA++;
 }
+/* low a bits of u, from u = j (mod k) with a = v2(k) */
+static int low_bits(uint32_t j,uint32_t k,int*bp,int*bv){
+  int a=__builtin_ctz(k); if(a>4)a=4; uint32_t r=j&((1u<<a)-1);
+  for(int b=0;b<a;b++){bp[b]=b;bv[b]=(r>>b)&1;}
+  return a;
+}
 static int lead_bits(uint64_t lo,uint64_t hi,int*bp,int*bv){
   uint32_t x=(uint32_t)(lo^hi); int nb=x?__builtin_clz(x):32,n=0;
   for(int b=31;b>=32-nb;b--){bp[n]=b;bv[n]=(lo>>b)&1;n++;}
@@ -135,6 +142,15 @@ int main(int argc,char**argv){
       for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]){rk=q;break;}
       if(rk>=0){ range_of_index((uint32_t)rk,20,&lo,&hi); want=1; } }
     else if(r==20&&mode==3){ range_of_boost(BOOST[first+d],&lo,&hi); want=1; }
+    else if(r==0&&mode==5){ int rk=-1;
+      for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]){rk=q;break;}
+      if(rk>=0){ gen_out(g); int nb=low_bits((uint32_t)rk,20,bp,bv);
+        for(int q=0;q<nb;q++){memcpy(row,OUT[bp[q]],NWB*8); insert_eq(row,bv[q]); neq++;} }
+      gen_step(g); continue; }
+    else if(r==0&&mode==6){ gen_out(g); int nb=low_bits((uint32_t)(BONUS[first+d]-1),80,bp,bv);
+      for(int q=0;q<nb;q++){memcpy(row,OUT[bp[q]],NWB*8); insert_eq(row,bv[q]); neq++;}
+      gen_step(g); continue; }
+    else if(r==0&&mode==7){ range_of_index((uint32_t)(BONUS[first+d]-1),61,&lo,&hi); want=1; }
     if(want){ gen_out(g); int nb=lead_bits(lo,hi,bp,bv);
       for(int q=0;q<nb;q++){ memcpy(row,OUT[bp[q]],NWB*8); insert_eq(row,bv[q]); neq++; } }
     gen_step(g);

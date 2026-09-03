@@ -24,6 +24,9 @@
  *      mode 2  mode 1 + boost at r=20                   4.36 bits/draw
  *      mode 3  boost at r=20 only                       1.15 bits/draw
  *      mode 4  mode 0 + boost at r=20                   6.35 bits/draw
+ *      mode 5  bonus rank via u %% 20 (low bits)          2.00 bits/draw
+ *      mode 6  bonus = first ball via u %% 80 (low bits)  4.00 bits/draw
+ *      mode 7  bonus = first ball, Floyd sampler (k=61)   4.75 bits/draw
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +36,9 @@
 #include <time.h>
 #define NB 19968
 #define NW (NB/64)
-#define TOPB 6                     /* leading bits kept per output (max needed is 6) */
+#define TOPB 10   /* forms kept per output: 0..5 = bits 31..26, 6..9 = bits 3..0.
+                     The low four cover the modulo mappings: 80 = 16*5 and 20 = 4*5,
+                     so u % 80 fixes u mod 16 and u % 20 fixes u mod 4. */
 #define MATRIX_A 0x9908b0dfU
 
 static uint32_t N,*IDS,*TS; static uint8_t *NUMS,*BOOST,*BONUS;
@@ -62,7 +67,8 @@ static void sym_temper_top(int idx,long n){
   for(int b=0;b<32;b++){rcpy(t[b],y[b]); if(b-15>=0&&((0xefc60000U>>b)&1)) rxor(t[b],y[b-15]);}
   for(int b=0;b<32;b++) rcpy(y[b],t[b]);
   for(int b=0;b<32;b++){rcpy(t[b],y[b]); if(b+18<32) rxor(t[b],y[b+18]);}
-  for(int b=0;b<TOPB;b++) rcpy(FORMS+((size_t)n*TOPB+b)*NW, t[31-b]);
+  for(int b=0;b<6;b++) rcpy(FORMS+((size_t)n*TOPB+b)*NW, t[31-b]);
+  for(int b=0;b<4;b++) rcpy(FORMS+((size_t)n*TOPB+6+b)*NW, t[b]);
 }
 /* ---------------- per-thread elimination ---------------- */
 typedef struct{uint64_t **PIV; uint8_t *PRHS; int npiv, contra;} BASIS;
@@ -77,7 +83,7 @@ static void insert_eq(BASIS*B,uint64_t*row,int rhs){
 }
 static int lead_bits(uint64_t lo,uint64_t hi,int*bp,int*bv){
   uint32_t x=(uint32_t)(lo^hi); int nb = x ? __builtin_clz(x) : 32; int n=0;
-  if(nb>TOPB) nb=TOPB;
+  if(nb>6) nb=6;
   for(int b=31;b>=32-nb;b--){bp[n]=31-b;bv[n]=(lo>>b)&1;n++;}   /* bp = index into TOPB */
   return n;
 }
@@ -92,12 +98,26 @@ static void range_of_boost(int v,uint64_t*lo,uint64_t*hi){
   *lo = i? (uint64_t)(BCUM[i-1]*4294967296.0) : 0ULL;
   *hi = i==5 ? 0xFFFFFFFFULL : (uint64_t)(BCUM[i]*4294967296.0)-1ULL;
 }
+/* low a bits of u, from u = j (mod k) with a = v2(k) */
+static int low_bits(uint32_t j,uint32_t k,int*bp,int*bv){
+  int a=__builtin_ctz(k); if(a>4)a=4; uint32_t r=j&((1u<<a)-1);
+  for(int b=0;b<a;b++){bp[b]=6+b;bv[b]=(r>>b)&1;}
+  return a;
+}
+static int bonus_rank(long d,int first){
+  for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]) return q;
+  return -1;
+}
 /* fills the constraint list for a draw-relative role; returns #bits */
 static int role_bits(int mode,int r,long d,int first,int*bp,int*bv){
   uint64_t lo,hi;
+  if(r==0 && mode==5){ int rk=bonus_rank(d,first); if(rk<0)return 0;
+    return low_bits((uint32_t)rk,20,bp,bv); }                     /* bonus via u % 20 */
+  if(r==0 && mode==6) return low_bits((uint32_t)(BONUS[first+d]-1),80,bp,bv); /* first ball via u % 80 */
+  if(r==0 && mode==7){ range_of_index((uint32_t)(BONUS[first+d]-1),61,&lo,&hi);
+    return lead_bits(lo,hi,bp,bv); }                              /* Floyd: first value has range 61 */
   if(r==0 && (mode==0||mode==4)){ range_of_index((uint32_t)(BONUS[first+d]-1),80,&lo,&hi); }
-  else if(r==0 && (mode==1||mode==2)){
-    int rk=-1; for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]){rk=q;break;}
+  else if(r==0 && (mode==1||mode==2)){ int rk=bonus_rank(d,first);
     if(rk<0) return 0; range_of_index((uint32_t)rk,20,&lo,&hi); }
   else if(r==20 && (mode==2||mode==3||mode==4)){ range_of_boost(BOOST[first+d],&lo,&hi); }
   else return 0;
@@ -138,11 +158,11 @@ int main(int argc,char**argv){
   long D=argc>3?atol(argv[3]):5500; int T=argc>4?atoi(argv[4]):4;
   int first=argc>5?atoi(argv[5]):0, PLO=argc>6?atoi(argv[6]):0, PHI=argc>7?atoi(argv[7]):624;
   VERBOSE = (PHI-PLO)<=12;
-  const double BITS[5]={5.20,3.21,4.36,1.15,6.35};
+  const double BITS[8]={5.20,3.21,4.36,1.15,6.35,2.00,4.00,4.75};
   NFORM=D*W+PHI+2;
   double gb=(double)NFORM*TOPB*NW*8/1e9;
   printf("channel_break %s: mode=%d W=%d draws=%ld (%.0f bits for 19937 needed) threads=%d\n",
-     BIN,mode,W,D,BITS[mode<5?mode:0]*D,T);
+     BIN,mode,W,D,BITS[(mode>=0&&mode<8)?mode:0]*D,T);
   printf("  precomputing %ld leading-bit forms  (%.2f GB)\n",NFORM,gb); fflush(stdout);
   SS=malloc((size_t)624*32*NW*8); FORMS=malloc((size_t)NFORM*TOPB*NW*8);
   if(!SS||!FORMS){fprintf(stderr,"out of memory (%.2f GB needed)\n",gb);return 1;}
