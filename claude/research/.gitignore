@@ -12,3 +12,9 @@ cal_*.bin
 __pycache__/
 *.bak_real
 *.err
+channel_break
+lin_break
+keno_break
+mthunt
+ordered_demo.txt
+sorted_demo.txt

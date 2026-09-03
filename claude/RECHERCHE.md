@@ -164,6 +164,21 @@ tirage n'ont pas besoin d'être connus : une hypothèse fausse rend le système
 **incohérent** (35 842 équations pour 19 968 inconnues ⇒ détection certaine),
 ce que l'outil exploite pour balayer les hypothèses automatiquement (`SCAN=1`).
 
+### `lin_break.c` — les générateurs F2-linéaires de 33 à 1024 bits
+
+Le balayage 2³² couvre tout état ≤ 32 bits ; `channel_break` couvre les 19 937 de
+MT19937. `lin_break` ferme l'intervalle : mêmes canaux auxiliaires, mais 64 à 512
+inconnues au lieu de 19 968, donc chaque essai prend quelques millisecondes.
+
+Validé d'abord sur une archive synthétique xorshift64 : bon générateur → consistant
+(rang 64/64, 0 contradiction) ; mauvaise moitié de sortie, mauvais générateur, mauvais
+W → tous rejetés.
+
+Sur l'archive **réelle** : 8 générateurs (xorshift64 hi/lo, xorshift128 de Marsaglia,
+xorshift96, LFSR de Galois 64/128/256/512) × 3 canaux × W ∈ {20…24} = 120 essais,
+**112 rejetés**. Les 8 restants sont dégénérés (canal boost avec W=20 : il n'existe
+pas de 21ᵉ mot, donc zéro équation), pas une lacune.
+
 ### Généralisation — tirages ordonnés nécessaires par famille
 
 90 bits utiles par tirage, marge ×1,35 mesurée :
@@ -214,6 +229,59 @@ l'ordre a été perdu et refuse de tourner. C'est le verrou à lever.
 Les échantillonneurs et mappings faux ne coûtent rien : le système devient
 **incohérent** (35 000 équations pour 19 968 inconnues), l'outil abandonne en 0,2 s
 et passe à l'hypothèse suivante.
+
+---
+
+## 6 bis. Attaque par canaux auxiliaires — sur les VRAIS tirages, sans ordre
+
+Le flux publie deux sorties supplémentaires du **même** générateur. Elles suffisent,
+sans jamais avoir besoin de l'ordre des boules :
+
+| canal | hypothèse | bits F2-linéaires certains | tirages pour 19 937 bits |
+|---|---|---|---|
+| `bonus` = **première boule tirée** | Fisher-Yates part du tableau identité, donc `bonus−1` **est** `j₀=(u·80)>>32` | **5,20 / tirage** | 4 239 (14,7 j de flux) |
+| `bonus` = `trié[(u·20)>>32]` | tirage supplémentaire parmi les 20 | 3,21 / tirage | 6 180 (21,5 j) |
+| `boost` | seuils sur `u/2³²` : 0,512 / 0,75 / 0,90 / 0,95 / 0,975 | 1,15 / tirage | 17 336 (60 j) |
+
+**L'archive en contient 70 560 — soit 11× le nécessaire.** Aucun ordre requis.
+`channel_break.c` monte le système et l'élimine sur GF(2).
+
+### Un point subtil : l'alignement n'est pas identifiable
+
+Premier réflexe : balayer les 624 positions possibles du tampon. Le contrôle négatif
+l'a réfuté — *tous* les alignements passaient. La raison est structurelle : la
+récurrence `x_{n+624} = f(x_n, x_{n+1}, x_{n+397})` est invariante par décalage et
+s'inverse vers l'arrière, donc n'importe quel flux MT valide se lit depuis n'importe
+quelle phase en prolongeant le tampon en arrière. L'alignement est libre — 624× moins
+de travail — et le vrai discriminant est le **modèle** (W et la sémantique du canal).
+
+Contrôles sur une archive synthétique MT19937 (graine et préchauffage cachés) :
+
+| test | équations | rang | contradictions | verdict |
+|---|---|---|---|---|
+| modèle correct (W=22, bonus=1ʳᵉ boule) | 28 717 | 19 937 | **0** | consistant ✓ |
+| **mauvais** W (21) | 19 944 | 19 937 | **4** | rejeté ✓ |
+| **mauvaise** sémantique (rang du bonus) | 17 690 | 17 690 | 0 | rang insuffisant |
+
+### Résultat sur l'archive réelle
+
+| mode | W | équations | rang | contradictions | verdict |
+|---|---|---|---|---|---|
+| bonus = 1ʳᵉ boule | 20 | 19 944 | 19 937 | 4 | **rejeté** |
+| bonus = 1ʳᵉ boule | 21 | 19 944 | 19 937 | 4 | **rejeté** |
+| bonus = 1ʳᵉ boule | 22 | 19 944 | 19 937 | 5 | **rejeté** |
+| bonus = 1ʳᵉ boule | 23 | 19 944 | 19 937 | 5 | **rejeté** |
+| bonus = 1ʳᵉ boule | 24 | 19 949 | 19 937 | 3 | **rejeté** |
+| bonus = rang trié | 22 | 19 941 | 19 937 | 3 | **rejeté** |
+| **boost seul** (24 000 tirages) | 21 | 19 949 | 19 937 | 3 | **rejeté** |
+
+Le test `boost seul` est le plus léger en hypothèses : il ne suppose rien sur le
+bonus — seulement MT19937, W mots par tirage, et un boost issu de seuils sur `u/2³²`.
+
+Chaque configuration sature le rang à 19 937 — la dimension exacte de MT19937 — puis
+se contredit immédiatement. Le générateur de Loto Express **n'est pas MT19937** avec
+ces dispositions, et cela est établi **depuis l'archive triée seule**, ce que ni le
+balayage 2³² ni aucun test statistique ne pouvait faire.
 
 ---
 
