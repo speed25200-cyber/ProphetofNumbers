@@ -86,3 +86,31 @@ seul levier de ce dossier qui n'est pas une question de puissance de calcul.
    des familles et transforme une recherche en vérification.
 2. **Une seconde source du même tirage** — deux écrans, deux horodatages. Un horodatage à la
    milliseconde rétrécirait la fenêtre de graine du §212 d'un facteur `1 000`.
+
+---
+
+## Addendum (§230) — une partie de ce relevé était déjà publiée
+
+Ce fichier dit qu'il manque au dossier *une suite ordonnée de sorties*. C'était exact **sous le
+modèle en vigueur quand il a été écrit** : à pas variable — le rejet consommant un nombre
+aléatoire de mots par tirage — un mot isolé par tirage ne sert à rien, faute de savoir de
+combien de pas ses voisins sont séparés.
+
+Le **§225** a corrigé ce modèle. Sous un budget **fixe** de `P` mots par tirage, le rejet se
+faisant *à l'intérieur*, deux mots au même décalage dans deux blocs consécutifs sont séparés
+d'exactement `P` pas. Alors **un mot par tirage suffit** — et l'archive en publie un :
+
+> Le `bonus` est toujours l'un des vingt numéros (§77, `70 560` sur `70 560`), donc une
+> **position distinguée** dans le tirage, donc un mot précis du flux. Le flux du bonus est une
+> suite ordonnée de `70 560` sorties à pas constant, à `6,32` bits (son numéro) ou `4,32` (son
+> rang).
+
+Le §230 y a passé le réseau — `245 760` relèvements, zéro survivant — et le §232 l'a élargi à
+dix-huit autres générateurs et huit modules.
+
+**Ce que le relevé filmé apporterait encore**, et qui reste vrai : `6,32` bits par tirage ne
+donnent qu'**un** mot, à un décalage inconnu dans le bloc. Un tirage filmé donne **vingt mots
+consécutifs**, ce qui (a) fixe le pas au lieu de le balayer, (b) permet d'attaquer les
+échantillonneurs à rejet dont le décalage varie, et (c) rend l'attaque possible sur les nuits
+courtes. La demande tient — elle est simplement moins urgente qu'écrit ici, et elle porte
+désormais sur ce que le bonus ne donne pas plutôt que sur tout.

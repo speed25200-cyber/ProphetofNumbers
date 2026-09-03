@@ -45,8 +45,12 @@ corrélation sur un registre à décalage. On mesure donc aussi, sur les parité
 les tirages** (que le §215 et le §218 ne touchent pas, tous deux confinés à un seul tirage) :
 
   * **poids 2** — `(a` dans le tirage `i`, `b` dans le tirage `i+g)` pour `g = 1 … 32`,
-    soit `204 800` statistiques ;
-  * **poids 3** — `(a, b, c)` dans trois tirages **consécutifs**, soit `512 000`.
+    soit `204 800` statistiques. **Le retard `1` recoupe le §220** et quelques retards
+    choisis recoupent le §199 : cette moitié-là est une extension de couverture, pas une
+    nouveauté, et elle sert surtout de contrôle interne ;
+  * **poids 3** — `(a, b, c)` dans trois tirages **consécutifs**, soit `512 000`. Celle-là
+    est neuve : une corrélation *triple* entre trois tirages, que rien dans le dossier
+    n'avait formée.
 
 `716 800` parités croisées, calibrées par la loi empirique du maximum sur répliques SRS.
 """
@@ -234,7 +238,10 @@ if __name__ == "__main__":
            f"coup. On ajoute la partie PENCHEE, que le noyau exact ne voit pas : les "
            f"{NCROIS} parites CROISANT les tirages (poids 2 aux retards 1..32, poids 3 sur "
            f"trois tirages consecutifs), que ni le §215 ni le §218 ne touchent, tous deux "
-           f"confines a un seul tirage")
+           f"confines a un seul tirage — etant entendu que le poids 2 au retard 1 recoupe "
+           f"le §220 et quelques retards du §199, donc que cette moitie-la est une "
+           f"extension de couverture et un controle interne, la nouveaute etant la "
+           f"correlation TRIPLE entre trois tirages consecutifs")
     STAT = (f"dimension du noyau sur GF(2) pour les fenetres d = {DS} et pour les paires "
             f"espacees de {len(ECARTS)} ecarts — le noyau TRIVIAL vaut exactement d, la "
             f"parite de 20 etant nulle bloc par bloc, donc toute dimension superieure est "

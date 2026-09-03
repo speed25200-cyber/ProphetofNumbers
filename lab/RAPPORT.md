@@ -22675,3 +22675,190 @@ l'ordre de grandeur de l'espace d'états. Il n'y en a pas.
 **Ligne de registre.** `h208.distribution_des_distances`, piste B, conforme, `m_extra = 25`.
 
 ---
+
+## 230. **Le réseau sur le flux du bonus** : la seconde linéarité, enfin fermée (`h209_reseau_sur_le_bonus.py`)
+
+### Ce qui est nouveau ici, et ce qui ne l'est pas
+
+Rien du fait lui-même, et il faut le dire d'emblée.
+
+| ce qu'on sait déjà | depuis |
+|---|---|
+| le `bonus` est **toujours** l'un des vingt numéros — `70 560` sur `70 560` | **§77**, recalculé par le bloc `2` du vérificateur à chaque exécution |
+| la règle est `bonus = triés[⌊u·20⌋]` — donc un **index**, pas un vingt-et-unième numéro | **§106** |
+| le mot du bonus vaut `4,32` bits d'élagage pour un crible | **§175** |
+| sa chaîne de Markov `80 × 80` est uniforme à tous les retards `1 … 20` | **§222** |
+| sa **complexité linéaire** exclut tout générateur `F₂`-linéaire d'état `< 47 040` bits | **§124** |
+
+Ce qui est nouveau, c'est le rapprochement avec le **§225**.
+
+`lab/RELEVE_ORDONNE.md` déclare qu'il manque au dossier *une suite ordonnée de sorties*. Cette
+déclaration était **exacte sous le modèle d'alors** : à pas variable — le rejet consommant un
+nombre aléatoire de mots par tirage — un mot isolé par tirage ne sert à rien, faute de savoir
+de combien de pas ses voisins sont séparés. Le §225 a corrigé ce modèle : sous un **budget
+fixe de `P` mots par tirage**, le rejet se faisant *à l'intérieur*, deux mots au même décalage
+dans deux blocs consécutifs sont séparés d'**exactement `P` pas**.
+
+> Sous le §225, **un mot par tirage suffit**. Le flux du bonus est alors une suite ordonnée de
+> `70 560` sorties à pas constant — le relevé que je déclarais manquant, et qui était publié
+> depuis le début.
+
+### Les deux linéarités
+
+C'est le point de structure, et il vaut mieux que l'expérience elle-même.
+
+Un générateur peut être linéaire de **deux** façons, et ce sont deux mondes disjoints :
+
+  * **linéaire sur `F₂`** — Mersenne Twister, `xorshift`, LFSR, WELL. L'outil est
+    **Berlekamp-Massey**, et le §124 l'a passé sur ce flux exact : tout état de moins de
+    `47 040` bits est exclu.
+  * **linéaire sur `Z/2^W`** — les congruentiels. Berlekamp-Massey ne les voit pas, et le
+    §124 le dit noir sur blanc dans sa liste de ce qu'il n'exclut pas : *« les générateurs non
+    `F₂`-linéaires : LCG, PCG, xoshiro, splitmix64, tout CSPRNG »*. L'outil, pour la moitié
+    congruentielle de cette liste, c'est le **réseau euclidien**.
+
+Le §223 a monté le réseau sur des tirages ordonnés qui n'existent pas. Le §224 l'a monté sur
+le **boost**, qui ne porte que `1,88` bit par tirage et a exigé `69 120` résolutions. Le bonus
+porte `4,32` bits (son rang) ou `6,32` (son numéro) : **c'est le canal ordonné le plus riche
+de l'archive, et le réseau n'y était jamais passé.**
+
+### La règle modulo tombe sans un calcul
+
+Si la classe était `w mod 80` : puisque `16 | 80`, on aurait `(bonus−1) mod 16 = w mod 16`.
+Or les bits bas d'un LCG `mod 2⁶⁴` forment un **sous-système clos** (§7.36) — `w mod 16`
+suivrait un cycle **déterministe** d'au plus seize états, et chaque ligne de la table `80 × 80`
+n'aurait de support que sur cinq colonnes sur quatre-vingts. Le §222 a mesuré ces tables à
+tous les retards et les a trouvées uniformes.
+
+**La règle modulo est donc déjà exclue, gratuitement.** Reste la **troncature**, qui lit les
+bits hauts : le §7.36 dit qu'elle ne fuit *rien* statistiquement — c'est exactement pourquoi le
+§222 ne pouvait rien trouver — et qu'elle fuit *tout* algébriquement.
+
+### Le `n` n'est pas calculé, il est mesuré
+
+Le nombre de contraintes nécessaires *semble* se calculer : `64/6,32 = 10,1`, donc `n = 14`
+avec de la marge. Sur le canal du numéro, c'est vrai. Sur celui du rang, le calcul dit
+`64/4,32 = 14,8`, donc `n = 18` ou `20` indifféremment — et la mesure dit autre chose :
+
+    canal du rang, n = 18 : 18 relèvements exacts sur 18
+    canal du rang, n = 20 : 14 sur 18
+    canal du rang, n = 22 : 18 sur 18
+
+**La qualité de Babai se dégrade avec la dimension plus vite que le système ne se contraint.**
+Le calcul de bits dit seulement que `n = 18` *suffit* ; c'est le témoin qui dit qu'il est le
+bon. Le `n` retenu est donc celui que le témoin planté valide, jamais celui que l'arithmétique
+suggère.
+
+### Le balayage
+
+`12` générateurs `mod 2⁶⁴` à constantes publiées × `128` pas de bloc × `2` canaux × `2` règles
+de troncature × `40` fenêtres, chacune entièrement à l'intérieur d'une nuit :
+**`245 760` relèvements**. Le décalage du bonus dans le bloc s'absorbe dans l'état initial
+inconnu (§225), donc un seul décalage couvre les vingt.
+
+La vérification est en **entiers exacts** sur dix classes de plus que celles données au
+réseau : une fausse alerte vaut `80⁻¹⁰ ≈ 10⁻¹⁹`. Il n'y a pas de zone grise, et la nulle n'est
+pas une loi mais un **compte**.
+
+### Ce que rend l'archive
+
+    245 760 relèvements, 0 survivant
+
+L'autotest, lui, relève l'état **exact** sur `36` flux synthétiques — `3` générateurs × `3` pas
+(`1`, `23`, `82`) × `2` canaux × `2` règles. La puissance est donc **totale à l'intérieur de la
+famille balayée** : si le flux du bonus était la troncature d'un de ces douze LCG à un pas de
+bloc `≤ 128`, il serait relevé *avec certitude*, pas avec probabilité.
+
+> Ce zéro n'exclut pas « un générateur ». Il exclut **toute cette famille**, sur le canal
+> ordonné le plus riche de l'archive — et il la ferme du côté `Z/2⁶⁴` comme le §124 l'avait
+> fermée du côté `F₂`.
+
+**Ligne de registre.** `h209.reseau_sur_le_bonus`, piste B, conforme, `m_extra = 0` (le compte
+est exact, pas multiple).
+
+---
+
+## 231. **Le noyau sur GF(2)** : toutes les relations de parité d'un seul coup (`h210_noyau_gf2.py`)
+
+### Ce que le dossier testait, et ce que ça laissait dehors
+
+Le §215 teste les parités de sous-ensembles de **quatre** numéros dans un tirage :
+`C(80,4) = 1 581 580` statistiques. Le §218 monte à **cinq** : `C(80,5) = 24 040 016`. Deux
+balayages explicites, et deux fois une famille bornée par ce qu'on peut énumérer.
+
+Or il existe un objet qui répond pour **toutes** les tailles à la fois, sans énumérer. Une
+relation de parité exacte sur un sous-ensemble `S`, c'est
+
+    Σ_{n ∈ S} x[i,n] ≡ 0   (mod 2)   pour TOUT tirage i
+
+autrement dit un vecteur du **noyau** de la matrice d'incidence vue sur `GF(2)`. Une
+élimination de Gauss en donne la **dimension exacte** — et donc la réponse pour les `2⁸⁰`
+sous-ensembles, en un quart de seconde.
+
+### Les fenêtres, et pourquoi ça devient une attaque
+
+On empile `d` tirages consécutifs en une ligne de `80·d` colonnes, plus une **colonne
+constante** qui fait tomber les relations *affines* dans le même noyau. Le noyau teste alors
+toutes les relations reliant un tirage à ses successeurs — la forme exacte que prend un
+générateur `GF(2)`-linéaire lu linéairement.
+
+### Le noyau trivial, qu'il faut connaître pour ne pas crier
+
+Chaque tirage a vingt numéros, et **`20` est pair**. Donc pour chaque bloc de la fenêtre, le
+vecteur « tous les numéros de ce bloc » est dans le noyau — gratuitement, et pour n'importe
+quelle collection de `20`-sous-ensembles. **Le noyau attendu vaut exactement `d`.**
+
+C'est aussi ce qui explique la relation `x₈₀ = x₁ ⊕ … ⊕ x₇₉` : elle n'est pas une propriété du
+générateur, c'est la parité de vingt. Un dossier moins prudent l'aurait annoncée.
+
+### Les trois témoins, et ce qu'ils fixent
+
+| témoin planté sur du SRS | noyau obtenu | attendu |
+|---|---|---|
+| SRS pur, `d = 2` | `2` | `2` |
+| parité **intra**-tirage de quatre numéros forcée | `4` | `4` — la relation vaut dans **chacun** des deux blocs |
+| relation **croisée** `x[i,7] = x[i−1,13]` | `3` | `3` |
+
+La deuxième ligne est celle qui compte : une relation *intra* ajoute `d` dimensions, pas une.
+Attendre `3` au lieu de `4` aurait fait passer le témoin pour un échec.
+
+### Ce que rend l'archive
+
+| fenêtre | colonnes | rang | noyau | trivial |
+|---|---|---|---|---|
+| `d = 1` | `81` | `80` | `1` | `1` |
+| `d = 2` | `161` | `159` | `2` | `2` |
+| `d = 4` | `321` | `317` | `4` | `4` |
+| `d = 8` | `641` | `633` | `8` | `8` |
+| **`d = 16`** | **`1 281`** | `1 265` | **`16`** | `16` |
+
+Plus `28` écarts de paires, de `1` à `32 768` : `0` au-dessus du trivial.
+
+> À `d = 16`, ce tableau répond pour **`2¹²⁸¹` sous-ensembles** — contre `24 040 016` au §218.
+> Il n'existe **aucune** relation de parité exacte, d'aucun ordre, à l'intérieur d'un tirage ou
+> reliant jusqu'à seize tirages consécutifs. Ce n'est pas une nullité probabiliste : c'est un
+> rang, et un rang ne se trompe pas.
+
+### La partie penchée
+
+Une relation peut être *penchée* sans être exacte — c'est le principe de l'attaque par
+corrélation. On mesure donc `716 800` parités **croisant** les tirages :
+
+  * **poids 2**, `(a` au tirage `i`, `b` au tirage `i+g)`, `g = 1 … 32` : `204 800`. Le retard
+    `1` recoupe le §220 et quelques retards recoupent le §199 — cette moitié est une extension
+    de couverture et un contrôle interne, pas une nouveauté ;
+  * **poids 3**, `(a, b, c)` sur trois tirages **consécutifs** : `512 000`. Celle-là est neuve.
+    Une corrélation *triple* entre trois tirages, que rien dans le dossier n'avait formée.
+
+Les deux familles n'ont pas la même espérance sous SRS — `1/4` pour le poids `2`, `1/8` pour
+le poids `3` — donc on ne peut pas les centrer ensemble : la standardisation est **cellule par
+cellule**, laisser-un-dehors (§7.32). Le centre mesuré, `0,16071429`, est exactement
+`(204800·¼ + 512000·⅛)/716800`, ce qui contrôle l'assemblage.
+
+    max |z| archive          : 6,780   (une parité triple, numéros 40, 37, 50 sur trois tirages)
+    95e centile sous SRS     : 6,835
+    p empirique              : 0,122
+
+**Ligne de registre.** `h210.noyau_gf2`, piste B, conforme, `m_extra = 716 835`.
+
+---
