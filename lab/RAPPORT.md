@@ -21804,3 +21804,145 @@ Maximum réduit `1,862` contre un 95ᵉ centile de `3,120`. **`p = 0,3234`.**
 **Ligne de registre.** `h201.chaines_bonus_boost`, piste B, conforme, `m_extra = 136 726`.
 
 ---
+
+## 223. **L'attaque par réseau** : résoudre au lieu d'énumérer (`h202_attaque_par_reseau.py`)
+
+### D'où vient cette section
+
+Le 3 septembre 2026, RSA-260 tombe **sans ordinateur quantique**, à une personne et une
+technique — alors que RSA-250, dix chiffres plus facile, avait coûté `2 700` **ans de
+calcul** en parallèle (`lab/VEILLE.md`). La leçon n'est pas « insiste » :
+
+> **La méthode bat l'échelle.**
+
+Or ce dossier faisait exactement l'inverse. Les §200 à §214 dépensent `4,3 × 10¹¹` essais de
+graine : de l'**énumération pure**, la version « `2 700` ans de calcul ». Et l'énumération a
+un mur dur — `2³²` se balaie, `2⁶⁴` **jamais**, quel que soit le budget.
+
+Cette section change d'outil, et ce que ça donne mérite d'être lu dans l'ordre.
+
+### A — le solveur SMT
+
+`z3` peut-il retrouver un état de `64` bits de splitmix64 à partir de `k` classes
+consécutives ? **Non** : `unknown` à `30` s, pour `k = 6`, `10` et `14`.
+
+### B — le témoin de contrôle, qui retourne le diagnostic
+
+J'allais écrire : « `z3` échoue parce que le mélangeur est non linéaire ». Avant de le
+faire, j'ai passé **le même encodage** sur un **LCG tronqué** — cas *connu* pour être
+soluble.
+
+**`z3` échoue là aussi.** `unknown` à `60` s.
+
+> Donc le mur du `A` n'est **pas** le mélangeur : **c'est l'outil**. Sans ce témoin je
+> publiais un faux diagnostic — la même faute qu'avec les chiffres de RSA-260 deux heures
+> plus tôt, et la même que celles que le harnais traque depuis le §185. *Un échec de
+> solveur ne prouve rien tant qu'on n'a pas montré que le solveur réussit sur un cas
+> soluble.*
+
+### C — le bon outil
+
+Réseau + Babai sur ce **même** LCG tronqué :
+
+| | z3 | réseau |
+|---|---|---|
+| LCG `mod 2⁶⁴` tronqué à 80 classes | `unknown` à `60` s | **état exact de 64 bits, 12 classes, `0,58` s** |
+
+Autotest : `8/8` EXACT sur quatre LCG × deux règles de sortie, une seconde chacun. Ce que
+`z3` ne trouve pas en une minute, et ce que l'énumération paierait `2⁵⁷·⁷`, le réseau le
+donne en une seconde. **C'est la thèse de RSA-260, vérifiée sur notre propre problème.**
+
+### D — l'attaque sur les vraies données
+
+Les douze tirages **ordonnés** de `draws_ordered.csv` sont la seule donnée du dossier
+offrant des classes de mots **consécutifs** — celle que le §216 désignait comme la plus
+précieuse, et que l'énumération ignore complètement.
+
+`12` LCG `mod 2⁶⁴` à constantes publiées × `2` règles de sortie × `14` motifs de rejet ×
+`12` tirages = **`4 032` résolutions de réseau**, vérification en entiers **exacts**, faux
+attendus `5,87 × 10⁻²⁰`.
+
+**`0` candidat. Verdict : conforme.**
+
+*Et une réserve sur ma propre conception.* Mon énumération des rejets place le doublon à une
+position et répète la classe **précédente**. Or un mot rejeté peut répéter **n'importe
+laquelle** des classes déjà vues — soit `66` motifs pour un rejet, pas `13`. Mon balayage à
+un rejet est donc **incomplet**. Il n'en a pas besoin : le motif *sans rejet* est complet, et
+
+    P(aucun rejet dans les 12 premiers mots) = 0,4199
+    P(au moins un des 12 tirages s'y prête)  = 99,85 %
+
+Si la machine était l'un des douze LCG testés, il y avait `99,85 %` de chances qu'au moins
+un tirage se prête directement. Les treize autres motifs ne sont qu'un bonus partiel, et je
+le dis plutôt que de laisser croire le contraire.
+
+### Ce que ça délimite
+
+L'attaque exige **trois** choses **à la fois** : un générateur **linéaire**, ses
+**constantes**, et des classes **consécutives dans l'ordre**. Un mélangeur non linéaire —
+splitmix64, la rotation de PCG, le brasseur de xoshiro — n'a **pas de réseau du tout**, et
+pour lui le mur de `2⁵⁷·⁷` du §7.36 reste entier.
+
+**Ligne de registre.** `h202.attaque_par_reseau`, piste B, conforme, `m_extra = 0`.
+
+---
+
+## 224. **Le réseau sur le flux du boost** : l'attaque portée aux 70 560 tirages (`h203_reseau_sur_le_boost.py`)
+
+### Comment sortir des douze tirages ordonnés
+
+Le §223 n'a que douze chances parce qu'il lui faut des classes **consécutives**. Voici
+l'extension à toute l'archive, et elle tient en une phrase.
+
+Le §7.33 protège les générateurs modernes en montrant que la **gigue du rejet** désaligne le
+flux. **Mais quatre des échantillonneurs du §214 n'ont aucun rejet** : Fisher-Yates partiel
+consomme exactement `20` mots, le tri de clés exactement `80`. Sous l'un d'eux le pas entre
+tirages est **rigoureusement constant**, la gigue est **nulle**, et alors —
+
+> le mot qui produit le **multiplicateur** est un échantillon **exactement périodique** du
+> générateur, sur les `70 560` tirages.
+
+### Pourquoi le boost et pas les numéros
+
+Les vingt numéros sont publiés **triés** : on ignore quel mot a produit quel numéro, donc
+aucune contrainte n'est attachable à un mot précis. Le multiplicateur vient d'**un seul mot
+identifié**, à position fixe. Et ses secteurs `(41, 19, 12, 4, 2, 2)/80` (§106) font que les
+valeurs `5` et `10` pincent la classe à **2 sur 80**, soit `5,32` bits — il en faut `13`
+pour couvrir `64`, et l'archive en offre **`3 496`**. On en prend `17`, ce qui laisse `90`
+bits pour `64` : la marge dont LLL a besoin.
+
+### L'astuce qui rend le balayage faisable
+
+`12` LCG × `2` règles × `4` positions du mot de boost × **`720` arrangements de secteurs**
+= `69 120` résolutions. Réduire un réseau `69 120` fois serait interminable — mais
+
+> **la base ne dépend que de `(a, pas, position)`.** L'arrangement des secteurs ne change
+> que le **vecteur cible**.
+
+On réduit donc **`96` fois** et l'on résout `69 120` fois. Durée totale : **`217` secondes**.
+
+### Le témoin
+
+Un flux de boost **fabriqué** par un LCG à pas constant : le réseau retrouve `x₀` **exact**
+en `1,99` s à partir de `17` contraintes, et le candidat reproduit les `3 000` tirages.
+
+### Ce que dit l'archive
+
+**`69 120` résolutions, `0` candidat. Verdict : conforme.**
+
+La vérification est écrasante : un candidat devait d'abord reproduire les `17` classes ayant
+servi à le trouver, puis le multiplicateur des `70 560` tirages — une suite de symboles
+d'entropie `1,879` bit chacun.
+
+### Ce que ça ferme, et c'est plus large qu'il n'y paraît
+
+Cette section teste **la conjonction la plus favorable qui reste au dossier** : un
+échantillonneur sans gigue *et* un générateur linéaire *et* des constantes publiées. C'était
+le dernier endroit où l'algèbre pouvait battre l'énumération sur l'archive triée.
+
+Il n'y a rien. Et le §7.36 dit pourquoi le reste est hors de portée : dès que le mélangeur
+est non linéaire, il n'existe **aucun** réseau, et le crible optimal gagne exactement `×80`.
+
+**Ligne de registre.** `h203.reseau_sur_le_boost`, piste B, conforme, `m_extra = 0`.
+
+---
