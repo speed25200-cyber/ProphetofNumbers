@@ -20779,3 +20779,79 @@ sur un maximum de statistiques corrélées.
 > sources.
 
 ---
+## 208. **Le haut du classement** : la faute de méthode que mesurait mal tout le dossier (`h189_haut_du_classement.py`)
+
+Les §188 et §192 mesurent un prédicteur par le **recouvrement du top-20** : on prend les
+vingt numéros de plus fort score et l'on compte les justes. C'est une **moyenne sur les
+quatre-vingts numéros**, et elle a un défaut grave qu'aucune section n'avait relevé :
+
+> Un modèle peut n'avoir **aucune** information en moyenne et en avoir sur ses **tout
+> premiers choix**. Le top-20 dilue cette information dans dix-neuf autres décisions et la
+> détruit.
+
+C'est aussi la mauvaise question du point de vue du joueur : on ne mise pas sur vingt
+numéros, on mise sur deux ou trois. Une avance qui n'existerait que sur le premier choix
+serait **économiquement réelle et statistiquement invisible** au §192.
+
+### La nulle est exacte
+
+Sous SRS, `k` numéros choisis sans regarder contiennent un nombre de gagnants
+**hypergéométrique** : moyenne `k/4`, variance `k·(1/4)(3/4)(80−k)/79`. Sur `n` tirages
+indépendants, l'écart-type du total suit. Aucune simulation.
+
+### Le résultat, sur les `27 424` tirages hors échantillon
+
+| `k` | **haut** du classement | `z` | **bas** du classement | `z` |
+|---|---|---|---|---|
+| `1` | **`24,493 %`** | `−1,94` | `24,927 %` | `−0,28` |
+| `2` | `24,677 %` | `−1,76` | `25,018 %` | `+0,10` |
+| `3` | `24,763 %` | `−1,59` | `25,046 %` | `+0,31` |
+| `5` | `24,946 %` | `−0,47` | `24,969 %` | `−0,28` |
+| `10` | `24,953 %` | `−0,60` | `25,077 %` | `+0,98` |
+| `20` | `25,011 %` | `+0,23` | `25,045 %` | `+0,88` |
+
+**Le premier choix du modèle sort à `24,49 %`, c'est-à-dire *en dessous* de `25 %`.** Pas
+significativement — mais dans le mauvais sens, ce qui est le contraire d'une avance cachée.
+
+### La courbe de calibration, qui est le vrai verdict
+
+Les `2 193 920` couples (tirage, numéro) de la tranche de mesure, rangés par score et
+découpés en vingt tranches d'effectif égal :
+
+| tranche | `0` | `5` | `10` | `15` | `19` |
+|---|---|---|---|---|---|
+| score moyen | `−1,1152` | `−1,1025` | `−1,0981` | `−1,0935` | `−1,0842` |
+| taux réel | `25,035 %` | `24,867 %` | `24,993 %` | `25,034 %` | `24,957 %` |
+
+Deux choses s'y lisent. D'abord la **plage des scores** : `0,031` en log-cote d'un bout à
+l'autre du nuage — le modèle ne se contredit presque jamais lui-même. Ensuite le **taux
+réel**, plat de la première à la dernière tranche, sans la moindre pente. Max `|z| = 2,280`,
+`p = 0,72`.
+
+### Et les quatre paris populaires, mesurés directement
+
+Sans aucun modèle, sur les mêmes `27 424` tirages :
+
+| pari | taux | `z` |
+|---|---|---|
+| le plus **chaud** (fréquence cumulée) | `24,847 %` | `−0,59` |
+| le plus **froid** | `25,117 %` | `+0,45` |
+| le plus **en retard** (écart max) | `25,248 %` | `+0,95` |
+| le plus **récent** | `25,084 %` | `+0,32` |
+
+L'écart-type d'un taux sur un numéro vaut `0,26` point de pourcentage : aucun de ces
+quatre paris ne s'écarte de `25 %` de plus d'un écart-type.
+
+### Ce que cette section vaut
+
+C'était une **critique méthodologique fondée** : ma mesure était mal placée, et un dossier
+entier peut être correct dans chaque test et poser la mauvaise question. La mesure est
+maintenant au bon endroit — le premier choix, le troisième, la courbe entière — et la
+réponse ne change pas.
+
+> **Il n'y a pas d'avance cachée dans le haut du classement.** Le modèle n'est pas
+> seulement nul en moyenne : il est nul **là où il est le plus sûr de lui**.
+
+**Ligne de registre.** `h189.haut_du_classement`, piste B, conforme, `m_extra = 31`.
+
+---
