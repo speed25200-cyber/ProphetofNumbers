@@ -28,6 +28,28 @@ Confondre les deux est la faute qui produit les applications de loterie
 mensongères : elles vendent de la piste B (jolies grilles) en la présentant
 comme de la piste A (prédiction).
 
+**Précision apportée après coup (§7.37, §213, §217).** Le théorème ci-dessus est
+exact, et il ne porte que sur l'**espérance du nombre de justes**. Or on n'est
+pas payé à l'espérance : le barème paie sur `4/5`, sur `5/5`, et à dix numéros
+sur `0/10`. Le gain est convexe **aux deux bouts**, et
+
+> `P(les k sortent)` ne dépend **pas** des marges. Elle dépend de la loi jointe.
+
+Deux grilles aux marges identiques — donc à espérance de justes identique — ont
+des taux de jackpot **différents** si leurs membres sont liés. C'est un degré de
+liberté de piste B que la formulation initiale laissait implicite, et il fallait
+le mesurer et non le supposer nul. Le découpage exact est :
+
+| ce qui est fixé | par quoi | mesuré où |
+|---|---|---|
+| la moyenne du nombre de justes | les marges seules — théorème | §210 A |
+| la variance | les marges **et les paires** | §213 A |
+| `P(k/k)`, `P(0/k)`, le barème entier | la loi jointe à tous les ordres | §213 B–D, §215, §217 |
+
+Ces trois lignes sont conformes. La piste B garde donc ses degrés de liberté
+**de géométrie et de mise** — ceux que le barème lui-même offre — et n'en tire
+aucun d'une dépendance interne des tirages, parce qu'il n'y en a pas de mesurable.
+
 ## Trois règles
 
 **1. Le null est simulé, jamais tabulé.** L'audit s'est trompé trois fois en
