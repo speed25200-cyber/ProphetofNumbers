@@ -617,6 +617,38 @@ def bloc_bareme():
         f"x{ame_e:.4f} contre x{ameliore:.4f} en base", "moins")
 
 
+def bloc_ordonnes():
+    """13. LES DOUZE TIRAGES ORDONNES (§214) — ce que l'ordre de sortie elimine.
+
+    Ils ne servaient qu'aux cribles du §159. Ils tranchent aussi sur les regles
+    d'echantillonnage, et sans calcul : la selection sequentielle de Knuth parcourt
+    0..79 dans l'ordre et retient au passage, donc sous sa forme naturelle elle sort
+    TRIEE PAR INDICE.
+    """
+    print("\n13. LES DOUZE TIRAGES ORDONNES, et la regle qu'ils eliminent")
+    chemin = os.path.join(ROOT, "draws_ordered.csv")
+    L = [r for r in csv.DictReader(open(chemin, encoding="utf-8"))]
+    dit("douze tirages ordonnes", len(L) == 12, len(L), "12")
+
+    V = np.array([[int(r[f"o{j}"]) for j in range(1, DRAWN + 1)] for r in L], np.int64)
+    dit("vingt numeros distincts par tirage",
+        bool((np.diff(np.sort(V, axis=1), axis=1) > 0).all()), "tous", "")
+    croissants = int((np.diff(V, axis=1) > 0).all(axis=1).sum())
+    dit("AUCUN tirage croissant -> Knuth S en ordre d'indice eliminee",
+        croissants == 0, f"{croissants}/12 croissants", "0/12")
+
+    # nombre de montees : sous permutation uniforme de n elements, moyenne (n-1)/2 et
+    # variance (n+1)/12, toutes deux EXACTES.
+    montees = (np.diff(V, axis=1) > 0).sum(axis=1).astype(np.float64)
+    mu, var = (DRAWN - 1) / 2, (DRAWN + 1) / 12
+    z = (montees.mean() - mu) / sqrt(var / len(montees))
+    dit("montees : moyenne conforme a (n-1)/2",
+        proche(montees.mean(), 9.333, 5e-3) and abs(z) < 3,
+        f"{montees.mean():.3f}, z = {z:+.2f}", f"{mu} +/- {sqrt(var/len(montees)):.3f}")
+    dit("variance exacte des montees = (n+1)/12", proche(var, 1.75, 1e-12),
+        f"{var:.4f}", "1,7500")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -634,6 +666,7 @@ if __name__ == "__main__":
     bloc_graines()
     bloc_dependance()
     bloc_bareme()
+    bloc_ordonnes()
 
     print("\n" + "=" * 78)
     if ECHECS:
