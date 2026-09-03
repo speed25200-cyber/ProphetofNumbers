@@ -92,31 +92,62 @@ def interval(j, k=80):
     hi = ((j+1) << 32)//k + (1 if (((j+1) << 32) % k) else 0)
     return lo << 32, hi << 32
 
+def synth_centres(K, a, c, W, seed=0xC0FFEE1234567890):
+    s = seed; cen = []
+    for d in range(K+1):
+        lo, hi = interval(((s >> 32)*80) >> 32)
+        assert lo <= s < hi
+        cen.append((lo+hi)//2)
+        for _ in range(W):
+            s = (a*s + c) % M
+    return cen
+
 def selftest(Ks=(13, 20), a=6364136223846793005, c=1442695040888963407, W=21):
     print("selftest: synthetic LCG64 (MMIX), W=%d, output s>>32, bonus = first ball" % W)
-    print("  a positive result is required before any negative result is reported\n")
-    A = pow(a, W, M)
+    print("  positive AND negative controls both have to pass before any real run\n")
+    bound = interval(0)[1] - interval(0)[0]
+    other = 2862933555777941757
+    ok = True
     for K in Ks:
-        s = 0xC0FFEE1234567890
-        cen = []
-        for d in range(K+1):
-            lo, hi = interval((( (s >> 32)*80) >> 32))
-            assert lo <= s < hi
-            cen.append((lo+hi)//2)
-            for _ in range(W):
-                s = (a*s + c) % M
-        bound = 2*((interval(0)[1]-interval(0)[0])//2)
-        got = hnp(A, cen, bound)
-        # feasibility numbers
-        n = K+1
-        logdet = 64*(K-1) + math.log2(bound)
-        gauss = math.log2(math.sqrt(n/(2*math.pi*math.e))) + logdet/n
-        tgt = math.log2(math.sqrt(n)) + math.log2(bound)
-        print("  K=%2d : target norm 2^%.1f   Gaussian heuristic 2^%.1f   margin 2^%+.1f "
-              "  LLL factor 2^%.1f   -> %s"
-              % (K, tgt, gauss, gauss-tgt, n/4.0, "RECOVERED" if got is not None else "missed"))
-    print("\n  The margin never gets near LLL's approximation factor, so the attack cannot")
-    print("  work at 6.3 known bits per draw. This family stays open — see the write-up.")
+        cen = synth_centres(K, a, c, W)
+        good = hnp(pow(a, W, M), cen, bound)
+        badW = hnp(pow(a, W+1, M), cen, bound)
+        badA = hnp(pow(other, W, M), cen, bound)
+        # random data, correct multiplier: must also be rejected
+        rnd = [((i*0x9E3779B97F4A7C15) % M) for i in range(K+1)]
+        badD = hnp(pow(a, W, M), rnd, bound)
+        print("  K=%2d  correct a,W: %-10s | wrong W: %-9s | wrong a: %-9s | random data: %s"
+              % (K, "RECOVERED" if good is not None else "missed",
+                 "false hit" if badW is not None else "rejected",
+                 "false hit" if badA is not None else "rejected",
+                 "false hit" if badD is not None else "rejected"))
+        ok = ok and good is not None and badW is None and badA is None and badD is None
+    print("\n  %s" % ("controls pass: the attack discriminates, real runs are meaningful"
+                      if ok else "controls FAIL: no real result may be reported from this tool"))
+    return ok
+
+def real(K=20, maxW=48):
+    """Run the recovered attack against the real archive."""
+    from load import load
+    ids, ts, nums, boost, bonus = load()
+    bound = interval(0)[1] - interval(0)[0]
+    print("real archive: %d draws, K=%d constraints, W swept 1..%d" % (len(ids), K, maxW))
+    print("  bonus = first ball drawn, LCG64 with output s>>32, increment differenced away\n")
+    starts = [0, 5000, 20000, 50000]
+    hits = []
+    for name, a in MULTIPLIERS.items():
+        found = []
+        for W in range(1, maxW+1):
+            A = pow(a, W, M)
+            for st in starts:
+                cen = [ (interval(int(bonus[st+d])-1)[0] + interval(int(bonus[st+d])-1)[1])//2
+                        for d in range(K+1) ]
+                if hnp(A, cen, bound) is not None:
+                    found.append((W, st))
+        print("  %-26s a=%-22d %s" % (name, a, ("HIT " + str(found)) if found else "no fit at any W"))
+        hits += found
+    print("\n  total hits: %d  ->  %s" % (len(hits),
+          "INVESTIGATE" if hits else "no 64-bit LCG with a standard multiplier fits the archive"))
 
 def margins():
     bound = 2*((interval(0)[1]-interval(0)[0])//2)
@@ -132,4 +163,5 @@ def margins():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "margins": margins()
+    elif len(sys.argv) > 1 and sys.argv[1] == "real": real()
     else: selftest()

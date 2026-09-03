@@ -17,7 +17,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
 | Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
-| LCG 2⁶⁴ à sortie de poids fort | **NON exclu** — 6,32 bits/tirage, sous le seuil de LLL (§6 ter) |
+| LCG 2⁶⁴ à sortie de poids fort | attaque par réseau construite et validée — voir §6 ter |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
@@ -200,38 +200,43 @@ suites observables (bonus−1, rang du bonus, indice du boost, plus petit et plu
 numéro, somme du tirage). **La plus longue plage de correspondance est au niveau du
 hasard partout** (une famille congruentielle produirait un accord sur l'archive entière).
 
-### Ce qui n'est PAS exclu — et pourquoi, chiffré
+### LCG 64 bits à sortie de poids fort — attaque par réseau
 
-Une famille classique résiste : le **LCG modulo 2⁶⁴ à sortie de poids fort**
-(`out = s >> 32`) avec un état 64 bits arbitraire. Le balayage 2³² couvre tout LCG
-modulo 2³² et tout LCG 64 bits atteignable depuis une graine 32 bits ; l'algèbre F2
-ne s'applique pas à une mise à jour congruentielle ; `modlcg` ne voit qu'une sortie
-en bits **faibles**. Reste ce cas.
+Une famille classique échappe à tout ce qui précède : le **LCG modulo 2⁶⁴ à sortie de
+poids fort** (`out = s >> 32`) avec un état 64 bits arbitraire. Le balayage 2³² couvre
+tout LCG modulo 2³² et tout LCG 64 bits atteignable depuis une graine 32 bits ;
+l'algèbre F2 ne s'applique pas à une mise à jour congruentielle ; `modlcg` ne voit
+qu'une sortie en bits **faibles**. Reste ce cas.
 
-L'outil naturel est la réduction de réseau : le canal bonus fixe chaque état à un
-intervalle de 2⁵⁷·⁷ sur 2⁶⁴, la différence élimine l'incrément, et il reste un
-*Hidden Number Problem*. **Ça ne marche pas ici, et `lcg_lll.py` mesure pourquoi**
-plutôt que de l'affirmer :
+Montage : le canal bonus fixe chaque état à un intervalle de 2⁵⁷·⁷ sur 2⁶⁴ (6,32 bits),
+la différence `D_d = s_{d+1} − s_d` élimine l'incrément inconnu puisque
+`D_{d+1} = A·D_d`, et en centrant on obtient `e_d = A^d·e_0 + b_d (mod 2⁶⁴)` avec tous
+les `|e_d| ≤ 2⁵⁸·⁷` — un *Hidden Number Problem* que LLL résout. Le multiplicateur est
+pris dans la liste standard, W est balayé.
 
-| K échantillons | dimension | norme cible | heuristique gaussienne | marge | facteur LLL requis |
-|---|---|---|---|---|---|
-| 13 | 14 | 2⁵⁹·⁶ | 2⁵⁸·⁸ | 2⁻⁰·⁷ | 2³·⁵ |
-| 20 | 21 | 2⁵⁹·⁹ | 2⁶⁰·⁸ | 2⁺⁰·⁹ | 2⁵·² |
-| 30 | 31 | 2⁶⁰·² | 2⁶²·² | 2⁺²·⁰ | 2⁷·⁸ |
-| 60 | 61 | 2⁶⁰·⁶ | 2⁶³·⁸ | 2⁺³·¹ | 2¹⁵·² |
-| 120 | 121 | 2⁶¹·¹ | 2⁶⁴·⁸ | 2⁺³·⁷ | 2³⁰·² |
+**Correction d'une prédiction erronée de ma part.** Mon estimation analytique disait
+que ça ne pouvait pas marcher : la marge entre la norme du vecteur cible et
+l'heuristique gaussienne plafonne à 2³·⁷ alors que le facteur d'approximation de LLL
+vaut ~2^(n/4), soit 2⁵ dès la dimension 21. Le test empirique dit l'inverse — **LLL
+récupère l'état** à K = 12, 16, 20 et 24. En pratique LLL fait très largement mieux que
+sa borne pire-cas sur ce type de réseau. La leçon vaut d'être notée : la borne
+analytique ne remplace pas le contrôle positif.
 
-LLL fournit environ 2^(n/4) ; la marge devrait le dépasser — elle plafonne à 2³·⁷.
-En dessous de K ≈ 20 le vecteur cible n'est même pas le plus court. La raison est
-simple : les attaques classiques sur LCG tronqué supposent qu'on voit **la moitié**
-des bits de chaque sortie ; ici on en voit **6,32 sur 64**.
+Contrôles (LCG64 synthétique, multiplicateur et W cachés) :
 
-Le self-test le confirme empiriquement : sur un LCG64 synthétique de multiplicateur
-et de W connus, l'attaque **échoue aussi**. Aucun résultat négatif n'est donc rapporté
-depuis cet outil — c'est une lacune, pas une exclusion.
+| K | bon (a, W) | mauvais W | mauvais a | données aléatoires |
+|---|---|---|---|---|
+| 12 | **récupéré** | faux positif | rejeté | rejeté |
+| 16 | **récupéré** | rejeté | rejeté | rejeté |
+| 20 | **récupéré** | rejeté | rejeté | rejeté |
+| 24 | **récupéré** | rejeté | rejeté | rejeté |
 
-Et c'est précisément la lacune que l'ordre de tirage referme : 20 indices ordonnés
-font 126 bits par tirage, très au-delà de ce que le réseau exige.
+À partir de K = 16 l'attaque discrimine proprement ; K = 12 produit des faux positifs
+et n'est pas utilisable. Les résultats sur l'archive réelle sont donc lancés à K = 20.
+
+L'implémentation Python (fractions exactes) sert de référence ; `lcg_lll.c` refait le
+même calcul avec la base en `__int128` et le Gram-Schmidt en `long double`, soit
+quelques microsecondes par réduction au lieu de plusieurs minutes.
 
 ### Généralisation — tirages ordonnés nécessaires par famille
 
