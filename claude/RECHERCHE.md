@@ -395,7 +395,75 @@ Protocole, dans l'ordre :
 
 ---
 
-## 9. Reproduire
+## 9. Où en est exactement la prédiction
+
+**Réponse directe : depuis l'archive publiée, prédire ne serait-ce qu'un numéro
+au-dessus de 25 % n'est pas atteignable — et c'est mesuré, pas supposé.**
+
+Ce qui est **exclu** :
+
+- toute structure statistique exploitable (250 prédicteurs, 2,49 G de paires,
+  82 160 triplets, 60 000 lags, batterie NIST, 14 blocs séparés) ;
+- tout générateur d'état ≤ 32 bits, 234 variantes algorithmiques, balayage 2³²
+  complet — plus MT19937 et glibc initialisés par une graine 32 bits avec 64
+  décalages de consommation ;
+- tout générateur **F2-linéaire** de 64 à 19 937 bits (MT19937, xorshift64/96/128,
+  LFSR 64/128/256/512), sous 7 sémantiques de canal × W de 1 à 64, soit plus de
+  3 900 configurations — **sans jamais utiliser l'ordre de tirage** ;
+- tout générateur congruentiel à sortie en bits faibles ;
+- 390 schémas de dérivation par hash de données publiques.
+
+Ce qui **reste ouvert** :
+
+- LCG modulo 2⁶⁴ à sortie de poids fort, et plus généralement tout générateur
+  **non-F2-linéaire d'état ≥ 64 bits** (PCG, xoshiro\*\*, splitmix64) : 6,32 bits par
+  tirage sont sous le seuil de la réduction de réseau (§6 ter) ;
+- un CSPRNG (ChaCha20, AES-CTR-DRBG) ou un RNG matériel : dans ce cas la partie est
+  close mathématiquement, quelle que soit la quantité de données.
+
+**Le verrou est l'ordre des boules, et il est chiffrable :** 6,32 bits par tirage
+aujourd'hui contre **126 bits** avec l'ordre. C'est un facteur 20, et il fait basculer
+chaque famille ci-dessus du côté cassable — `mtbreak` le démontre de bout en bout,
+`keno_break` est l'outil prêt à l'emploi.
+
+### Ce qu'il faut faire, dans l'ordre
+
+1. **Capter l'ordre.** Le patch de ce dépôt (`Draw.drawOrder`) le conserve. Une seule
+   requête suffit à trancher : si `primarySelection` arrive trié, cette voie est morte
+   et il faut le savoir tout de suite. `keno_break scanfile` le détecte seul.
+2. **Vérifier la fenêtre de mise.** Le flux expose `wagerEndDate` et `phase` par
+   tirage. Si un résultat existe dans l'API avant la clôture des mises, même d'une
+   seconde, c'est une faille de pipeline — et elle ne demande aucune cryptanalyse.
+   Le client de ce dépôt court déjà après la publication ; il suffit de mesurer l'écart.
+3. **Vérifier le boost.** Sa table est maintenant connue exactement (§7). S'il est
+   publié **avant** la clôture, ne jouer que les tirages à boost ≥ 4 multiplie le
+   retour par 2,86 — sans prédire un seul numéro.
+4. **Si l'ordre est disponible**, lancer `keno_break` : 300 tirages (25 h) pour un
+   générateur de classe MT, 2 pour un xorshift128, et tout tirage suivant est prédit
+   exactement.
+
+---
+
+## 9 bis. Erreurs et impasses, consignées
+
+Une note d'audit n'a de valeur que si les échecs y figurent aussi.
+
+- Le χ²/df = 0,68 du rapport précédent était une **erreur de normalisation** (§2).
+- Le χ² des paires de gaps (z = +274) venait de **mon propre modèle nul erroné** ;
+  quatre contrôles SRS le placent au-dessus de la valeur réelle (§3).
+- Le χ² du lag-1 (z = +3,69) ne **se réplique pas** en moitié/moitié (§3).
+- Le balayage des 624 alignements de tampon était **inutile** : la récurrence MT
+  s'inverse en arrière, tout alignement est consistant (§6 bis). Le contrôle négatif
+  l'a révélé avant que le résultat ne soit publié.
+- L'attaque par réseau sur LCG64 **échoue aussi sur son propre self-test** ; aucun
+  résultat négatif n'en est tiré (§6 ter).
+- Les tests statistiques n'ont **aucun pouvoir** contre un PRNG à petit état : un
+  xorshift32 cassable en secondes est indiscernable d'un PCG64 (§5). C'est la raison
+  pour laquelle tout l'effort a basculé vers l'algèbre.
+
+---
+
+## 10. Reproduire
 
 ```bash
 cd claude/research
@@ -411,10 +479,19 @@ python3 bounds.py         # modèle de Newton + bornes 3σ
 python3 bitstream.py      # batterie NIST sur le flux extrait
 python3 hashhunt.py       # 390 schémas provably-fair
 python3 calib.py          # calibration : faible vs fort vs réel
+python3 exp07.py          # histogramme lag-1, overlap triple, gaps, impairs/bas
+python3 exp08.py          # réfutation des deux faux positifs par contrôles SRS
+python3 exp09.py          # réplication moitié/moitié du lag-1
+python3 segments.py       # audit en 14 blocs (effet localisé)
+python3 modlcg.py         # récurrences modulaires (familles congruentielles)
+python3 lcg_lll.py margins # pourquoi le réseau ne passe pas sur LCG64
 gcc -O3 -o pairs pairs.c -lpthread -lm && ./pairs             # 2,49 G de paires
 gcc -O3 -o seedhunt seedhunt.c -lpthread && ./seedhunt 0 0 4294967296 4
 gcc -O3 -o seedhunt2 seedhunt2.c -lpthread && ./seedhunt2 0 0 100000000
 gcc -O3 -o mtbreak mtbreak.c && ./mtbreak 400 0xC0FFEE42 0    # cassage complet
+gcc -O3 -o keno_break keno_break.c && ./keno_break scanfile ordered.txt
+gcc -O3 -o channel_break channel_break.c -lpthread && ./channel_break 0 22 5500 1 0 0 1
+gcc -O3 -o lin_break lin_break.c && sh run_lin_wide.sh          # 3584 essais
 ```
 
 `seedhunt` s'auto-valide : `./seedhunt 0 0 3000000 4 -1 "0,1,0,1234567"`
