@@ -67,7 +67,26 @@ sur 15 fenêtres (W = 2 … 4000) : tous les ratios à 1,000 ± 0,006.
 | E24/E28 | Composition en 21 gaps, paires de gaps consécutifs | χ²=2759 — **sous les 4 contrôles SRS** (2848–2968) : artefact du modèle nul | — |
 | E26 | #impairs, #bas, somme vs hypergéométrique exact | z = +1,82 / +0,72 / +1,29 | — |
 | **hash** | 390 schémas « provably fair » (6 hashs × 13 entrées publiques × 5 dérivations) | chance pure (max 11/20) | ~10/20 |
-| **seed** | Balayage 2³² × 234 combinaisons (16 familles PRNG × 4 mappings × 4 échantillonneurs, + .NET, V8, Python `random.sample`, PHP `mt_rand`) | meilleur 15/20 = exactement le bruit attendu (4,0 attendus) | — |
+| **seed** | Balayage 2³² **complet et terminé**, 224 combinaisons × 4,29·10⁹ graines = **9,62·10¹¹ essais**, plus 10 générateurs de plateforme, plus MT/glibc avec 64 décalages sur la plage des timestamps unix, plus les graines en millisecondes (16 familles PRNG × 4 mappings × 4 échantillonneurs, + .NET, V8, Python `random.sample`, PHP `mt_rand`) | meilleur **15/20**, exactement le modèle nul | voir ci-dessous |
+
+### Le balayage 2³² colle au modèle nul, ce qui prouve qu'il cherchait bien
+
+Une graine fausse survit à l'étape *i* de Fisher-Yates avec probabilité (20−i)/(80−i),
+pas 1/4 : le vivier rétrécit en même temps que le nombre de cibles restantes. La loi
+du « plus long préfixe correct » est donc entièrement prévisible.
+
+| k | P(≥ k) | graines attendues / combo | combos attendus avec max ≥ k | observés |
+|---|---|---|---|---|
+| 12 | 2,09·10⁻⁹ | 8,98 | 224 | 189 |
+| 13 | 2,46·10⁻¹⁰ | 1,06 | 146 | 108 |
+| 14 | 2,57·10⁻¹¹ | 0,11 | 23,4 | 17 |
+| 15 | 2,34·10⁻¹² | 0,01 | **2,2** | **3** |
+| 16 | 1,80·10⁻¹³ | 0,00 | 0,2 | 0 |
+
+`P(20/20) = 2,83·10⁻¹⁹ = 1/C(80,20)` ; sur 9,62·10¹¹ essais cela fait **0,0000**
+attendu. Le maximum observé sur tout le balayage est 15/20, et les 3 combos qui
+l'atteignent sont exactement les 2,2 prévus. Le balayage n'a rien trouvé — et la
+correspondance avec le nul montre qu'il cherchait correctement.
 
 ### Discipline sur les faux positifs
 
@@ -368,6 +387,12 @@ balayage 2³² ni aucun test statistique ne pouvait faire.
   toujours par paires compensées exactes (300+δ puis 300−δ, δ ≤ 5 s) : un tirage
   isolé publié en retard, la grille se recale au suivant. Les timestamps sont donc
   mesurés, pas planifiés.
+- **Provenance de l'archive.** Deux marqueurs indiquent une capture réelle plutôt
+  qu'une fabrication : les 24 décrochages d'horloge en paires exactement compensées
+  (un artefact d'ordonnanceur que personne ne fabriquerait), et la table du boost qui
+  tombe sur des probabilités *conçues* (512/238/150/50/25/25 pour mille, χ² = 0,55).
+  Un archive fabriquée avec une bibliothèque standard aurait par ailleurs été
+  identifiée par le balayage de graines ou l'attaque par canaux — elle ne l'a pas été.
 - Aucun biais de fréquence sur 70 560 tirages ⇒ ce **n'est pas une machine à boules**
   (un tirage physique montrerait un biais de billes à cette taille d'échantillon).
   C'est un RNG logiciel, correctement implémenté (aucun biais de modulo, aucun
