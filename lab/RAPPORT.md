@@ -23037,3 +23037,88 @@ hasard une fois qu'on a compté les trente-quatre millions d'occasions qu'on s'e
 la trouver.**
 
 ---
+
+## 235. **Le codeur exact** : une faiblesse dans mon propre §227, et ce qu'elle cachait (`h212_codeur_exact.py`)
+
+### La faute de référence
+
+Le §227 mesure la perte logarithmique des meilleurs modèles du dossier contre
+
+    80 · H(1/4) = 64,902250 bits par tirage
+
+**Ce n'est pas l'entropie d'un tirage.** Un tirage n'est pas quatre-vingts pièces
+indépendantes à `1/4` : c'est un sous-ensemble de **exactement vingt** numéros parmi
+quatre-vingts, et son entropie vaut
+
+    log₂ C(80,20) = 61,616545 bits par tirage
+
+**La référence du §227 était trop haute de `3,285705` bit par tirage.** Ses modèles n'en ont
+pas profité — ils ignorent la contrainte, et c'est pour cela qu'ils rendaient `ΔH ≈ 0` — mais
+la borne qu'il en tire s'appuie sur un plafond faux. Un modèle qui apprendrait *seulement*
+qu'il sort vingt numéros afficherait `+3,29` bit de « gain » sans rien savoir d'exploitable.
+
+La conclusion du §227 tient ; sa **règle graduée** était fausse de `5,3 %`.
+
+### Le codeur exact, et pourquoi c'est une identité
+
+On code le tirage séquentiellement, de `1` à `80`. À la position `n`, `j` numéros ayant déjà
+été placés, la probabilité SRS **exacte** vaut `p₀ = (20−j)/(80−n)`. La longueur de code
+totale vaut alors `log₂ C(80,20)` pour **tout** tirage — pas en moyenne, tirage par tirage :
+
+    codeur exact sur 500 tirages SRS : 61,616544936 bits/tirage
+    log₂ C(80,20)                    : 61,616544940
+    écart maximal TIRAGE PAR TIRAGE  : 5,8·10⁻⁷        (c'est la précision du float32)
+
+Voilà la vraie référence : le meilleur code possible sous SRS, sans un bit de gras. **Tout ce
+qui descend en dessous est de l'information réellement extraite**, en bits par tirage,
+directement comparable aux `61,6` que le tirage contient.
+
+### Ce que le modèle a le droit de voir, et pourquoi c'est neuf
+
+Le décodeur, à la position `n` du tirage `t`, connaît tous les tirages précédents **et les
+positions `< n` du tirage courant**. Le modèle a donc droit à la même chose.
+
+> Tous les prédicteurs du dossier sont **marginaux** : ils donnent `P(n sort au tirage t)`
+> sans conditionner sur ce que le tirage a déjà révélé. Celui-ci conditionne sur le tirage
+> **partiellement dévoilé** — donc il teste la **loi jointe**, celle dont le §7.37 dit qu'elle
+> est ce qui paie.
+
+Trois traits en profitent : `n−1` déjà sorti, `n−2` déjà sorti, et le **recouvrement en cours**
+avec le tirage précédent. Un gain venant de là ne serait **pas** un avantage au jeu — un joueur
+mise avant que le moindre numéro soit révélé — mais une preuve de structure, et le premier
+instrument du dossier capable de la voir.
+
+### Le témoin planté, qui n'est pas décoratif
+
+On colle un numéro consécutif dans chaque tirage d'une archive SRS :
+
+    SRS pur              : 61,619415 bits/tirage   (gain −0,002870)
+    consécutifs collés   : 61,441562 bits/tirage   (gain +0,174983)
+
+L'instrument voit le défaut à `+0,175` bit par tirage. Il n'est pas aveugle.
+
+### Ce que rend l'archive
+
+    longueur de code hors échantillon : 61,616726 bits/tirage
+    référence exacte                  : 61,616545
+    gain                              : −0,000181 bit/tirage
+
+| | gain (bit/tirage) |
+|---|---|
+| archive | `−0,000181` |
+| sous SRS (`30` répliques) | `−0,000236 ± 0,000163` |
+| `95ᵉ` centile sous SRS | `−0,000022` |
+| | `z = +0,34`, `p = 0,42` |
+
+**Le `95ᵉ` centile est lui-même négatif.** Autrement dit : même sur des données dont on *sait*
+qu'il n'y a rien, le modèle appris ne bat jamais le codeur exact hors échantillon. Le codeur
+exact est imbattable, et l'archive se comporte exactement comme du SRS.
+
+Les quatorze poids appris tiennent tous sous `0,0035` en écart-type, y compris les trois traits
+intra-tirage : `n−1` à `+0,00012`, `n−2` à `−0,00206`, recouvrement en cours à `−0,00070`. Et
+le trait de contrôle — l'écart au rythme SRS, dont le poids **doit** rester nul puisque `p₀` le
+capture déjà exactement — sort à `+0,00139`. L'assemblage est sain.
+
+**Ligne de registre.** `h212.codeur_exact`, piste B, conforme, `m_extra = 0`.
+
+---
