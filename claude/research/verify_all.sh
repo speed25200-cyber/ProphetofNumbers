@@ -14,6 +14,8 @@ gcc -O3 -march=native -o keno_break    keno_break.c              2>/dev/null
 gcc -O3 -march=native -o channel_break channel_break.c -lpthread 2>/dev/null
 gcc -O3 -march=native -o lin_break     lin_break.c               2>/dev/null
 gcc -O3               -o lcg_lll_c     lcg_lll.c       -lm       2>/dev/null
+gcc -O3 -march=native -o lowlcg        lowlcg.c                  2>/dev/null
+gcc -O3 -march=native -o lowlcg2       lowlcg2.c                 2>/dev/null
 python3 mkdata.py >/dev/null
 
 echo
@@ -49,7 +51,26 @@ echo "=== 6. lcg_lll: LCG64 recovered, wrong W / wrong multiplier / random data 
 ./lcg_lll_c selftest
 
 echo
-echo "=== 7. calibration: a breakable xorshift32 is statistically invisible ==="
+echo "=== 7. lcg_lll at java's modulus: same controls, 2^48 instead of 2^64 ==="
+./lcg_lll_c selftest m48
+
+echo
+echo "=== 8. lowlcg: a planted state must be recovered in every family ==="
+./lowlcg selftest
+echo "    (broadened variant: extra nibble positions and the bonus-rank channel)"
+./lowlcg2 selftest | tail -4
+
+echo
+echo "=== 9. redhash: the reduced compression function must equal hashlib at R=64 ==="
+python3 -c "
+import sys; sys.path.insert(0, '.')
+from redhash import sha256_reduced
+import hashlib
+m = bytes(range(32))
+print('    R=64 matches hashlib:', sha256_reduced(m, 64).hex() == hashlib.sha256(m).hexdigest())"
+
+echo
+echo "=== 10. calibration: a breakable xorshift32 is statistically invisible ==="
 echo "    (see calib.py; it takes a few minutes, run it separately)"
 
 echo
