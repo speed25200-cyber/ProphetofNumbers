@@ -452,22 +452,59 @@ quatre, mais face à une inconnue d'autant plus étroite. Contrôles : **11 fami
 11 récupérées**, un survivant chacune. Sur l'archive réelle, canal « première boule » :
 **11 familles, 0 survivant, total 0**.
 
-### Une réserve que je n'ai PAS pu lever : l'incrément inconnu
+### Une réserve levée : l'incrément inconnu
 
 `lowlcg` fixe l'incrément au constant standard de chaque famille. Un opérateur qui
 garderait un multiplicateur connu mais choisirait son propre incrément y échappe.
-`lowlcg3` tente de lever ça : les deux premiers tirages épinglent déjà quatre bits de
-`x₀` et quatre de `x₁`, donc l'espace des paires tombe de 2²ᴸ à 2^(2L−8) = 2³², et
-chaque paire **détermine** l'incrément `C = x₁ − A·x₀`.
+`lowlcg3` lève ça : les deux premiers tirages épinglent déjà quatre bits de `x₀` et
+quatre de `x₁`, donc l'espace des paires tombe de 2²ᴸ à 2^(2L−8) = 2³², et chaque paire
+**détermine** l'incrément `C = x₁ − A·x₀`.
 
-**Le contrôle positif échoue** : au lieu d'un survivant unique, on en compte 11 477
-(java), 5 789 (Borland), 2 804 (MSVC), 452 (glibc). Et le nombre **plafonne** entre 10
-et 18 tirages au lieu de décroître d'un facteur 16 par tirage — ce n'est donc pas un
-manque de contraintes mais une dégénérescence : le quartet observé ne détermine pas la
-paire (état, incrément).
+Le contrôle positif a d'abord semblé échouer : 11 477 survivants (java) au lieu d'un.
+J'ai poursuivi l'hypothèse « il manque des tirages » — elle est fausse, et c'est le
+critère d'acceptation qui l'était. Avec `u = A − 1` et
 
-Aucun résultat négatif n'est tiré de cet outil. La version à incrément connu, elle,
-donne bien un survivant unique sur les 11 familles et son résultat tient.
+```
+x_k = A^k x₀ + C (A^k − 1) / u
+```
+
+substituer `x₀ → x₀ + d` et `C → C − u·d` donne
+
+```
+A^k (x₀+d) + (C − u d)(A^k − 1)/u = x_k + A^k d − d(A^k − 1) = x_k + d
+```
+
+exactement, à chaque pas et pour toujours. **La paire (état, incrément) n'est pas
+identifiable** : toute translation de l'orbite entière est réalisable par un changement
+d'incrément, et l'observable ne voit qu'un quartet de chaque `x_k`, donc tout `d` qui ne
+pousse aucun `x_k` par-dessus une frontière de quartet est indiscernable de `d = 0`.
+Vérifié numériquement : pour java à L = 20 la famille de translation compte 9 515
+membres — et le total des survivants vaut 9 515 lui aussi. La recherche trouve la
+famille, et **rien d'autre**.
+
+Ce n'est pas un défaut, c'est ce que porte l'observable. Une orbite translatée émet les
+mêmes quartets dans le futur aussi, ce qui est exactement ce qu'une prédiction demande.
+Le contrôle a donc été réécrit pour demander ce qui compte : (1) la paire plantée doit
+figurer parmi les survivants, (2) tout survivant doit appartenir à la famille de
+translation, (3) les survivants doivent **prédire** des quartets futurs jamais montrés à
+la recherche. Et j'ai relevé l'exigence de preuve plutôt que d'abaisser la barre : la
+famille rétrécit à mesure que les quartets s'accumulent — 11 477 à 20 tirages, 9 515 à
+30, 1 026 à 40 — et à 48 le vote majoritaire est exact. Les quartets supplémentaires sont
+quasi gratuits : une mauvaise paire meurt au troisième.
+
+Contrôles à 48 quartets observés, 20 tenus en réserve (`./lowlcg3 selftest`) :
+
+| famille | survivants | plantée gardée | intrus | futur prédit | W faux | quartets aléatoires |
+|---|---|---|---|---|---|---|
+| java | 1 026 | oui | 0 | 20/20 | 0 | 0 |
+| MSVC | 2 804 | oui | 0 | 20/20 | 0 | 0 |
+| glibc | 240 | oui | 0 | 20/20 | 0 | 0 |
+| Borland | 1 103 | oui | 0 | 20/20 | 0 | 0 |
+
+Le hasard donnerait 1,25 quartet correct sur 20. « Intrus » compte les survivants
+extérieurs à la famille de translation : zéro partout, sur des millions de paires
+visitées. L'outil est donc probant dans les deux sens, et son résultat sur l'archive
+compte.
 
 ### Clés par défaut en mode compteur — `defaultkey.py`
 
@@ -698,6 +735,13 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
 - Les tests statistiques n'ont **aucun pouvoir** contre un PRNG à petit état : un
   xorshift32 cassable en secondes est indiscernable d'un PCG64 (§5). C'est la raison
   pour laquelle tout l'effort a basculé vers l'algèbre.
+- Le contrôle de `lowlcg3` échouait, et j'ai d'abord accusé un **manque de tirages** :
+  une mesure partielle montrait 1 500 survivants à 18 quartets et 0 à 26, ce qui allait
+  dans ce sens. En vérifiant trois survivants un par un, ils se sont révélés **réels**.
+  L'outil n'était pas en cause, mon critère l'était : l'observable ne détermine la paire
+  (état, incrément) qu'à une translation d'orbite près, et la translation est une
+  identité algébrique exacte (§7 ter). J'ai réécrit le critère, pas l'outil — et relevé
+  l'exigence de preuve de 30 à 48 quartets plutôt qu'abaisser la barre à un « presque ».
 
 ---
 
