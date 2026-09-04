@@ -59,3 +59,5 @@ bonuspos.bin
 boostidx.bin
 selsamp
 multibm5
+pcg64seed
+pcgbench.py
