@@ -30,6 +30,8 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
 | **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
 | `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
+| Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
+| Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
 | Réensemencement sur l'horloge aux 24 décrochages | **Exclu** — 2,46·10¹⁰ graines, maximum 13/20 exactement à l'espérance du hasard |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
@@ -788,6 +790,64 @@ xoroshiro128**   0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'�
 
 `xoshiro512**` demande 6⁹ affectations de k par fenêtre et **reste hors budget** —
 c'est une lacune, elle est déclarée comme telle.
+
+### `ranklfg.c` — Fibonacci retardé, la famille que personne n'avait testée
+
+Tout ce qui précède est soit congruentiel (une valeur précédente), soit F2-linéaire (une
+matrice sur un état de bits). Une troisième famille manquait, et elle n'a rien d'exotique :
+le `random()` de la glibc **est** un Fibonacci additif retardé, `r[i] = r[i-3] + r[i-31]`.
+Boost, le `ran_array` de Knuth, l'add-with-carry et le subtract-with-borrow de Marsaglia
+ont tous cette forme. Un balayage congruentiel ne peut pas les voir : ils n'ont pas de
+multiplicateur. Berlekamp-Massey ne voit que les variantes XOR, puisque l'addition
+retient.
+
+À 61,6 bits par tirage ils sont triviaux à tester, la relation de définition étant une
+seule équation entre trois sorties :
+
+```
+u_d = u_{d−l}  OP  u_{d−s}   (mod 2⁶⁴),   OP ∈ { +, −, ^ },  retenue tolérée
+```
+
+Contrôles : quatre générateurs plantés (lags 3/31 de la glibc, 5/17 de Boost, 10/24
+subtract-with-borrow, 7/33 XOR). Chacun tient à **toutes** les positions, aucun autre
+couple de lags ne tient **une seule fois**, et un flux non-LFG non plus. La séparation
+est totale.
+
+Sur l'archive : 2 016 couples de lags × 3 opérations × 3 conventions × 3 000 positions,
+**meilleur couple : 0/3 000**. Aucune relation de Fibonacci retardé.
+
+### `rankw32.c` — le rang assemblé à partir de DEUX mots
+
+`lcgrank` résout `u_{d+1} = A·u_d + B` sur le rang lui-même. C'est exact si l'opérateur
+tire une valeur de 64 bits. Mais un générateur 32 bits **ne peut pas** produire 61,6 bits
+en un appel : il doit concaténer deux sorties. Et alors le rang n'est plus une fonction
+affine d'un état unique — `(w_{2d}, w_{2d+1})` sont deux points différents de l'orbite —
+donc la forme close de `lcgrank` ne s'applique pas et la famille lui échappe.
+
+Elle n'échappe pas longtemps. Rendre à `u` ses deux mots redonne deux sorties
+consécutives, et un seul tirage donne déjà `w₁ = a·w₀ + c`. Un second tirage donne une
+deuxième instance, et le couple se résout en forme close : `a = (w₃−w₁)/(w₂−w₀)`,
+`c = w₁ − a·w₀`, toujours **sans supposer le multiplicateur**. Le nombre de pas W entre
+tirages se lit ensuite en cherchant quelle puissance de a mène `w₀` à `w₂`.
+
+Contrôles : quatre dispositions (2×32 et 2×31 bits, mot fort ou mot faible en tête),
+générateur planté récupéré avec `(a,c)` **exacts** dans les quatre, flux mélangé rejeté.
+
+Sur l'archive : **0 / 20 000 positions** pour chaque disposition et chaque convention.
+
+### `rankseed.c` — le balayage 2³² refait pour cette architecture
+
+`seedhunt` balaie toutes les graines 32 bits et mesure la longueur du préfixe
+Fisher-Yates qui coïncide. C'est le bon test pour un générateur qui **produit un ordre**.
+Il ne dit rien de l'architecture par dérangement : il n'y a pas de mélange à mesurer.
+
+Le balayage n'avait donc jamais été fait pour ce modèle. Il l'est ici : pour chaque
+graine et chaque générateur, prendre la ou les premières sorties, les envoyer dans
+`[0, C(80,20))`, et comparer au rang publié. Une coïncidence vaut 61,6 bits d'un coup —
+sur 2³² graines une fausse arrive avec probabilité 2⁻²⁹·⁶, donc un seul succès trancherait.
+
+Contrôles : les 16 générateurs plantés sont tous retrouvés ; 3·10⁶ graines × 16
+générateurs × 3 décalages contre un rang n'appartenant à aucun générateur donnent **0**.
 
 ---
 
