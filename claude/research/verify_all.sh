@@ -144,6 +144,53 @@ python3 shufbias.py 2>&1 | grep -E "naive shuffle|sort\(random"
 python3 blockseed.py 2>&1 | tail -2
 
 echo
+echo "=== 11. bonusseed: the bonus position, the archive's one unsorted channel."
+echo "    Fourteen configurations must recover a planted seed WITH its stride and lead,"
+echo "    each confirmed by 24/24 boosts; and every reduction must be able to produce"
+echo "    all 20 positions -- the surjectivity control that a promoted 32-bit output"
+echo "    silently failed (2^32 mod 20 = 16, gcd 4, so only 5 positions reachable) ==="
+gcc -O2 -o bonusseed bonusseed.c -lm 2>/dev/null && ./bonusseed selftest | tail -6
+
+echo
+echo "=== 12. selsamp: the third architecture (Knuth 3.4.2 S). The numbers come out"
+echo "    already sorted, one call per candidate, every threshold computable from the"
+echo "    published draw. A planted seed must be recovered in both stop variants ==="
+gcc -O2 -o selsamp selsamp.c -lm 2>/dev/null && ./selsamp selftest | tail -5
+
+echo
+echo "=== 13. pcg64seed: PCG64 at 128 bits, seeded case, XSL-RR and DXSM ==="
+gcc -O2 -o pcg64seed pcg64seed.c 2>/dev/null && ./pcg64seed selftest | tail -4
+
+echo
+echo "=== 14. lcgident: the identity d1^2 = d0*d2 covers EVERY LCG mod 2^64 --"
+echo "    any multiplier, any increment, any stride -- with no unknowns. Planted LCGs"
+echo "    must be seen, uniform ranks must not ==="
+python3 lcgident.py 2>&1 | grep -E "RECOVERED|PASS|FAIL" | head -5
+
+echo
+echo "=== 15. rankgaps: the output width. A planted lattice must be recovered from"
+echo "    24 up to 58 bits -- the 58 is the one that matters, three bits from the"
+echo "    61.6-bit ceiling -- and a uniform stream must show none ==="
+python3 rankgaps.py 2>&1 | grep -E "RECOVERED|FAIL|controles" | head -8
+
+echo
+echo "=== 16. poslll: the lattice on the bonus position. The usable K is the smallest"
+echo "    that recovers AND rejects a wrong multiplier, a wrong stride and pure noise."
+echo "    K=12 recovers but accepts all three, so it proves nothing ==="
+gcc -O2 -o poslll poslll.c -lm 2>/dev/null && ./poslll selftest | tail -4
+
+echo
+echo "=== 17. multibm: the multi-sequence bound, controlled AT THE SIZE CLAIMED."
+echo "    The small selftest cannot see the failure that mattered: at n=6000 one plane"
+echo "    already supplies enough rows, so a rank deficiency never shows ==="
+gcc -O2 -o multibm5 multibm.c 2>/dev/null && ./multibm5 selftest | tail -7
+
+echo
+echo "=== 18. backtest: the question as asked. A biased archive must be beaten by"
+echo "    'hot numbers'; a fair one must not be beaten by anything ==="
+python3 backtest.py 2>&1 | grep -E "CONTROLE PASSE|CONTROLE ECHOUE|plus grand" | head -4
+
+echo
 echo "=== 10. calibration: a breakable xorshift32 is statistically invisible ==="
 echo "    (see calib.py; it takes a few minutes, run it separately)"
 
