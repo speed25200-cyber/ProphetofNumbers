@@ -1492,6 +1492,28 @@ Protocole, dans l'ordre :
    n'est pas de classe F2-linéaire : c'est un CSPRNG ou du matériel, et la partie
    est mathématiquement close.
 
+**Les étapes 2 et 3 sont un seul appel, et il est vérifié.** `keno_break scanfile` fait
+le contrôle d'ordre puis l'attaque, et **refuse** plutôt que de rendre un résultat
+trompeur si le flux est trié. Sur une capture de démonstration :
+
+```
+$ ./keno_break scanfile ordered.txt
+  ordered.txt: 420 ordered draws read
+  already-sorted lines: 0/420  (0.0%; a real draw order gives ~0%)
+  rank of the first drawn ball inside the sorted set: 24 18 22 24 19 21 29 20 21 19 ...
+    sampler 0 mapping 0 : rank 19937/19968, 35544 eqs -> replayed 395/395, predicted 25/25
+  *** CONSISTENT: sampler 0, mapping 0 — generator recovered ***
+
+$ ./keno_break scanfile sorted.txt
+  already-sorted lines: 420/420  (100.0%; a real draw order gives ~0%)
+  rank of the first drawn ball inside the sorted set: 420 0 0 0 0 0 0 0 0 0 ...
+  -> the feed publishes sorted numbers; the order attack cannot run.
+```
+
+La ligne des rangs est le contrôle d'ordre de l'étape 2, lisible d'un coup d'œil :
+uniforme sur 1…20 pour un vrai ordre, dégénérée sur le premier rang pour un flux trié.
+Il n'y a donc rien à écrire le jour où les données arrivent — **un fichier, une commande**.
+
 ---
 
 ## 9. Où en est exactement la prédiction
