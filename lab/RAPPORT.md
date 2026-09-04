@@ -22685,8 +22685,23 @@ l'ordre de grandeur de l'espace d'états. Il n'y en a pas.
 
 > Le §212 avait balayé `4,33·10¹¹` graines candidates sans en trouver une. Cette section-ci
 > dit la même chose **sans balayer** : quelle que soit la famille de générateurs, quelle que
-> soit la fonction de graine, si le vivier faisait `2³¹` états, l'archive porterait des
-> tirages identiques. Elle n'en porte aucun.
+> soit la fonction de graine, un vivier de `2³¹` états ferait apparaître des tirages
+> identiques. L'archive n'en porte aucun.
+
+> **PRÉCISION — cette phrase était plus forte que son propre tableau.** J'écrivais que
+> l'archive « porterait des tirages identiques », au singulier de la certitude. Le tableau
+> juste au-dessus dit `69 %`, pas `100 %`. Le zéro observé est donc un **rapport de
+> vraisemblance de `1/0,31 ≈ 3,2`** contre un vivier de `2³¹` — un indice, pas une preuve.
+> L'argument reste écrasant en dessous de `2²⁴` (`1 − 10⁻⁶⁴`) et il s'éteint vers `2³¹` :
+>
+>     S = 2^24  ->  P(au moins un doublon) = 1 - 10^-64      ecrasant
+>     S = 2^28  ->  P = 1 - 9,2*10^-5                        tres fort
+>     S = 2^31  ->  P = 0,69                                 faible
+>     S = 2^32  ->  P = 0,44                                 nul
+>
+> Ce que le §229 ferme **vraiment**, c'est donc `S ≲ 2²⁸`, pas `S ≤ 2³¹`. Le §252 tire la
+> conséquence : c'est exactement là que se loge la seule fenêtre restante pour un
+> congruentiel à constantes non publiées.
 
 **Ligne de registre.** `h208.distribution_des_distances`, piste B, conforme, `m_extra = 25`.
 
@@ -24284,6 +24299,75 @@ C'est pourquoi le §248 existe : un crible qui tranche sur un tirage isolé est 
 l'outil que ce plafond rend nécessaire.
 
 **Ligne de registre.** `h225.plafond_de_la_nuit`, piste B, PLAFOND, `m_extra = 0` (le compte
+est exact, pas multiple).
+
+---
+## 250. **Le flux du bonus par énumération complète** : le §232 sans son heuristique (`h226_bonus_crible_complet.py`)
+
+### Ce que le §232 a fermé, et comment
+
+Le §232 rend `0` sur `368 640` relèvements du flux du bonus, sur dix-huit générateurs et huit
+modules. C'est le zéro le plus large du dossier. Mais il est obtenu par **réseau + Babai**, et
+Babai est une **heuristique** : le vecteur rendu par le plan le plus proche n'est pas toujours
+le plus proche. Le §232 le savait et s'en protégeait de deux façons — un témoin planté par
+configuration, et, en doublon, *« le crible exhaustif sur **deux** configurations, tous les
+pas, deux fenêtres »*, soit `1 024` cribles.
+
+    368 640 relevements par reseau      0 survivant   <- heuristique, calibree
+      1 024 cribles exhaustifs          0 solution    <- certain, mais sur 2 configurations
+
+> Deux configurations sur dix-huit, c'est un **contrôle**, pas une couverture. Le zéro large
+> restait suspendu à une heuristique.
+
+### Le même balayage, sans Babai nulle part
+
+Pour tout module `m ≤ 2³²` la première classe contraint l'état à `m/vivier` valeurs, et on les
+parcourt **toutes**. Et il n'y a **pas de rejet** ici, contrairement au §248 : le bonus est
+publié une fois par tirage, quoi qu'il arrive. La chaîne est donc exacte — `A = a^P mod m`,
+`C = c·(a^P−1)/(a−1)` sous le §225 — et chaque pas doit rendre la classe suivante.
+
+C'est le §249 qui décide de la fenêtre. Aucune plage à pas constant ne dépasse `204` tirages ;
+on crible donc sur une plage **entière**, et l'on confirme sur la **suivante**, qui n'a jamais
+servi à choisir. `204` valeurs de bonus valent `204 × 6,32 = 1 289` bits de contrainte sur un
+état qui en compte au plus `32`. Il n'y a pas de zone grise.
+
+Le contrôle doit franchir la nuit, et c'est l'occasion de tester les deux hypothèses que le
+§249 laissait ouvertes : la plage suivante commence `85` créneaux après la fin de la première,
+donc on essaie **`85` pas morts** (le service tire sans publier) *et* **zéro** (un démon garde
+son état sans tirer). Laquelle passerait serait, en soi, le renseignement.
+
+### L'autotest, et le couple qu'on ne peut pas planter
+
+    88 flux plantes (15 generateurs x 3 mappings x 2 canaux, moins les degeneres)
+       -> 88 etats releves exactement, sans exception
+
+    Sinclair ZX81 / shr16, sur les deux canaux : DEGENERE, image = 2 classes
+
+Ce dernier point compte, et c'est la même règle qu'au §248 : un couple qu'on ne peut pas
+planter n'est **pas sauté en silence**. Le `shr16` d'un module `2¹⁶+1` ne voit que deux valeurs
+de haut, donc son image compte deux classes — **aucun flux ne peut en sortir**, ce qui est une
+conclusion exhaustive à part entière et non un trou dans la couverture.
+
+### Ce que rend l'archive
+
+    9 810 cribles COMPLETS en 3 955 s sur quatre coeurs, 0 survivant
+    (15 generateurs x 109 pas de bloc x 3 mappings x 2 canaux)
+
+La nulle est un **compte**, pas une loi : reproduire `204` classes consécutives demande
+`1 289` bits (canal du numéro) ou `881` bits (canal du rang) à un état qui en compte au plus
+`32`. L'espérance du nombre de faux positifs sur les `9 810` cribles est nulle à toute
+précision utile.
+
+> Le §232 confirmait son réseau par `1 024` cribles sur **deux** configurations ; celui-ci en
+> fait `9 810` sur les **quinze**. Le zéro du flux du bonus, pour la moitié `m ≤ 2³²` de la
+> famille, ne repose plus sur Babai.
+
+### La limite, et elle se dit
+
+`m ≤ 2³²`. Au-delà, l'énumération des `m/vivier` candidats est hors de portée. C'est
+exactement ce que le §251 va chercher — par l'autre bout.
+
+**Ligne de registre.** `h226.bonus_crible_complet`, piste B, conforme, `m_extra = 0` (le compte
 est exact, pas multiple).
 
 ---
