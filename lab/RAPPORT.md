@@ -23029,6 +23029,8 @@ demande un algorithme de plus.
 
 ## 234. **L'état du registre après §233**
 
+*(chiffres au §233 ; le §241 les reprend après les huit sections suivantes)*
+
     285 entrées au registre
     34 618 170 tests comptés (m_extra compris)
     plus petit p : 1,805·10⁻⁴  (§h114, l'angle de la roue)
@@ -23239,5 +23241,263 @@ trois sigma de `+0,021` juste.
 > douzième.
 
 **Ligne de registre.** `h213.modele_non_lineaire`, piste A, **BIAIS EXPLOITABLE** (règle déclenchée, voir §237), `m_extra = 3`.
+
+---
+
+## 237. **La confirmation** : la règle du §236 s'est déclenchée, et ma nulle avait un défaut (`h214_confirmation_dix.py`)
+
+### Ce qu'il faut faire quand une règle se déclenche
+
+Le §236 a pré-enregistré : *« conforme si aucun `k` ne dépasse le `95ᵉ` centile de son taux
+sous SRS ; `BIAIS EXPLOITABLE` sinon »*. Sur l'archive, `k = 10` a rendu `2,51276` justes
+contre un `95ᵉ` centile de `2,50883`. **La règle s'est déclenchée**, à `z = +1,99`, `p = 0,059`,
+et elle est consignée telle quelle.
+
+La première chose à faire devant une règle qui se déclenche n'est pas de l'expliquer. C'est de
+**vérifier la nulle contre laquelle elle s'est déclenchée**.
+
+### Le défaut, et c'est exactement celui du §222
+
+Les répliques du §236 tirent une archive SRS synthétique **mais gardent les colonnes `bonus` et
+`boost` réelles**. Or, sur l'archive, le bonus est **toujours l'un des vingt numéros du tirage**
+(§77). Le trait « était le bonus au tirage précédent » y est donc un **sous-ensemble strict**
+du trait « sorti au tirage précédent ». Dans les répliques, il n'a aucun rapport avec le tirage
+synthétique.
+
+> L'archive et sa nulle n'avaient pas la même **géométrie de traits**. Un modèle ajusté sur
+> l'une et sur l'autre ne fait pas le même travail, et comparer leurs taux de justes compare
+> deux choses différentes.
+
+C'est **exactement** la faute que le §222 avait corrigée *avant* son lancement — ses répliques
+passaient par une archive SRS complète pour que bonus et rang restent couplés. Je l'ai refaite
+trois sections plus loin, dans un fichier écrit le même jour.
+
+### La réparation, en trois points
+
+  **La nulle est réparée.** Chaque réplique tire une archive SRS *complète* : les vingt
+     numéros, **puis** un bonus uniforme parmi ces vingt, **puis** un multiplicateur tiré de la
+     grille exacte `(41, 19, 12, 4, 2, 2)/80` du §106. Contrôle exécuté avant l'archive :
+     `3 000/3 000` bonus dans le tirage, grille rendue `[42, 18, 12, 4, 2, 2]`.
+  **La puissance est doublée** : `40` répliques au lieu de `16` — un `95ᵉ` centile estimé sur
+     seize points ne vaut pas grand-chose.
+  **Le test est dédoublé** : la tranche de mesure est coupée en deux moitiés disjointes. Un
+     biais réel apparaît dans les deux ; un artefact, dans une seule.
+
+Le pré-enregistrement porte sur `k = 10` **seul** — celui qui a déclenché — plus les deux
+demi-tranches. On ne rejoue pas les quatre `k` : ce serait se redonner quatre chances.
+
+### Ce que rend la nulle réparée
+
+| | archive | sous SRS complet | `z` | `95ᵉ` centile | `p` |
+|---|---|---|---|---|---|
+| tranche entière | `2,51276` | `2,49902 ± 0,00763` | `+1,80` | `2,51343` | `0,098` |
+| **première moitié** | `2,52356` | `2,49860 ± 0,01079` | `+2,31` | `2,51631` | `0,024` |
+| **seconde moitié** | `2,50197` | `2,49943 ± 0,01117` | `+0,23` | `2,51814` | `0,439` |
+
+Deux choses ont changé, et elles vont dans le même sens.
+
+**L'écart-type est passé de `0,00692` à `0,00763`.** La nulle mal couplée était *trop étroite* :
+elle sous-estimait ce que la chaîne fait au hasard, donc elle surestimait le `z`. Avec la bonne
+géométrie de traits, `z` tombe de `+1,99` à `+1,80`, et la tranche entière **ne dépasse plus**
+son `95ᵉ` centile — de justesse, `2,51276` contre `2,51343`.
+
+**Et l'excès n'est pas là où il devrait être.** Il vaut `+2,31` sur la première moitié et
+`+0,23` sur la seconde. Un biais réel sur des numéros ne s'arrête pas au milieu de la tranche
+de mesure.
+
+    INFIRME
+
+### Ce que cet épisode vaut, au-delà du résultat
+
+Il vaut plus que la nullité qu'il rend. Une règle pré-enregistrée s'est déclenchée sur une
+donnée réelle ; elle a été consignée sans être adoucie ; sa nulle a été auditée avant son
+résultat ; le défaut trouvé était **le mien**, et c'était la répétition d'une faute que le
+dossier avait déjà nommée quatorze sections plus tôt. Trois sections indépendantes ont ensuite
+enfoncé le clou — le §238 en figeant la grille, le §239 et le §240 avec des nulles **calculées**
+plutôt que simulées.
+
+> Un dossier qui ne se déclenche jamais n'a pas de seuil ; un dossier qui se déclenche et
+> range le résultat sous le tapis n'a pas de protocole. Celui-ci s'est déclenché, et le
+> protocole a tenu.
+
+**Ligne de registre.** `h214.confirmation_dix`, piste A, INFIRME, `m_extra = 2`.
+
+---
+
+## 238. **La grille figée** : le même excès, sans une seule nulle simulée (`h215_grille_figee.py`)
+
+### Pourquoi une troisième lecture
+
+Le §236 et le §237 reposent tous deux sur des **répliques** — donc sur une simulation de ce
+que la chaîne complète fait au hasard. Il existe une façon de poser la même question sans rien
+simuler.
+
+> **Si l'on fige la grille avant la tranche de mesure, la nulle devient exacte.**
+
+Une grille de dix numéros **fixée d'avance** rapporte sous SRS exactement `2,5` justes, de
+variance hypergéométrique connue :
+
+    Var = k·(20/80)·(60/80)·(80−k)/79 = 1,66139        pour k = 10
+    écart-type de la moyenne sur 27 424 tirages = 0,007783   — calculé, pas estimé
+
+Plus de répliques, plus de sur-apprentissage résiduel, plus de géométrie de traits à faire
+coïncider entre l'archive et sa nulle : la sélection s'est faite sur des données disjointes,
+donc elle ne peut rien fabriquer.
+
+### Et surtout, ça sépare deux choses que le §236 confondait
+
+Un excès de justes peut venir de deux sources très différentes :
+
+  * **un biais persistant sur des numéros précis** — une grille figée le garde ;
+  * **une sélection qui bouge** — le modèle recompose sa grille à chaque tirage, et l'excès
+    n'est qu'un artefact de cette recomposition, qui ne survit pas au gel.
+
+### Deux grilles, choisies sur la tranche d'ajustement seule
+
+    grille A (modèle du §236) : 2, 3, 4, 22, 30, 32, 53, 56, 67, 74
+    grille B (dix plus chauds) : 4, 22, 28, 37, 42, 51, 55, 62, 65, 76
+    recouvrement : 2 numéros sur 10
+
+| grille | tranche | tirages | justes | `z` | `p` |
+|---|---|---|---|---|---|
+| **A** | entière | `27 424` | **`2,50018`** | **`+0,02`** | `0,98` |
+| A | moitié 1 | `13 712` | `2,49628` | `−0,34` | `0,74` |
+| A | moitié 2 | `13 712` | `2,50408` | `+0,37` | `0,71` |
+| **B** | entière | `27 424` | `2,51583` | `+2,03` | `0,042` |
+| B | moitié 1 | `13 712` | `2,51502` | `+1,36` | `0,17` |
+| B | moitié 2 | `13 712` | `2,51663` | `+1,51` | `0,13` |
+
+### Ce que ça dit, ligne par ligne
+
+**La grille du modèle, figée, retombe sur `2,50018` — soit `z = +0,02`.** Exactement la nulle,
+à deux centièmes d'écart-type. L'excès du §236 **ne survit pas au gel** : il vient de la
+recomposition de la grille tirage après tirage, pas d'un biais sur des numéros précis.
+
+Reste la grille des dix plus chauds, à `z = +2,03`. Ce n'est rien après multiplicité — une
+statistique parmi six ici, parmi trente-quatre millions dans le registre. Mais c'est la plus
+vieille hypothèse du jeu, et elle mérite d'être tuée proprement plutôt que classée : c'est le
+§239.
+
+**Ligne de registre.** `h215.grille_figee`, piste A, conforme, `m_extra = 5`.
+
+---
+
+## 239. **« Chaud reste chaud »**, à pleine puissance et sans une seule simulation (`h216_chaud_reste_chaud.py`)
+
+### La nulle est exacte, et voici pourquoi
+
+À chaque tirage `t` on choisit les dix numéros les plus chauds sur la fenêtre `[t−w, t)` —
+donc sur des tirages **strictement antérieurs** — puis on compte les justes au tirage `t+d`.
+
+Sous SRS, la grille est une fonction du passé et le tirage à venir en est indépendant, donc
+`E[justes] = 2,5` **exactement, à chaque `t`**. Et les termes sont **non corrélés** : pour
+`s > t`,
+
+    E[h_t·h_s] = E[ h_t·E[h_s | passé] ] = 2,5·E[h_t] = 2,5²
+
+donc `Var(moyenne sur n) = 1,66139/n` **exactement**. Sur près de soixante-dix mille tirages
+au lieu des `27 424` du §238, l'écart-type de la moyenne tombe de `0,0078` à `0,0049` :
+**la puissance monte d'un facteur `1,6`, et la nulle reste calculée au lieu d'être estimée.**
+
+### Vingt-quatre statistiques, quatre fenêtres, trois horizons, les deux bouts
+
+| bout | fenêtre | `d` | tirages | justes | `z` |
+|---|---|---|---|---|---|
+| chauds | `500` | `1` | `70 059` | `2,50389` | `+0,80` |
+| chauds | `500` | `100` | `69 960` | `2,50367` | `+0,75` |
+| chauds | `1 000` | `100` | `69 460` | `2,49391` | `−1,25` |
+| chauds | `2 000` | `1` | `68 559` | `2,49830` | `−0,35` |
+| chauds | `5 000` | `1` | `65 559` | `2,49947` | `−0,10` |
+| froids | `500` | `10` | `70 050` | `2,49202` | `−1,64` |
+| froids | `1 000` | `100` | `69 460` | `2,49230` | `−1,57` |
+| froids | `5 000` | `100` | `65 460` | `2,49853` | `−0,29` |
+
+*(huit lignes sur vingt-quatre ; les seize autres sont dans la sortie et tiennent toutes dans
+la même fourchette)*
+
+    |z| maximal : 1,64   (froids, fenêtre 500, d = 10)     seuil de Bonferroni interne : 3,29
+    le plus fort des « chauds » : +0,80
+    converti en marge : −0,000798 par numéro contre 0,25
+
+### Le verdict
+
+**Le `+2,03` du §238 ne se reproduit pas.** À pleine puissance, sur toute l'archive, à quatre
+échelles de mémoire et trois horizons, le meilleur des « chauds » sort à `+0,80` — et le plus
+gros écart de toute la table, `1,64`, est du côté des **froids**, dans le sens de la
+*diminution*.
+
+> Un numéro sorti souvent ne sort pas ensuite plus souvent. Ce n'est plus une nullité
+> statistique adossée à une simulation : c'est un écart de `0,0008` sur une marge de `0,25`,
+> mesuré contre une variance **calculée**, sur soixante-dix mille tirages.
+
+**Ligne de registre.** `h216.chaud_reste_chaud`, piste A, conforme, `m_extra = 23`.
+
+---
+
+## 240. **Les stratégies du joueur**, avec la nulle exacte du §239 (`h217_strategies_du_joueur.py`)
+
+Le protocole du §239 est le meilleur du dossier pour cette question précise — grille choisie
+sur le passé, mesurée sur l'avenir, `E[justes] = 2,5` **exactement** et
+`Var(moyenne) = 1,66139/n` **exactement**. Il ne coûte rien de l'appliquer aux **autres**
+règles : celles qu'un joueur essaie vraiment, et qu'il paye parfois cher dans une application
+de loterie.
+
+### Sept règles, dont une qui n'est pas celle qu'on croit
+
+**« En retard » n'est pas « froids ».** L'un compte les sorties sur une fenêtre, l'autre mesure
+une **attente** depuis la dernière sortie. C'est la forme exacte de l'erreur du joueur — *« il
+est dû »* — et le dossier ne l'avait jamais isolée de sa cousine.
+
+Et la cinquième règle joue **pour de vrai** le canal que le §7.37 désigne comme celui qui
+paie : les dix numéros de plus fort levier de co-occurrence `Ĉ(n,m)` avec les vingt du tirage
+précédent.
+
+### Vingt et une statistiques, nulle exacte
+
+| règle | `d = 1` | `d = 10` | `d = 100` |
+|---|---|---|---|
+| chauds | `−0,62` | `−0,90` | `−1,25` |
+| froids | `−1,06` | `−1,42` | `−1,57` |
+| **en retard** | `+1,03` | **`+2,09`** | `−0,51` |
+| récents | `−0,23` | `−0,78` | `−0,94` |
+| liés au tirage précédent | `+0,13` | `+0,73` | `+0,35` |
+| opposés au tirage précédent | `+0,20` | `+1,07` | `+0,09` |
+| *grille fixe `1`–`10` (contrôle)* | `−0,68` | `−0,67` | `−0,72` |
+
+*(les `z` ; seuil de Bonferroni interne : `3,38`)*
+
+    |z| maximal : 2,09  (« en retard », d = 10)      p = 0,036
+    le meilleur des sept, en marge : +0,001022 par numéro contre 0,25
+    il en faudrait +0,016 pour l'équilibre à CHF 1,50
+
+### Ce que le contrôle apprend
+
+La grille fixe `1`–`10`, qui ne dépend de rien, sort à `−0,68` / `−0,67` / `−0,72`. C'est
+utile de deux façons : elle **borne le bruit de l'instrument** — un `|z|` inférieur à `1` est
+ordinaire même pour une règle qui ne regarde rien — et ses trois horizons portent presque le
+même écart, ce qui rappelle qu'ils partagent presque les mêmes tirages et que leurs `z` ne
+sont **pas** trois observations indépendantes.
+
+> Aucune des sept ne bat `k/4`. La meilleure, à `+0,001` de marge, est à **un seizième** de ce
+> qu'il faudrait pour rentrer dans ses frais à la mise la moins chère.
+
+**Ligne de registre.** `h217.strategies_du_joueur`, piste A, conforme, `m_extra = 20`.
+
+---
+
+## 241. **L'état du registre après §240**
+
+    291 entrées au registre
+    34 618 229 tests comptés (m_extra compris)
+    plus petit p : 1,805·10⁻⁴  (§h114, l'angle de la roue)
+    seuil de Holm : 1,444·10⁻⁹
+    il manque un facteur ×125 000
+
+    significatifs après Holm : 0
+
+Six expériences de plus depuis le §234 — dont une qui a **déclenché sa propre règle
+pré-enregistrée**, et quatre qui l'ont réexaminée jusqu'à l'infirmer. Le registre n'a pas
+bougé d'un cran : le plus petit `p` du dossier reste celui du §h114, à cinq ordres de grandeur
+du seuil que sa propre multiplicité impose.
 
 ---

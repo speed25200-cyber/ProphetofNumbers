@@ -27,7 +27,7 @@ outils sans rapport.
 | famille | outil | ce qui la ferme |
 |---|---|---|
 | `F₂`-linéaire (Mersenne Twister, xorshift, LFSR, WELL) | Berlekamp-Massey | **§124** : tout état de moins de `47 040` bits |
-| `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, huit modules, `614 400` relèvements, plus `1 024` cribles **exhaustifs** |
+| `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, **neuf** modules (`2¹⁶+1` à `2⁶⁴`), `614 400` relèvements, plus `1 024` cribles **exhaustifs** |
 | mélangeur non linéaire (PCG, splitmix64, xoshiro, CSPRNG, matériel) | *aucun outil connu* | **rien** |
 
 Et trois **formes** de défaut, fermées sans viser aucune famille :
@@ -38,6 +38,7 @@ Et trois **formes** de défaut, fermées sans viser aucune famille :
 | l'espace d'états est petit | **§229** | `2 489 321 520` paires, **zéro doublon** → vivier `> 2³¹` |
 | une parité est constante | **§231** | `2¹²⁸¹` sous-ensembles sur seize tirages |
 | « chaud reste chaud » | **§239** | `24` statistiques, nulle **calculée** et non simulée, `70 000` tirages |
+| les stratégies du joueur (chauds, froids, « en retard », récents, liés au tirage précédent) | **§240** | `21` statistiques, même nulle exacte, plus une grille fixe de contrôle |
 
 Enfin le compte global : **`34 618 170`** tests, plus petit `p` = `1,8·10⁻⁴` contre un seuil de
 Holm de `1,4·10⁻⁹`. Il manque un facteur **`125 000`**.
@@ -103,12 +104,15 @@ zone grise.
   * **Ne pas payer un modèle de plus.** Le §236 a porté le plus gros modèle du dossier —
     non linéaire, `90` colonnes, interactions et courbures, plus la structure de paires que
     personne n'avait jamais donnée à un prédicteur. Sa règle pré-enregistrée s'est déclenchée
-    à `k = 10` (`z = +1,99`, `p = 0,059`) — et trois sections ont suivi pour en avoir le cœur
-    net. Le §237 refait la nulle (défaut de couplage du bonus). Le **§238 fige la grille** :
-    celle du modèle retombe sur `2,50018` juste, soit `z = +0,02` — l'excès venait de la
-    recomposition, pas des numéros. Le **§239** tue « chaud reste chaud » à pleine puissance,
-    sans une seule simulation : `24` statistiques sur toute l'archive, `|z|` maximal `1,64`,
-    et le meilleur des « chauds » à `+0,80`.
+    à `k = 10` (`z = +1,99`, `p = 0,059`) — et quatre sections ont suivi pour en avoir le cœur
+    net. Le **§237** refait la nulle : ses répliques gardaient les colonnes `bonus` et `boost`
+    réelles sur des tirages synthétiques, si bien que l'archive et sa nulle n'avaient pas la
+    même géométrie de traits ; réparée, la nulle s'élargit, `z` tombe à `+1,80`, la tranche
+    entière ne dépasse plus son seuil, et l'excès vit **entièrement dans la première moitié**
+    de la tranche de mesure (`+2,31` contre `+0,23`). **INFIRMÉ.** Le **§238** fige la grille :
+    celle du modèle retombe sur `2,50018` juste, `z = +0,02`. Le **§239** tue « chaud reste
+    chaud » à pleine puissance, sans une seule simulation. Le **§240** fait de même pour les
+    sept stratégies qu'un joueur essaie vraiment, contrôle compris.
   * **Ne pas confondre jolies grilles et prédiction.** Sous absence de biais,
     `E[justes] = k/4` **quel que soit** le choix des numéros — c'est un théorème, pas une
     observation. Chauds, froids, retards, essaims, réseaux de neurones : aucun ne déplace
