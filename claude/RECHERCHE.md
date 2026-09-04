@@ -29,7 +29,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 5 conventions × 5 mappages × 70 557 départs, 0 |
 | splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
 | **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
-| `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
+| `xoshiro256**`, `xoroshiro128**`, `xoshiro512**` (brouilleur non linéaire) | **Exclus** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
@@ -819,16 +819,20 @@ de k par tirage ajouté. Résultat : **0 W encore singulier**, jusqu'à 6 tirage
 ```
 xoshiro256**     0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 6 tirages)
 xoroshiro128**   0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 3 tirages)
+xoshiro512**     0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 9 tirages)
 ```
+
+**`xoshiro512**` est passé de « hors budget » à écarté.** Ses 6⁹ ≈ 10⁷ affectations de k
+par fenêtre étaient prohibitives tant que chacune coûtait une résolution linéaire
+complète (512²/64 mots). Le filtre de cohérence les rejette d'abord pour n/64 mots, soit
+64 fois moins cher, et seules celles qui survivent paient la résolution. Ce n'est pas un
+solveur plus intelligent, c'est le bon ordre des opérations.
 
 À la différence des autres outils du §6 quater, `rankxo` n'a été passé que sur **trois**
 conventions de rang, pas cinq : chaque fenêtre coûte 6⁹ affectations pour l'état de
 512 bits, et le budget a été mis sur le balayage de W plutôt que sur des conventions
 supplémentaires. C'est une couverture moindre, pas un résultat différent — mais elle est
 dite.
-
-`xoshiro512**` demande 6⁹ affectations de k par fenêtre et **reste hors budget** —
-c'est une lacune, elle est déclarée comme telle.
 
 ### `ranklfg.c` — Fibonacci retardé, la famille que personne n'avait testée
 
@@ -1354,7 +1358,8 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
 - **splitmix64** et cinq autres finaliseurs bijectifs : la sortie complète rend l'état
   par simple inversion. Le §6 bis les classait « hors d'atteinte, barrière des retenues ».
 - **xoshiro256\*\*, xoroshiro128\*\*, xoshiro512\*\*** : le brouilleur non linéaire se
-  décolle par inversion, le cœur linéaire tombe en une résolution.
+  décolle par inversion, le cœur linéaire tombe en une résolution. Le 512 bits, d'abord
+  déclaré hors budget, y est passé grâce au filtre de cohérence — 0 fenêtre sur 1 536.
 - **Fibonacci retardé** (le `random()` de la glibc, Boost, add-with-carry) : famille que
   ni le balayage congruentiel ni GF(2) ne pouvaient voir.
 - **Rang concaténé à partir de deux mots** 32 ou 31 bits.

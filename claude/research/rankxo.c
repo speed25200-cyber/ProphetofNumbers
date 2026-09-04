@@ -97,6 +97,26 @@ static int invert(BV *A, BV *INV, int n){
 static u64 *R; static long N;
 static int SEL[1024];
 
+/* Which reduction built the rank. The scrambler inversion is not linear, so unlike
+   ranklfg this tool genuinely cannot see one reduction while searching the other —
+   measured at 399/399 versus 1/399 on the companion test in rankmix. */
+static int MODEL = 0;   /* 0 = u mod C (with rejection), 1 = mulhi (Lemire) */
+static u64 mkrank(u64 u){ return MODEL ? (u64)(((u128)u * CC) >> 64) : u % CC; }
+static int cands_model(u64 rank, u64 *o){
+  int n = 0;
+  if(MODEL == 0){
+    for(int k = 0; k <= 5; k++){
+      u128 u = (u128)rank + (u128)k * CC;
+      if(u < ((u128)1 << 64)) o[n++] = (u64)u;
+    }
+  } else {
+    u128 lo = (((u128)rank) << 64) / CC, hi = (((u128)(rank + 1)) << 64) / CC;
+    for(u128 u = lo; u <= hi && n < 8; u++)
+      if((u64)(((u128)(u64)u * CC) >> 64) == rank) o[n++] = (u64)u;
+  }
+  return n;
+}
+
 /* Rows not chosen for the basis are free consistency checks. Testing one costs n/64
    word operations against n*n/64 for the solve, so filtering first is ~64x cheaper and
    is what brings 6^9 assignments (xoshiro512**) inside budget. */
@@ -153,11 +173,8 @@ static void build(int g, int W, int n, int D, BV *A){
 static int try_window(int g, int W, int n, int D, int DF, const BV *INV, long d0, int V, u64 *out){
   int nc[16]; u64 cand[16][8];
   for(int i = 0; i < DF; i++){
-    nc[i] = 0;
-    for(int k = 0; k <= 5; k++){
-      u128 u = (u128)R[d0+i] + (u128)k * CC;
-      if(u < ((u128)1 << 64)) cand[i][nc[i]++] = unscramble((u64)u);
-    }
+    u64 raw[8]; nc[i] = cands_model(R[d0+i], raw);
+    for(int q = 0; q < nc[i]; q++) cand[i][q] = unscramble(raw[q]);
   }
   int idx[16]; memset(idx, 0, sizeof idx);
   for(;;){
@@ -183,7 +200,7 @@ static int try_window(int g, int W, int n, int D, int DF, const BV *INV, long d0
     int ok = 1;
     for(int d = 0; d < DF + V && ok; d++){
       u64 o = scramble(observed_word(g, s));
-      if(o % CC != R[d0+d]) ok = 0;
+      if(mkrank(o) != R[d0+d]) ok = 0;
       for(int k = 0; k < W; k++) step(g, s);
     }
     if(ok){ memcpy(out, s, sizeof(u64)*MAXW); return 1; }
@@ -203,6 +220,8 @@ int main(int argc, char **argv){
   const char *mode = argc>1?argv[1]:"selftest";
   int V = 3;                       /* extra draws verified: a wrong state passes at 2^-185 */
   if(!strcmp(mode,"selftest")){
+    MODEL = argc > 2 ? atoi(argv[2]) : 0;
+    printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C (with rejection)");
     printf("selftest: the update must be exactly F2-linear, the scrambler a bijection,\n");
     printf("  a planted generator must be recovered, and a mixed stream rejected.\n\n");
     for(int g = 0; g < NGEN; g++){
@@ -225,7 +244,7 @@ int main(int argc, char **argv){
       long nd = 60; N = nd; R = malloc(8*nd);
       u64 s[MAXW]; memset(s,0,sizeof s);
       for(int i=0;i<GENS[g].words;i++) s[i] = 0xDEADBEEF12345678ULL*(i+1) ^ 0xABCDEF;
-      for(long d=0; d<nd; d++){ R[d] = scramble(observed_word(g,s)) % CC;
+      for(long d=0; d<nd; d++){ R[d] = mkrank(scramble(observed_word(g,s)));
                                 for(int k=0;k<W;k++) step(g,s); }
       BV *A = malloc(sizeof(BV)*DF*64), *INV = malloc(sizeof(BV)*n);
       build(g, W, n, DF, A);
@@ -237,7 +256,7 @@ int main(int argc, char **argv){
       R = malloc(8*nd); u64 st = 0x1234ULL;
       for(long d=0; d<nd; d++){ st += 0x9E3779B97F4A7C15ULL; u64 z = st;
         z=(z^(z>>30))*0xBF58476D1CE4E5B9ULL; z=(z^(z>>27))*0x94D049BB133111EBULL; z^=z>>31;
-        R[d] = z % CC; }
+        R[d] = mkrank(z); }
       int fp = 0;
       if(inv_ok) for(long d=0; d+DF+V<nd && !fp; d++) fp = try_window(g,W,n,D,DF,INV,d,V,got);
       free(R); free(A); free(INV);
@@ -250,7 +269,9 @@ int main(int argc, char **argv){
   }
   const char *fn = argc>2?argv[2]:"rank_colex0.bin";
   int maxW = argc>3?atoi(argv[3]):24;
+  MODEL = argc>4?atoi(argv[4]):0;
   loadrank(fn);
+  printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C (with rejection)");
   int STARTS = 64;
   printf("real archive: %s, %ld ranks;  W 1..%d, %d starting windows each\n",
          fn, N, maxW, STARTS);
