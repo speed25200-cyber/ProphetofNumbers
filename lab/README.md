@@ -121,7 +121,7 @@ disjoints qui demandent deux outils sans rapport :
 | famille | outil | ce qui la ferme |
 |---|---|---|
 | **`F₂`-linéaire** — Mersenne Twister, `xorshift`, LFSR, WELL | **Berlekamp-Massey** | §124, sur le flux du bonus : tout état de moins de `47 040` bits |
-| **`Z/2^W`-linéaire** — les congruentiels | **réseau euclidien** (LLL + Babai) | §230 (`12` jeux `mod 2⁶⁴`) et §232 (`18` jeux, huit modules, plus un crible **exhaustif** de contrôle) |
+| **`Z/2^W`-linéaire** — les congruentiels | **réseau euclidien**, puis **énumération exacte** | §230 et §232 (LLL + Babai, heuristique) ; §250 et §251 refont le même balayage **sans Babai** — énumération complète sous `2³²`, énumération exacte du pavé au-dessus ; §253 balaie le **multiplicateur inconnu** |
 | **ni l'un ni l'autre** — PCG, `xoshiro`, `splitmix64`, CSPRNG, matériel | *aucun outil connu* | rien — et le §233 dit pourquoi |
 
 Le §124 avait fermé la première et écrivait noir sur blanc ce qu'il ne fermait
@@ -138,6 +138,21 @@ exhaustif du §232 manquait sa propre solution plantée sur toutes les
 configurations à incrément non nul — le pas d'un LCG est *affine*, et je
 l'inversais comme s'il était *linéaire*. Le bloc `15` du vérificateur garde
 cette faute sous contrôle permanent.
+
+**Et la même leçon, six fois de plus, depuis.** Le §248 a trouvé trois fautes
+dans son propre crible — une largeur de mot mesurée sur `m` au lieu de `m−1`,
+un filtre qui supposait le préfixe *sans rejet* alors que le rejet est
+l'hypothèse même, une énumération `shr16` tronquée que seul un module non
+puissance de deux révèle. Le §251 en a trouvé trois autres dans son
+énumérateur exact — une borne de niveau qui rejetait son premier candidat, une
+récurrence du centre avec un terme de trop, un témoin négatif si petit qu'il ne
+testait rien. Toutes rendaient « aucune solution ». Toutes ont été prises par un
+point planté, jamais par la lecture du code.
+
+> Un autotest qui **échantillonne** ne peut pas soutenir le mot « exhaustif ».
+> Il ne mesure que l'échantillon — c'est ainsi que l'énumération `shr16` du
+> §248 a survécu à cinq configurations tirées au hasard, toutes puissances de
+> deux.
 
 ## Détecter, identifier, gagner — trois choses différentes
 
