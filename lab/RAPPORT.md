@@ -23905,10 +23905,43 @@ Or `lab/draws_ordered.csv` porte cette observation depuis toujours. Sa quatrièm
     1381028, jeux.loro.ch, 7, 73, 14, 8, 60, 10, 71, 33, 9, 37, 51, 12, 77, 17, 23, 15, 3, 56, 21, 47
 
 **Source : `jeux.loro.ch` — le serveur lui-même. Et cette suite n'est pas triée.** Les onze
-autres lignes viennent d'un écran ou d'une vidéo ; celle-là vient de l'API.
+autres lignes viennent d'un écran ou d'une vidéo ; celle-là vient du serveur.
 
 > Le dossier portait dans ses propres données la réponse à une question qu'il déclarait sans
 > réponse. Personne n'avait regardé la colonne `source`.
+
+> **CORRECTION de ce qui suivait — l'ordre ne vient pas de l'API `REST`.** Ce que j'écrivais
+> ici disait « l'API », et j'en tirais qu'une boucle `HTTP` sur les identifiants historiques
+> re-téléchargerait l'archive ordonnée. L'audit exhaustif des endpoints, mené du côté
+> `codex/state-reconstruction-continuation`, dit le contraire, et il est sans ambiguïté :
+>
+>     70 560 / 70 560 lignes CSV strictement croissantes
+>     /draws/{id}, /draws, /game, /results          -> le meme tri
+>     aucun objet de boule ne porte de position
+>     fr-CH, de-CH, it-CH                           -> ne changent rien
+>
+> **Chaque endpoint `REST`, dans chaque langue, sert un ensemble déjà trié.** La seule source
+> d'ordre du même hôte est le **flux d'animation `SignalR`** — `POST /api/animation/negotiate`,
+> `WebSocket` Azure, `ConnectLoop("ONLINE")`, `SendCurrentState`, `meta[lang].balls` — dont le
+> frontend attribue à chaque élément un `originalIndex`, l'anime dans cet ordre pendant
+> `DrawScene`, puis le trie pour `ReorderScene`. Une capture active confirme que ce tableau
+> porte bien vingt valeurs non triées et que son ensemble coïncide avec le `REST` du même
+> identifiant.
+>
+> **Ce que la correction retire, et c'est le plus gros du §247 :** le levier « × 5 880 » n'existe
+> pas. Le flux d'animation est **direct** — il diffuse le tirage en cours, pas les archives. Il
+> n'y a pas de boucle `HTTP` qui ramène `70 560` tirages ordonnés ; il y a une capture
+> prospective qui en ramène **un toutes les cinq minutes**, et seulement pendant les plages
+> actives. La deuxième des « deux choses qui restent à établir », ci-dessous — *l'API sert-elle
+> l'ordre pour les tirages historiques ?* — est donc **tranchée, et par la négative**.
+>
+> **Ce qu'elle ne retire pas :** les douze relevés restent des relevés d'ordre, les deux tests
+> qui suivent restent valides tels quels, et leur conclusion — `ORDRE RÉEL` — ne dépendait pas
+> de la provenance exacte de la ligne `1381028`. Elle **ajoute** même une précision utile : le
+> tableau `balls` est celui que le frontend anime, donc son ordre est celui de l'animation. Le
+> manifeste de capture le qualifie d'ailleurs `order_scope = ANIMATION_SEQUENCE_ONLY` — ordre
+> public de l'animation, **pas encore** preuve qu'il s'agit de l'ordre brut du générateur.
+> C'est exactement la première des deux questions ouvertes, et elle le reste.
 
 ### Ce que ça ne prouve pas encore, et deux tests pour le savoir
 
@@ -23962,31 +23995,128 @@ Deux choses, et aucune ne demande un calcul :
      aussi un ordre « réel » mais sans valeur. **Un seul tirage capté des deux côtés — filmé
      à l'écran *et* récupéré par l'API — tranche définitivement.** Aucun des douze relevés
      n'est doublé ; c'est le trou à combler en premier.
-  **L'API sert-elle l'ordre pour les tirages *historiques* ?** La ligne `1381028` est un
-     tirage récent, récupéré à chaud. Les `70 560` lignes de l'archive sont triées — mais
-     personne ne sait si c'est le serveur ou le script de capture qui a trié : **aucun script
-     de capture ne figure dans le dépôt.**
+  ~~**L'API sert-elle l'ordre pour les tirages *historiques* ?**~~ **TRANCHÉ — non.** Voir la
+     correction ci-dessus : chaque endpoint `REST`, dans chaque langue, sert un ensemble déjà
+     trié, et aucun objet de boule ne porte de position. L'archive est triée **à la source**,
+     pas par un script de capture absent du dépôt. Le seul canal d'ordre est le flux
+     d'animation `SignalR`, et il est **direct**.
 
-### Ce que ça vaudrait
+### Ce que ça vaut, une fois la correction faite
 
-Si la réponse aux deux est oui, l'archive se re-télécharge **ordonnée** :
+Ce paragraphe annonçait un facteur `5 880` par une boucle `HTTP` sur les identifiants
+historiques. **Ce facteur n'existe pas** : le flux d'animation ne rejoue pas les archives. Le
+compte honnête est celui-ci :
 
-    70 560 tirages × 126,4 bits   au lieu de   70 560 × 61,6
-    et 12 relevés ordonnés        deviennent   70 560
+    ce que j'annoncais      70 560 tirages ordonnes, en une boucle HTTP
+    ce qui est vrai            1 tirage ordonne toutes les 5 min, en capture prospective
+                               soit ~288/jour sur les plages actives
 
-Ce n'est pas un gain marginal. Le §246 a passé trente générateurs sur **douze** tirages
-ordonnés ; la même attaque sur soixante-dix mille multiplie les chances par `5 880`, supprime
-le pari sur le préfixe sans rejet — `42 %` des tirages en ont un de longueur douze, soit
-`29 600` tirages utilisables au lieu de cinq — et rouvre toutes les attaques d'alignement que
-le §7.33 avait fermées faute de mots consécutifs.
+Le levier n'est donc pas un facteur ; c'est un **débit**. Et il change la nature du travail
+plutôt que sa taille : là où le §246 disposait de douze relevés **isolés** — pris des jours
+différents, sans continuité d'état, donc inutilisables pour chaîner —, une campagne prospective
+produit un segment **continu**. C'est ce qui compte, et c'est ce que douze relevés ne
+donneraient jamais, même à mille :
 
-> **C'est le seul levier du dossier qui multiplie la donnée par cinq mille, et il ne demande
-> ni caméra, ni calcul : une boucle `HTTP` sur un identifiant.**
+  **le chaînage** — un état qui reproduit un tirage isolé n'établit rien ; le tirage suivant,
+     lui, tranche. C'est la différence entre `INCONCLUSIVE` et `RECOVERED` ;
+  **le pas** — des tirages contigus permettent de tester la consommation par bloc fixe `W`,
+     que douze relevés épars ne permettent pas de poser ;
+  **le holdout** — un suffixe réservé qui n'a jamais servi à choisir le modèle.
+
+Le coût, lui, est réel et se dit : `400` tirages d'apprentissage `+ 50` de validation, au débit
+ci-dessus, c'est **une journée et demie de capture continue**, sans coupure de nuit dans le
+segment — et une coupure de nuit invalide le segment, puisque deux identifiants consécutifs
+séparés par la nuit ne sont pas à `300 s` l'un de l'autre.
+
+> **Ce n'est plus « ni caméra ni calcul, une boucle `HTTP` ». C'est une campagne de capture
+> prospective, et c'est la seule voie qui reste vers un relevé ordonné continu.**
 
 Et le §10-A avait déjà écrit le correctif applicatif d'une ligne : `Draw.hasDrawOrder` est
 calculé à chaque tirage puis **jeté**. Il suffit de le compter.
 
 **Lignes de registre.** `h222.ordre_publie`, piste B, ORDRE REEL, `m_extra = 4` ;
 `h223.ordre_reproductible`, piste B, ORDRE REEL.
+
+---
+
+## 249. **Le plafond de la nuit** : pourquoi `D ≥ 450` n'est pas difficile, mais inaccessible (`h225_plafond_de_la_nuit.py`)
+
+### Le plan, et la règle qu'il s'est donnée
+
+La branche `codex/state-reconstruction-continuation` fixe le seuil de son solveur, et le
+chiffre est mesuré, pas supposé :
+
+    keno_break, mapping mulhi   :  D >= 450    (400 d'apprentissage + 50 de validation)
+    keno_break, mappings modulo :  D ~ 1400    + holdout
+
+Elle pose en même temps une règle de sécurité, et cette règle est **juste** :
+
+> « Les entrées solveur dérivées sont séparées dès qu'un ID manque **ou** que l'intervalle
+>   entre `drawDate` sort de `300 ± 5` secondes. […] L'ancien contournement `--allow-gaps` a
+>   été supprimé : concaténer deux segments ferait croire à tort au solveur qu'ils sont
+>   contigus. »
+
+Rien à redire. Mais la règle a une conséquence que personne n'avait chiffrée : **elle plafonne
+`D`.** Et le plafond n'a pas besoin d'être capturé pour être connu — il est déjà dans les
+`70 560` horodatages du dossier.
+
+### La mesure, et elle est exacte
+
+On compte les plages maximales où l'identifiant s'incrémente de `1` **et** l'horodatage de
+`300` secondes exactement — la définition même que le solveur exige.
+
+    370 plages continues sur 346 jours
+    la plus longue                      :  204 tirages  (17,0 h)
+    mediane 204, moyenne 190,7          ;  les dix plus longues valent toutes 204
+
+    plages de >=  204 tirages :  333
+    plages de >=  300 tirages :    0
+    plages de >=  450 tirages :    0      <- le seuil mulhi
+    plages de >= 1400 tirages :    0      <- le seuil modulo
+
+Ce n'est pas une loi, c'est un **compte** : il porte sur tous les horodatages publiés, et un
+seul segment de `450` aurait suffi à rendre le verdict inverse.
+
+> **`450` demande `2,21` fois le plus long segment qui existe. `1400` en demande `6,86`.
+> Aucune campagne de capture, si longue soit-elle, ne produira un segment de `450` tirages
+> contigus : la journée n'en contient que `204`.**
+
+### Ce que ça ne dit pas, et il faut le dire
+
+Que la nuit plafonne le segment **observable** ne prouve pas qu'elle interrompe le
+**générateur**. Et la mesure suivante va plutôt dans l'autre sens :
+
+    la coupure de nuit type                   : 25 500 s = 85 creneaux de 300 s, exactement
+    coupures multiples exacts de 300 s        : 345 / 345
+
+**Les `345` coupures sont, sans exception, un nombre entier de créneaux.** Si le service tire
+sans publier, la nuit consomme `85·P` mots — un décalage **connu**. Si un démon garde son état
+sans tirer, elle n'en consomme aucun. Dans les deux cas la nuit est franchissable, et le
+`--allow-gaps` supprimé pourrait revenir sous une forme honnête : non pas *« concatène et
+tais-toi »*, mais *« insère `85·P` pas muets, et essaie aussi zéro »*. Deux hypothèses de plus
+à balayer, pas un obstacle.
+
+Ce qui n'est **pas** établi : que le pas soit fixe, et que le processus soit unique et
+persistant. Tant que ça ne l'est pas, le plafond de `204` tient.
+
+### Ce que ça change au plan, et c'est le point utile
+
+Le plafond ne frappe pas les deux moitiés de la famille de la même façon :
+
+| famille | état | ce qu'il faut | sous le plafond de `204` |
+|---|---|---|---|
+| `MT19937` (`keno_break`, `mtbreak`) | `19 937` bits | `≈ 400` tirages | **hors d'atteinte sur un segment** |
+| congruentiels `m ≤ 2³²` | `≤ 32` bits | **un seul tirage ordonné** (`126` bits) | largement sur-déterminé |
+| congruentiels `m ≤ 2⁶⁴` | `64` bits | `≈ 11` numéros ordonnés | sur-déterminé dès le premier tirage |
+
+> Le plafond de la nuit **tue la voie `MT19937` sur segment unique et laisse la voie
+> congruentielle intacte** — celle-ci n'a jamais eu besoin de `450` tirages, elle a besoin
+> d'**un**.
+
+C'est pourquoi le §248 existe : un crible qui tranche sur un tirage isolé est exactement
+l'outil que ce plafond rend nécessaire.
+
+**Ligne de registre.** `h225.plafond_de_la_nuit`, piste B, PLAFOND, `m_extra = 0` (le compte
+est exact, pas multiple).
 
 ---
