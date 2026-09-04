@@ -904,6 +904,16 @@ se propagent que vers le haut.
 | MRG d'ordre 7 mod 2⁶⁴ | **7** |
 | splitmix64 (non linéaire) | 1 999 = n/2 |
 
+« N'importe quel ordre » étant une affirmation sur l'échelle, elle est vérifiée à
+l'échelle plutôt qu'extrapolée depuis les ordres 1, 3, 7 et 31 :
+
+| ordre planté | complexité du bit 0 |
+|---|---|
+| 100 | **100** |
+| 500 | **500** |
+| 1 000 | **1 000** |
+| 2 000 | **1 998** |
+
 Autrement dit, **toute** récurrence linéaire entière mod 2^k — LCG, Fibonacci retardé,
 générateur récursif multiple de n'importe quel ordre — se trahit par son seul bit de poids
 faible. Les flux de bits bas de l'archive sont à n/2. Cette classe entière tombe donc

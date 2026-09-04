@@ -60,3 +60,20 @@ for name, seq in cases.items():
 print()
 print("Any integer linear recurrence mod 2^k is caught by the low bit alone, whatever its")
 print("order. The archive's low-bit streams sit at n/2, so that whole class is out too.")
+
+# --- the same check at orders large enough to matter -------------------------------
+# "Any order" is a claim about scale, so it should be checked at scale rather than
+# extrapolated from orders 1, 3, 7 and 31.
+print()
+print("the same, at orders large enough to matter:")
+rng2 = np.random.default_rng(41)
+for order in (100, 500, 1000, 2000):
+    c = [int(v) | 1 for v in rng2.integers(0, 1 << 62, size=order)]
+    v = [int(t) for t in rng2.integers(0, 1 << 62, size=order)]
+    for _ in range(N):
+        v.append(sum(c[i] * v[-1-i] for i in range(order)) & M)
+    f = "/tmp/claude-0/-home-user/42392201-ee98-5b6b-8911-209869d2ab7f/scratchpad/lb2.bin"
+    emit(v[order:order+N], f)
+    out = subprocess.run(["./bm", f], capture_output=True, text=True).stdout
+    print("  MRG of order %4d mod 2^64 : low-bit complexity %6s   (expected %d)"
+          % (order, out.split("complexity")[1].split()[0], order))
