@@ -966,6 +966,58 @@ def bloc_plafond_nuit(ids, ts):
         f"204 / {len(ids)}")
 
 
+# ======================================================================================
+# 19. L'ENUMERATION EXACTE (§251), ET LES TROIS FAUTES QU'ELLE A FAILLI CACHER
+# ======================================================================================
+def bloc_cvp_exact():
+    """Un enumerateur qui rend « aucun point » n'a rien dit tant qu'on ne lui a pas fait
+    retrouver un point qu'on y a mis. Les trois fautes du §251 rendaient toutes zero."""
+    print("\n19. L'ENUMERATION EXACTE DANS LE PAVE (§251)")
+    import random
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import cvp_exact as CV
+
+    rng = random.Random(20260904)
+    m, n = 1 << 40, 8
+    A = rng.randrange(3, m) | 1
+    Ai, pw = [], 1
+    for _ in range(n):
+        pw = (pw * A) % m
+        Ai.append(pw)
+    base = [Ai] + [[m if j == i else 0 for j in range(n)] for i in range(n)]
+    x = rng.randrange(1, m)
+    pt = [(x * Ai[i]) % m for i in range(n)]
+    demi = m // 160
+    tr, nd, cp = CV.points_dans_pave(base, [v - demi for v in pt], [v + demi for v in pt])
+    dit("le point plante est retrouve dans le pave",
+        any(all(v[i] == pt[i] for i in range(n)) for v in tr), f"{len(tr)} point(s)",
+        "contient le point plante")
+    dit("le parcours est complet (budget de noeuds non epuise)", cp, str(cp), "True")
+    dit("le parcours visite plus d'un noeud (une borne fausse en visitait UN)", nd > 1,
+        f"{nd} noeuds", "> 1")
+    # temoin NEGATIF de MEME TAILLE : un pave minuscule rend zero en un noeud et ne teste rien
+    cible = [rng.randrange(m) for _ in range(n)]
+    tr2, nd2, cp2 = CV.points_dans_pave(base, [v - demi for v in cible],
+                                        [v + demi for v in cible])
+    dit("un pave de meme taille place au hasard ne contient aucun point",
+        len(tr2) == 0 and cp2, f"{len(tr2)} point(s)", "0")
+    # le compte suit la prediction de volume m / 80^n : confirmation independante
+    m2, n2 = 1 << 40, 5
+    A2 = rng.randrange(3, m2) | 1
+    Ai2, pw = [], 1
+    for _ in range(n2):
+        pw = (pw * A2) % m2
+        Ai2.append(pw)
+    b2 = [Ai2] + [[m2 if j == i else 0 for j in range(n2)] for i in range(n2)]
+    x2 = rng.randrange(1, m2)
+    pt2 = [(x2 * Ai2[i]) % m2 for i in range(n2)]
+    d2 = m2 // 160
+    tr3, _, _ = CV.points_dans_pave(b2, [v - d2 for v in pt2], [v + d2 for v in pt2])
+    att = m2 / 80.0 ** n2
+    dit("le nombre de points suit la prediction de volume m/80^n",
+        0.3 * att <= len(tr3) <= 3 * att, f"{len(tr3)} points", f"~{att:.0f} attendus")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -989,6 +1041,7 @@ if __name__ == "__main__":
     bloc_bascule()
     bloc_crible_rejet()
     bloc_plafond_nuit(ids, ts)
+    bloc_cvp_exact()
 
     print("\n" + "=" * 78)
     if ECHECS:

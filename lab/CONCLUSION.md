@@ -108,8 +108,35 @@ un préfixe sans rejet, hypothèse fausse dans `17` à `87 %` des tirages selon 
    avance sur `GF(2)`. Aucun n'a de réseau, aucun n'a de complexité linéaire bornée. Avec
    `6,32` bits par tirage, il n'y a **aucune prise algébrique** — c'est précisément pour cela
    qu'on en met.
-2. **Un congruentiel à constantes non publiées.** Le réseau exige de connaître `a` et `c` ; un
-   `a` inconnu sur `2⁶⁴` ne se balaie pas.
+2. **Un congruentiel à constantes non publiées** — et c'est la seule des trois qui ait un
+   **prix fini**, alors que je l'écrivais jusqu'ici comme un mur. Les §250 et §251 ont fermé
+   toute la famille **à constantes publiées**, par énumération complète en dessous de `2³²` et
+   par énumération exacte au-dessus. Pour les constantes inconnues, deux arguments cernent ce
+   qui reste, chacun par un bout :
+
+   * **par le bas**, l'argument des doublons du §229 ferme tout espace d'états `S ≲ 2²⁸`
+     (`P(au moins un doublon) = 1 − 9,2·10⁻⁵`), quelle que soit la famille — mais il s'éteint
+     vers `2³¹`, où il ne vaut plus que `0,69` ;
+   * **par le haut**, les **différences** `y_i = x_{i+1} − x_i` vérifient `y_{i+1} = a·y_i` :
+     l'incrément **s'élimine**, et il ne reste qu'un seul inconnu. Sur `2³²`, ce n'est plus
+     `2⁶⁴` couples mais `2³⁰` multiplicateurs.
+
+   Le prix est mesuré, pas supposé : une énumération exacte en dimension `8` retrouve le `y₀`
+   planté, et coûte `220 ms` de réduction contre `0,6 ms` de parcours. Six ans sur un cœur en
+   `Python` — mais c'est une `LLL` en dimension huit sur des entiers de trente-deux bits, et
+   `220 ms` est le prix de `Fraction`, pas celui du problème. **En `C`, `2³⁰` réductions
+   tiennent en une dizaine d'heures.**
+
+   > La fenêtre qui reste dans la famille congruentielle, ce sont les modules `2²⁹`–`2³²` à
+   > constantes inconnues. Ce n'est ni « impossible » ni « déjà fait » : c'est un jour de
+   > calcul en `C`, et personne ne l'a fait. Au-dessus de `2³²` le balayage redevient
+   > impossible (`2⁴⁶` à `2⁶²` valeurs de `a`).
+
+   Et une relation **sans paramètre** aurait tout réglé — trois différences consécutives
+   vérifient `y_1·y_3 ≡ y_2² (mod m)`, indépendamment de `a` et de `c`. Mais avec des `y_i`
+   connus à `m/40` près, l'erreur du produit est de l'ordre de `m²/40`, très supérieure à `m` :
+   la relation ne porte aucune information à cette troncature. Ce n'est pas une piste, et il
+   vaut mieux le dire que de la laisser croire.
 3. **Un générateur matériel.** L'hypothèse la plus probable pour un opérateur régulé, et
    aucune quantité de données ne la distingue d'un bon PRNG.
 

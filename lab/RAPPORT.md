@@ -24371,3 +24371,179 @@ exactement ce que le §251 va chercher — par l'autre bout.
 est exact, pas multiple).
 
 ---
+
+## 251. **Les grands modules sans Babai** : le §232 dont on retire l'heuristique (`h227_grands_modules_exacts.py`, `lab/cvp_exact.py`)
+
+### Ce qui restait suspendu
+
+Le §250 a fermé la moitié `m ≤ 2³²` **par énumération complète** : un « aucun état » y est une
+absence *certaine*. Au-dessus de `2³²`, l'énumération des `m/vivier` candidats est hors de
+portée, et les §230 et §232 s'en remettent au **réseau + Babai**. Leur zéro est calibré par un
+témoin planté, ce qui est bien — mais un témoin ne prouve que ceci : *sur ce témoin-là, Babai a
+réussi.*
+
+> `368 640` relèvements, zéro survivant — et la seule chose qui empêchait d'écrire « aucun
+> générateur de cette famille ne produit ce flux » était que Babai peut manquer une solution
+> qui existe.
+
+### La bonne figure est un pavé, pas une boule
+
+La contrainte n'est pas « proche de la cible ». C'est, coordonnée par coordonnée :
+
+    lo_i <= x*A_i + B_i mod m <= hi_i
+
+soit un **pavé**. Babai vise son centre, ce qui est déjà une approximation de la question
+posée. `lab/cvp_exact.py` énumère donc, par Fincke-Pohst en arithmétique exacte, **tous** les
+points du réseau dans la boule qui circonscrit le pavé — laquelle le contient tout entier, donc
+rien ne peut lui échapper — puis filtre exactement.
+
+    Babai               rend UN point, celui du plan le plus proche.  Peut manquer.
+    enumeration exacte  rend TOUS les points du pave.                 Ne peut pas manquer.
+
+Et voici ce qui sépare vraiment les deux méthodes : **la qualité de la réduction ne change rien
+au résultat**, seulement le nombre de nœuds visités. N'importe quelle base du même réseau donne
+le même ensemble de points. La réponse de Babai, elle, dépend de la base.
+
+Une seule fenêtre suffit, là où le §230 en balayait `40` : Babai peut réussir sur l'une et
+échouer sur l'autre, une énumération exacte non. On prend donc la plage maximale du §249,
+`204` tirages.
+
+### Trois fautes de l'énumérateur, toutes attrapées par un point planté
+
+  **Les bornes de niveau prenaient le plus petit entier dont le carré *dépasse* le rayon**
+     résiduel, au lieu du plus grand qui tient dedans. Le tout premier candidat était donc
+     rejeté et le niveau se croyait épuisé : l'énumération rendait **un nœud et zéro point**,
+     y compris sur un point qu'on venait d'y planter.
+  **La récurrence du centre soustrayait `μ_ji·(x_j − c_j)` au lieu de `μ_ji·x_j`.** La
+     décomposition `GSO` de l'erreur donne `e_i = x_i + Σ_{j>i} x_j μ_ji − c_i`, donc
+     `centre_i = c_i − Σ_{j>i} μ_ji x_j` : le terme en `c_j` n'y a rien à faire. Avec lui, le
+     point planté n'était même pas dans le réseau engendré par les coefficients visités.
+  **Le témoin négatif utilisait un pavé minuscule**, qui rend zéro en un seul nœud et ne teste
+     donc *rien* du parcours. Il a la même taille que le problème réel maintenant.
+
+Le compte de points suit la prédiction de volume `m/80ⁿ`, ce qui est une confirmation
+indépendante :
+
+    dim  5 : 343 points trouves   (volume predit 336)
+    dim  6 :   3 points           (volume predit 4,2)
+    dim  7..10 : 1 point, le point plante, a chaque fois
+    temoins NEGATIFS dim 8, 10, 12, a pave de MEME TAILLE : 0 point
+
+### Le `n` se calcule par canal, et le mesureur est le volume
+
+Le canal du numéro porte `6,32` bits par tirage, celui du rang `4,32`. À `n = 14` le canal du
+rang ne donne que `60` bits pour un état de `64` : mesuré, pas supposé, le pavé contient alors
+**`13` points parasites** et l'énumération visite `330 821` nœuds pour rien. On prend donc
+`n = 14` sur le numéro et `n = 16` sur le rang, de sorte que `m/vivier ⁿ` reste très inférieur
+à `1`.
+
+### Ce que rend l'archive
+
+    60 flux plantes en autotest             -> 60 etats releves exactement
+    2 700 enumerations EXACTES en 5 584 s   -> 0 survivant
+    11 868 090 noeuds visites, budget jamais epuise
+
+`15` générateurs de module `> 2³²` × `45` pas de bloc × `2` canaux × `2` règles de troncature.
+
+> Ce zéro-là n'est plus le même objet. Il ne dit pas « Babai n'a rien trouvé » : il dit
+> **qu'il n'existe aucun point du réseau dans le pavé**. Pour les constantes publiées, la
+> famille congruentielle est fermée des deux côtés de `2³²` — par énumération au §250, par
+> énumération exacte ici.
+
+### La portée, et elle est assumée
+
+Le §230 et le §232 balayaient `128` pas de bloc avec Babai. Une énumération exacte coûte une
+réduction de réseau par `(configuration, pas, dimension)`, et `128` pas la mettraient à plus de
+six heures. Ce balayage couvre donc **`20` à `64`** — le budget `P` d'un tirage vaut au moins
+`20` mots pour les numéros, plus le bonus, le boost et les rejets — et **les pas `65` à `128`
+restent couverts par la seule heuristique du §232.** C'est écrit ici plutôt que laissé à
+deviner.
+
+Et les constantes restent celles qui sont **publiées**. C'est l'objet du §252.
+
+**Ligne de registre.** `h227.grands_modules_exacts`, piste B, conforme, `m_extra = 0`.
+
+---
+
+## 252. **Où se loge exactement ce qui reste** : la fenêtre des constantes non publiées, et son prix
+
+### Les deux bouts se rejoignent presque
+
+Après les §250 et §251, la famille congruentielle **à constantes publiées** est fermée par
+énumération, quel que soit le module. Reste la deuxième des trois voies ouvertes de la
+conclusion : *« un congruentiel à constantes non publiées. Le réseau exige de connaître `a` et
+`c` ; un `a` inconnu sur `2⁶⁴` ne se balaie pas. »*
+
+Cette phrase est vraie, mais elle est trop vague pour être utile. Deux arguments la cernent,
+chacun par un bout, et il faut voir **où ils se manquent**.
+
+**Par le bas — l'argument des doublons (§229), et il ne suppose aucune famille.** Si l'état vit
+dans un espace de taille `S`, deux tirages issus du même état sont identiques, et
+`C(70560,2) = 2 489 321 520` paires en produiraient :
+
+| `S` | doublons attendus | `P(au moins un)` | ce que le zéro observé vaut |
+|---|---|---|---|
+| `2²⁴` | `148` | `1 − 10⁻⁶⁴` | **écrasant** |
+| `2²⁸` | `9,27` | `1 − 9,2·10⁻⁵` | très fort |
+| `2³¹` | `1,16` | `0,69` | faible — rapport de vraisemblance `3,2` |
+| `2³²` | `0,58` | `0,44` | nul |
+
+**Par le haut — le prix d'un balayage des constantes.** Et ici il y a mieux à faire qu'un
+balayage à deux paramètres. Les **différences** `y_i = x_{i+1} − x_i` vérifient
+`y_{i+1} = a·y_i` : **l'incrément s'élimine**, et il ne reste qu'un seul inconnu à balayer.
+
+    (a, c) inconnus, m = 2^32 : 2^64 couples          -> hors de portee
+    a seul, par les differences : 2^30 valeurs        -> autre ordre de grandeur
+
+Le prix se mesure plutôt qu'il ne se suppose. Sur le module `2³²`, avec des intervalles de
+largeur `m/40` — deux fois `m/80`, puisqu'une différence cumule deux incertitudes — une
+énumération exacte en dimension `8` retrouve le `y₀` planté, et le coût se décompose ainsi :
+
+    reduction du reseau (Fraction, dimension 8) : 220 ms      <- tout le cout est la
+    enumeration exacte du pave                  :   0,6 ms
+
+### Le chiffre qui compte
+
+`2³⁰` réductions à `220 ms` font **six ans** de calcul sur un cœur : c'est pourquoi ce
+balayage n'est pas dans ce dossier. Mais la réduction est une `LLL` en **dimension huit sur des
+entiers de trente-deux bits** — l'objet le plus étudié du domaine, et `220 ms` est le prix de
+`Fraction` en `Python`, pas celui du problème. En `C`, à quelques dizaines de microsecondes,
+`2³⁰` réductions tiennent en **une dizaine d'heures sur un cœur**.
+
+> **Voilà la seule fenêtre qui reste dans la famille congruentielle, et elle a un prix fini :
+> les modules `2²⁹` à `2³²` à constantes inconnues, que l'argument des doublons ne ferme plus
+> et que le balayage des constantes ne ferme pas encore. Ce n'est ni « impossible » ni « déjà
+> fait » — c'est un jour de calcul en `C`, et personne ne l'a fait.**
+
+Deux précautions, parce que la fenêtre est étroite et qu'il serait facile de la croire plus
+large qu'elle n'est :
+
+  Au-dessus de `2³²`, le balayage redevient impossible — `2⁴⁶` valeurs de `a` sur `2⁴⁸`,
+     `2⁶²` sur `2⁶⁴` — et l'argument des doublons n'y dit rien non plus. Cette moitié-là reste
+     ouverte, définitivement en ce qui concerne cette méthode.
+  Une relation **sans paramètre** aurait tout réglé : trois différences consécutives vérifient
+     `y_1·y_3 ≡ y_2² (mod m)`, indépendamment de `a` **et** de `c`. Mais avec des `y_i` connus
+     à `m/40` près, l'erreur du produit est de l'ordre de `m²/40`, très supérieure à `m` : la
+     relation ne porte aucune information à cette troncature. Ce n'est pas une piste, et il
+     vaut mieux le dire que de la laisser croire.
+
+### Ce que le dossier peut affirmer, après les §248 à §251
+
+| ce qui est fermé | par quoi | nature |
+|---|---|---|
+| `MT19937`, `xorshift`, LFSR, WELL — tout état `F₂`-linéaire `< 47 040` bits | §124, Berlekamp-Massey | certaine |
+| congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
+| congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
+| congruentiels `m > 2³²`, constantes publiées, pas `65`–`128` | §232, réseau + Babai | heuristique |
+| tirages ordonnés contre `m ≤ 2³²`, rejets compris | §248, énumération complète | **certaine** |
+| tout générateur d'état `S ≲ 2²⁸`, quelle que soit la famille | §229, doublons | certaine |
+| `35 280` retards, `2¹²⁸¹` parités, `36,1` millions de tests | §228, §231, registre | certaine |
+
+| ce qui reste ouvert | pourquoi |
+|---|---|
+| congruentiels `m = 2²⁹`–`2³²`, constantes **inconnues** | **un jour de calcul en `C`, non fait** |
+| congruentiels `m > 2³²`, constantes inconnues | `2⁴⁶` à `2⁶²` valeurs de `a` — hors de portée |
+| mélangeurs non linéaires — `splitmix64`, `PCG`, `xoshiro` | aucune prise algébrique à `6,32` bits par tirage |
+| générateur matériel | aucune quantité de données ne le distingue d'un bon PRNG |
+
+---
