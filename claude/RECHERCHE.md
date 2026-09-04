@@ -31,6 +31,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
 | `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
+| Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
@@ -863,6 +864,39 @@ Contrôles : les **20** générateurs plantés sont tous retrouvés — dont PCG
 128 bits), xoroshiro128\*\*, xoshiro512\*\* et MT19937-64 — et 3·10⁶ graines × 20
 générateurs × 3 décalages contre un rang n'appartenant à aucun générateur donnent **0**.
 
+### `rankmwc.c` — multiply-with-carry, et un faux positif attrapé à temps
+
+MWC est une famille à part : `x_n = (a·x_{n−1} + c_{n−1}) mod b`, la retenue
+`c_n = ⌊(a·x_{n−1} + c_{n−1})/b⌋` étant réinjectée. `lcgrank` ne peut pas la voir (la
+retenue n'est pas un incrément), `ranklfg` non plus (il n'y a pas de lags), ni `bm` (la
+retenue n'est pas linéaire). Et ce n'est pas obscur : le MWC de Marsaglia, KISS et
+xorwow reposent dessus.
+
+**Premier essai, et premier signalement à ne pas croire.** J'avais écrit le test sur la
+*taille* de la retenue : `c_d = (x_{d+1} − a·x_d) mod b` doit être `< a`. L'outil a
+répondu **4 000 / 4 000 positions — INVESTIGATE**. Or un vrai MWC32 a un `a` juste en
+dessous de 2³² pour une base de 2³² : « c < a » y est vrai presque toujours. Le test
+n'avait aucune puissance là où il comptait, et le « résultat » était entièrement un
+artefact de la statistique choisie.
+
+Le test qui a de la puissance porte sur la **cohérence** de la retenue sur trois sorties
+consécutives :
+
+```
+c₀ = (x₁ − a·x₀) mod b            lue sur la première paire
+c₁ = ⌊(a·x₀ + c₀) / b⌋            ce que la retenue doit alors devenir
+c₁ = (x₂ − a·x₁) mod b            ce que la paire suivante en dit
+```
+
+Les deux valeurs de `c₁` coïncident avec probabilité `b⁻¹` pour un mauvais
+multiplicateur, et **toujours** pour le bon — 2⁻³² à 32 bits, 2⁻⁶⁴ à 64 bits, quelle que
+soit la taille de `a`. Contrôles après correction : multiplicateur planté 2 998/2 998,
+les 30 autres multiplicateurs publiés **0/600**, flux non-MWC **0/600**. Séparation
+totale.
+
+Sur l'archive, 31 multiplicateurs publiés × 2 largeurs × 5 conventions de rang :
+**0 / 4 000**.
+
 ### `rankhash.py` — l'équité prouvable, refaite pour cette architecture
 
 Le §3 teste 390 schémas de hachage en transformant l'empreinte en flux, puis en faisant
@@ -1129,6 +1163,13 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
 - Les tests statistiques n'ont **aucun pouvoir** contre un PRNG à petit état : un
   xorshift32 cassable en secondes est indiscernable d'un PCG64 (§5). C'est la raison
   pour laquelle tout l'effort a basculé vers l'algèbre.
+- **Un « INVESTIGATE » qui n'en était pas un.** `rankmwc` a d'abord signalé 4 000/4 000
+  positions compatibles avec un multiply-with-carry. Le signalement venait entièrement
+  de la statistique choisie : tester « la retenue est-elle `< a` » n'a aucune puissance
+  quand `a` frôle la base, ce qui est exactement le cas d'un MWC32. Remplacé par la
+  cohérence de la retenue sur trois sorties, dont le taux sous le nul est `b⁻¹` quelle
+  que soit la taille de `a` — et l'archive retombe à **0/4 000**. Un outil qui signale
+  quelque chose mérite le même examen qu'un outil qui ne signale rien, sinon davantage.
 - **Un bug de mémoire non initialisée dans `rankxo`, attrapé par le contrôle.**
   `build()` remplissait `D×64` lignes de matrice mais n'en remettait à zéro que `n` :
   les lignes supplémentaires contenaient ce que `malloc` avait rendu. Le symptôme est
