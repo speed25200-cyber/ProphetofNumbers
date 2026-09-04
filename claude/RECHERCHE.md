@@ -35,6 +35,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
 | `Math.floor(Math.random() * C)` — le rang médié par un double | **Exclu** — 142 multiples de 512 observés pour 137,8 attendus, contre 70 560 si c'était le cas |
 | Les 5 fautes de mélange qui **auraient** donné un avantage | **Exclues** — \|ΔP\| de 0,011 à 0,750, soit \|z\| de 6,5 à 460 ; l'archive plafonne à 2,72 |
+| Ré-ensemencement lié aux 358 ouvertures de bloc quotidiennes | **Rien** — 63 903 paires d'ouvertures, overlap max 13 pour 12 attendu au hasard |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
@@ -991,6 +992,30 @@ Les deux mesures se lisent ensemble : **si** l'architecture est celle du dérang
 l'implémentation est soignée — réduction non biaisée et arithmétique entière pleine
 précision. Ce qui est cohérent avec tout le reste du dossier : un RNG correctement
 implémenté.
+
+### `blockseed.py` — les 358 ouvertures de bloc, comparées **entre elles**
+
+Le calendrier n'est pas continu : les tirages vont par blocs quotidiens séparés d'une
+coupure de 25 500 s, chaque bloc s'ouvrant à 04:05 UTC. Si le service redémarre la nuit
+et se ré-ensemence sur quelque chose de peu entropique, c'est le **premier tirage de
+chaque bloc** qui le montre — et il le montre comme une relation **entre blocs**, qu'aucun
+test par tirage ne peut voir.
+
+358 ouvertures donnent 63 903 paires. Sous le nul chaque paire a un overlap
+hypergéométrique de moyenne 5, et sur ce nombre de paires le hasard atteint 13. Une
+graine partagée ou voisine placerait une paire bien au-dessus — sans qu'il faille deviner
+quel générateur.
+
+```
+overlap moyen entre ouvertures : 5,0146   (nul 5,0000)   max 13
+  >=12 :  6 observés,  6,40 attendus        >=14 : 0 observé, 0,04 attendu
+  >=13 :  2 observés,  0,58 attendu         >=15 : 0 observé, 0,00 attendu
+blocs adjacents seulement (357 paires) : moyenne 4,9972, max 10
+ouverture vs clôture du bloc précédent (358 paires) : moyenne 5,0531, max 9
+témoin, 358 tirages ordinaires tirés au hasard : moyenne 4,9943, max 12
+```
+
+Les ouvertures de bloc se comportent exactement comme n'importe quels autres tirages.
 
 ### `shufbias.py` — les deux bugs de mélange qui auraient VRAIMENT donné un avantage
 
