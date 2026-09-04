@@ -23799,3 +23799,81 @@ d'un canal dont l'information extractible hors échantillon a été mesurée à
 **Ligne de registre.** `h220.chasse_triplet_huit`, piste B, FLUCTUATION, `m_extra = 10`.
 
 ---
+
+## 246. **Les douze tirages ordonnés contre la famille élargie** (`h221_ordonnes_famille_elargie.py`, `h221b_calibrage_corrige.py`)
+
+### Le trou entre deux sections
+
+Le §223 a passé le réseau sur les douze tirages ordonnés — mais avec **douze jeux de
+constantes, tous `mod 2⁶⁴`**. Le §232 a élargi la famille à dix-huit générateurs de plus sur
+huit modules — mais **seulement sur le flux du bonus**.
+
+> Les deux moitiés n'avaient jamais été croisées. La famille élargie n'avait jamais rencontré
+> la donnée la plus riche du dossier.
+
+Et c'était le pire endroit où laisser un trou, parce que les générateurs ajoutés au §232 sont
+les **plus faibles** : un état de trente et un bits se relève avec **cinq** numéros ordonnés,
+là où il en faut douze pour soixante-quatre.
+
+### Ce que vaut un tirage ordonné
+
+Vingt numéros dans l'ordre, ce sont vingt mots **consécutifs** — pas un mot par tirage à pas
+inconnu comme le bonus, mais une suite serrée, sans décalage à balayer :
+
+    20 × log₂ 80 = 126,4 bits de contrainte     contre 64 bits d'état à trouver
+
+Le seul aléa restant est le **rejet**. Trois règles de sortie sont testées : troncature
+pleine, troncature des trente-deux bits hauts, et **modulo 80** — cette dernière absente du
+§232, qui ne visait que la troncature.
+
+### Deux méthodes, aucune zone grise
+
+  * **Module `≤ 2³²` : crible EXHAUSTIF.** La première classe contraint le mot à `m/80`
+    valeurs ; on les énumère **toutes** et l'on descend en profondeur. Aucune heuristique.
+  * **Module `> 2³²` : réseau**, avec le `n` calibré par témoin planté.
+
+Et la vérification n'est pas le préfixe qui a produit le candidat : on repart de son état et
+l'on déroule le flux **en simulant le rejet** — un mot dont le numéro est déjà sorti est
+ignoré, sinon il doit être le suivant attendu. Il faut reproduire les **vingt** numéros dans
+l'ordre.
+
+Le témoin le montre en clair : sur RANDU avec la règle modulo, le tirage planté consomme
+`58` mots dont **`38` rejets**, et le crible retrouve quand même l'état exact.
+
+    selftest : 9 relèvements sur 9, rejets compris   ->   CALIBRÉ
+
+### Ce que rendent les douze tirages
+
+    360 cribles exhaustifs   (15 générateurs ≤ 2³² × 2 règles × 12 tirages)   0 survivant
+    360 relèvements réseau   (15 générateurs > 2³² × 2 règles × 12 tirages)   0 survivant
+
+### Et une faute de calibrage, trouvée après coup
+
+Le premier passage a déclaré **neuf** des quinze configurations de module `> 2³²`
+« NON COUVERT » — aucun `n` ne relevait leur propre témoin. Ce n'était pas une faiblesse du
+réseau : **c'était ma façon de fabriquer le témoin.**
+
+Le témoin était un tirage ordonné synthétique **avec rejets**, et j'en donnais les `n`
+premiers numéros au réseau comme s'ils étaient les classes de `n` mots **consécutifs**. Dès
+qu'un rejet tombait dans le préfixe, ils ne l'étaient pas, et le réseau échouait sur une
+entrée fausse — pas sur un problème dur.
+
+> **Un témoin planté doit être planté dans les conditions de l'hypothèse testée.** L'attaque
+> suppose un préfixe sans rejet ; le témoin devait donc en être un.
+
+Corrigé — on cherche une graine dont les `n` premiers mots donnent `n` numéros distincts — la
+couverture passe de `6/15` à **`15/15`**, et le résultat ne bouge pas : zéro survivant.
+
+Le sens de l'erreur était **conservateur** : elle rétrécissait la portée annoncée au lieu de
+la gonfler. C'est la bonne direction pour une faute, et ce n'est pas une raison de la garder.
+
+### Ce que ça ferme
+
+Trente générateurs congruentiels à constantes publiées, neuf modules de `2¹⁶+1` à `2⁶⁴`,
+trois règles de sortie, sur la donnée la plus contrainte du dossier — `126` bits contre `64` —
+avec un crible qui ne peut manquer aucune solution en dessous de `2³²`.
+
+**Lignes de registre.** `h221.ordonnes_famille_elargie`, piste B, conforme ;
+`h221b.calibrage_corrige`, piste B, conforme, `15/15` couvertes.
+
+---
