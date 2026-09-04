@@ -67,14 +67,27 @@ static long long search(const LCG *g, int W, int ndraws, int first,
   uint64_t mask = (L >= 64) ? ~0ULL : ((1ULL << L) - 1);
   uint64_t A, C; jump(g->a, g->c, W, mask, &A, &C);
   long long hits = 0;
-  uint64_t total = (L >= 63) ? 0 : (1ULL << L);
-  for(uint64_t s0 = 0; s0 < total; s0++){
-    uint64_t s = s0; int d = 0;
-    for(; d < ndraws; d++){
-      if((int)((s >> g->shift) & 15) != obs[d]) break;
-      s = (A*s + C) & mask;
+  /* The first draw already fixes bits shift..shift+3 of s0, so only 2^(L-4) states are
+     worth visiting: enumerate the rest and splice the known nibble in, instead of
+     testing sixteen times as many and throwing fifteen sixteenths away. */
+  int sh = g->shift;
+  uint64_t lowmask = (sh == 0) ? 0 : ((1ULL << sh) - 1);
+  uint64_t himask  = mask >> (sh + 4);
+  uint64_t nib0 = (uint64_t)obs[0] << sh;
+  for(uint64_t hi = 0; ; hi++){
+    uint64_t hipart = hi << (sh + 4);
+    for(uint64_t lo = 0; ; lo++){
+      uint64_t s = (hipart | nib0 | lo) & mask;
+      uint64_t t = (A*s + C) & mask;
+      int d = 1;
+      for(; d < ndraws; d++){
+        if((int)((t >> sh) & 15) != obs[d]) break;
+        t = (A*t + C) & mask;
+      }
+      if(d == ndraws){ hits++; if(found) *found = s; }
+      if(lo >= lowmask) break;
     }
-    if(d == ndraws){ hits++; if(found) *found = s0; }
+    if(hi >= himask) break;
   }
   return hits;
 }
@@ -107,23 +120,31 @@ int main(int argc, char **argv){
   int starts[] = {0, 12000, 40000, 65000};
   printf("real archive: %u draws, %d nibbles checked per candidate, W swept 1..%d\n", N, ndraws, maxW);
   printf("  a wrong candidate survives with probability 16^-%d = 2^-%d\n\n", ndraws, 4*ndraws);
+  fflush(stdout);
   long long total_hits = 0;
   for(int i = 0; i < NFAM; i++){
     const LCG *g = &FAM[i];
     int L = g->shift + 4;
     if(L > 40){ printf("  %-22s skipped (L=%d beyond the sweep)\n", g->name, L); continue; }
+    /* Cost is 2^(L-4) candidates per (W, window). The wide families get a shorter
+       sweep and a single window rather than being dropped: the archive is one
+       continuous stream, so any consecutive block of draws tests the same hypothesis. */
+    int wlim = (L > 24) ? (maxW < 16 ? maxW : 16) : maxW;
+    int slim = (L > 24) ? 1 : 4;
     long long best = 0; int bw = 0, bs = 0;
-    for(int W = 1; W <= maxW; W++){
-      for(int si = 0; si < 4; si++){
+    for(int W = 1; W <= wlim; W++){
+      for(int si = 0; si < slim; si++){
         int obs[64]; for(int d = 0; d < ndraws; d++) obs[d] = nib(d, starts[si]);
         long long h = search(g, W, ndraws, starts[si], obs, NULL);
         if(h > best){ best = h; bw = W; bs = starts[si]; }
         total_hits += h;
       }
     }
-    printf("  %-22s L=%2d  best survivors %lld%s\n", g->name, L, best,
+    printf("  %-22s L=%2d  W<=%-2d %d window(s)  best survivors %lld%s\n",
+           g->name, L, wlim, slim, best,
            best ? "" : "   (no state reproduces the nibbles at any W)");
     if(best) printf("        at W=%d, start=%d — INVESTIGATE\n", bw, bs);
+    fflush(stdout);
   }
   printf("\n  total survivors across every family, W and window: %lld  ->  %s\n", total_hits,
          total_hits ? "INVESTIGATE" : "no congruential generator of this shape fits the archive");
