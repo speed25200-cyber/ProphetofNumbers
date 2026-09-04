@@ -40,14 +40,37 @@ static const u64 MULT[] = {
 #define NM ((int)(sizeof MULT / sizeof MULT[0]))
 
 static u64 *R; static long N;
-static int cands(long d, u64 *o){
+
+/* Candidate outputs behind a rank.
+ *
+ * Two reductions are live. Under `u mod C` (with rejection — modbias.py excludes the
+ * biased form) the preimages of a rank are r + kC. Under Lemire/mulhi, r = (u*C) >> 64
+ * and the preimages are an interval of about 5.2 integers instead: the same count, a
+ * different set. A tool that only knows the first is blind to an operator who used the
+ * second, so MODEL selects between them and both are swept.
+ */
+static int MODEL = 0;   /* 0 = u mod C (with rejection), 1 = mulhi */
+
+/* plant a rank using whichever reduction MODEL names, so the selftest exercises the
+   same path the archive run will take */
+static u64 mkrank(u64 u){ return MODEL ? (u64)(((u128)u * CC) >> 64) : u % CC; }
+
+static int cands_model(u64 rank, u64 *o){
   int n = 0;
-  for(int k = 0; k <= 5; k++){
-    u128 u = (u128)R[d] + (u128)k * CC;
-    if(u < ((u128)1 << 64)) o[n++] = (u64)u;
+  if(MODEL == 0){
+    for(int k = 0; k <= 5; k++){
+      u128 u = (u128)rank + (u128)k * CC;
+      if(u < ((u128)1 << 64)) o[n++] = (u64)u;
+    }
+  } else {
+    u128 lo = (((u128)rank) << 64) / CC, hi = (((u128)(rank + 1)) << 64) / CC;
+    for(u128 u = lo; u <= hi && n < 8; u++)
+      if((u64)(((u128)(u64)u * CC) >> 64) == rank) o[n++] = (u64)u;
   }
   return n;
 }
+
+static int cands(long d, u64 *o){ return cands_model(R[d], o); }
 
 /* Chance that a position admits a carry below a purely by luck. The carry test only has
    power when a is small against the modulus: for a ~ 2^32 against 2^64 a wrong candidate
@@ -125,6 +148,8 @@ static void loadrank(const char *fn){
 int main(int argc, char **argv){
   const char *mode = argc>1?argv[1]:"selftest";
   if(!strcmp(mode,"selftest")){
+    MODEL = argc > 2 ? atoi(argv[2]) : 0;
+    printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C");
     printf("selftest: a planted MWC must admit a valid carry at every position, and a\n");
     printf("  stream that is not an MWC must not.\n\n");
     long nd = 3000;
@@ -134,7 +159,7 @@ int main(int argc, char **argv){
       u64 x = 0x12345678ULL, c = 99;
       for(long d = 0; d < nd; d++){
         u128 p = (u128)a * x + c; x = (u64)p; c = (u64)(p >> 64);
-        R[d] = x % CC;
+        R[d] = mkrank(x);
       }
       long h = holds(a, 1, 0, nd-2);
       /* the best wrong multiplier AMONG THOSE THE TEST CAN DISCRIMINATE (null < 0.1) */
@@ -149,7 +174,7 @@ int main(int argc, char **argv){
       N = nd; R = malloc(8*nd); u64 st = 0xABCD;
       for(long d = 0; d < nd; d++){ st += 0x9E3779B97F4A7C15ULL; u64 z = st;
         z=(z^(z>>30))*0xBF58476D1CE4E5B9ULL; z=(z^(z>>27))*0x94D049BB133111EBULL; z^=z>>31;
-        R[d] = z % CC; }
+        R[d] = mkrank(z); }
       long fp = holds(a, 1, 0, 600);
       free(R);
       printf("  a=%-12llu planted %ld/%ld  null %.1e  best of %d testable wrong a: %ld/600  non-MWC %ld/600  %s\n",
@@ -160,7 +185,9 @@ int main(int argc, char **argv){
     return 0;
   }
   const char *fn = argc>2?argv[2]:"rank_colex0.bin";
+  MODEL = argc>3?atoi(argv[3]):0;
   loadrank(fn);
+  printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C (with rejection)");
   long W = 4000;
   printf("real archive: %s;  %d published MWC multipliers, %ld positions each\n", fn, NM, W);
   printf("  a real multiplier admits a carry below a at EVERY position\n\n");

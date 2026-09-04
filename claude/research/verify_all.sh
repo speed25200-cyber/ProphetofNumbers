@@ -23,6 +23,8 @@ gcc -O3 -march=native -o rankxo        rankxo.c                  2>/dev/null
 gcc -O3 -march=native -o bm            bm.c                      2>/dev/null
 gcc -O3 -march=native -o ranklfg       ranklfg.c                 2>/dev/null
 gcc -O3 -march=native -o rankw32       rankw32.c                 2>/dev/null
+gcc -O3 -march=native -o rankw32       rankw32.c                 2>/dev/null
+gcc -O3 -march=native -o rankmwc       rankmwc.c       -lm       2>/dev/null
 gcc -O3 -march=native -o rankseed2     rankseed.c      -lpthread 2>/dev/null
 python3 mkdata.py >/dev/null
 
@@ -87,6 +89,11 @@ echo "    lagged Fibonacci (glibc random(), Boost, add-with-carry):"
 ./ranklfg selftest | grep -E "glibc|Boost|subtract|xor lagged"
 echo "    the rank assembled from two machine words:"
 ./rankw32 selftest | grep -E "2 x"
+echo "    multiply-with-carry, by carry consistency:"
+./rankmwc selftest | grep "a="
+echo "    both reductions: the same tools under mulhi instead of u mod C"
+./ranklfg selftest 1 | grep -E "glibc|Boost"
+./rankmwc selftest 1 | grep "a=" | head -1
 echo "    the 2^32 seed sweep, for this architecture (20 generators):"
 ./rankseed2 selftest | tail -3
 echo "    provably-fair unranking, 23520 schemes:"
@@ -105,6 +112,14 @@ from redhash import sha256_reduced
 import hashlib
 m = bytes(range(32))
 print('    R=64 matches hashlib:', sha256_reduced(m, 64).hex() == hashlib.sha256(m).hexdigest())"
+
+echo
+echo
+echo "=== 9 bis. the measurements that constrain the implementation ==="
+python3 modbias.py  2>&1 | tail -3
+python3 quantize.py 2>&1 | grep "multiples of 512" | head -1
+python3 shufbias.py 2>&1 | grep -E "naive shuffle|sort\(random" 
+python3 blockseed.py 2>&1 | tail -2
 
 echo
 echo "=== 10. calibration: a breakable xorshift32 is statistically invisible ==="

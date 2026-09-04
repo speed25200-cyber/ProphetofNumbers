@@ -993,6 +993,31 @@ l'implémentation est soignée — réduction non biaisée et arithmétique enti
 précision. Ce qui est cohérent avec tout le reste du dossier : un RNG correctement
 implémenté.
 
+### Les deux réductions, et pourquoi il fallait les couvrir toutes les deux
+
+`modbias.py` écarte le `u mod C` **naïf**. Il reste donc deux façons plausibles de
+fabriquer le rang, et elles ne donnent **pas les mêmes préimages** :
+
+| réduction | préimages d'un rang r |
+|---|---|
+| `u mod C` avec **rejet** | `r + kC`, k ∈ 0…5 |
+| **mulhi** / Lemire, `r = (u·C) >> 64` | un intervalle d'environ 5,2 entiers |
+
+Même cardinal, ensemble différent. Un outil qui ne connaît que la première est **aveugle**
+à un opérateur qui aurait employé la seconde — et c'était le cas de `rankmix`, `ranklfg`,
+`rankw32` et `rankmwc`, qui construisaient leurs candidats en dur comme `r + kC`.
+(`lcgrank` traitait déjà mulhi séparément, c'est son mode 1.)
+
+Les quatre outils prennent désormais la réduction en argument, et leurs contrôles
+plantent le rang **avec la même réduction que celle qu'ils cherchent** : un générateur
+planté sous mulhi doit être retrouvé sous mulhi. Les contrôles passent dans les deux
+modes.
+
+C'est une lacune de couverture qui ne se voyait pas : les quatre outils rendaient zéro
+sur l'archive, et ils auraient rendu zéro de la même façon en cherchant les mauvais
+candidats. Un résultat négatif ne dit rien tant qu'on n'a pas vérifié que l'outil
+regardait au bon endroit.
+
 ### `rankserial.py` — la dépendance sérielle générique, et un « signal » à 211 σ
 
 Le rang a été attaqué **algébriquement** — LCG, Fibonacci retardé, multiply-with-carry,

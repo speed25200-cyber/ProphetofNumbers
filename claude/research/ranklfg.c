@@ -31,14 +31,37 @@ static const char *OPN[] = {"+", "-", "^"};
 
 static u64 *R; static long N;
 
-static int cand_of(long d, u64 *c){
+/* Candidate outputs behind a rank.
+ *
+ * Two reductions are live. Under `u mod C` (with rejection — modbias.py excludes the
+ * biased form) the preimages of a rank are r + kC. Under Lemire/mulhi, r = (u*C) >> 64
+ * and the preimages are an interval of about 5.2 integers instead: the same count, a
+ * different set. A tool that only knows the first is blind to an operator who used the
+ * second, so MODEL selects between them and both are swept.
+ */
+static int MODEL = 0;   /* 0 = u mod C (with rejection), 1 = mulhi */
+
+/* plant a rank using whichever reduction MODEL names, so the selftest exercises the
+   same path the archive run will take */
+static u64 mkrank(u64 u){ return MODEL ? (u64)(((u128)u * CC) >> 64) : u % CC; }
+
+static int cands_model(u64 rank, u64 *o){
   int n = 0;
-  for(int k = 0; k <= 5; k++){
-    u128 u = (u128)R[d] + (u128)k * CC;
-    if(u < ((u128)1 << 64)) c[n++] = (u64)u;
+  if(MODEL == 0){
+    for(int k = 0; k <= 5; k++){
+      u128 u = (u128)rank + (u128)k * CC;
+      if(u < ((u128)1 << 64)) o[n++] = (u64)u;
+    }
+  } else {
+    u128 lo = (((u128)rank) << 64) / CC, hi = (((u128)(rank + 1)) << 64) / CC;
+    for(u128 u = lo; u <= hi && n < 8; u++)
+      if((u64)(((u128)(u64)u * CC) >> 64) == rank) o[n++] = (u64)u;
   }
   return n;
 }
+
+
+static int cand_of(long d, u64 *c){ return cands_model(R[d], c); }
 
 /* does u_d = u_{d-l} OP u_{d-s} hold at position d for some assignment of the k's? */
 static int holds(long d, int s, int l, int op){
@@ -68,6 +91,8 @@ static void loadrank(const char *fn){
 int main(int argc, char **argv){
   const char *mode = argc>1?argv[1]:"selftest";
   if(!strcmp(mode,"selftest")){
+    MODEL = argc > 2 ? atoi(argv[2]) : 0;
+    printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C");
     printf("selftest: a planted lagged Fibonacci must hold at every position and be found\n");
     printf("  at its own lags; every other lag pair, and a non-LFG stream, must not.\n\n");
     long nd = 3000;
@@ -84,7 +109,7 @@ int main(int argc, char **argv){
       for(long i = 0; i < l; i++){ st = st*6364136223846793005ULL + 1442695040888963407ULL; u[i] = st; }
       for(long i = l; i < nd; i++)
         u[i] = (op==0) ? u[i-l] + u[i-s] : (op==1) ? u[i-l] - u[i-s] : u[i-l] ^ u[i-s];
-      for(long i = 0; i < nd; i++) R[i] = u[i] % CC;
+      for(long i = 0; i < nd; i++) R[i] = mkrank(u[i]);
       /* the planted lags */
       long hit = 0; for(long d = l; d < nd; d++) hit += holds(d, s, l, op);
       /* every other lag pair at the same op: the best impostor */
@@ -99,7 +124,7 @@ int main(int argc, char **argv){
       N = nd; R = malloc(8*nd); st = 0xABCDEF;
       for(long i = 0; i < nd; i++){ st += 0x9E3779B97F4A7C15ULL; u64 z = st;
         z=(z^(z>>30))*0xBF58476D1CE4E5B9ULL; z=(z^(z>>27))*0x94D049BB133111EBULL; z^=z>>31;
-        R[i] = z % CC; }
+        R[i] = mkrank(z); }
       long fp = 0; for(long d = l; d < 600; d++) fp += holds(d, s, l, op);
       free(R);
       printf("  %-28s holds %ld/%ld   best impostor %ld/560 (%d,%d)   non-LFG %ld/560   %s\n",
@@ -112,6 +137,8 @@ int main(int argc, char **argv){
   const char *fn = argc>2?argv[2]:"rank_colex0.bin";
   int maxlag = argc>3?atoi(argv[3]):64;
   long pos   = argc>4?atol(argv[4]):3000;
+  MODEL      = argc>5?atoi(argv[5]):0;
+  printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C (with rejection)");
   loadrank(fn);
   printf("real archive: %s, %ld ranks;  lags up to %d, %ld positions per pair\n",
          fn, N, maxlag, pos);

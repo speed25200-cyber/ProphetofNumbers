@@ -46,15 +46,41 @@ static int v2(u64 x){ return x ? __builtin_ctzll(x) : 64; }
 
 static u64 *R; static long N;
 
-static int cands(long d, int B, u64 *out){
+/* Candidate outputs behind a rank.
+ *
+ * Two reductions are live. Under `u mod C` (with rejection — modbias.py excludes the
+ * biased form) the preimages of a rank are r + kC. Under Lemire/mulhi, r = (u*C) >> 64
+ * and the preimages are an interval of about 5.2 integers instead: the same count, a
+ * different set. A tool that only knows the first is blind to an operator who used the
+ * second, so MODEL selects between them and both are swept.
+ */
+static int MODEL = 0;   /* 0 = u mod C (with rejection), 1 = mulhi */
+
+/* plant a rank using whichever reduction MODEL names, so the selftest exercises the
+   same path the archive run will take */
+static u64 mkrank(u64 u){ return MODEL ? (u64)(((u128)u * CC) >> 64) : u % CC; }
+
+static int cands_model(u64 rank, u64 *o){
   int n = 0;
-  u64 lim = (B == 32) ? 0 : (1ULL << 62);           /* 2x31 bits spans only 2^62 */
-  for(int k = 0; k <= 5; k++){
-    u128 u = (u128)R[d] + (u128)k * CC;
-    if(u >= ((u128)1 << 64)) break;
-    if(lim && (u64)u >= lim) continue;
-    out[n++] = (u64)u;
+  if(MODEL == 0){
+    for(int k = 0; k <= 5; k++){
+      u128 u = (u128)rank + (u128)k * CC;
+      if(u < ((u128)1 << 64)) o[n++] = (u64)u;
+    }
+  } else {
+    u128 lo = (((u128)rank) << 64) / CC, hi = (((u128)(rank + 1)) << 64) / CC;
+    for(u128 u = lo; u <= hi && n < 8; u++)
+      if((u64)(((u128)(u64)u * CC) >> 64) == rank) o[n++] = (u64)u;
   }
+  return n;
+}
+
+
+static int cands(long d, int B, u64 *out){
+  u64 raw[8]; int m = cands_model(R[d], raw), n = 0;
+  u64 lim = (B == 32) ? 0 : (1ULL << 62);           /* 2x31 bits spans only 2^62 */
+  for(int i = 0; i < m; i++)
+    if(!lim || raw[i] < lim) out[n++] = raw[i];
   return n;
 }
 static void split(u64 u, int B, int hi_first, u64 *w0, u64 *w1){
@@ -122,6 +148,8 @@ int main(int argc, char **argv){
   const char *mode = argc>1?argv[1]:"selftest";
   int need = 4, maxW = 8;
   if(!strcmp(mode,"selftest")){
+    MODEL = argc > 2 ? atoi(argv[2]) : 0;
+    printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C");
     printf("selftest: plant a 32-bit congruential generator whose two consecutive outputs\n");
     printf("  are concatenated into the rank; recover it with no multiplier assumed.\n\n");
     for(int lay = 0; lay < NLAY; lay++){
@@ -131,7 +159,7 @@ int main(int argc, char **argv){
       long nd = 200; N = nd; R = malloc(8*nd);
       for(long d = 0; d < nd; d++){
         u64 y0 = x, y1 = (a*x + c) & M;
-        R[d] = (LAYS[lay].hi_first ? ((y0<<B)|y1) : ((y1<<B)|y0)) % CC;
+        R[d] = mkrank(LAYS[lay].hi_first ? ((y0<<B)|y1) : ((y1<<B)|y0));
         x = y1; for(int t = 0; t < W-1; t++) x = (a*x + c) & M;
       }
       u64 ga, gc; int gW; int hit = 0;
@@ -142,7 +170,7 @@ int main(int argc, char **argv){
       N = nd; R = malloc(8*nd); u64 st = 0x77777;
       for(long d = 0; d < nd; d++){ st += 0x9E3779B97F4A7C15ULL; u64 z = st;
         z=(z^(z>>30))*0xBF58476D1CE4E5B9ULL; z=(z^(z>>27))*0x94D049BB133111EBULL; z^=z>>31;
-        R[d] = z % CC; }
+        R[d] = mkrank(z); }
       int fp = 0;
       for(long d = 0; d + need + 2 < nd && !fp; d++) fp = solve_at(lay,d,need,maxW,&ga,&gc,&gW);
       free(R);
@@ -155,7 +183,9 @@ int main(int argc, char **argv){
   }
   const char *fn = argc>2?argv[2]:"rank_colex0.bin";
   long starts = argc>3?atol(argv[3]):20000;
+  MODEL = argc>4?atoi(argv[4]):0;
   loadrank(fn);
+  printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C (with rejection)");
   printf("real archive: %s, %ld ranks;  %ld starting positions, W up to %d\n",
          fn, N, starts, maxW);
   printf("  the two words are recovered from the rank, then a and c solved in closed form\n\n");

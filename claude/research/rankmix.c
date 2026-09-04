@@ -30,6 +30,7 @@
 #include <stdint.h>
 
 typedef unsigned __int128 u128;
+typedef uint64_t u64;
 static const uint64_t CC = 3535316142212174320ULL;
 
 static uint64_t inv_odd(uint64_t a){ uint64_t x=a; for(int i=0;i<6;i++) x *= 2-a*x; return x; }
@@ -107,6 +108,36 @@ static uint32_t hbump(uint64_t k){
 }
 
 static uint64_t *R; static long N;
+
+/* Candidate outputs behind a rank.
+ *
+ * Two reductions are live. Under `u mod C` (with rejection — modbias.py excludes the
+ * biased form) the preimages of a rank are r + kC. Under Lemire/mulhi, r = (u*C) >> 64
+ * and the preimages are an interval of about 5.2 integers instead: the same count, a
+ * different set. A tool that only knows the first is blind to an operator who used the
+ * second, so MODEL selects between them and both are swept.
+ */
+static int MODEL = 0;   /* 0 = u mod C (with rejection), 1 = mulhi */
+
+/* plant a rank using whichever reduction MODEL names, so the selftest exercises the
+   same path the archive run will take */
+static u64 mkrank(u64 u){ return MODEL ? (u64)(((u128)u * CC) >> 64) : u % CC; }
+
+static int cands_model(u64 rank, u64 *o){
+  int n = 0;
+  if(MODEL == 0){
+    for(int k = 0; k <= 5; k++){
+      u128 u = (u128)rank + (u128)k * CC;
+      if(u < ((u128)1 << 64)) o[n++] = (u64)u;
+    }
+  } else {
+    u128 lo = (((u128)rank) << 64) / CC, hi = (((u128)(rank + 1)) << 64) / CC;
+    for(u128 u = lo; u <= hi && n < 8; u++)
+      if((u64)(((u128)(u64)u * CC) >> 64) == rank) o[n++] = (u64)u;
+  }
+  return n;
+}
+
 static void loadrank(const char *fn){
   FILE *f = fopen(fn,"rb"); if(!f){ perror(fn); exit(1); }
   fseek(f,0,SEEK_END); long sz = ftell(f); fseek(f,0,SEEK_SET);
@@ -126,11 +157,8 @@ static uint32_t scan2(int kind, long nd, uint64_t *bestdiff, uint64_t target){
   uint64_t cand[2][8]; int nc[2];
   for(long d = 0; d + 1 < nd; d++){
     for(int i = 0; i < 2; i++){
-      nc[i] = 0;
-      for(int k = 0; k <= 5; k++){
-        u128 u = (u128)R[d+i] + (u128)k * CC;
-        if(u < ((u128)1 << 64)) cand[i][nc[i]++] = inv(kind, (uint64_t)u);
-      }
+      u64 raw[8]; nc[i] = cands_model(R[d+i], raw);
+      for(int q = 0; q < nc[i]; q++) cand[i][q] = inv(kind, raw[q]);
     }
     for(int a = 0; a < nc[0]; a++)
       for(int b = 0; b < nc[1]; b++){
@@ -150,6 +178,8 @@ int main(int argc, char **argv){
   const char *mode = argc > 1 ? argv[1] : "selftest";
   hinit();
   if(!strcmp(mode, "selftest")){
+    MODEL = argc > 2 ? atoi(argv[2]) : 0;
+    printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C");
     printf("selftest: every finalizer must be a bijection, a planted generator must show a\n");
     printf("  difference recurring at every draw, and a mixed stream must show none.\n\n");
     for(int m = 0; m < NMIX; m++){
@@ -160,7 +190,7 @@ int main(int argc, char **argv){
       }
       long nd = 400; R = malloc(8*nd); N = nd;
       uint64_t s = 0xCAFEBABEDEADBEEFULL, g = 0x9E3779B97F4A7C15ULL * 7;  /* W=7 */
-      for(long i = 0; i < nd; i++){ R[i] = fwd(MIXES[m].kind, s) % CC; s += g; }
+      for(long i = 0; i < nd; i++){ R[i] = mkrank(fwd(MIXES[m].kind, s)); s += g; }
       uint64_t bd; uint32_t hit = scan2(MIXES[m].kind, nd, &bd, g);
       uint32_t tgt = TGT_COUNT;
       free(R);
@@ -168,7 +198,7 @@ int main(int argc, char **argv){
       R = malloc(8*nd); N = nd; uint64_t st = 0x1234567ULL;
       for(long i = 0; i < nd; i++){
         st = st * 6364136223846793005ULL + 1442695040888963407ULL;   /* LCG, not additive */
-        R[i] = fwd(MIXES[m].kind, st ^ (st >> 17)) % CC;
+        R[i] = mkrank(fwd(MIXES[m].kind, st ^ (st >> 17)));
       }
       uint64_t bd2; uint32_t fp = scan(MIXES[m].kind, nd, &bd2);
       free(R);
@@ -180,7 +210,9 @@ int main(int argc, char **argv){
     return 0;
   }
   const char *fn = argc > 2 ? argv[2] : "rank_colex0.bin";
+  MODEL = argc > 3 ? atoi(argv[3]) : 0;
   loadrank(fn);
+  printf("reduction model: %s\n", MODEL ? "mulhi (Lemire)" : "u mod C (with rejection)");
   printf("real archive: %s, %ld ranks\n", fn, N);
   printf("  additive state + bijective finalizer, gamma and W both unknown\n");
   printf("  a recurring difference would be the generator; chance gives at most a few\n\n");
@@ -192,7 +224,7 @@ int main(int argc, char **argv){
     R = malloc(8*N); uint64_t st = 0x1234567ULL ^ (uint64_t)m;
     for(long i = 0; i < N; i++){
       st = st * 6364136223846793005ULL + 1442695040888963407ULL;
-      R[i] = fwd(MIXES[m].kind, st ^ (st >> 17)) % CC;
+      R[i] = mkrank(fwd(MIXES[m].kind, st ^ (st >> 17)));
     }
     uint64_t bd2; uint32_t nul = scan(MIXES[m].kind, N, &bd2);
     free(R); R = sav;
