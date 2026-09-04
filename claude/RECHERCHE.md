@@ -21,9 +21,16 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | LCG 2⁶⁴ à sortie de poids fort | **Exclu** — 2 880 réductions de réseau (12 multiplicateurs standards × 48 W × 5 fenêtres), 0 correspondance |
 | `java.util.Random`, état 48 bits quelconque | **Exclu** — même réseau, module paramétré, 0 correspondance |
 | Congruentiel `u = s >> shift` puis `j = u % 80` | **Exclu** — effondrement en bits faibles, 2⁶⁴ ramené à 2²⁰–2³⁶, **0 survivant** |
+| Idem avec l'**incrément également inconnu** | **Exclu** — réserve levée, contrôle corrigé et validé, 0 survivant (§7 ter) |
 | Hachage à **rondes réduites** (la fonction de delta-chain) | **Exclu**, 1 920 schémas |
 | Mode compteur à clé par défaut (AES-CTR, ChaCha20) | **Exclu**, 360 combinaisons |
-| splitmix64 / PCG / xoshiro\*\* par SAT | **Hors d'atteinte, mesuré** — la barrière des retenues tient |
+| splitmix64 / PCG / xoshiro\*\* par SAT, canal 4 bits | **Hors d'atteinte, mesuré** — la barrière des retenues tient |
+| **Le tirage trié vu comme un rang combinatoire** (61,6 bits/tirage au lieu de 4) | **Piste neuve — le tri ne perd rien si le tirage n'a jamais eu d'ordre.** Voir §6 quater |
+| LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 3 conventions × 5 mappages × 70 557 départs, 0 |
+| splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
+| **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
+| `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
+| Réensemencement sur l'horloge aux 24 décrochages | **Exclu** — 2,46·10¹⁰ graines, maximum 13/20 exactement à l'espérance du hasard |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
@@ -504,7 +511,19 @@ Contrôles à 48 quartets observés, 20 tenus en réserve (`./lowlcg3 selftest`)
 Le hasard donnerait 1,25 quartet correct sur 20. « Intrus » compte les survivants
 extérieurs à la famille de translation : zéro partout, sur des millions de paires
 visitées. L'outil est donc probant dans les deux sens, et son résultat sur l'archive
-compte.
+compte :
+
+```
+$ ./lowlcg3 real 24
+  java multiplier      L=20  best survivors 0   (no state/increment pair fits at any W)
+  MSVC multiplier      L=20  best survivors 0
+  glibc LCG multiplier L=16  best survivors 0
+  Borland multiplier   L=20  best survivors 0
+  total survivors: 0  ->  no custom-increment LCG of this shape fits the archive
+```
+
+**La réserve est levée** : un opérateur qui garderait un multiplicateur connu en
+choisissant son propre incrément n'échappe plus à l'exclusion.
 
 ### Clés par défaut en mode compteur — `defaultkey.py`
 
@@ -588,6 +607,190 @@ l'attaque exige de **deviner le multiplicateur**. Un multiplicateur maison lui �
 
 ---
 
+## 6 quater. Le tri ne détruit rien — si le tirage n'a jamais eu d'ordre
+
+Toutes les attaques ci-dessus butent sur le même fait : l'archive publie 20 numéros
+**triés**, donc les 89,6 bits d'ordre sont perdus et il ne reste que 4 à 6 bits de canal
+auxiliaire par tirage. C'est la « barrière combinatoire » du tableau de synthèse.
+
+Mais cette barrière suppose que le générateur ait **produit** un ordre. Une classe
+entière d'implémentations réelles ne mélange rien : elle tire **un** entier dans
+`[0, C(80,20))` et le **dérange** (unranking) en combinaison. C'est la façon canonique
+d'obtenir un sous-ensemble uniforme sans mélange, et c'est ce qu'on écrit quand on veut
+qu'un tirage soit auditable à partir d'un seul nombre publié.
+
+Sous cette architecture, le tirage trié **est** la sortie du générateur, en entier :
+
+```
+C(80,20) = 3 535 316 142 212 174 320 = 2^61,617 bits par tirage
+```
+
+Pas 4 bits. **61,6 bits**, et le tri n'en perd aucun, puisqu'il n'y avait pas d'ordre à
+perdre. C'est un facteur 15 sur le débit d'information, et il change la nature des
+attaques possibles.
+
+`rank.py` calcule ce rang sous trois conventions (colex/lex, numéros 0- ou 1-basés). Les
+deux formules sont vérifiées par **énumération exhaustive** à (n,k) = (5,2), (7,3), (9,4),
+(12,5), puis recalculées en grands entiers exacts sur six vrais tirages. Le flux de rangs
+est uniforme sur `[0, C)` comme le veut le modèle nul : moyenne/C = 0,5011, écart-type/C
+= 0,28897 contre 1/√12 = 0,28868, χ² = 45,9 sur 64 cases (df 63, z = −1,52).
+
+### `lcgrank.c` — un LCG quelconque, sans deviner le multiplicateur
+
+Avec 61,6 bits par tirage l'attaque n'a plus rien à deviner. En écrivant
+`u_{d+1} = A·u_d + B (mod 2^64)`, trois sorties consécutives donnent
+
+```
+A = (u₂ − u₁) / (u₁ − u₀)        B = u₁ − A·u₀
+```
+
+en forme close. Et comme `A = a^W` et `B = c(a^{W−1}+…+1)` pour un générateur avancé de
+W pas par tirage, résoudre pour `(A,B)` **quelconque** couvre d'un seul coup *tous* les
+multiplicateurs, *tous* les incréments et *tous* les W — sans balayage. C'est
+strictement plus fort que les 2 880 réductions de réseau du §6 ter, qui devaient, elles,
+énumérer 12 multiplicateurs standards.
+
+Le rang ne donne `u` que modulo C, mais `2^64/C = 5,22`, donc `u = r + kC` avec k ∈ 0..5 :
+216 combinaisons par triplet. Chaque candidat est ensuite vérifié sur 6 tirages de plus,
+où un faux survit avec probabilité 2⁻³⁶⁹.
+
+Contrôles : les 5 mappages plantés sont récupérés, et **deux flux mélangés
+non-affines** sont rejetés. Le contrôle négatif évident — « des rangs aléatoires » — a
+d'abord été écrit comme un LCG réduit mod C : c'est-à-dire *exactement* le mode 0, donc
+un second positif déguisé en contrôle. Corrigé.
+
+Sur l'archive, **3 conventions de rang × 5 mappages × 70 557 positions de départ : 0**.
+
+### `rankmix.c` — splitmix64, que le §6 bis classait « hors d'atteinte »
+
+Le tableau de synthèse porte `splitmix64 / PCG / xoshiro**` en **hors d'atteinte,
+mesuré** : à 4 bits par tirage il faut un solveur SAT qui traverse la chaîne de retenues,
+et la barrière tient. Cette barrière existait parce que l'observable faisait 4 bits.
+
+À 61,6 bits elle s'évapore — non pas parce que le solveur s'améliore, mais parce que le
+problème **cesse d'être une recherche**. splitmix64 est `state += γ`, `sortie = fmix(state)`,
+et `fmix` est une **bijection**. Une sortie complète rend donc l'état par simple inversion :
+
+```
+s_d = fmix⁻¹(u_d)        s_{d+1} − s_d = W·γ = la même constante, pour toujours
+```
+
+Ni γ ni W n'ont besoin d'être connus : W ne fait que multiplier la constante. Le test est
+donc « une différence se répète-t-elle ? ». Sur 70 559 paires × 36 candidats, soit 2,5 M
+de valeurs dans un espace de 2⁶⁴, même trois collisions seraient hors du hasard.
+
+Six finaliseurs testés (splitmix64, murmur3 fmix64, moremur, rrmxmx, identité,
+xor-shift seul). Contrôles : bijectivité vérifiée sur 40 000 valeurs, γ planté retrouvé
+avec une récurrence de 399/399, flux témoin à 1. Le seuil n'est pas supposé mais
+**calibré** pour chaque finaliseur sur un flux non-additif de la **même longueur** —
+nécessaire, car l'identité (l'additionneur pur) est dégénérée et a un niveau de hasard
+plus élevé.
+
+| finaliseur | archive | hasard, même longueur |
+|---|---|---|
+| splitmix64 fmix | 1 | 1 |
+| murmur3 fmix64 | 1 | 1 |
+| moremur | 1 | 1 |
+| rrmxmx | 1 | 1 |
+| identité (additionneur pur) | 6 | 6 |
+| xor-shift seul | 1 | 1 |
+
+Chaque ligne est **exactement** sur son niveau de hasard, pour les trois conventions de
+rang. splitmix64 passe de « hors d'atteinte » à **écarté**.
+
+### `bm.c` — Berlekamp-Massey : la classe F2-linéaire entière, sans énumérer
+
+Tout ce qui précède teste des générateurs **nommés**, un par un : choisir MT19937, un
+canal, un W, monter le système GF(2), résoudre. Des milliers de configurations, chacune
+une hypothèse séparée. Une telle démarche ne peut écarter que ce qu'on a pensé à
+énumérer.
+
+Berlekamp-Massey n'énumère rien. Si le bit observé est **une** fonctionnelle F2-linéaire
+de l'état de **n'importe quel** générateur F2-linéaire — MT19937, MT19937-64, WELL,
+xorshift, le cœur linéaire de xoshiro, un LFSR de taps quelconques, quelque chose que
+personne n'a publié — alors la suite observée est linéaire récurrente et sa **complexité
+linéaire** vaut au plus la taille de l'état. Et cela reste vrai quand le générateur est
+avancé de W pas par tirage : échantillonner une application linéaire tous les W pas
+redonne une application linéaire, donc **W ne peut rien changer**. Un seul nombre tranche
+pour toute la classe.
+
+Contrôles : xorshift64 → 64, LFSR de 521 bits → 521, xorshift128+ échantillonné tous les
+7 pas → 128 (W est bien sans effet), splitmix64 (non linéaire) → n/2.
+
+Sur l'archive, 30 flux de bits observables (les 4 plans de bits k-libres du rang pour
+chaque convention, les 7 de `bonus`, les 5 du rang du bonus dans le tirage, les 3 de
+`boost`, et le bit de poids faible de trois positions triées), n = 70 560 :
+
+```
+complexité linéaire mesurée : 35 278 à 35 282     (n/2 = 35 280)
+six flux aléatoires, même longueur : 35 280 à 35 282
+```
+
+Les deux distributions sont indiscernables. Donc, en une phrase :
+
+> **Aucun générateur F2-linéaire d'état inférieur à 35 280 bits, quels que soient ses
+> taps et quel que soit W, ne produit un seul de ces flux.**
+
+MT19937 (19 937 bits), MT19937-64, WELL19937, xorshift1024\*, et toute la famille
+xoshiro/xoroshiro en font partie — y compris les variantes à sortie additive, dont le
+bit 0 est exactement linéaire. Cette seule mesure subsume les 3 900 configurations du
+§6 bis, et va bien au-delà : elle couvre les générateurs qu'on n'a pas nommés.
+
+Les 4 plans de bits du rang sont les plus rigoureux du lot : `v₂(C(80,20)) = 4`, donc
+`u mod C` conserve **exactement** les 4 bits de poids faible de `u`, quel que soit le k
+inconnu. Les plans de `bonus` et `boost` sont plus faibles — si `bonus−1 = u % 80`, ses
+bits bas ne sont pas des fonctionnelles linéaires de u — et sont rapportés comme tels.
+
+### `rankxo.c` — les brouilleurs `**`, que ni l'un ni l'autre n'atteint
+
+Restent les générateurs « brouillés » modernes : `xoshiro256**` et `xoroshiro128**`
+posent une application **non linéaire** sur un cœur linéaire,
+
+```
+sortie = rotl(s1 × 5, 7) × 9
+```
+
+de sorte qu'aucun bit de sortie n'est une fonctionnelle linéaire : Berlekamp-Massey ne
+dit rien à leur sujet, et rankmix non plus (l'état n'est pas additif).
+
+Mais ce brouilleur est une **bijection** — ×5, rotation, ×9, tout est inversible mod
+2⁶⁴. Avec une sortie complète, la non-linéarité se **décolle** :
+
+```
+s1 = rotr(sortie × 9⁻¹, 7) × 5⁻¹
+```
+
+et ce qui reste dessous est linéaire. L'état tombe alors en **une** résolution linéaire :
+plus de recherche dans la chaîne de retenues, plus de SAT.
+
+L'application linéaire est construite en **faisant tourner** le générateur sur des états
+de base plutôt que par algèbre symbolique : la colonne i de la matrice est ce que fait
+l'observable quand l'état vaut le vecteur unité e_i. Ce n'est licite que si la mise à
+jour est purement F2-linéaire, ce que le contrôle vérifie directement
+(`step(a⊕b) = step(a)⊕step(b)` sur 500 paires).
+
+Une mesure a corrigé une supposition : les D mots échantillonnés **n'engendrent pas**
+l'état — rang 253/256 et 125/128, il manque exactement 3 bits. Un tirage de plus, et une
+base indépendante choisie parmi les lignes, réparent cela.
+
+Contrôles : linéarité vérifiée, bijectivité vérifiée sur 200 000 valeurs, générateur
+planté récupéré, flux mélangé rejeté.
+
+Un premier passage laissait 3 valeurs de W (et 5 pour xoroshiro128\*\*) **non testées**
+faute de matrice inversible. Plutôt que de les déclarer, l'outil prend des tirages
+supplémentaires jusqu'à ce que la base se ferme — au prix d'un facteur 6 en affectations
+de k par tirage ajouté. Résultat : **0 W encore singulier**, jusqu'à 6 tirages utilisés.
+
+```
+xoshiro256**     0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 6 tirages)
+xoroshiro128**   0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 4 tirages)
+```
+
+`xoshiro512**` demande 6⁹ affectations de k par fenêtre et **reste hors budget** —
+c'est une lacune, elle est déclarée comme telle.
+
+---
+
 ## 7. Ce qui a été appris sur le jeu
 
 - **Table du multiplicateur boost reconstruite exactement** :
@@ -616,6 +819,16 @@ l'attaque exige de **deviner le multiplicateur**. Un multiplicateur maison lui �
   | 9 | 2,25 | 7,243·10⁻⁷ | 1 380 688 |
   | 10 | 2,50 | 1,122·10⁻⁷ | 8 911 711 |
 
+- **Les 24 décrochages d'horloge ne cachent aucun réensemencement.** Si un service
+  redémarre, la graine plausible est l'horloge murale à cet instant précis.
+  `jitter_seeds.py` vise donc chaque tirage suivant un décrochage — 24 cibles — sur
+  trois fenêtres (secondes ±30, millisecondes ±2 s, nanosecondes ±2 ms), soit
+  **2,46·10¹⁰ essais de graine**. Meilleur préfixe obtenu : **13/20**. Or à ce nombre
+  d'essais le hasard seul en attend 6,05 à 13 et 0,63 à 14 : le maximum observé tombe
+  **exactement** sur l'espérance, comme le passage de calibration à 1,02·10⁹ essais
+  (maximum attendu 12,0 — observé 12). Le seuil d'alarme de l'outil, fixé à 14, est
+  donc bien placé, et le verdict est net : **aucun réensemencement sur l'horloge**,
+  à aucune granularité.
 - **Provenance de l'archive.** Deux marqueurs indiquent une capture réelle plutôt
   qu'une fabrication : les 24 décrochages d'horloge en paires exactement compensées
   (un artefact d'ordonnanceur que personne ne fabriquerait), et la table du boost qui

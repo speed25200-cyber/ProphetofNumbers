@@ -25,3 +25,6 @@ analog
 dumpbin
 lowlcg2
 lowlcg3
+rank_*.bin
+bits_*.bin
+*.log

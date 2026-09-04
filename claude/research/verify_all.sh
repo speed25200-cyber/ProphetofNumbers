@@ -16,6 +16,11 @@ gcc -O3 -march=native -o lin_break     lin_break.c               2>/dev/null
 gcc -O3               -o lcg_lll_c     lcg_lll.c       -lm       2>/dev/null
 gcc -O3 -march=native -o lowlcg        lowlcg.c                  2>/dev/null
 gcc -O3 -march=native -o lowlcg2       lowlcg2.c                 2>/dev/null
+gcc -O3 -march=native -o lowlcg3       lowlcg3.c                 2>/dev/null
+gcc -O3 -march=native -o lcgrank       lcgrank.c                 2>/dev/null
+gcc -O3 -march=native -o rankmix       rankmix.c                 2>/dev/null
+gcc -O3 -march=native -o rankxo        rankxo.c                  2>/dev/null
+gcc -O3 -march=native -o bm            bm.c                      2>/dev/null
 python3 mkdata.py >/dev/null
 
 echo
@@ -59,6 +64,27 @@ echo "=== 8. lowlcg: a planted state must be recovered in every family ==="
 ./lowlcg selftest
 echo "    (broadened variant: extra nibble positions and the bonus-rank channel)"
 ./lowlcg2 selftest | tail -4
+
+echo
+echo "=== 8 bis. lowlcg3: the increment unknown too — the observable only fixes the"
+echo "    orbit up to a translation, so the control asks that nothing be lost, nothing"
+echo "    spurious be found, and that survivors predict held-out nibbles ==="
+./lowlcg3 selftest | tail -4
+
+echo
+echo "=== 8 ter. the sorted draw read as a combinatorial rank (61.6 bits, not 4) ==="
+python3 rank.py 2>&1 | grep -E "verified|match exact"
+echo "    an arbitrary LCG must be recovered from 3 ranks, mixed streams rejected:"
+./lcgrank selftest | grep mode
+echo "    an additive state under 6 bijective finalizers:"
+./rankmix selftest | grep -E "splitmix|murmur|moremur|rrmxmx|identity|xor-shift"
+echo "    the ** scramblers, peeled off by inversion:"
+./rankxo  selftest | grep -E "xoshiro|xoroshiro"
+
+echo
+echo "=== 8 quater. Berlekamp-Massey: the whole F2-linear class without enumerating."
+echo "    Complexity must equal the state size, and sit at n/2 for a non-linear source ==="
+./bm selftest | tail -4
 
 echo
 echo "=== 9. redhash: the reduced compression function must equal hashlib at R=64 ==="
