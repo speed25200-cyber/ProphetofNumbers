@@ -113,7 +113,7 @@ l'intuition** :
 Si l'on chasse un pari favorable, on le chasse sur la **plus petite** grille, pas sur la plus
 grande. C'est du §244, c'est exact, et le bloc `16` du vérificateur le recalcule.
 
-## Les trois questions qui changent le signe, et aucune n'est un calcul
+## Les quatre questions qui décident, et aucune n'est un calcul
 
 
 
@@ -131,7 +131,19 @@ chose ne colle pas, et ce quelque chose vaut `18 %` par franc. La lecture cohér
 multiplicateur ne multiplie pas ce barème (`58,8 %` de retour), mais **cela se vérifie sur un
 ticket**, pas dans l'archive. §244.
 
-**3. Filmer vingt tirages et noter les numéros dans l'ordre d'apparition.**
+**3. Récupérer un tirage par l'API sans le trier — et le même tirage filmé.**
+
+C'est le levier le plus lourd du dossier, et le moins cher. `lab/draws_ordered.csv` porte une
+ligne de source **`jeux.loro.ch`** qui **n'est pas triée** : l'API publie un ordre, et le §247
+établit qu'il n'est pas un artefact (`302` comparaisons discordantes contre `0` attendues pour
+tout ordre déterministe). Restent deux questions qu'un seul tirage capté **des deux côtés**
+tranche : cet ordre est-il l'ordre physique, et l'API le sert-elle pour l'historique ?
+
+Si oui, l'archive se re-télécharge **ordonnée** — `70 560` tirages à `126,4` bits au lieu de
+`61,6`, et `29 600` tirages exploitables au lieu de cinq. **×5 880 sur la donnée, pour une
+boucle HTTP.** Protocole : `lab/RELEVE_ORDONNE.md`.
+
+**4. À défaut, filmer vingt tirages et noter les numéros dans l'ordre d'apparition.**
 
 Le `bonus` fournit déjà **un** mot ordonné par tirage (§230). Un tirage filmé en fournit
 **vingt consécutifs**, ce qui fixe le pas de bloc au lieu de le balayer et ouvre les

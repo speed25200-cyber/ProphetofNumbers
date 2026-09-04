@@ -667,6 +667,29 @@ def bloc_ordonnes():
     dit("variance exacte des montees = (n+1)/12", proche(var, 1.75, 1e-12),
         f"{var:.4f}", "1,7500")
 
+    # -- §247 : l'ordre publie n'est pas un artefact deterministe de la valeur
+    from collections import defaultdict
+    sens = defaultdict(list)
+    for ligne in V:
+        pos = {int(v): i for i, v in enumerate(ligne)}
+        vals = sorted(pos)
+        for i in range(len(vals)):
+            for j in range(i + 1, len(vals)):
+                sens[(vals[i], vals[j])].append(1 if pos[vals[i]] < pos[vals[j]] else 0)
+    acc = tot = 0
+    for v in sens.values():
+        for i in range(len(v)):
+            for j in range(i + 1, len(v)):
+                tot += 1
+                acc += int(v[i] == v[j])
+    dit("comparaisons DISCORDANTES (0 = ordre deterministe de la valeur)",
+        tot - acc > 0, f"{tot-acc}/{tot}", "> 0")
+    dit("taux d'accord compatible avec 1/2", abs(acc / tot - 0.5) < 0.06,
+        f"{acc/tot:.4f}", "0,5 +/- 0,06")
+    srcs = [r.get("source", "") for r in L]
+    dit("au moins un releve ordonne vient de l'API", any("loro.ch" in x for x in srcs),
+        f"{sum('loro.ch' in x for x in srcs)}/{len(srcs)}", ">= 1")
+
 
 
 # ======================================================================================

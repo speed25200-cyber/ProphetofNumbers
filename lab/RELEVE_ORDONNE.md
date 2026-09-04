@@ -114,3 +114,44 @@ consécutifs**, ce qui (a) fixe le pas au lieu de le balayer, (b) permet d'attaq
 échantillonneurs à rejet dont le décalage varie, et (c) rend l'attaque possible sur les nuits
 courtes. La demande tient — elle est simplement moins urgente qu'écrit ici, et elle porte
 désormais sur ce que le bonus ne donne pas plutôt que sur tout.
+
+
+---
+
+## Addendum (§247) — il y a peut-être beaucoup plus simple qu'une caméra
+
+Ce fichier suppose que l'ordre de sortie doit être **filmé**. Le §247 montre que ce n'est
+peut-être pas nécessaire :
+
+> La quatrième ligne de `lab/draws_ordered.csv` a pour source **`jeux.loro.ch`** — le serveur —
+> et elle **n'est pas triée**. L'API publie donc un ordre, et le §h223 établit que cet ordre
+> n'est pas un artefact de sérialisation (`302` comparaisons discordantes, là où un ordre
+> déterministe de la valeur en donnerait `0`).
+
+### Les deux questions à trancher, dans cet ordre
+
+**1. Un seul tirage, deux sources.** Filmer un tirage à l'écran *et* récupérer le même
+identifiant par l'API, puis comparer les deux ordres. S'ils coïncident, l'ordre publié **est**
+l'ordre physique, et tout le reste suit. Aucun des douze relevés n'est doublé : c'est le trou
+à combler en premier, et il coûte cinq minutes.
+
+    GET https://jeux.loro.ch/api/dbg/game/lotoexpress/draws/{id}
+    -> results[0].primarySelection      (à conserver VERBATIM, sans trier)
+
+**2. L'API sert-elle l'ordre pour l'historique ?** La ligne `1381028` est un tirage récent
+récupéré à chaud. Les `70 560` lignes de l'archive sont triées — mais **aucun script de
+capture ne figure dans le dépôt**, donc personne ne sait si c'est le serveur ou le script qui
+a trié. Une seule requête sur un identifiant ancien répond.
+
+### Ce que ça vaut, si les deux réponses sont oui
+
+    12 relevés ordonnés   ->   70 560
+    61,6 bits par tirage  ->   126,4
+
+Le §246 a passé trente générateurs sur douze tirages ordonnés. La même attaque sur
+soixante-dix mille multiplie les chances par `5 880`, supprime le pari sur le préfixe sans
+rejet — `42 %` des tirages en ont un de longueur douze, soit `29 600` utilisables — et rouvre
+les attaques d'alignement que le §7.33 avait fermées faute de mots consécutifs.
+
+**C'est le seul levier du dossier qui multiplie la donnée par cinq mille, et il ne demande ni
+caméra ni calcul.**

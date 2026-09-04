@@ -1129,6 +1129,15 @@ exclut un taux de fuite ≥ 1 %, N = 3 000 exclut ≥ 0,1 %.
   croissant sur les 70 560 lignes. Un tirage ordonné porterait ≈ 124 bits
   contre 61,6 pour l'ensemble trié — le plus gros gain d'information
   disponible, et il n'est pas dans les données dont on dispose.
+
+  > **CORRIGÉ PAR LE §247.** Cette phrase est fausse depuis toujours.
+  > `lab/draws_ordered.csv` porte une ligne de source `jeux.loro.ch` — le
+  > serveur lui-même — et elle n'est pas triée. Le §247 établit en outre que
+  > l'ordre publié n'est pas un artefact de sérialisation : `302` comparaisons
+  > discordantes là où tout ordre déterministe de la valeur en donnerait zéro.
+  > Ce qui reste ouvert n'est plus *« l'API publie-t-elle un ordre »* mais
+  > *« cet ordre est-il l'ordre physique, et le sert-elle pour l'historique »* —
+  > deux questions qu'un seul tirage capté des deux côtés tranche.
 - **Le flux live.** Le réseau vers `jeux.loro.ch` est fermé depuis cet
   environnement (403 au CONNECT). Les questions du boost avant clôture et de
   la latence de publication demandent l'app sur un téléphone.
@@ -23875,5 +23884,109 @@ avec un crible qui ne peut manquer aucune solution en dessous de `2³²`.
 
 **Lignes de registre.** `h221.ordonnes_famille_elargie`, piste B, conforme ;
 `h221b.calibrage_corrige`, piste B, conforme, `15/15` couvertes.
+
+---
+
+## 247. **L'ordre publié par l'API** : une contradiction dans mon propre dossier (`h222_ordre_publie.py`, `h223_ordre_reproductible.py`)
+
+### La contradiction
+
+Le §11 range « l'ordre de sortie des boules » parmi *ce que ce labo ne peut pas trancher* :
+
+> « L'archive est triée : `n1..n20` est croissant sur les `70 560` lignes. Un tirage ordonné
+>   porterait `≈ 124` bits contre `61,6` — le plus gros gain d'information disponible, et
+>   **il n'est pas dans les données dont on dispose.** »
+
+Et le §10 pose le critère qui trancherait, en soulignant qu'il est **asymétrique** : *« une
+seule observation positive tranche A »*.
+
+Or `lab/draws_ordered.csv` porte cette observation depuis toujours. Sa quatrième ligne :
+
+    1381028, jeux.loro.ch, 7, 73, 14, 8, 60, 10, 71, 33, 9, 37, 51, 12, 77, 17, 23, 15, 3, 56, 21, 47
+
+**Source : `jeux.loro.ch` — le serveur lui-même. Et cette suite n'est pas triée.** Les onze
+autres lignes viennent d'un écran ou d'une vidéo ; celle-là vient de l'API.
+
+> Le dossier portait dans ses propres données la réponse à une question qu'il déclarait sans
+> réponse. Personne n'avait regardé la colonne `source`.
+
+### Ce que ça ne prouve pas encore, et deux tests pour le savoir
+
+Qu'un ordre soit publié ne prouve pas que ce soit **l'ordre de sortie**. Trois lectures
+concurrentes : l'ordre de sortie ; un artefact de sérialisation (itération d'une table de
+hachage, de seaux, d'une jointure) ; un ordre arbitraire mais fixe. Les deux dernières ont une
+signature commune — **la position dépendrait de la valeur**.
+
+**Premier test (§h222), contre les artefacts monotones.** Cinq statistiques sur les douze
+relevés, contre la permutation uniforme :
+
+| statistique | observé | sous permutation uniforme | `p` |
+|---|---|---|---|
+| `rho` de Spearman position-valeur | `−0,0911` | `[−0,1300 ; +0,1308]` | `0,17` |
+| montées par tirage | `9,3333` | `[8,75 ; 10,25]` | `0,74` |
+| écart maximal du profil à `40,5` | `17,50` | `[9,25 ; 20,92]` | `0,30` |
+| `max \|z\|` sur les `190` couples | `3,4641` | `[2,3094 ; 3,4641]` | `0,16` |
+| occupation de la position du minimum | `2` | `[2 ; 4]` | `1,00` |
+
+Les cinq tiennent. Et le témoin dit ce qu'on cherchait : un ordre trié donne `rho = +1,000` et
+`19` montées.
+
+**Second test (§h223), et il tue tout le reste.** Le premier a un angle mort qu'il faut dire :
+il vise les artefacts **monotones**. Un ordre de **hachage** (`valeur × K mod 2³²`, puis tri)
+n'est pas monotone — il ressemble à une permutation uniforme et passerait les cinq tests.
+
+Mais tout artefact, hachage compris, est une **fonction déterministe de la valeur**. Donc :
+
+> Si `u` et `v` apparaissent ensemble dans deux relevés, un ordre déterministe les place
+> **toujours** dans le même sens. Un ordre de sortie les place dans le même sens **une fois
+> sur deux**.
+
+    témoin « ordre trié »                        : 730/730 = 1,0000
+    témoin « ordre de hachage »                  : 730/730 = 1,0000     <- invisible au §h222
+    témoin « permutation uniforme »              : 360/730 = 0,4932
+
+    les douze relevés                            : 335/637 = 0,5259     z = +1,31
+    comparaisons DISCORDANTES                    : 302
+
+**Une seule discordance suffit à réfuter tout ordre déterministe de la valeur. Il y en a
+`302`.**
+
+    ORDRE RÉEL
+
+### Ce qui reste à établir, et ça coûte cinq minutes
+
+Deux choses, et aucune ne demande un calcul :
+
+  **L'ordre publié est-il l'ordre *physique* ?** Mes tests excluent les artefacts
+     déterministes, pas une re-randomisation au moment de la publication — qui serait elle
+     aussi un ordre « réel » mais sans valeur. **Un seul tirage capté des deux côtés — filmé
+     à l'écran *et* récupéré par l'API — tranche définitivement.** Aucun des douze relevés
+     n'est doublé ; c'est le trou à combler en premier.
+  **L'API sert-elle l'ordre pour les tirages *historiques* ?** La ligne `1381028` est un
+     tirage récent, récupéré à chaud. Les `70 560` lignes de l'archive sont triées — mais
+     personne ne sait si c'est le serveur ou le script de capture qui a trié : **aucun script
+     de capture ne figure dans le dépôt.**
+
+### Ce que ça vaudrait
+
+Si la réponse aux deux est oui, l'archive se re-télécharge **ordonnée** :
+
+    70 560 tirages × 126,4 bits   au lieu de   70 560 × 61,6
+    et 12 relevés ordonnés        deviennent   70 560
+
+Ce n'est pas un gain marginal. Le §246 a passé trente générateurs sur **douze** tirages
+ordonnés ; la même attaque sur soixante-dix mille multiplie les chances par `5 880`, supprime
+le pari sur le préfixe sans rejet — `42 %` des tirages en ont un de longueur douze, soit
+`29 600` tirages utilisables au lieu de cinq — et rouvre toutes les attaques d'alignement que
+le §7.33 avait fermées faute de mots consécutifs.
+
+> **C'est le seul levier du dossier qui multiplie la donnée par cinq mille, et il ne demande
+> ni caméra, ni calcul : une boucle `HTTP` sur un identifiant.**
+
+Et le §10-A avait déjà écrit le correctif applicatif d'une ligne : `Draw.hasDrawOrder` est
+calculé à chaque tirage puis **jeté**. Il suffit de le compter.
+
+**Lignes de registre.** `h222.ordre_publie`, piste B, ORDRE REEL, `m_extra = 4` ;
+`h223.ordre_reproductible`, piste B, ORDRE REEL.
 
 ---
