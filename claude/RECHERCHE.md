@@ -32,6 +32,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | `xoshiro256**`, `xoroshiro128**`, `xoshiro512**` (brouilleur non linéaire) | **Exclus** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
+| **Toute** la classe FCSR / à retenue, sans énumérer | **Exclue** — complexité **2-adique**, la contrepartie de Berlekamp-Massey ; contrôles exacts à 64, 128, 256, 1 024 bits |
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
 | `Math.floor(Math.random() * C)` — le rang médié par un double | **Exclu** — 142 multiples de 512 observés pour 137,8 attendus, contre 70 560 si c'était le cas |
 | Les 5 fautes de mélange qui **auraient** donné un avantage | **Exclues** — \|ΔP\| de 0,011 à 0,750, soit \|z\| de 6,5 à 460 ; l'archive plafonne à 2,72 |
@@ -804,6 +805,39 @@ mulhi, bits 24/28/32/40/48 : 0 différence sur 200 000 chacun
 
 Les deux canaux sont exacts là où l'argument le dit, et cessent de l'être exactement là
 où il dit qu'ils cessent.
+
+### `twoadic.py` — la contrepartie « à retenue » de Berlekamp-Massey
+
+`bm.c` règle la classe F2-linéaire sans l'énumérer, parce qu'une suite linéaire récurrente
+a une **complexité linéaire** faible. Les familles à retenue ont l'analogue exact : un
+FCSR de nombre de connexion `q` émet le développement 2-adique de `p/q`, donc sa suite a
+une **complexité 2-adique** faible. Et tout multiply-with-carry **est** un FCSR — le MWC
+de Marsaglia de multiplicateur `a` en base `b` correspond à `q = a·b − 1`.
+
+Donc `rankmwc`, qui a besoin d'un multiplicateur publié, se généralise : celui-ci n'en a
+besoin d'aucun. Et les deux tests couvrent ensemble les deux mondes linéaires — sur GF(2)
+et sur les 2-adiques — **sans nommer un seul générateur**.
+
+La minimisation est un problème de réseau en dimension 2 : les couples `(t, r)` avec
+`r ≡ t·S (mod 2ⁿ)` engendrent le réseau de base `(1, S)` et `(0, 2ⁿ)`, et l'algorithme
+d'Euclide sur `(2ⁿ, S)` parcourt exactement ses meilleures approximations, donc le plus
+court vecteur est le plus petit `max(|rᵢ|, |tᵢ|)` le long de ce parcours.
+
+Contrôles (et le premier jet en avait de faux : un `int64` de numpy déborde silencieusement
+sur les décalages construisant un `q` de 128 ou 256 bits, ce qui donnait un nombre de
+connexion absurde et donc un contrôle absurde — corrigé en entiers Python) :
+
+| source | complexité 2-adique mesurée | attendu |
+|---|---|---|
+| FCSR, q de 64 bits | 63,6 | 64 |
+| FCSR, q de 128 bits | 125,5 | 128 |
+| FCSR, q de 256 bits | 255,0 | 256 |
+| FCSR, q de 1 024 bits | 1 021,6 | 1 024 |
+| MWC `a = 4 294 967 118`, `q = a·2³² − 1` | **64,0** | 64 |
+| bits aléatoires | 3 999,9 | n/2 = 4 000 |
+
+Sur l'archive, tous les flux observables tombent sur n/2. **Aucun FCSR ni multiply-with-carry**
+n'y produit un seul flux.
 
 ### `rankxo.c` — les brouilleurs `**`, que ni l'un ni l'autre n'atteint
 
