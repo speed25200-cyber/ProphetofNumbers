@@ -104,6 +104,40 @@ static void lfsr_planes(int order, long n, int m, unsigned char **out){
 }
 
 int main(int argc, char **argv){
+  /* Control at the SIZE THE CLAIM IS MADE AT. The small selftest shows the cut is sharp;
+     this shows it is still sharp at 44 497 bits — the state of WELL44497, the generator
+     that motivated lifting the bound. Anything else would be validating at one scale and
+     claiming at another. */
+  if(argc > 2 && !strcmp(argv[1], "bigtest")){
+    int R = atoi(argv[2]);                 /* planted order, rounded up to whole words */
+    int m = 4; long n = 70560;
+    R = ((R + 63) / 64) * 64;
+    printf("planting an F2-linear generator of state %d bits, %d planes of %ld bits\n\n",
+           R, m, n);
+    unsigned char **pl = malloc(m * sizeof(void*));
+    for(int j = 0; j < m; j++) pl[j] = malloc(n);
+    lfsr_planes(R, n, m, pl);
+    int orders[3]; orders[0] = R - 2048; orders[1] = R; orders[2] = R + 3503;
+    for(int t = 0; t < 3; t++){
+      int order = orders[t];
+      if((long)m * (n - order) < order){
+        printf("  L=%5d : not enough rows (%ld < %d) — outside the multi-sequence bound\n",
+               order, (long)m*(n-order), order);
+        continue;
+      }
+      setup(order);
+      long rows = 0; int bad = 0;
+      for(int j = 0; j < m && !bad; j++) feed(pl[j], n, &rows, &bad);
+      printf("  L=%5d : %-34s (rank %ld, %ld rows)  %s\n", order,
+             bad ? "INCONSISTENT — no such recurrence" : "consistent", NPIV, rows,
+             (order < R) == (bad != 0) ? "as it must" : "UNEXPECTED");
+      fflush(stdout);
+      teardown();
+    }
+    for(int j = 0; j < m; j++) free(pl[j]);
+    free(pl);
+    return 0;
+  }
   if(argc > 1 && !strcmp(argv[1], "selftest")){
     printf("selftest: with m sequences obeying ONE recurrence of order R, the system must\n");
     printf("  be consistent for L >= R and inconsistent for L < R. That two-sided cut is\n");
