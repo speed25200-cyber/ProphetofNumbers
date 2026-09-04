@@ -1841,6 +1841,19 @@ redémarre chaque jour sur la même graine, le compteur 32 bits qui reboucle.
 Aucun décalage ne sort. La symétrie des extrêmes positif et négatif est exactement ce à
 quoi ressemble du bruit ; un vrai cycle donnerait 100 % à un décalage, pas +4 σ.
 
+Et le test des **quasi-répétitions**, sur les 2,49·10⁹ paires de l'archive : un générateur
+dont l'état se rapproche sans coïncider laisserait des paires à fort recouvrement.
+
+```
+recouvrement maximal observe : 16 numeros communs (tirages 17 596 et 40 257)
+  attendu sur 2,49e9 paires :  recouvrement >= 16 : 1,69 paires
+                               recouvrement >= 17 : 0,027
+                               recouvrement >= 18 : 0,000
+```
+
+Un maximum à 16 est exactement ce que la loi hypergéométrique prédit. Pas de cycle, pas de
+quasi-cycle, pas d'état qui se rapproche.
+
 **Un détail de méthode qui a failli coûter.** La première version triait les décalages par
 **taux** de coïncidence et imprimait ensuite le z de celui-là comme « plus grand z ». Or
 les décalages courts ont plus d'échantillons : le taux maximal et le z maximal ne tombent
@@ -2184,7 +2197,9 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
   et voici le mur ». Le cas **ensemencé sur 32 bits** — le cas réellement déployé — est
   balayé exhaustivement par `pcg64seed.c`, dans les deux variantes de sortie (XSL-RR et
   **DXSM**, le défaut de numpy depuis 1.19), trois conventions d'amorçage, deux
-  réductions, huit pas, sur les deux observables.
+  réductions, huit pas, sur les deux observables — **balayage terminé : rang 0/8 partout,
+  indice 9/24 au mieux là où le hasard en attend 9,3, zéro alarme sur les douze
+  configurations.**
 - **Un CSPRNG** (ChaCha20, AES-CTR-DRBG, HMAC-DRBG) **à clé inconnue**, ou un RNG
   matériel. Là, la partie est close mathématiquement, quelle que soit la quantité de
   données : ce n'est pas une lacune de méthode.
