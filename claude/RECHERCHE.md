@@ -1688,6 +1688,16 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
   qu'un modèle presque juste progresserait ; (3) le tirage **suivant** ne dépasse pas 9
   dans la fenêtre analogue. Signalé, poursuivi, classé — avec les mesures, pas avec une
   intuition.
+- **La même faute deux fois, et c'est le contrôle qui l'a dit les deux fois.** En
+  ajoutant le choix de réduction, `rankxo` puis `rankw32` ont gardé une réduction
+  **codée en dur** à un endroit — la ligne qui plante le rang pour l'un, la fonction de
+  vérification pour l'autre. Résultat : sous mulhi, l'outil plantait avec `u mod C` et
+  cherchait avec l'autre, ou l'inverse. Les deux contrôles ont échoué immédiatement et
+  franchement (4/4 puis 0/4), ce qui est exactement leur travail. Le résultat de
+  `rankw32` sous mulhi, obtenu avant correction, **était sans valeur et a été rejoué**.
+  Un audit `grep '% CC'` sur les six outils confirme qu'il n'en reste aucun : seule la
+  définition de `mkrank` y figure encore, et `lcgrank` traite les réductions comme ses
+  modes, par construction.
 - **Un « INVESTIGATE » qui n'en était pas un.** `rankmwc` a d'abord signalé 4 000/4 000
   positions compatibles avec un multiply-with-carry. Le signalement venait entièrement
   de la statistique choisie : tester « la retenue est-elle `< a` » n'a aucune puissance

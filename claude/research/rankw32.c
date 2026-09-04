@@ -102,7 +102,7 @@ static int verify(int lay, u64 a, u64 c, int W, long d0, int need){
       for(int t = 0; t < W - 1; t++) x = (a*x + c) & M;    /* to the next draw's first word */
       u64 y0 = x, y1 = (a*x + c) & M;
       u64 u = LAYS[lay].hi_first ? ((y0 << B) | y1) : ((y1 << B) | y0);
-      if(u % CC != R[d0 + j]) ok = 0;
+      if(mkrank(u) != R[d0 + j]) ok = 0;
       x = y1;
     }
     if(ok) return 1;
