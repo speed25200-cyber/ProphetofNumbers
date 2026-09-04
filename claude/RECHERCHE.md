@@ -33,6 +33,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
+| `Math.floor(Math.random() * C)` — le rang médié par un double | **Exclu** — 142 multiples de 512 observés pour 137,8 attendus, contre 70 560 si c'était le cas |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
@@ -962,6 +963,33 @@ suite linéaire récurrente. Les attaques par fenêtre y survivent — 68 % des 
 générateur F2-linéaire d'état < 35 280 bits » suppose une **cadence constante**. Sous
 rejet, il se réduit aux familles nommées explicitement. `mulhi` et Lemire, eux, gardent
 une cadence fixe et laissent l'énoncé entier.
+
+### `quantize.py` — le rang tombe-t-il sur un réseau ? La question du flottant
+
+`C(80,20) = 2^61,617` demande 62 bits. Un double en porte 53. Donc l'implémentation la
+plus probable dans un back-end JavaScript ou Python —
+
+```js
+Math.floor(Math.random() * C)
+```
+
+**ne peut pas** produire tous les rangs : au voisinage de 2⁶¹·⁶ l'écart entre deux
+doubles consécutifs vaut 2⁶¹⁻⁵² = **512**, donc tout rang qu'elle produit est un multiple
+de 512. C'est la première chose qu'un développeur écrit, et c'est trivialement
+falsifiable.
+
+```
+multiples de 512 : 142 observés · 137,8 attendus si uniforme · 70 560 si médié par un flottant
+```
+
+Et le balayage `rang mod 2^k` pour k = 1…12 ne sort jamais du bruit (|z| ≤ 1,08 sur les
+trois conventions testées). **Aucune médiation par flottant**, à aucune des largeurs
+qu'un double pourrait imposer.
+
+Les deux mesures se lisent ensemble : **si** l'architecture est celle du dérangement,
+l'implémentation est soignée — réduction non biaisée et arithmétique entière pleine
+précision. Ce qui est cohérent avec tout le reste du dossier : un RNG correctement
+implémenté.
 
 ### Ce qui n'est PAS couvert, et pourquoi
 
