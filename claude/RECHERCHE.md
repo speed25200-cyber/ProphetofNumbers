@@ -24,7 +24,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Idem avec l'**incrément également inconnu** | **Exclu** — réserve levée, contrôle corrigé et validé, 0 survivant (§7 ter) |
 | Hachage à **rondes réduites** (la fonction de delta-chain) | **Exclu**, 1 920 schémas |
 | Mode compteur à clé par défaut (AES-CTR, ChaCha20) | **Exclu**, 360 combinaisons |
-| splitmix64 / PCG / xoshiro\*\* par SAT, canal 4 bits | **Hors d'atteinte, mesuré** — la barrière des retenues tient |
+| splitmix64 / PCG / xoshiro\*\* par SAT, canal 4 bits | **Hors d'atteinte, mesuré** — la barrière des retenues tient. *Dépassé* pour splitmix64 et xoshiro\*\* par la ligne du rang (lignes ci-dessous) ; il ne reste que PCG64 |
 | **Le tirage trié vu comme un rang combinatoire** (61,6 bits/tirage au lieu de 4) | **Piste neuve — le tri ne perd rien si le tirage n'a jamais eu d'ordre.** Voir §6 quater |
 | LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 5 conventions × 5 mappages × 70 557 départs, 0 |
 | splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
@@ -37,15 +37,31 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Les 5 fautes de mélange qui **auraient** donné un avantage | **Exclues** — \|ΔP\| de 0,011 à 0,750, soit \|z\| de 6,5 à 460 ; l'archive plafonne à 2,72 |
 | Ré-ensemencement lié aux 358 ouvertures de bloc quotidiennes | **Rien** — 63 903 paires d'ouvertures, overlap max 13 pour 12 attendu au hasard |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
+| Les deux réductions (`u mod C` avec rejet **et** mulhi/Lemire) | **Couvertes** — quatre outils y étaient aveugles, mesuré à 399/399 contre 1/399 ; refait sous les deux |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
 | Réensemencement sur l'horloge aux 24 décrochages | **Exclu** — 2,46·10¹⁰ graines, maximum 13/20 exactement à l'espérance du hasard |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
+**Ce qui reste debout, sans arrondir :** PCG64 à état 128 bits complet (le pliage
+`hi ^ lo` perd la moitié de l'état, la rotation dépend de l'état) ; les générateurs
+**combinés** de type KISS, dont la somme n'est aucune des structures testées ; un CSPRNG
+à clé inconnue, hors d'atteinte par construction ; et une architecture à laquelle je n'ai
+pas pensé.
+
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
-exploitable, et ce n'est pas une limite de méthode — c'est mesuré et borné (§4).
-La seule voie ouverte est l'**ordre de sortie des boules**, que le client jetait
-(`Array(Set(out)).sorted()`). Le patch de ce dépôt le conserve désormais.
+exploitable, et ce n'est pas une limite de méthode — c'est mesuré et borné (§4). Deux
+voies restent ouvertes, et **aucune des deux ne demande de prédire quoi que ce soit** :
+
+1. l'**ordre de sortie des boules**, que le client jetait
+   (`Array(Set(out)).sorted()`) et que le patch de ce dépôt conserve désormais. Avec lui,
+   §6 démontre un cassage complet ;
+2. le **boost publié avant la clôture des mises** : ne jouer que les tirages à boost ≥ 4
+   est rentable dès un RTP de base de 0,350, c'est-à-dire pour n'importe quel keno
+   réel (§7). `LeakProbe.swift` mesure si le champ est lisible à temps.
+
+Les deux se tranchent par une seule observation du flux live. Tout le reste de ce dossier
+dit pourquoi il n'y a pas de troisième voie.
 
 ---
 
