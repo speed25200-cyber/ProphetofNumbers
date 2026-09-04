@@ -492,7 +492,10 @@ int main(int argc,char**argv){
   for(int i=0;i<20;i++)printf(" %d",rankhist[i]);
   printf("\n");
   if(sortedcount>D/2||reversecount>D/2){ printf("  -> the feed publishes a deterministic sort; the order attack cannot run.\n"); return 3; }
-  int nchk = D>450 ? 50 : (D>350 ? 25 : 0); int Duse = D-nchk;
+  /* This suffix is untouched by state fitting for one hypothesis, but scanfile
+     uses it to compare hypotheses.  It is therefore internal validation, not
+     prospective test evidence.  Exactly 450 rows means 400 fit + 50 validate. */
+  int nchk = D>=450 ? 50 : (D>350 ? 25 : 0); int Duse = D-nchk;
   uint32_t (*R)[20]=malloc(sizeof(uint32_t)*20*Duse);
   if(!R){fprintf(stderr,"failed to allocate inverted draws\n");return 1;}
   int inconclusive=0,recovered=0,tested=0,rec_s=-1,rec_m=-1,rec_stride=-1;

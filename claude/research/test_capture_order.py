@@ -103,9 +103,12 @@ def rest_evidence(draw_id=101, payload=None):
     return body, evidence
 
 
-def validation_for(records, record=None, first_seen=None, payload=None, target_id=None):
+def validation_for(
+    records, record=None, first_seen=None, auxiliary=None, payload=None, target_id=None
+):
     record = record or records[0]
     first_seen = first_seen or record
+    auxiliary = auxiliary or record
     target_id = record["draw_id"] if target_id is None else target_id
     payload = payload if payload is not None else rest(target_id)
     body, evidence = rest_evidence(target_id, payload)
@@ -115,6 +118,7 @@ def validation_for(records, record=None, first_seen=None, payload=None, target_i
         evidence,
         target_id,
         first_seen,
+        auxiliary,
     )
     return {
         "schema": 2,
@@ -449,10 +453,9 @@ class CaptureOrderTests(unittest.TestCase):
 
     def test_validation_can_use_later_auxiliary_state_and_first_seen_time(self):
         early_payload = state()
-        del early_payload["meta"]["fr-ch"]["boost"]
         del early_payload["meta"]["fr-ch"]["extra"]
         early = captured(raw_state=early_payload, tick=1)
-        complete = captured(tick=2)
+        complete = captured(scene="ExtraScene", tick=2)
         payload = rest()
         _, evidence = rest_evidence(payload=payload)
         with mock.patch.object(
@@ -463,8 +466,26 @@ class CaptureOrderTests(unittest.TestCase):
             validation = capture_order.validate_capture([early, complete], 101, 0, 0)
         result = validation["results"][0]
         self.assertEqual(result["verdict"], "VERIFIED_ORDER")
-        self.assertEqual(result["animation"]["received_at"], complete["received_at"])
+        self.assertEqual(result["order_scope"], "ANIMATION_SEQUENCE_ONLY")
+        self.assertEqual(result["animation"]["received_at"], early["received_at"])
         self.assertEqual(result["animation"]["first_seen"]["received_at"], early["received_at"])
+        self.assertEqual(
+            result["animation"]["auxiliary"]["received_at"], complete["received_at"]
+        )
+        self.assertEqual(result["animation"]["auxiliary"]["scene"], "ExtraScene")
+
+    def test_validation_rejects_conflicting_later_auxiliary_values(self):
+        early_payload = state()
+        del early_payload["meta"]["fr-ch"]["extra"]
+        early = captured(raw_state=early_payload, tick=1)
+        one = captured(scene="ExtraScene", tick=2)
+        conflicting_payload = state(scene="ExtraScene")
+        conflicting_payload["meta"]["fr-ch"]["extra"] = 1
+        conflicting = captured(raw_state=conflicting_payload, tick=3)
+        with self.assertRaisesRegex(ValueError, "conflicting auxiliary"):
+            capture_order.validation_records_for_draw(
+                [early, one, conflicting], 101, False
+            )
 
     def test_idless_capture_validates_and_exports_with_explicit_draw_id(self):
         payload = state()
@@ -478,9 +499,11 @@ class CaptureOrderTests(unittest.TestCase):
             summary = capture_order.export_order([record], output, validation)
             manifest = json.loads(Path(summary["manifest"]).read_text())
         self.assertEqual(summary["draws"], 1)
+        self.assertEqual(summary["order_scope"], "ANIMATION_SEQUENCE_ONLY")
         self.assertEqual(manifest["draw_id"], 101)
         self.assertIsNone(manifest["capture_draw_id"])
         self.assertEqual(manifest["draw_id_source"], "validation")
+        self.assertEqual(manifest["order_scope"], "ANIMATION_SEQUENCE_ONLY")
 
 
 class FakeWebSocket:
@@ -550,6 +573,35 @@ class AdvancingFakeWebSocket(FakeWebSocket):
 
 
 class CaptureNetworkTests(unittest.IsolatedAsyncioTestCase):
+    async def test_capture_completes_when_extra_arrives_after_draw_scene(self):
+        early = state()
+        del early["meta"]["fr-ch"]["extra"]
+        later = state(scene="ExtraScene")
+        messages = [
+            {"type": 1, "target": "SendCurrentState", "arguments": [early]},
+            {"type": 1, "target": "SendCurrentState", "arguments": [later]},
+        ]
+        wire = "{}\x1e" + "".join(
+            json.dumps(message, ensure_ascii=False) + "\x1e" for message in messages
+        )
+        socket = FakeWebSocket([wire])
+        fake_module = types.SimpleNamespace(connect=lambda *args, **kwargs: socket)
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.dict(sys.modules, {"websockets": fake_module}), \
+             mock.patch.object(
+                 capture_order,
+                 "negotiate",
+                 new=mock.AsyncMock(
+                     return_value="wss://example.invalid/client/?access_token=x"
+                 ),
+            ):
+            output = Path(directory) / "capture.jsonl"
+            stats = await capture_order.capture(output, "fr-ch", 10, 0, 1, 101)
+            line_count = len(output.read_text(encoding="utf-8").splitlines())
+
+        self.assertEqual(stats, {"events": 2, "full_draws": 1})
+        self.assertEqual(line_count, 2)
+
     async def test_handshake_and_state_in_one_frame_capture_once_without_token(self):
         hub_message = {
             "type": 1,

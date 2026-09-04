@@ -291,6 +291,39 @@ class KenoStateTests(unittest.TestCase):
         self.assertFalse(refused_state.exists())
         self.assertFalse(Path(str(refused_state) + ".tmp").exists())
 
+    def test_exactly_450_file_draws_reserve_fifty_for_validation(self):
+        capture = self.directory / "exactly-450.txt"
+        capture.write_text(
+            "\n".join(" ".join(map(str, draw)) for draw in self.draws[:450]) + "\n",
+            encoding="ascii",
+        )
+        checkpoint = self.directory / "exactly-450-state.txt"
+        result = subprocess.run(
+            [
+                str(self.binary),
+                "file",
+                str(capture),
+                "0",
+                "0",
+                "21",
+                "--state-out",
+                str(checkpoint),
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("holdout 50/50", result.stdout)
+        fields = {
+            line.split()[0]: line.split()[1]
+            for line in checkpoint.read_text(encoding="ascii").splitlines()
+            if len(line.split()) == 2
+        }
+        self.assertEqual(fields["draws_consumed"], "450")
+        self.assertEqual(fields["holdout"], "50")
+
     def test_checkpoint_output_cannot_alias_the_capture(self):
         capture = self.directory / "capture-must-survive.txt"
         alias = self.directory / "capture-hardlink.txt"

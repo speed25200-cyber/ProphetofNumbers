@@ -19,6 +19,7 @@ mthunt
 ordered_demo.txt
 sorted_demo.txt
 capture*.jsonl
+captures/
 ordered*.txt
 *.manifest.jsonl
 lcg_lll_c

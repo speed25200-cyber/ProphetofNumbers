@@ -42,6 +42,11 @@ REST_DRAW_URL = "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws/{draw_id}"
 SOURCE = "Loto Express animationhub / SendCurrentState"
 MAX_SIGNALR_BUFFER = 8 * 1024 * 1024
 VALID_BOOSTS = frozenset((1, 2, 3, 4, 5, 10))
+ORDER_SCOPE = "ANIMATION_SEQUENCE_ONLY"
+AUXILIARY_STATE_SCENES = frozenset((
+    "drawscene", "reorderscene", "extrascene", "bangoscene", "resultsscene",
+    "didyouknowscene", "lotteryscene", "responsiblescene", "happywinnersscene",
+))
 
 
 def utc_now() -> str:
@@ -670,16 +675,29 @@ def verify_record(
     evidence: dict[str, Any],
     target_draw_id: int,
     first_seen_record: dict[str, Any] | None = None,
+    auxiliary_record: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     first_seen_record = first_seen_record or record
-    balls = first_seen_record.get("balls") if isinstance(first_seen_record.get("balls"), list) else []
+    auxiliary_record = auxiliary_record or record
+    balls = (
+        first_seen_record.get("balls")
+        if isinstance(first_seen_record.get("balls"), list)
+        else []
+    )
     numbers = rest.get("numbers") if isinstance(rest.get("numbers"), list) else []
     integrity_errors = capture_envelope_errors(record)
     first_seen_errors = (
         [] if first_seen_record is record else capture_envelope_errors(first_seen_record)
     )
     integrity_errors.extend(f"first seen: {error}" for error in first_seen_errors)
+    auxiliary_errors = (
+        [] if auxiliary_record is record else capture_envelope_errors(auxiliary_record)
+    )
+    integrity_errors.extend(f"auxiliary: {error}" for error in auxiliary_errors)
     http_errors = http_evidence_errors(evidence, target_draw_id)
+    auxiliary_bound = auxiliary_state_is_bound(
+        first_seen_record, auxiliary_record, target_draw_id
+    )
     checks = {
         "record_integrity": not integrity_errors,
         "structured_http_evidence": not http_errors,
@@ -700,17 +718,24 @@ def verify_record(
         "animation_order_not_reverse_sorted": balls != sorted(balls, reverse=True),
         "complete_rest_result": rest_has_complete_result(rest),
         "sorted_set_match": sorted(balls) == sorted(numbers),
+        "auxiliary_state_bound": auxiliary_bound,
         "boost_match": (
-            valid_auxiliary_values(record.get("boost"), record.get("extra"), balls)
+            auxiliary_bound
+            and valid_auxiliary_values(
+                auxiliary_record.get("boost"), auxiliary_record.get("extra"), balls
+            )
             and type(rest.get("boost")) is int
             and rest.get("boost") in VALID_BOOSTS
-            and record.get("boost") == rest.get("boost")
+            and auxiliary_record.get("boost") == rest.get("boost")
         ),
         "bonus_match": (
-            valid_auxiliary_values(record.get("boost"), record.get("extra"), balls)
+            auxiliary_bound
+            and valid_auxiliary_values(
+                auxiliary_record.get("boost"), auxiliary_record.get("extra"), balls
+            )
             and type(rest.get("bonus")) is int
             and rest.get("bonus") in numbers
-            and record.get("extra") == rest.get("bonus")
+            and auxiliary_record.get("extra") == rest.get("bonus")
         ),
     }
     wager_end_ns = iso8601_unix_ns(rest.get("wager_end_date"))
@@ -735,13 +760,18 @@ def verify_record(
             timing_verdict = "AFTER_WAGER_END"
     if all(checks.values()):
         verdict = "VERIFIED_ORDER"
-    elif checks["complete_rest_result"] and checks["sorted_set_match"] and not checks["animation_order_not_sorted"]:
+    elif (
+        checks["complete_rest_result"]
+        and checks["sorted_set_match"]
+        and not checks["animation_order_not_sorted"]
+    ):
         verdict = "SORTED_NOT_ORDERED"
     else:
         verdict = "MISMATCH"
     result = {
         "draw_id": target_draw_id,
         "verdict": verdict,
+        "order_scope": ORDER_SCOPE,
         "checks": checks,
         "integrity_errors": integrity_errors,
         "http_evidence_errors": http_errors,
@@ -772,6 +802,16 @@ def verify_record(
     result["animation"]["first_seen"]["capture_record_sha256"] = canonical_sha256(
         first_seen_record
     )
+    result["animation"]["auxiliary"] = {
+        key: auxiliary_record.get(key) for key in (
+            "received_at", "received_unix_ns", "received_monotonic_ns", "session_id",
+            "frame_index", "message_index", "scene", "balls", "boost", "extra",
+            "raw_sha256", "hub_message_sha256",
+        )
+    }
+    result["animation"]["auxiliary"]["capture_record_sha256"] = canonical_sha256(
+        auxiliary_record
+    )
     return result
 
 
@@ -800,9 +840,27 @@ def observation_key(record: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def auxiliary_state_is_bound(
+    first_seen: dict[str, Any], auxiliary: dict[str, Any], target_id: int | None
+) -> bool:
+    """Bind late boost/bonus to one authoritative animation order."""
+    return (
+        valid_ball_sequence(first_seen)
+        and valid_ball_sequence(auxiliary)
+        and auxiliary.get("balls") == first_seen.get("balls")
+        and first_seen.get("draw_id") in (None, target_id)
+        and auxiliary.get("draw_id") in (None, target_id)
+        and isinstance(first_seen.get("session_id"), str)
+        and auxiliary.get("session_id") == first_seen.get("session_id")
+        and observation_key(auxiliary) >= observation_key(first_seen)
+        and str(auxiliary.get("scene") or "").lower() in AUXILIARY_STATE_SCENES
+        and not capture_envelope_errors(auxiliary)
+    )
+
+
 def validation_records_for_draw(
     records: Iterable[dict[str, Any]], target_id: int, allow_idless: bool
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     matching = [
         record for record in records
         if valid_ball_sequence(record)
@@ -820,7 +878,7 @@ def validation_records_for_draw(
         raise ValueError(f"conflicting authoritative sequences for draw id {target_id}")
     if not authoritative_variants:
         record = min(matching, key=observation_key)
-        return record, record
+        return record, record, record
     sequence = next(iter(authoritative_variants))
     ordered = sorted(
         (
@@ -830,13 +888,24 @@ def validation_records_for_draw(
         key=observation_key,
     )
     first_seen = ordered[0]
-    complete = [
-        record for record in ordered
-        if valid_auxiliary_values(
+    auxiliary_candidates = [
+        record for record in matching
+        if auxiliary_state_is_bound(first_seen, record, target_id)
+        and valid_auxiliary_values(
             record.get("boost"), record.get("extra"), record["balls"]
         )
     ]
-    return (complete[0] if complete else first_seen), first_seen
+    auxiliary_variants = {
+        (record.get("boost"), record.get("extra"))
+        for record in auxiliary_candidates
+    }
+    if len(auxiliary_variants) > 1:
+        raise ValueError(f"conflicting auxiliary values for draw id {target_id}")
+    auxiliary = (
+        min(auxiliary_candidates, key=observation_key)
+        if auxiliary_candidates else first_seen
+    )
+    return first_seen, first_seen, auxiliary
 
 
 def validate_capture(
@@ -864,13 +933,15 @@ def validate_capture(
     results: list[dict[str, Any]] = []
     rest_payloads: dict[str, Any] = {}
     for target_id in target_ids:
-        record, first_seen = validation_records_for_draw(
+        record, first_seen, auxiliary = validation_records_for_draw(
             candidates, target_id, draw_id_override is not None
         )
         rest, _payload, evidence = fetch_rest_result(
             target_id, retry_seconds, retry_interval
         )
-        results.append(verify_record(record, rest, evidence, target_id, first_seen))
+        results.append(verify_record(
+            record, rest, evidence, target_id, first_seen, auxiliary
+        ))
         rest_payloads[str(target_id)] = {
             "body_sha256": evidence["body_sha256"],
             "body_bytes": evidence["body_bytes"],
@@ -1018,12 +1089,20 @@ def validation_index(
         first_seen = records_by_hash.get(first_seen_hash)
         if record is None or first_seen is None:
             raise ValueError(f"validation result {draw_id} references a missing capture record")
-        expected_record, expected_first_seen = validation_records_for_draw(
+        expected_record, expected_first_seen, expected_auxiliary = validation_records_for_draw(
             records, draw_id, draw_id_override == draw_id
         )
+        auxiliary_summary = animation.get("auxiliary")
+        auxiliary_hash = (
+            auxiliary_summary.get("capture_record_sha256")
+            if isinstance(auxiliary_summary, dict) else None
+        )
+        auxiliary = records_by_hash.get(auxiliary_hash) if isinstance(auxiliary_hash, str) else None
         if (
             record_hash != canonical_sha256(expected_record)
             or first_seen_hash != canonical_sha256(expected_first_seen)
+            or auxiliary is None
+            or auxiliary_hash != canonical_sha256(expected_auxiliary)
         ):
             raise ValueError(
                 f"validation result {draw_id} does not use the deterministic capture selection"
@@ -1063,7 +1142,9 @@ def validation_index(
             or evidence.get("body_bytes") != len(body)
         ):
             raise ValueError(f"validation result {draw_id} REST evidence is not bound to its body")
-        recomputed = verify_record(record, parsed_rest, evidence, draw_id, first_seen)
+        recomputed = verify_record(
+            record, parsed_rest, evidence, draw_id, first_seen, auxiliary
+        )
         if saved_result != recomputed:
             raise ValueError(f"validation result {draw_id} differs from recomputation")
         if recomputed.get("verdict") != "VERIFIED_ORDER":
@@ -1116,6 +1197,7 @@ def export_order(
             if captured_record.get("draw_id") == draw_id
             else "validation"
         )
+        record["order_scope"] = ORDER_SCOPE
         draws.append(record)
     if not draws:
         raise ValueError("capture contains no VERIFIED_ORDER result")
@@ -1136,10 +1218,17 @@ def export_order(
             "draw_id", "received_at", "received_unix_ns", "received_monotonic_ns",
             "session_id", "frame_index", "scene", "locale", "raw_sha256", "balls",
             "boost", "extra", "capture_draw_id", "draw_id_source",
+            "order_scope",
         )}
         manifest_rows.append(json.dumps(kept, ensure_ascii=False, sort_keys=True) + "\n")
     write_text_atomic(manifest, "".join(manifest_rows))
-    return {"draws": len(draws), "gaps": gaps, "output": str(output), "manifest": str(manifest)}
+    return {
+        "draws": len(draws),
+        "gaps": gaps,
+        "order_scope": ORDER_SCOPE,
+        "output": str(output),
+        "manifest": str(manifest),
+    }
 
 
 def private_websocket_logger() -> logging.Logger:
@@ -1166,6 +1255,9 @@ async def capture(
     deadline = math.inf if duration <= 0 else time.monotonic() + duration
     written = 0
     complete_draws: set[int | tuple[int, ...]] = set()
+    authoritative_orders: dict[
+        int | tuple[int, ...], dict[str, Any] | None
+    ] = {}
     invocation = 0
     delay = 1.0
 
@@ -1312,14 +1404,35 @@ async def capture(
                                 os.fsync(handle.fileno())
                                 written += 1
                                 last_state_monotonic = time.monotonic()
+                                key: int | tuple[int, ...]
+                                key = (
+                                    record["draw_id"]
+                                    if type(record.get("draw_id")) is int
+                                    else tuple(record["balls"])
+                                )
+                                if plausible_order(record):
+                                    previous = authoritative_orders.get(key)
+                                    if previous is None and key not in authoritative_orders:
+                                        authoritative_orders[key] = record
+                                    elif (
+                                        previous is not None
+                                        and previous.get("balls") != record.get("balls")
+                                    ):
+                                        authoritative_orders[key] = None
+                                authoritative = authoritative_orders.get(key)
                                 if (
-                                    plausible_order(record)
+                                    authoritative is not None
+                                    and auxiliary_state_is_bound(
+                                        authoritative,
+                                        record,
+                                        authoritative.get("draw_id")
+                                        if type(authoritative.get("draw_id")) is int
+                                        else expected_draw_id,
+                                    )
                                     and valid_auxiliary_values(
                                         record.get("boost"), record.get("extra"), record["balls"]
                                     )
                                 ):
-                                    key: int | tuple[int, ...]
-                                    key = record["draw_id"] if type(record.get("draw_id")) is int else tuple(record["balls"])
                                     complete_draws.add(key)
                                 delay = 1.0
                                 print(

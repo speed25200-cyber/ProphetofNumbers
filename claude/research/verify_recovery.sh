@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$script_dir"
+
 cc=${CC:-cc}
 
 "$cc" -O3 -std=c11 -Wall -Wextra -Werror -o mtbreak mtbreak.c
