@@ -1834,6 +1834,86 @@ Il n'y a donc rien à écrire le jour où les données arrivent — **un fichier
 
 ---
 
+## 8 bis. La question posée, mesurée — `backtest.py`
+
+Tout le §6 répond à « quel générateur ? ». Voici la réponse à la question telle qu'elle a
+été posée : **en jouant k numéros, combien en touche-t-on réellement ?**
+
+Huit stratégies (chauds, froids, retard, répéter le dernier tirage, co-occurrence de
+paires, Markov lag-1, un jeu fixe, le hasard), trois tailles (k = 5, 10, 20), **69 560
+tirages hors échantillon** — chaque choix ne voit que le passé, fenêtre glissante de 500.
+
+Le nul est exact : k numéros sur un tirage 20/80 équitable donnent k/4 bons numéros, de
+variance hypergéométrique `k·(20/80)·(60/80)·(80−k)/79`. Sur 69 560 tirages, l'écart-type
+de la moyenne vaut ~0,004 numéro : **il suffit de 0,01 numéro d'avantage pour sortir du
+bruit**. C'est la sensibilité réelle du test, et elle est énorme — un avantage exploitable
+serait des dizaines de fois plus grand.
+
+**Contrôles d'abord.** Sur une archive synthétique **biaisée** (huit numéros à poids 1,35),
+« chauds » à k = 10 sort à **z = +96,1** et « fixe » — qui joue 1..10, là où le biais est —
+à +100,7. Sur une archive synthétique **équitable**, le plus grand |z| sur les 24
+combinaisons vaut 2,55. Le test voit donc un biais quand il y en a un, et n'en invente pas.
+
+Sur l'archive réelle :
+
+```
+strategie     k      nul    observe       ecart        z
+chauds        5    1,250     1,2522     +0,0022     +0,63
+froids        5    1,250     1,2457     -0,0043     -1,21
+retard        5    1,250     1,2540     +0,0040     +1,11   <- le meilleur
+repeter       5    1,250     1,2476     -0,0024     -0,67
+paires        5    1,250     1,2527     +0,0027     +0,75
+markov        5    1,250     1,2487     -0,0013     -0,36
+fixe          5    1,250     1,2512     +0,0012     +0,35
+hasard        5    1,250     1,2523     +0,0023     +0,66
+chauds       10    2,500     2,5050     +0,0050     +1,01
+paires       10    2,500     2,5005     +0,0005     +0,09
+chauds       20    5,000     4,9961     -0,0039     -0,62
+...
+plus grand |z| sur les 24 combinaisons : 1,21
+meilleure strategie : retard a k = 5, avantage +0,0040 numero sur 1,25 attendus
+```
+
+**Aucune stratégie ne bat le nul.** Le meilleur écart, +0,004 numéro, est un quart de son
+propre écart-type — et il est le maximum de 24 essais, donc même son signe n'est pas
+significatif. À jouer 10 numéros on en touche 2,505 au lieu de 2,500 : cela ne paie aucune
+mise.
+
+C'est la réponse directe à « prédire même cinq, dix ou moins de numéros », et elle est
+mesurée, pas déduite : sur l'historique public, à ce jour, l'avantage est **nul à 0,01
+numéro près**.
+
+## 8 ter. Le seul levier chiffré — et il ne demande aucune prédiction
+
+La table du boost établie au §6 sexies a une conséquence que le reste du dossier n'a pas.
+Si le boost multiplie le gain **sans modifier la mise**, et s'il est **affiché pendant que
+le tour est encore ouvert**, alors ne jouer que les tours à fort boost multiplie
+l'espérance — sans prédire un seul numéro.
+
+```
+seuil   P(jouer)   E[boost | seuil]   facteur   RTP 0,70 ->   RTP 0,85 ->   tours/jour
+ >=  1    1,0000            2,0130     1,000        0,7000        0,8500        288,0
+ >=  2    0,4880            3,0758     1,528        1,0696        1,2988        140,5
+ >=  3    0,2500            4,1000     2,037        1,4257        1,7312         72,0
+ >=  4    0,1000            5,7500     2,856        1,9995        2,4280         28,8
+ >=  5    0,0500            7,5000     3,726        2,6080        3,1669         14,4
+ >= 10    0,0250           10,0000     4,968        3,4774        4,2226          7,2
+```
+
+Au-dessus de 1, la colonne RTP est une espérance **positive pour le joueur**. Avec un RTP
+de base de 0,70, jouer uniquement les boosts ≥ 4 — 28,8 tours par jour — donnerait 2,00.
+
+Ce calcul ne vaut que si **deux** conditions tiennent, et **aucune des deux ne se vérifie
+depuis l'archive** :
+
+1. le boost est affiché pendant que le tour est `OPEN`, donc pariable ;
+2. le multiplicateur porte sur le gain sans modifier la mise ni les cotes.
+
+Si l'une des deux est fausse, le levier n'existe pas — et un opérateur attentif l'a
+justement fermée en tirant le boost à la clôture. `LeakProbe.swift` mesure la première
+tirage par tirage ; c'est la seule mesure du dossier qui demande l'application et non
+l'archive, et c'est celle qui a la plus grande valeur attendue.
+
 ## 9. Où en est exactement la prédiction
 
 **Réponse directe : depuis l'archive publiée, prédire ne serait-ce qu'un numéro
