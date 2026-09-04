@@ -1815,6 +1815,40 @@ petit K qui récupère : 12 », ce qui aurait conduit à lire un résultat là o
 pas — corrigé pour n'annoncer que le K qui réussit le positif **et** rejette les trois
 négatifs.
 
+### `period.py` — la périodicité, un test qui ne suppose aucune famille
+
+Tous les autres outils demandent « quel générateur ? ». Celui-ci ne le demande pas.
+
+Si le générateur boucle — période courte, état qui se répète, réamorçage périodique sur
+une horloge, compteur qui déborde — alors la suite des tirages se répète **exactement** à
+ce décalage, **quel que soit le générateur**, quelle que soit l'architecture, quelle que
+soit la convention de rang. Il n'y a rien à deviner. Et ce test attrape ce qu'aucun autre
+n'attrape : un défaut d'**exploitation** plutôt que de générateur — le service qui
+redémarre chaque jour sur la même graine, le compteur 32 bits qui reboucle.
+
+```
+1. tirages distincts : 70 560 / 70 560   repetitions exactes : 0
+   (le hasard en attend 7,04e-10 ; UNE seule aurait suffi, elle vaut 2^-61,6)
+
+2. position du bonus, balayage des 35 279 decalages
+     z max  +4,00 au decalage 13 972      z min  -4,06 au decalage 12 642
+     seuil de Bonferroni bilateral a 5 % : |z| > 4,82
+
+3. boost, memes 35 279 decalages
+     z max  +3,66 au decalage  1 047      z min  -3,76 au decalage 13 531
+```
+
+Aucun décalage ne sort. La symétrie des extrêmes positif et négatif est exactement ce à
+quoi ressemble du bruit ; un vrai cycle donnerait 100 % à un décalage, pas +4 σ.
+
+**Un détail de méthode qui a failli coûter.** La première version triait les décalages par
+**taux** de coïncidence et imprimait ensuite le z de celui-là comme « plus grand z ». Or
+les décalages courts ont plus d'échantillons : le taux maximal et le z maximal ne tombent
+pas au même endroit — +3,69 pour l'un, +4,00 pour l'autre. C'est le maximum du **z** qu'il
+faut comparer au seuil, et la première version comparait l'autre. Corrigé, et le seuil de
+Bonferroni est désormais calculé par résolution de `n·erfc(z/√2) = 0,05` plutôt que posé
+à la louche.
+
 ## 6 septies. La troisième architecture — `selsamp.c`
 
 Le dossier traitait deux façons de fabriquer un tirage 20/80 : le **mélange**
