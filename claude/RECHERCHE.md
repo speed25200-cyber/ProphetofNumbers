@@ -20,6 +20,70 @@ endroit.
 
 ---
 
+## 0. La réponse en une page
+
+**Depuis l'archive publiée, prédire les tirages n'est pas possible — et c'est mesuré,
+pas supposé.** Huit stratégies, trois tailles de jeu, 69 560 tirages hors échantillon :
+le meilleur avantage vaut **+0,004 numéro** sur 1,25 attendus, un quart de son propre
+écart-type. Le même test sort à z = +96 sur une archive biaisée : il voit un biais quand
+il y en a un.
+
+**Pourquoi.** Un tirage 20/80 consomme 61,6 bits. La publication triée en rend 4, plus
+6,2 par le `bonus` et le `boost`. Ce n'est pas un manque de méthode : c'est un budget
+d'information, et il est arithmétique. Trente-cinq lignes d'attaque indépendantes —
+statistiques, algébriques, par réseau, par balayage exhaustif, par solveur — tombent
+**toutes exactement sur le hasard**, chacune avec un contrôle qui retrouve une réponse
+plantée et rejette les fausses. Le générateur de l'opérateur est correctement implémenté.
+
+**Ce qui est exclu** (détail au §1) : toute structure statistique ; tout générateur à
+état ≤ 32 bits sous **sept** architectures de tirage et **six** runtimes (C, Java, Python,
+PHP, Ruby, C#, Go, V8) ; **toute** la classe F2-linéaire d'état ≤ 48 000 bits (MT19937,
+WELL44497, xoshiro…) sans en nommer un ; **tout** LCG mod 2⁶⁴ quel que soit son
+multiplicateur ; toute largeur de sortie < 61 bits ; PCG64 ensemencé ; les schémas
+« provably fair » ; le réensemencement sur l'horloge ; toute périodicité, toute
+quasi-répétition ; et le boost n'est **pas** programmé par l'heure.
+
+**Ce qui reste debout** : PCG64 à état 128 bits vraiment aléatoire (le solveur SMT bute,
+mesuré), un CSPRNG à clé inconnue, un RNG matériel — et une architecture à laquelle je
+n'ai pas pensé. Tout cela est **hors de portée depuis l'archive**, par construction.
+
+### Les deux choses qui changeraient la réponse
+
+**1. L'ordre des boules.** 6,2 bits par tirage aujourd'hui, **126** avec l'ordre. Ce
+facteur 20 fait basculer *toutes* les familles ci-dessus du côté cassable, et l'outil est
+prêt et vérifié :
+
+```
+./keno_break demo 400 0x5EED1234 7 0 0
+  -> rank 19937/19968, replayed 400/400, predicted 50/50   [8,4 s]
+  *** FULL BREAK: every future draw predicted exactly ***
+```
+
+Il suffit d'**une** capture de la réponse de l'API avec `primarySelection` dans l'ordre
+de sortie. `./keno_break scanfile <fichier>` dit en une seconde si l'ordre y est : sur
+l'archive il répond « 299/299 lignes déjà triées, l'attaque ne peut pas tourner », ce
+qui est exact. **Cette capture n'existe nulle part dans les dépôts** — vérifié six fois,
+compte GitHub entier. Elle ne peut venir que de l'application, en direct.
+
+**2. Le boost, s'il est visible avant la clôture.** Sa table est établie exactement
+(seuils cumulés 0,512 / 0,75 / 0,90 / 0,95 / 0,975, χ² = 0,55 sur 5 ddl) :
+
+```
+ne jouer que les boosts >= 4  (28,8 tours/jour)  ->  esperance x 2,856
+RTP de base 0,70  ->  2,00     RTP 0,85  ->  2,43
+```
+
+Espérance **positive**, sans prédire un seul numéro. Deux conditions, qui se vérifient
+dans l'application et non dans l'archive : le boost est affiché tour *ouvert*, et il
+multiplie le gain sans changer la mise. `LeakProbe.swift` mesure la première tirage par
+tirage.
+
+Rien d'autre. Pas de troisième voie que je puisse construire depuis les données publiées,
+et je préfère le dire net plutôt que de continuer à balayer des familles de plus en plus
+étroites en le présentant comme un progrès.
+
+---
+
 ## 1. Résumé
 
 | Ligne d'attaque | Verdict |
@@ -41,7 +105,18 @@ endroit.
 | **Le tirage trié vu comme un rang combinatoire** (61,6 bits/tirage au lieu de 4) | **Piste neuve — le tri ne perd rien si le tirage n'a jamais eu d'ordre.** Voir §6 quater |
 | LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 5 conventions × 5 mappages × 70 557 départs, 0 |
 | splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
-| **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280. `WELL44497` (44 497 bits) est juste au-dessus et déclaré |
+| **Toute** la classe F2-linéaire d'état ≤ **48 000** bits, sans énumérer | **Exclu** — complexité linéaire à n/2 sur une suite, puis système multi-suites porté à 48 000 avec contrôle **à cette taille** (§6 quater). `WELL44497` inclus |
+| **Tout** LCG mod 2⁶⁴, multiplicateur/incrément/pas quelconques | **Exclu** — identité `d₁² ≡ d₀·d₂` sans inconnue (`lcgident`), 0 sur 9,1·10⁸ vérifications |
+| Largeur de sortie < 61 bits sous mise à l'échelle standard | **Exclue** — inversion exacte du réseau (`rankgaps`), contrôle retrouve 24 à 58 bits plantés |
+| Rang tiré sur **128 bits** (deux mots de 64) | **En cours** — 21/28 configurations à 0/8, contrôle 28/28 et `lemire128` vérifié en 256 bits |
+| Position du **bonus** comme flux (4,32 bits/tirage) | **Exclu** — balayage 2³² (max 9/24 pour 9,3 attendus), réseau K=28 (0/16 multiplicateurs), F2-linéaire ≤ 46 000 |
+| **Troisième architecture** : sélection (Knuth S) | **Exclue** — 2³² × 7 générateurs × 2 variantes, 0/8 sur 84 configurations |
+| Tri par clé, réservoir (Knuth R) | **En cours** — contrôles 21/21, balayage 2³² chunké |
+| Runtimes **Go, C#, Ruby** (vrais `math/rand`, `System.Random`, `Array#sample`) | **Go** : 7,9·10⁶ essais sur l'horloge et l'identifiant, 0 ; **C#/Ruby** vérifiés au vecteur près, balayage en cours |
+| PCG64 **ensemencé** 32 bits (XSL-RR et DXSM) | **Exclu** — 12 configurations, rang 0/8, indice 9/24 pour 9,3 attendus |
+| PCG64 à état 128 bits **aléatoire** | **Tenté, mesuré** — z3 `unknown` à 45 s dès K=2, même l'inconnue réduite à 64 bits |
+| **Avantage de prédiction mesuré** hors échantillon | **Aucun** — +0,004 numéro, 24 combinaisons, contrôle biaisé à z = +96 (§8 bis) |
+| Le boost **programmé par l'horloge** ? | **Non** — heure, jour, créneau, mois, autocorrélation, spectre : tout sur son contrôle mélangé |
 | `xoshiro256**`, `xoroshiro128**`, `xoshiro512**` (brouilleur non linéaire) | **Exclus** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
