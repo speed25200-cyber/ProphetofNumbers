@@ -28,7 +28,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | **Le tirage trié vu comme un rang combinatoire** (61,6 bits/tirage au lieu de 4) | **Piste neuve — le tri ne perd rien si le tirage n'a jamais eu d'ordre.** Voir §6 quater |
 | LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 5 conventions × 5 mappages × 70 557 départs, 0 |
 | splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
-| **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
+| **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280. `WELL44497` (44 497 bits) est juste au-dessus et déclaré |
 | `xoshiro256**`, `xoroshiro128**`, `xoshiro512**` (brouilleur non linéaire) | **Exclus** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
@@ -771,7 +771,15 @@ Les deux distributions sont indiscernables. Donc, en une phrase :
 
 MT19937 (19 937 bits), MT19937-64, WELL19937, xorshift1024\*, et toute la famille
 xoshiro/xoroshiro en font partie — y compris les variantes à sortie additive, dont le
-bit 0 est exactement linéaire. Cette seule mesure subsume les 3 900 configurations du
+bit 0 est exactement linéaire.
+
+**La borne est 35 280 et il faut la dire telle quelle**, parce qu'un générateur réel est
+juste au-dessus : `WELL44497` porte 44 497 bits d'état et **échappe donc à cette mesure**.
+Ce n'est pas hors d'atteinte pour autant — 4 bits exacts par tirage sur 70 560 tirages
+font 282 240 équations pour 44 497 inconnues, largement de quoi le résoudre par
+élimination GF(2) directe. Mais cela demande sa matrice de transition symbolique, donc de
+le nommer, ce qui fait retomber dans l'énumération que ce test servait justement à éviter.
+Lacune étroite, précise, déclarée. Cette seule mesure subsume les 3 900 configurations du
 §6 bis, et va bien au-delà : elle couvre les générateurs qu'on n'a pas nommés.
 
 Les 4 plans de bits du rang sont les plus rigoureux du lot : `v₂(C(80,20)) = 4`, donc
