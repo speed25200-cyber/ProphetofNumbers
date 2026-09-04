@@ -792,6 +792,19 @@ Berlekamp-Massey s'y applique sans réserve :
 L'exclusion de la classe F2-linéaire vaut donc pour **les deux** réductions, et non plus
 seulement pour `u mod C`.
 
+Ces deux affirmations portent tout le résultat — si l'un des canaux n'était pas exact,
+la complexité linéaire mesurerait du bruit. Elles sont donc **vérifiées**, pas
+argumentées (`bitchannel.py`) :
+
+```
+u mod C, 4 bits bas : 0 différence sur 300 000     <- le canal
+u mod C, 5 bits bas : 21 362 différences sur 50 000 <- la frontière est exactement 4
+mulhi, bits 24/28/32/40/48 : 0 différence sur 200 000 chacun
+```
+
+Les deux canaux sont exacts là où l'argument le dit, et cessent de l'être exactement là
+où il dit qu'ils cessent.
+
 ### `rankxo.c` — les brouilleurs `**`, que ni l'un ni l'autre n'atteint
 
 Restent les générateurs « brouillés » modernes : `xoshiro256**` et `xoroshiro128**`
