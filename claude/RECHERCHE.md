@@ -1991,23 +1991,36 @@ l'archive, et c'est celle qui a la plus grande valeur attendue.
 **Réponse directe : depuis l'archive publiée, prédire ne serait-ce qu'un numéro
 au-dessus de 25 % n'est pas atteignable — et c'est mesuré, pas supposé.**
 
-L'analyse se lit maintenant sur **deux axes**, parce que le tirage peut avoir été produit
-de deux façons très différentes, et que l'observable n'a pas la même largeur dans les deux
-cas :
+L'analyse se lit sur **trois architectures**, parce que le tirage peut avoir été produit de
+trois façons, et que l'observable n'a pas la même largeur dans les trois cas :
 
-| | le générateur produit un **ordre** (mélange) | le générateur tire **un entier** et le dérange |
-|---|---|---|
-| ce que l'archive livre | 4 à 6 bits par tirage (`bonus`, `boost`) | **61,6 bits** par tirage (le rang) |
-| ce que le tri détruit | 89,6 bits — tout l'ordre | **rien** : il n'y a jamais eu d'ordre |
+| | **mélange** (Fisher-Yates puis tri) | **dérangement** (un entier, unrank) | **sélection** (Knuth 3.4.2 S) |
+|---|---|---|---|
+| ce que l'archive livre | 6,2 bits/tirage (`bonus`, `boost`) | **61,6 bits/tirage** (le rang) | jusqu'à **80 contraintes** d'intervalle |
+| ce que le tri détruit | 89,6 bits — tout l'ordre | **rien** : il n'y a jamais eu d'ordre | **rien** : les numéros sortent déjà triés |
+| outils | `seedhunt`, `lin_break`, `lcg_lll`, `shufbias` | §6 quater en entier | `selsamp` |
+
+Et il existe un **quatrième observable**, transversal aux trois : le `bonus`. Il est
+toujours l'un des 20, donc sa position parmi eux est une fonction de l'ordre caché que le
+tri n'a pas touchée — 4,32 bits par tirage, plus 1,88 pour le `boost` (§6 sexies).
 
 ### Exclu quelle que soit l'architecture
 
 - Toute structure statistique exploitable : 250 prédicteurs, 2,49 G de paires,
   82 160 triplets, 60 000 lags, batterie NIST, 14 blocs séparés.
-- **Toute** la classe F2-linéaire d'état inférieur à **35 280 bits** — sans énumérer,
-  sans supposer de W, par la complexité linéaire (§6 quater). MT19937, MT19937-64,
-  WELL19937, xorshift1024\*, toute la famille xoshiro/xoroshiro, et les générateurs que
-  personne n'a nommés en font partie.
+- **Toute** la classe F2-linéaire d'état inférieur à **48 000 bits** — sans énumérer,
+  sans supposer de W, sans rien supposer des coefficients. La complexité linéaire donne
+  35 280 sur une suite ; le système multi-suites de `multibm` porte la borne à 48 000, et
+  son contrôle coupe net des deux côtés **à cette taille exacte**. MT19937 (19 937),
+  MT19937-64, WELL19937, **WELL44497** (44 497), xorshift1024\*, toute la famille
+  xoshiro/xoroshiro, et les générateurs que personne n'a nommés en font partie.
+- **Tout LCG de module 2⁶⁴, quels que soient son multiplicateur, son incrément et son
+  pas** — par l'identité `d₁² ≡ d₀·d₂` de `lcgident`, qui n'a aucune inconnue. Le
+  catalogue de multiplicateurs disparaît : plus rien ne peut s'y cacher.
+- **Toute largeur de sortie inférieure à 61 bits** sous la mise à l'échelle standard
+  (`rankgaps`) : le flux des rangs n'est l'image d'aucun générateur 32, 48 ou 53 bits.
+- **Aucun avantage de prédiction mesurable** : 8 stratégies × 3 tailles × 69 560 tirages
+  hors échantillon, plus grand |z| = 1,21, avantage +0,004 numéro (§8 bis).
 - Tout générateur d'état ≤ 32 bits : 234 variantes, balayage 2³² complet, sous les deux
   modèles de sortie (`seedhunt` pour le mélange, `rankseed` pour le dérangement).
 - Réensemencement sur l'horloge : aux 24 décrochages **et** aux 358 redémarrages
@@ -2061,12 +2074,17 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
   ensemencé sur un entier est balayé (`mrgkiss.c`) ; l'état de 128 bits libre ne l'est pas.
 - **Les générateurs à état-tableau** (RC4, ISAAC, règle 30) : ni linéaires, ni à retenue,
   ni congruentiels, et d'état bien trop grand pour un balayage.
-- **Une troisième architecture** à laquelle je n'ai pas pensé. Les six conventions de rang
-  et les deux modèles de sortie couvrent ce que je sais construire ; ils ne couvrent pas
-  ce que je n'ai pas imaginé.
+- **Une quatrième architecture** à laquelle je n'ai pas pensé. La troisième —
+  l'échantillonnage par sélection — a été trouvée et couverte dans cette session
+  (`selsamp`), ce qui est la preuve que la liste n'était pas close, et donc qu'elle ne
+  l'est peut-être toujours pas. Les six conventions de rang et les trois architectures
+  couvrent ce que je sais construire ; elles ne couvrent pas ce que je n'ai pas imaginé.
+  Le `bonus` en est l'illustration : il était dans l'archive depuis le début, j'avais
+  écrit qu'il ne portait « aucune information d'ordre », et c'était faux.
 
-**Le verrou reste l'ordre des boules, et il est chiffrable :** 6,32 bits par tirage
-aujourd'hui contre **126 bits** avec l'ordre. C'est un facteur 20, et il fait basculer
+**Le verrou reste l'ordre des boules, et il est chiffrable :** 6,2 bits par tirage
+aujourd'hui — le `bonus` et le `boost`, désormais exploités (§6 sexies) — contre
+**126 bits** avec l'ordre. C'est un facteur 20, et il fait basculer
 chaque famille ci-dessus du côté cassable — `mtbreak` le démontre de bout en bout,
 `keno_break` est l'outil prêt à l'emploi. Et §6 quinquies dit où en est la recherche de
 ces tirages ordonnés : **ils ne sont pas dans les dépôts**, vérification exhaustive faite.
