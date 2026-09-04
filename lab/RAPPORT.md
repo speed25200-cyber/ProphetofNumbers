@@ -22960,6 +22960,13 @@ registre ne se lisent pas.
 | **`Z/2^W`-linéaire** — les congruentiels, toutes constantes et tous modules | l'état avance par `x ↦ ax + c` | **réseau euclidien** (LLL + Babai) | **§230** : `12` jeux `mod 2⁶⁴`, `245 760` relèvements. **§232** : `18` jeux de plus, huit modules, `368 640` relèvements, plus `1 024` cribles **exhaustifs** |
 | **ni l'un ni l'autre** — PCG, `xoshiro**`/`++`, `splitmix64`, ChaCha, AES-CTR, matériel | la sortie passe par un mélangeur non linéaire | *aucun outil connu* | **rien ne la ferme**, et c'est dit franchement ci-dessous |
 
+> **Complément apporté par le §242.** Ce tableau à trois lignes est encore incomplet, et le
+> trou a un nom : le **Fibonacci retardé** (`x_t = x_{t−j} ± x_{t−k} mod 2^W`) n'est ni
+> `F₂`-linéaire — l'addition retient, le `xor` non — ni attaquable par le réseau du §230, qui
+> exige de *connaître* `a` et `c` quand un Fibonacci retardé n'a que des **lags**. C'est
+> pourtant la famille de `System.Random`, de `math/rand` et de `ran3`. Le §242 ajoute le
+> troisième outil, qui ne demande **aucun paramètre**.
+
 Ces deux linéarités sont **disjointes**, et c'est le point que le dossier avait manqué. Le §124
 disait déjà noir sur blanc ce qu'il ne fermait pas — *« les générateurs non `F₂`-linéaires :
 LCG, PCG, `xoshiro`, `splitmix64`, tout CSPRNG »*. La moitié congruentielle de cette phrase est
@@ -23499,5 +23506,134 @@ Six expériences de plus depuis le §234 — dont une qui a **déclenché sa pro
 pré-enregistrée**, et quatre qui l'ont réexaminée jusqu'à l'infirmer. Le registre n'a pas
 bougé d'un cran : le plus petit `p` du dossier reste celui du §h114, à cinq ordres de grandeur
 du seuil que sa propre multiplicité impose.
+
+---
+
+## 242. **Les relations à coefficients unités** : la troisième linéarité (`h218_relations_unites.py`)
+
+### Le trou dans ma propre carte
+
+Le §233 range les générateurs en deux linéarités : `F₂`-linéaire (Berlekamp-Massey, §124) et
+`Z/2^W`-linéaire (réseau euclidien, §230 et §232). **C'est incomplet**, et le trou a un nom.
+
+Le **Fibonacci retardé** — `x_t = x_{t−j} ± x_{t−k} mod 2^W` — n'est ni l'un ni l'autre *au
+sens de ces deux outils* :
+
+  * il n'est pas `F₂`-linéaire (l'addition **retient**, le `xor` non), donc Berlekamp-Massey
+    passe à côté ;
+  * il est bien `Z/2^W`-linéaire, mais le réseau du §230 exige de **connaître** `a` et `c` — et
+    un Fibonacci retardé n'a ni multiplicateur ni incrément : il a des **lags**.
+
+Or c'est la famille de `System.Random` (.NET, lags `21`/`55`), de `math/rand` (Go, `273`/`607`)
+et de `ran3` (*Numerical Recipes*, `31`/`55`). Rien d'exotique.
+
+### L'outil, et il ne demande aucun paramètre
+
+Soit `u_t = x_t/2^W ∈ [0,1)` et `r_t = ⌊base·u_t⌋` la classe observée. Sous la relation,
+`u_t − ε₁u_{t−J} − ε₂u_{t−K}` est un **entier exact**. En écrivant `u = (r+θ)/base` avec
+`θ ∈ [0,1)` :
+
+    s_t = r_t − ε₁·r_{t−J} − ε₂·r_{t−K}     est confiné à QUATRE valeurs sur `base`
+
+La statistique est la concentration circulaire `Z = (1/n)·|Σ_t exp(2πi·s_t/base)|`, qui vaut
+`≈ 0,98` sous l'hypothèse contre `1/√n ≈ 0,0038` sous la nulle.
+
+**Aucun paramètre.** Ni modulus, ni multiplicateur, ni incrément, ni graine — on balaie
+seulement les deux lags. Et le calcul se fait par **corrélation triple via FFT** :
+`1 537 600` relations (poids `2` et `3`, lags jusqu'à `620`, deux canaux) en une minute.
+
+### Les témoins plantés retrouvent les lags exacts
+
+| générateur planté | canal | `\|Z\|` | cellule trouvée |
+|---|---|---|---|
+| .NET `System.Random` (`21`/`55`) | base `20` | `0,9850` | **`J = 21`, `K = 55`, `+1/−1`** |
+| .NET `System.Random` | base `80` | `0,9965` | `J = 21`, `K = 55`, `+1/−1` |
+| `ran3` (`31`/`55`) | base `20` | `0,9850` | **`J = 31`, `K = 55`, `+1/−1`** |
+| Go `math/rand` (`273`/`607`) | base `20` | `0,9577` | **`J = 273`, `K = 607`, `+1/−1`** |
+
+L'instrument ne se contente pas de *détecter* : il **nomme les lags et les signes**. S'il
+trouvait quelque chose, il donnerait le générateur.
+
+### La portée, dite honnêtement
+
+Le flux du bonus est à pas `P` mots par tirage (§225). Une relation entre **mots** aux lags
+`j` et `k` ne devient une relation entre **bonus** que si `P` divise `j` **et** `k`. Ce test
+couvre donc le cas `P = 1` et tous les couples multiples du pas — la part de la famille qui
+**survit à la décimation**. Ce n'est pas toute la famille, et personne n'avait regardé
+celle-là.
+
+### Ce que rend l'archive
+
+| canal | max `\|Z\|` | max sous SRS | `95ᵉ` centile | `p` |
+|---|---|---|---|---|
+| **rang du bonus** | **`0,015757`** | `0,014212 ± 0,000421` | `0,014808` | `0,048` |
+| numéro du bonus | `0,014123` | `0,014184 ± 0,000780` | `0,015274` | `0,43` |
+
+**La règle pré-enregistrée s'est déclenchée** sur le canal du rang, verdict `RELATION TROUVÉE`,
+et c'est consigné. Le §243 la vérifie — et cette fois la taille de l'effet suffit : `0,0158`
+contre `0,98`, un facteur **soixante-deux**.
+
+**Ligne de registre.** `h218.relations_unites`, piste B, RELATION TROUVEE, `m_extra = 1 537 599`.
+
+---
+
+## 243. **La confirmation du §242** : quand la taille de l'effet suffit (`h219_confirmation_relation.py`)
+
+### L'argument qui ne demande aucune statistique
+
+Une relation à coefficients unités n'est pas une tendance : c'est une **contrainte
+arithmétique exacte**. `s_t` est *confiné* à quatre valeurs sur `base` — pas « légèrement plus
+fréquent ». Donc la question « est-ce une relation ? » se tranche par la **masse**, pas par un
+`p`.
+
+| | masse de la meilleure fenêtre de `4` | `\|Z\|` |
+|---|---|---|
+| sous une vraie relation | `1,00000` | `≈ 0,98` |
+| **archive, canal du rang** | **`0,20654`** | `0,015757` |
+| sous la nulle (uniforme) | `0,20000` | `≈ 0,0038` |
+
+L'histogramme complet de `s mod 20` pour la cellule gagnante va de `0,04785` à `0,05204`
+autour d'un plat à `0,05000`. **C'est du bruit, pas une contrainte.**
+
+### La cellule ne se reproduit pas
+
+| | canal du rang | canal du numéro |
+|---|---|---|
+| cellule sur l'archive entière | `J = 3`, `K = 574` | `J = 3`, `K = 574` |
+| argmax sur la première moitié | `J = 147`, `K = 439` | `J = 219`, `K = 564` |
+| argmax sur la seconde moitié | `J = 47`, `K = 150` | `J = 17`, `K = 98` |
+| identique sur les deux moitiés | **NON** | **NON** |
+
+Une contrainte arithmétique ne change pas de lags au milieu de l'archive.
+
+### Et la nulle d'une cellule, exacte, vérifiée
+
+Pour une cellule **fixée d'avance**, `Z` est la moyenne de `n` vecteurs unitaires d'espérance
+nulle, donc `P(|Z| ≥ z) = exp(−n·z²)`. Vérifié par simulation :
+
+    centile 0,50 : simulé 0,01315   théorique 0,01316   rapport 0,999
+    centile 0,90 : simulé 0,02450   théorique 0,02399   rapport 1,021
+    centile 0,99 : simulé 0,03418   théorique 0,03393   rapport 1,007
+
+Appliquée à la cellule gagnante : `p = 2,84·10⁻⁸` **pour une cellule fixée**, mais
+`× 1 537 600` cellules → `0,044`. La seconde lecture, indépendante des vingt répliques du
+§242, donne la même chose.
+
+    ARTEFACT DE SEUIL
+
+### Ce que cet épisode apprend sur ma propre règle
+
+Le seuil du §242 est un `95ᵉ` centile appliqué à **deux** canaux **sans correction interne**.
+Il se déclenche donc à tort une fois sur dix, **par construction**.
+
+> Ce n'est pas la donnée qui a mal tourné, c'est **le seuil que j'ai écrit**. Une règle de
+> décision doit porter sa propre multiplicité, et celle-là ne la portait pas.
+
+C'est le second déclenchement du dossier en huit sections — le §236 puis le §242 — et les deux
+fois l'audit a trouvé le défaut **du côté de l'instrument**, pas de l'archive : une nulle mal
+couplée au §237, un seuil mal corrigé ici. Un protocole qui ne se déclenche jamais ne teste
+rien ; celui-ci se déclenche, et tient.
+
+**Ligne de registre.** `h219.confirmation_relation`, piste B, ARTEFACT DE SEUIL, `m_extra = 5`.
 
 ---
