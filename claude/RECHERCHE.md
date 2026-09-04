@@ -848,7 +848,8 @@ graine et chaque générateur, prendre la ou les premières sorties, les envoyer
 `[0, C(80,20))`, et comparer au rang publié. Une coïncidence vaut 61,6 bits d'un coup —
 sur 2³² graines une fausse arrive avec probabilité 2⁻²⁹·⁶, donc un seul succès trancherait.
 
-Contrôles : les 16 générateurs plantés sont tous retrouvés ; 3·10⁶ graines × 16
+Contrôles : les **20** générateurs plantés sont tous retrouvés — dont PCG64 (XSL-RR
+128 bits), xoroshiro128\*\*, xoshiro512\*\* et MT19937-64 — et 3·10⁶ graines × 20
 générateurs × 3 décalages contre un rang n'appartenant à aucun générateur donnent **0**.
 
 ### `rankhash.py` — l'équité prouvable, refaite pour cette architecture
@@ -872,6 +873,26 @@ vérifié sur 6 tirages. Un mauvais schéma coïncide avec probabilité 2⁻⁶�
 
 Contrôle positif : un schéma `sha256("keno" + id)` planté est bien reconnu par le
 harnais. Résultat : **aucun**.
+
+---
+
+### Ce qui n'est PAS couvert, et pourquoi
+
+Deux choses, dites franchement plutôt que passées sous silence :
+
+- **PCG64 à état 128 bits complet.** La sortie est `rotr(hi ^ lo, hi >> 58)` : le
+  brouilleur n'est pas une bijection d'un mot vers un mot (le pliage `hi ^ lo` perd
+  64 bits) et la rotation dépend de l'état lui-même. La méthode de `rankxo` ne s'y
+  applique donc pas. J'ai cherché une résolution bit à bit du poids faible vers le poids
+  fort — elle échoue proprement : la moitié haute de l'état suivant dépend de **tous**
+  les bits bas, donc le bit j de l'observable n'est pas déterminé par les bits 0..j de
+  l'inconnue. Une attaque correcte demande un solveur dédié ; je préfère déclarer la
+  lacune que livrer une attaque à moitié vérifiée. Le cas réellement plausible — un
+  déploiement ensemencé sur un entier 32 bits — est, lui, couvert par `rankseed`.
+- **Les DRBG cryptographiques à clé inconnue** (AES-CTR, ChaCha20, HMAC-DRBG). C'est par
+  construction hors d'atteinte, et ce n'est pas une lacune de méthode : si l'opérateur
+  utilise cela correctement, aucune quantité de sortie publiée ne le trahit. Le §7 ter
+  écarte seulement les **clés par défaut**.
 
 ---
 
@@ -1063,6 +1084,19 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
 - Les tests statistiques n'ont **aucun pouvoir** contre un PRNG à petit état : un
   xorshift32 cassable en secondes est indiscernable d'un PCG64 (§5). C'est la raison
   pour laquelle tout l'effort a basculé vers l'algèbre.
+- **Un bug de mémoire non initialisée dans `rankxo`, attrapé par le contrôle.**
+  `build()` remplissait `D×64` lignes de matrice mais n'en remettait à zéro que `n` :
+  les lignes supplémentaires contenaient ce que `malloc` avait rendu. Le symptôme est
+  instructif — le premier générateur passait, les suivants échouaient, parce que la
+  première allocation tombe sur des pages neuves (donc nulles) et les suivantes sur de
+  la mémoire recyclée. Le diagnostic n'a pas été deviné mais mesuré : `A·s ≠ raw` sur
+  27 lignes sur 192, alors que la matrice est censée reproduire l'observation exactement.
+  **Les résultats de `rankxo` sur l'archive ont été rejoués après correction** — un
+  résultat négatif produit par une matrice partiellement aléatoire ne vaut rien. Deux
+  autres défauts sont sortis du même examen : `xoshiro512**` brouille `s[1]` et non
+  `s[0]`, et les tableaux dimensionnés à 640 débordaient à 704 lignes pour un état de
+  512 bits. Audit fait sur les 12 autres outils C : aucun n'a ce motif (tous en `calloc`
+  ou entièrement réécrits).
 - Le contrôle de `lowlcg3` échouait, et j'ai d'abord accusé un **manque de tirages** :
   une mesure partielle montrait 1 500 survivants à 18 quartets et 0 à 26, ce qui allait
   dans ce sens. En vérifiant trois survivants un par un, ils se sont révélés **réels**.

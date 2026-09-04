@@ -26,8 +26,9 @@ static const u64 CC = 3535316142212174320ULL;
 /* ---- generators: seed -> a 64-bit quantity, `skip` outputs discarded first ---- */
 static const char *GN[] = {"minstd16807","minstd48271","randu","java48","msvc","borland",
   "xorshift32","xorshift64","splitmix64","lcg64_mmix","nr_ranqd1","pcg32","mt19937",
-  "xoshiro256ss","lcg64_knuth","xorshift128"};
-#define NG 16
+  "xoshiro256ss","lcg64_knuth","xorshift128",
+  "pcg64_xslrr","xoroshiro128ss","xoshiro512ss","mt19937_64"};
+#define NG 20
 
 static u64 rotl64(u64 x,int k){ return (x<<k)|(x>>(64-k)); }
 
@@ -130,19 +131,72 @@ static u64 gen64(int g, u64 seed, int skip){
     case 14:{ u64 x = seed;
               for(int i=0;i<=skip;i++) x = x*6364136223846793005ULL+1442695040888963407ULL;
               return x*2862933555777941757ULL+3037000493ULL; }
-    default:{ u64 a = seed?seed:1, b = seed^0x9E3779B97F4A7C15ULL;
+    case 15:{ u64 a = seed?seed:1, b = seed^0x9E3779B97F4A7C15ULL;
               for(int i=0;i<=skip;i++){ u64 t=a; t^=t<<23; t^=t>>17; t^=b^(b>>26); a=b; b=t; }
               return a+b; }
+    case 16:{ /* PCG64 XSL-RR: 128-bit LCG, default multiplier and increment */
+              u128 A = ((u128)0x2360ED051FC65DA4ULL << 64) | 0x4385DF649FCCF645ULL;
+              u128 Cc = ((u128)0x5851F42D4C957F2DULL << 64) | 0x14057B7EF767814FULL;
+              u128 st = (u128)seed; u64 out = 0;
+              st = st*A + Cc;
+              for(int i=0;i<=skip;i++){
+                u64 hi = (u64)(st >> 64), lo = (u64)st;
+                u64 xs = hi ^ lo; int r = (int)(hi >> 58);
+                out = (xs >> r) | (xs << ((-r) & 63));
+                st = st*A + Cc; }
+              return out; }
+    case 17:{ u64 s0, s1; u64 z = seed;
+              z += 0x9E3779B97F4A7C15ULL; u64 w = z;
+              w=(w^(w>>30))*0xBF58476D1CE4E5B9ULL; w=(w^(w>>27))*0x94D049BB133111EBULL; s0=w^(w>>31);
+              z += 0x9E3779B97F4A7C15ULL; w = z;
+              w=(w^(w>>30))*0xBF58476D1CE4E5B9ULL; w=(w^(w>>27))*0x94D049BB133111EBULL; s1=w^(w>>31);
+              u64 out = 0;
+              for(int i=0;i<=skip;i++){
+                out = rotl64(s0*5,7)*9;
+                u64 t = s1 ^ s0;
+                s0 = rotl64(s0,24) ^ t ^ (t<<16); s1 = rotl64(t,37); }
+              return out; }
+    case 18:{ u64 st[8]; u64 z = seed;
+              for(int i=0;i<8;i++){ z += 0x9E3779B97F4A7C15ULL; u64 w = z;
+                w=(w^(w>>30))*0xBF58476D1CE4E5B9ULL; w=(w^(w>>27))*0x94D049BB133111EBULL;
+                st[i]=w^(w>>31); }
+              u64 out = 0;
+              for(int i=0;i<=skip;i++){
+                out = rotl64(st[1]*5,7)*9;
+                u64 t = st[1] << 11;
+                st[2]^=st[0]; st[5]^=st[1]; st[1]^=st[2]; st[7]^=st[3]; st[3]^=st[4];
+                st[4]^=st[5]; st[0]^=st[6]; st[6]^=st[7]; st[6]^=t; st[7]=rotl64(st[7],21); }
+              return out; }
+    default:{ /* MT19937-64 */
+              static __thread u64 mt[312]; static __thread int mi;
+              mt[0] = seed;
+              for(int i=1;i<312;i++) mt[i] = 6364136223846793005ULL*(mt[i-1]^(mt[i-1]>>62))+i;
+              mi = 312;
+              u64 out = 0;
+              for(int q=0;q<=skip;q++){
+                if(mi >= 312){
+                  for(int i=0;i<312;i++){
+                    u64 x = (mt[i]&0xFFFFFFFF80000000ULL)|(mt[(i+1)%312]&0x7FFFFFFFULL);
+                    u64 n = mt[(i+156)%312] ^ (x>>1);
+                    if(x&1) n ^= 0xB5026F5AA96619E9ULL;
+                    mt[i] = n; }
+                  mi = 0; }
+                u64 y = mt[mi++];
+                y ^= (y>>29)&0x5555555555555555ULL; y ^= (y<<17)&0x71D67FFFEDA60000ULL;
+                y ^= (y<<37)&0xFFF7EEE000000000ULL; y ^= y>>43;
+                out = y; }
+              return out; }
   }
 }
 
-static u64 TARGET; static u64 A0, B0; static int NTH;
+static u64 TARGET; static int NTH;
+static int GLO = 0, GHI = NG;   /* restrict to a slice of the generator list */
 typedef struct { u64 a, b; int tid; long long hits; u64 hs; int hg, hm, hk; } JOB;
 
 static void *worker(void *p){
   JOB *j = (JOB*)p; j->hits = 0;
   for(u64 s = j->a; s < j->b; s++)
-    for(int g = 0; g < NG; g++)
+    for(int g = GLO; g < GHI; g++)
       for(int k = 0; k <= 2; k++){
         u64 u = gen64(g, s, k);
         if(u % CC == TARGET || (u64)(((u128)u * CC) >> 64) == TARGET){
@@ -186,8 +240,11 @@ int main(int argc, char **argv){
   long idx = atol(argv[2]); TARGET = R[idx];
   u64 lo = strtoull(argv[3],0,0), hi = strtoull(argv[4],0,0);
   NTH = argc>5?atoi(argv[5]):4;
-  printf("draw %ld, rank %llu;  seeds [%llu,%llu) x %d generators x 3 skips x 2 mappings\n",
-         idx, (unsigned long long)TARGET, (unsigned long long)lo, (unsigned long long)hi, NG);
+  if(argc>6){ GLO = atoi(argv[6]); GHI = argc>7?atoi(argv[7]):GLO+1; }
+  printf("draw %ld, rank %llu;  seeds [%llu,%llu) x generators %d..%d x 3 skips x 2 mappings\n",
+         idx, (unsigned long long)TARGET, (unsigned long long)lo, (unsigned long long)hi,
+         GLO, GHI-1);
+  for(int g = GLO; g < GHI; g++) printf("    %s\n", GN[g]);
   pthread_t th[32]; JOB jb[32];
   u64 span = (hi - lo + NTH - 1)/NTH;
   for(int t = 0; t < NTH; t++){

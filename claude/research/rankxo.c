@@ -50,7 +50,7 @@ static const GEN GENS[] = { {"xoshiro256**", 4}, {"xoroshiro128**", 2}, {"xoshir
 #define NGEN 3
 
 static u64 observed_word(int g, const u64 *s){          /* the word the scrambler eats */
-  return (g == 0) ? s[1] : s[0];
+  return (g == 1) ? s[0] : s[1];   /* xoroshiro128** uses s0; both xoshiro** use s1 */
 }
 static u64 scramble(u64 w){ return rotl(w * 5, 7) * 9; }
 static u64 unscramble(u64 o){ return rotr(o * inv_odd(9), 7) * inv_odd(5); }
@@ -95,12 +95,18 @@ static int invert(BV *A, BV *INV, int n){
 }
 
 static u64 *R; static long N;
-static int SEL[640];
+static int SEL[1024];
+
+/* Rows not chosen for the basis are free consistency checks. Testing one costs n/64
+   word operations against n*n/64 for the solve, so filtering first is ~64x cheaper and
+   is what brings 6^9 assignments (xoshiro512**) inside budget. */
+#define NFILT 12
+static BV FILT[NFILT]; static int FROW[NFILT]; static int NF;
 
 /* pick n independent rows out of `rows`, record them in SEL, invert that submatrix */
 static int prepare(BV *A, int rows, int n, BV *INV){
   BV *tmp = malloc(sizeof(BV) * n); int got = 0;
-  BV *piv = malloc(sizeof(BV) * n); int npiv = 0; int pcol[640];
+  BV *piv = malloc(sizeof(BV) * n); int npiv = 0; int pcol[1024];
   for(int r = 0; r < rows && got < n; r++){
     BV v = A[r];
     for(int i = 0; i < npiv; i++) if(bv_get(&v, pcol[i])) bv_xor(&v, &piv[i]);
@@ -112,7 +118,19 @@ static int prepare(BV *A, int rows, int n, BV *INV){
   free(piv);
   if(got < n){ free(tmp); return 0; }
   int ok = invert(tmp, INV, n);
-  free(tmp); return ok;
+  free(tmp);
+  if(!ok) return 0;
+  /* build the filters: row_u . INV, so the check becomes a parity against the same obs */
+  NF = 0;
+  char used[1024]; memset(used, 0, sizeof used);
+  for(int i = 0; i < n; i++) used[SEL[i]] = 1;
+  for(int r = 0; r < rows && NF < NFILT; r++){
+    if(used[r]) continue;
+    BV f; bv_zero(&f);
+    for(int q = 0; q < n; q++) if(bv_get(&A[r], q)) bv_xor(&f, &INV[q]);
+    FILT[NF] = f; FROW[NF] = r; NF++;
+  }
+  return 1;
 }
 
 /* Build the map (initial state) -> (observed words at draws 0..D-1), W steps per draw.
@@ -120,7 +138,7 @@ static int prepare(BV *A, int rows, int n, BV *INV){
    — measured rank 253/256 and 125/128 — so the caller passes one draw MORE and picks an
    independent basis out of the rows. */
 static void build(int g, int W, int n, int D, BV *A){
-  for(int i = 0; i < n; i++) bv_zero(&A[i]);
+  for(int i = 0; i < D*64; i++) bv_zero(&A[i]);   /* every row written must be cleared */
   u64 s[MAXW];
   for(int col = 0; col < n; col++){
     memset(s, 0, sizeof s); s[col>>6] = 1ULL << (col&63);
@@ -143,13 +161,20 @@ static int try_window(int g, int W, int n, int D, int DF, const BV *INV, long d0
   }
   int idx[16]; memset(idx, 0, sizeof idx);
   for(;;){
-    unsigned char raw[640];
+    unsigned char raw[1024];
     for(int i = 0; i < DF; i++){
       u64 w = cand[i][idx[i]];
       for(int b = 0; b < 64; b++) raw[i*64 + b] = (w >> b) & 1;
     }
     BV obs; bv_zero(&obs);
     for(int r = 0; r < n; r++) if(raw[SEL[r]]) bv_set(&obs, r);
+    int bad = 0;
+    for(int q = 0; q < NF && !bad; q++){
+      u64 pp = 0; for(int w = 0; w < NWD; w++) pp ^= FILT[q].w[w] & obs.w[w];
+      if(__builtin_parityll(pp) != raw[FROW[q]]) bad = 1;
+    }
+    if(bad){ int i = 0; for(; i < DF; i++){ if(++idx[i] < nc[i]) break; idx[i] = 0; }
+             if(i == DF) return 0; continue; }
     u64 s[MAXW]; memset(s, 0, sizeof s);
     for(int r = 0; r < n; r++){                       /* s = INV * obs */
       u64 p = 0; for(int q = 0; q < NWD; q++) p ^= INV[r].w[q] & obs.w[q];
@@ -196,8 +221,6 @@ int main(int argc, char **argv){
       for(u64 t = 0; t < 200000; t++){ u64 z = t*0x9E3779B97F4A7C15ULL+7;
         if(unscramble(scramble(z)) != z){ bij = 0; break; } }
       int DF = D + 1;                       /* one draw more than the state needs */
-      if(DF > 5){ printf("  %-16s linear=%-3s bijection=%-3s  6^%d assignments — skipped\n",
-                         GENS[g].name, lin?"yes":"NO", bij?"yes":"NO", DF); continue; }
       int W = 5;
       long nd = 60; N = nd; R = malloc(8*nd);
       u64 s[MAXW]; memset(s,0,sizeof s);
@@ -235,8 +258,6 @@ int main(int argc, char **argv){
   for(int g = 0; g < NGEN; g++){
     int n = GENS[g].words*64, D = GENS[g].words; NWD = (n+63)/64;
     int DF = D + 1;
-    if(DF > 5){ printf("  %-16s 6^%d assignments per window — out of budget\n", GENS[g].name, DF);
-                continue; }
     int DFMAX = D + 3;
     BV *A = malloc(sizeof(BV)*DFMAX*64), *INV = malloc(sizeof(BV)*n);
     long hits = 0; int sing = 0, maxdf = 0;

@@ -21,6 +21,9 @@ gcc -O3 -march=native -o lcgrank       lcgrank.c                 2>/dev/null
 gcc -O3 -march=native -o rankmix       rankmix.c                 2>/dev/null
 gcc -O3 -march=native -o rankxo        rankxo.c                  2>/dev/null
 gcc -O3 -march=native -o bm            bm.c                      2>/dev/null
+gcc -O3 -march=native -o ranklfg       ranklfg.c                 2>/dev/null
+gcc -O3 -march=native -o rankw32       rankw32.c                 2>/dev/null
+gcc -O3 -march=native -o rankseed2     rankseed.c      -lpthread 2>/dev/null
 python3 mkdata.py >/dev/null
 
 echo
@@ -80,6 +83,14 @@ echo "    an additive state under 6 bijective finalizers:"
 ./rankmix selftest | grep -E "splitmix|murmur|moremur|rrmxmx|identity|xor-shift"
 echo "    the ** scramblers, peeled off by inversion:"
 ./rankxo  selftest | grep -E "xoshiro|xoroshiro"
+echo "    lagged Fibonacci (glibc random(), Boost, add-with-carry):"
+./ranklfg selftest | grep -E "glibc|Boost|subtract|xor lagged"
+echo "    the rank assembled from two machine words:"
+./rankw32 selftest | grep -E "2 x"
+echo "    the 2^32 seed sweep, for this architecture (20 generators):"
+./rankseed2 selftest | tail -3
+echo "    provably-fair unranking, 23520 schemes:"
+python3 rankhash.py 2>&1 | tail -3
 
 echo
 echo "=== 8 quater. Berlekamp-Massey: the whole F2-linear class without enumerating."
