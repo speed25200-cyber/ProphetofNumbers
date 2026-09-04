@@ -71,6 +71,7 @@ CLASSES = "/tmp/h228_classes.txt"
 POOL, PAS = 80, 300
 EXP_ID = "h228.multiplicateur_inconnu"
 FJETON = "/tmp/h228_jeton.json"
+CACHE = "/tmp/h228_faits.json"
 
 
 def say(*a):
@@ -175,9 +176,22 @@ if __name__ == "__main__":
         raise SystemExit("le temoin de bout en bout echoue : on ne balaie rien avec ca")
 
     # --- le balayage reel
+    #
+    # UN CACHE, PARCE QU'UN MODULE COUTE DES HEURES. Chaque module termine est ecrit
+    # dans CACHE ; relancer le script avec la liste complete ne rebalaie que ce qui
+    # manque, et la ligne de registre couvre alors les QUATRE modules et non le seul
+    # dernier. Sans cela, finir 2^32 effacerait du registre le travail sur 2^29..2^31.
     procs = max(1, os.cpu_count() or 1)
+    deja = json.load(open(CACHE, encoding="utf-8")) if os.path.exists(CACHE) else {}
     fait, survivants = [], []
     for bits in bits_demandes:
+        if str(bits) in deja:
+            d = deja[str(bits)]
+            fait.append(bits)
+            survivants.extend(d["survivants"])
+            say(f"\n   m = 2^{bits} : deja balaye ({d['n']} multiplicateurs, "
+                f"{len(d['survivants'])} survivant(s), {d['s']:.0f}s) — repris du cache")
+            continue
         say(f"\n   balayage m = 2^{bits} : {1 << (bits-1)} multiplicateurs impairs, "
             f"{procs} parts")
         t0 = time.time()
@@ -192,8 +206,11 @@ if __name__ == "__main__":
         fait.append(bits)
         for l in surv:
             say("   *** " + l)
-        say(f"      {1 << (bits-1)} multiplicateurs balayes en {time.time()-t0:.0f}s, "
+        dt = time.time() - t0
+        say(f"      {1 << (bits-1)} multiplicateurs balayes en {dt:.0f}s, "
             f"{len(surv)} survivant(s)")
+        deja[str(bits)] = {"n": 1 << (bits - 1), "survivants": surv, "s": dt}
+        json.dump(deja, open(CACHE, "w", encoding="utf-8"), ensure_ascii=False)
 
     total = sum(1 << (b - 1) for b in fait)
     manque = [b for b in (29, 30, 31, 32) if b not in fait]
