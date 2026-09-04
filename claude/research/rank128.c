@@ -163,6 +163,7 @@ int main(int argc, char **argv){
   if(fread(RANK, 8, NR, f) != (size_t)NR){ fprintf(stderr, "lecture courte\n"); return 2; }
   fclose(f);
   u64 nseeds = strtoull(argv[2], 0, 0);
+  int g0 = (argc > 3) ? atoi(argv[3]) : 0;      /* reprise : premier generateur a traiter */
   const int MAXSTRIDE = 6, CAP = 8;
   printf("archive : %ld rangs ; rang tire sur 128 BITS (deux mots de 64)\n", NR);
   printf("balayage : %llu graines x %d generateurs x 2 ordres x 2 reductions x pas 2..%d\n",
@@ -173,7 +174,7 @@ int main(int argc, char **argv){
          (double)nseeds*G_NGEN*4*(MAXSTRIDE-1)/3.535e18);
   fflush(stdout);
   long alarms = 0; int best = 0;
-  for(int g = 0; g < G_NGEN; g++)
+  for(int g = g0; g < G_NGEN; g++)
     for(int order = 0; order < 2; order++)
       for(int mode = 0; mode < 2; mode++){
         int gb = 0;

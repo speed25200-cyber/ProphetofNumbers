@@ -233,6 +233,7 @@ int main(int argc, char **argv){
   loadbin(argv[1]);
   long first = atol(argv[2]);
   u64 nseeds = strtoull(argv[3], 0, 0);
+  int g0 = (argc > 4) ? atoi(argv[4]) : 0;      /* reprise : premier generateur a traiter */
   const int CAP = 6;
   /* Le decalage initial n'est utile que si le balayage ne couvre PAS tout l'etat.
      Pour un generateur d'etat 32 bits, parcourir les 2^32 graines visite deja chaque
@@ -249,7 +250,7 @@ int main(int argc, char **argv){
   printf("  UN SEUL tirage reproduit vaut 2^-61,6 : seuil d'alarme a 1.\n\n");
   fflush(stdout);
   int best = 0; long alarms = 0;
-  for(int g = 0; g < G_NGEN; g++){
+  for(int g = g0; g < G_NGEN; g++){
     int bk = 0;
     for(u64 s = 0; s < nseeds; s++)
       for(int l = 0; l < NLEADS(g); l++){

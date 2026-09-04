@@ -139,12 +139,13 @@ func main() {
 	}
 	load(os.Args[1])
 	fmt.Printf("archive : %d tirages ; Go math/rand (le vrai), 4 methodes\n\n", N)
+	skip1 := len(os.Args) > 3 && os.Args[3] == "skip1"
 
 	// (1) reensemencement par tirage sur l'horloge ou l'identifiant, chaque tirage
-	fmt.Println("(1) graine = horodatage du tirage (+/- 8 s), identifiant (+/- 2), 0, 1, 42, 1234")
 	alarms := 0
 	trials := 0
-	for d := 0; d < int(N); d++ {
+	if !skip1 { fmt.Println("(1) graine = horodatage du tirage (+/- 8 s), identifiant (+/- 2), 0, 1, 42, 1234") }
+	for d := 0; d < int(N) && !skip1; d++ {
 		row := draw(d)
 		seeds := []int64{0, 1, 42, 1234, int64(IDS[d]), int64(IDS[d]) - 1, int64(IDS[d]) + 1, int64(IDS[d]) - 2, int64(IDS[d]) + 2}
 		for k := -8; k <= 8; k++ { seeds = append(seeds, int64(TS[d])+int64(k)) }
@@ -161,7 +162,7 @@ func main() {
 		}
 		if d%10000 == 0 && d > 0 { fmt.Printf("  ...%d/%d\n", d, N) }
 	}
-	fmt.Printf("  essais %d ; un tirage reproduit vaut 2^-61,6 ; alarmes %d\n\n", trials, alarms)
+	if !skip1 { fmt.Printf("  essais %d ; un tirage reproduit vaut 2^-61,6 ; alarmes %d\n\n", trials, alarms) }
 
 	// (2) petite constante, tirage 0
 	limit := int64(1) << 26
