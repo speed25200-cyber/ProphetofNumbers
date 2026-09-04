@@ -444,7 +444,29 @@ la transition de phase que documente delta-chain. Deux multiplications 64 bits p
 splitmix64 hors de portée de CaDiCaL à cette taille — et donc, par le même argument,
 PCG (rotation dépendante de l'état) et xoshiro\*\* (multiplication en sortie).
 
-**3. Effondrement en bits faibles** (`lowlcg.c`) — et là, l'algèbre gagne. Pour un LCG
+*(Ce verdict vaut pour le canal de 4 bits. Le §6 quater le contourne : à 61,6 bits par
+tirage le finaliseur de splitmix64 s'inverse au lieu de se résoudre, et le brouilleur de
+xoshiro\*\* se décolle. La barrière n'est pas franchie — elle cesse d'être sur le chemin.)*
+
+**3. Le rang de la jacobienne GF(2) comme instrument de mesure.**
+`analyze_phase_transition.py` de delta-chain n'attaque rien : il **mesure** le rang de la
+jacobienne sur GF(2) pour savoir où le système bascule du linéaire vers le non-linéaire.
+C'est le transfert méthodologique le plus utile du dépôt, et il traverse tous les outils
+d'ici — le rang n'y est jamais supposé, il est mesuré, et à chaque fois il a corrigé une
+supposition :
+
+| outil | rang mesuré | ce qu'il a corrigé |
+|---|---|---|
+| `mtbreak` | 19 937 / 19 968 | la nullité de 31 dimensions **est** la structure de MT, pas un bug |
+| `channel_break` | saturation à 19 937 puis contradiction | distingue « pas assez d'équations » de « hypothèse fausse » |
+| `rankxo` | 253/256 et 125/128 | les mots échantillonnés **n'engendrent pas** l'état — un tirage de plus était nécessaire |
+| `bm`, `twoadic` | complexité linéaire et 2-adique | le rang, appliqué à une classe entière au lieu d'un générateur |
+
+Les deux dernières lignes sont la généralisation naturelle de la première : mesurer un
+rang plutôt que tester une hypothèse. C'est ce qui permet d'écarter des familles qu'on n'a
+pas pensé à nommer.
+
+**4. Effondrement en bits faibles** (`lowlcg.c`) — et là, l'algèbre gagne. Pour un LCG
 modulo 2^M, les **L bits de poids faible de l'état forment eux-mêmes un LCG modulo 2^L**,
 quoi que fassent les bits hauts. Or 80 = 16·5, donc `u % 80` fixe `u mod 16`, c'est-à-dire
 les bits `shift..shift+3` de l'état — qui vivent dans `s mod 2^(shift+4)`. L'inconnue
