@@ -19,6 +19,11 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Sortie additive (xorshift128+ de V8, xoshiro256+) | **Exclu** — bit 0 exactement linéaire, 128 essais, 0 consistant |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
 | LCG 2⁶⁴ à sortie de poids fort | **Exclu** — 2 880 réductions de réseau (12 multiplicateurs standards × 48 W × 5 fenêtres), 0 correspondance |
+| `java.util.Random`, état 48 bits quelconque | **Exclu** — même réseau, module paramétré, 0 correspondance |
+| Congruentiel `u = s >> shift` puis `j = u % 80` | **Exclu** — effondrement en bits faibles, 2⁶⁴ ramené à 2²⁰–2³⁶, **0 survivant** |
+| Hachage à **rondes réduites** (la fonction de delta-chain) | **Exclu**, 1 920 schémas |
+| Mode compteur à clé par défaut (AES-CTR, ChaCha20) | **Exclu**, 360 combinaisons |
+| splitmix64 / PCG / xoshiro\*\* par SAT | **Hors d'atteinte, mesuré** — la barrière des retenues tient |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
@@ -311,8 +316,8 @@ La variante W ≈ 40 couvre l'échantillonneur qui tire un flottant :
 quarantaine par tirage. Les bits de tête du premier mot restent épinglés, l'attaque
 s'applique telle quelle.
 
-Les variantes `% ` couvrent le style de code `j = i + u %% (80-i)` : 80 = 16·5, donc
-`u %% 80` fixe `u mod 16`, soit 4 bits **de poids faible**. Validé sur une archive
+Les variantes `%` couvrent le style de code `j = i + u % (80-i)` : 80 = 16·5, donc
+`u % 80` fixe `u mod 16`, soit 4 bits **de poids faible**. Validé sur une archive
 synthétique générée avec ce mapping — mode 6 consistant, mode 0 (mulhi) rejeté,
 mauvais W rejeté.
 
@@ -407,7 +412,7 @@ PCG (rotation dépendante de l'état) et xoshiro\*\* (multiplication en sortie).
 
 **3. Effondrement en bits faibles** (`lowlcg.c`) — et là, l'algèbre gagne. Pour un LCG
 modulo 2^M, les **L bits de poids faible de l'état forment eux-mêmes un LCG modulo 2^L**,
-quoi que fassent les bits hauts. Or 80 = 16·5, donc `u %% 80` fixe `u mod 16`, c'est-à-dire
+quoi que fassent les bits hauts. Or 80 = 16·5, donc `u % 80` fixe `u mod 16`, c'est-à-dire
 les bits `shift..shift+3` de l'état — qui vivent dans `s mod 2^(shift+4)`. L'inconnue
 s'effondre de M bits à shift+4 :
 
@@ -424,7 +429,7 @@ laissent rien. Contrôle positif : **9 familles sur 9, exactement 1 survivant ch
 
 Cela comble le trou entre `modlcg` (sortie en bits faibles) et `lcg_lll` (sortie
 tronquée de poids fort + mapping `mulhi`) : le cas intermédiaire, `u = s >> shift`
-puis `j = u %% 80`, où le bonus épingle des bits faibles de `u` — ni un intervalle
+puis `j = u % 80`, où le bonus épingle des bits faibles de `u` — ni un intervalle
 (pas de réseau), ni linéaire sur F2 (pas d'élimination).
 
 **Résultat sur l'archive réelle** — 9 familles × W jusqu'à 32 × jusqu'à 4 fenêtres,
@@ -450,7 +455,7 @@ SHA-256 de chacun, le SHA-256 du vide) × 5 compteurs publics × 4 dérivations 
 ### Générateurs congruentiels — `modlcg.py`
 
 Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,
-**quel que soit le multiplicateur**. Donc si l'échantillonneur écrit `j = u %% 80` et
+**quel que soit le multiplicateur**. Donc si l'échantillonneur écrit `j = u % 80` et
 que `u` est constitué des bits faibles de l'état, alors `(bonus−1) mod 16 = u mod 16`
 et la suite doit vérifier `x_{d+1} = A·x_d + C (mod 16)` — 256 couples à essayer, sans
 jamais deviner le multiplicateur. Étendu aux ordres 1 et 2, modulo 2 à 16, sur six
