@@ -1156,6 +1156,89 @@ l'implémentation est soignée — réduction non biaisée et arithmétique enti
 précision. Ce qui est cohérent avec tout le reste du dossier : un RNG correctement
 implémenté.
 
+### `rankgaps.py` — combien de bits l'opérateur émet-il vraiment ? Le réseau *quelconque*
+
+`quantize.py` ne voit qu'un réseau dont le pas est une puissance de deux, parce que c'est
+la forme qu'impose le flottant. La question générale est plus large et plus utile : **si le
+générateur de l'opérateur émet `b` bits par tirage et les met à l'échelle dans `[0, C)`,
+le flux des rangs ne prend au plus que 2^b valeurs**, quel que soit le pas. Un générateur
+32 bits, deux mots 32 bits concaténés, un `double` à 53 bits significatifs, un compteur
+48 bits — tous laissent la même empreinte : les rangs vivent sur un réseau trop grossier.
+
+Deux tests, de portée différente, et je dis pour chacun ce qu'il suppose.
+
+**(A) Sans aucun modèle.** L'image du générateur a au plus 2^b points ; les n = 70 560
+tirages y entrent en collision au rythme des anniversaires, `n(n−1)/2 / 2^b`, *quelle que
+soit* l'application utilisée. Compter les rangs répétés borne donc `b` par le bas sans rien
+supposer sur la mise à l'échelle. Portée limitée et je la donne : `n²/2 = 2^31,2`, donc ce
+test seul ne voit rien au-delà de 2⁴¹ environ.
+
+**(B) Avec le modèle de mise à l'échelle standard** `r = ⌊u·C / 2^b⌋`, `u ∈ [0, 2^b)`.
+Ce modèle s'inverse **exactement** : `r = ⌊u·C/2^b⌋` équivaut à `u = ⌈r·2^b/C⌉` — plancher
+à l'aller, **plafond** au retour. Un seul tirage qui échoue tue le `b` correspondant :
+c'est une réfutation dure, pas statistique. Sous l'uniformité un tirage passe avec
+probabilité `2^b/C`, donc le test meurt au premier ou deuxième tirage tant que `b < 61`.
+
+Un flux à `b` bits passe (B) pour tout `b′ ≥ b` — le pas `C/2^b` est un multiple entier du
+pas `C/2^b′` — donc la statistique lue est **le plus petit `b` qui passe**. Sous
+l'uniformité ce plus petit `b` doit être 62, là où `2^b > C` rend le test vide.
+
+Contrôles d'abord, comme toujours :
+
+```
+reseau plante b=24  -> (A) 163 rangs repetes, image ~2^23,9   (B) b = 24   RECOVERED
+reseau plante b=32  -> (A)   1 rang  repete,  image ~2^31,2   (B) b = 32   RECOVERED
+reseau plante b=38  -> (A)   0                                (B) b = 38   RECOVERED
+reseau plante b=44  -> (A)   0                                (B) b = 44   RECOVERED
+reseau plante b=52  -> (A)   0                                (B) b = 52   RECOVERED
+reseau plante b=58  -> (A)   0                                (B) b = 58   RECOVERED
+uniforme sur [0,C)  -> (A)   0                                (B) AUCUN b <= 61   PASS
+```
+
+Le contrôle à **58 bits** est celui qui compte : il montre que l'outil a encore du
+tranchant à trois bits du plafond de 61,6, donc qu'un résultat négatif sur l'archive n'est
+pas un aveuglement du test près de la limite.
+
+Sur l'archive, les cinq conventions de rang :
+
+```
+rang colex0     (A) 0 rang repete   (B) AUCUN reseau b <= 61
+                ecart minimal 1,3308e+08 -> tout reseau de <= 34 bits refute par ce seul ecart
+                espacements : moyenne 5,0103e+13 (theorie 5,0104e+13, rapport 1,0000)
+                KS vs exponentielle D = 0,00347 (critique 5 % 0,00512)  OK
+rang lex0       (A) 0   (B) AUCUN   ecart minimal 2,2268e+08 -> <= 33 bits refute
+rang colex1     (A) 0   (B) AUCUN   ecart minimal 1,6378e+08 -> <= 34 bits refute
+rang comp0      (A) 0   (B) AUCUN   ecart minimal 1,3308e+08 -> <= 34 bits refute
+rang revcolex0  (A) 0   (B) AUCUN   ecart minimal 2,2268e+08 -> <= 33 bits refute
+```
+
+**Lecture.** Le flux des rangs n'est l'image d'**aucun** générateur émettant moins de
+61 bits par tirage sous la mise à l'échelle standard. Cela tombe en une seule mesure, sans
+énumérer une seule graine : tout générateur 32 bits, tout assemblage de deux mots 32 bits,
+tout `double`, tout compteur 48 bits. Et l'écart minimal donne en prime une réfutation
+*dure* — une seule paire de rangs voisins suffit — de tout réseau de 33 ou 34 bits au plus.
+
+C'est le même énoncé que celui du §6 quater vu par l'autre bout : là je montrais qu'aucune
+famille précise ne colle, ici je montre que la **largeur** de la sortie est pleine. Une
+implémentation qui tirerait 61,6 bits honnêtes reste évidemment compatible — c'est le cas
+attendu, et c'est ce qu'on observe.
+
+**Ce que ce test ne couvre pas, et il faut le dire.** (B) suppose *une* mise à l'échelle
+d'un *seul* entier. Une implémentation qui construit le tirage chiffre par chiffre —
+Fisher-Yates avec 20 petits tirages successifs, chacun consommant peu de bits — produit un
+rang de pleine largeur et passe ce test sans difficulté. C'est l'architecture par mélange,
+couverte ailleurs (§6 bis, `shufbias.py`), pas ici. Le test de Lemire `r = (u·C) >> b` est
+en revanche **le même** `⌊u·C/2^b⌋` et se trouve donc bien couvert.
+
+**Un piège de convention rencontré en route.** `colex1` sortait d'abord à `D = 0,10307`,
+soit vingt fois la valeur critique — un « signal » spectaculaire. Il n'en était rien :
+`colex1` indexe des sous-ensembles de `{1..80}` traités comme 0-based, donc son image vit
+dans `[0, C(81,20))` et n'en couvre que `C(80,20)` points. Le rapport d'espacement observé
+valait 1,3279 ; `C(81,20)/C(80,20) = 81/61 = 1,32787`. À la cinquième décimale. Le module
+corrigé, la convention rentre dans le rang, et le test KS est simplement **inapplicable** à
+`colex1` puisque son image n'est pas l'intervalle entier — c'est noté dans le code plutôt
+que masqué.
+
 ### Les deux réductions, et pourquoi il fallait les couvrir toutes les deux
 
 `modbias.py` écarte le `u mod C` **naïf**. Il reste donc deux façons plausibles de
@@ -1772,6 +1855,24 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
   (état, incrément) qu'à une translation d'orbite près, et la translation est une
   identité algébrique exacte (§7 ter). J'ai réécrit le critère, pas l'outil — et relevé
   l'exigence de preuve de 30 à 48 quartets plutôt qu'abaisser la barre à un « presque ».
+- **Un contrôle qui ne contrôlait rien, et que seul le passage à l'échelle a démasqué.**
+  Le contrôle de `multibm` plantait un registre à décalage d'ordre R et prenait ses `m`
+  plans aux positions de bits 3, 10, 17, 24 — commentaire à l'appui : « m fonctionnelles
+  linéaires différentes ». C'est faux, et d'une façon qui se voit une fois écrite : dans
+  un registre à décalage la position `p` contient `s[t−p]`, donc ces quatre plans sont
+  **une seule suite lue à quatre décalages**. Or les décalés d'une suite n'engendrent rien
+  de plus que son propre espace de récurrence : les quatre plans n'apportaient qu'un plan
+  d'équations indépendantes. Symptôme : à `L = 42 496` le rang saturait à 28 085 ≈ `n − L`
+  au lieu de `L`, et le cas `L < R` ressortait « consistent » — **par manque de rang, pas
+  parce qu'une récurrence existait**. Le petit `selftest` passait quand même, et c'est le
+  point : à `n = 6 000`, `L = 2 944`, un seul plan fournit déjà 3 056 lignes ≥ 2 944, donc
+  la déficience ne pouvait pas s'y manifester. Il a fallu le contrôle **à la taille où la
+  revendication est faite** (`n = 70 560`, `L = 48 000`, où un plan seul ne donne que
+  22 560 lignes) pour qu'elle apparaisse. Corrigé en tirant chaque fonctionnelle comme la
+  **parité d'un masque aléatoire sur tout l'état** — ce que sont réellement les quatre
+  plans de bits de l'archive. C'est la justification la plus nette, dans tout ce dossier,
+  de la règle « contrôler à l'échelle de l'énoncé » : un contrôle validé à 3 000 bits et
+  invoqué à 48 000 aurait laissé passer un résultat négatif entièrement creux.
 
 ---
 

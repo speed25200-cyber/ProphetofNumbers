@@ -82,17 +82,31 @@ static void teardown(void){
 /* ---- controls: a planted LFSR of known order, and random bits ---- */
 static void lfsr_planes(int order, long n, int m, unsigned char **out){
   /* an order-`order` F2-linear generator; every output bit is a linear functional of the
-     state, so all m planes obey the same recurrence — exactly the premise under test */
+     state, so all m planes obey the same recurrence — exactly the premise under test.
+
+     The m functionals must be the PARITY OF A RANDOM MASK over the whole state, not m
+     single bit positions. In a shift register bit p holds s[t-p], so reading positions
+     3, 10, 17, 24 returns ONE sequence at four time shifts: shifts of a sequence span no
+     more than that sequence's own recurrence space, so the four planes contribute one
+     plane's worth of independent equations and the rank saturates near n-L instead of L.
+     That is precisely what the first version of this control did, and it made the L<R
+     case come out "consistent" — vacuously, for want of rank, not because a recurrence
+     existed. Random masks give four genuinely different functionals of the same state,
+     which is what the archive's four bit-planes are. */
   int words = (order + 63) / 64;
   u64 *st = calloc(words, 8), *tap = calloc(words, 8);
+  u64 *msk = calloc((size_t)m * words, 8);
   u64 z = 0x9E3779B97F4A7C15ULL;
   for(int i = 0; i < words; i++){ z = z*6364136223846793005ULL + 1; st[i] = z; }
   for(int i = 0; i < words; i++){ z = z*6364136223846793005ULL + 1; tap[i] = z; }
+  for(long i = 0; i < (long)m * words; i++){ z = z*6364136223846793005ULL + 1; msk[i] = z; }
   tap[0] |= 1;
+  for(int j = 0; j < m; j++) msk[(size_t)j*words] |= 1;   /* no all-zero functional */
   for(long i = 0; i < n; i++){
     for(int j = 0; j < m; j++){
-      int bitpos = (j * 7 + 3) % order;             /* m different linear functionals */
-      out[j][i] = (st[bitpos>>6] >> (bitpos&63)) & 1;
+      u64 acc = 0;
+      for(int w = 0; w < words; w++) acc ^= st[w] & msk[(size_t)j*words + w];
+      out[j][i] = (unsigned char)__builtin_parityll(acc);
     }
     u64 fb = 0;
     for(int w = 0; w < words; w++) fb ^= st[w] & tap[w];
@@ -100,7 +114,7 @@ static void lfsr_planes(int order, long n, int m, unsigned char **out){
     for(int w = words-1; w > 0; w--) st[w] = (st[w]<<1) | (st[w-1]>>63);
     st[0] = (st[0]<<1) | (u64)b;
   }
-  free(st); free(tap);
+  free(st); free(tap); free(msk);
 }
 
 int main(int argc, char **argv){
