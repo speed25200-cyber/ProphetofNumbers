@@ -24563,6 +24563,7 @@ large qu'elle n'est :
 | générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
 | `MT19937` derrière la carte de rang du §106, pas `20`–`41` | §254, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
+| congruentiels `m = 2²⁹`, `2³⁰`, `2³¹`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `65`–`128` | §232, réseau + Babai | heuristique |
 | tirages ordonnés contre `m ≤ 2³²`, rejets compris | §248, énumération complète | **certaine** |
@@ -24571,10 +24572,110 @@ large qu'elle n'est :
 
 | ce qui reste ouvert | pourquoi |
 |---|---|
-| congruentiels `m = 2²⁹`–`2³²`, constantes **inconnues** | **un jour de calcul en `C`, non fait** |
+| ~~congruentiels `m = 2²⁹`–`2³¹`, constantes inconnues~~ | **FAIT au §253** : `1 879 048 192` multiplicateurs, `0` survivant |
+| congruentiels `m = 2³²`, constantes **inconnues** | non fait — `8,1 h` sur quatre cœurs au rythme mesuré |
 | congruentiels `m > 2³²`, constantes inconnues | `2⁴⁶` à `2⁶²` valeurs de `a` — hors de portée |
 | mélangeurs non linéaires — `splitmix64`, `PCG`, `xoshiro` | aucune prise algébrique à `6,32` bits par tirage |
 | générateur matériel | aucune quantité de données ne le distingue d'un bon PRNG |
+
+---
+
+## 253. **Le multiplicateur inconnu** : la fenêtre du §252, refermée par le calcul (`h228_multiplicateur_inconnu.py`, `tools/lcg_mult_sweep.c`)
+
+### Ce que le §252 avait nommé, et laissé ouvert
+
+Les §250 et §251 ferment la famille congruentielle **à constantes publiées**, des deux côtés
+de `2³²`. Le §252 localise ce qui reste et en donne le prix : *« les modules `2²⁹`–`2³²` à
+constantes inconnues : ni impossible, ni déjà fait »*. Ce paragraphe-ci fait le calcul.
+
+### Deux réductions, et ce sont elles qui rendent l'affaire possible
+
+  **L'incrément s'élimine.** Les différences `y_i = x_{i+1} − x_i` vérifient `y_{i+1} = a·y_i`
+     sans aucune trace de `c`. Il ne reste qu'un inconnu : `2³¹` multiplicateurs impairs au
+     lieu de `2⁶⁴` couples `(a, c)`.
+  **Le pas de bloc s'absorbe.** Le bonus donne un mot par tirage, espacés de `P` mots sous le
+     §225 : la chaîne qu'il suit est un LCG de multiplicateur `A = a^P`. Or `a^P` parcourt les
+     impairs quand `a` le fait.
+
+> **Balayer tous les `A` impairs couvre donc tous les `(a, c, P)` à la fois.** Là où le §250
+> balayait `109` pas de bloc pour `15` jeux de constantes, celui-ci balaie **toutes** les
+> constantes et **tous** les pas d'un coup.
+
+Le réseau est ici **carré** — `(1, A, …, A⁷)` puis `m·e_i` — parce que la première coordonnée
+de la première ligne vaut `1`, là où le montage habituel du dossier empile `n+1` générateurs
+dépendants en dimension `n`. Chaque `y_i` est connu à `m/40` près et non `m/80` : une
+différence cumule **deux** incertitudes.
+
+### La solution est une famille, pas un point
+
+Décaler `x₀` de `δ` et `c` de `δ(1−a)` décale **toute** la suite de `δ` : les classes ne
+changent pas. L'ensemble des `x₀` compatibles est donc un **intervalle** d'environ
+`2(m/80)/204` valeurs, toutes légitimes. Ce n'est pas un défaut de l'outil mais une propriété
+du problème — la reconstruction **intersecte** des intervalles au lieu de balayer `x₀`, et
+l'autotest exige l'appartenance à la bonne famille, non l'égalité des constantes.
+
+### Trois témoins, parce qu'un balayage en flottants ne se croit pas sur parole
+
+    autotest       12 generateurs plantes (2^29..2^32) -> 12 etats releves, dans la
+                   famille exacte du couple plante ; temoin negatif : 2 000
+                   multiplicateurs sur des classes au hasard, 0 survivant
+    bout en bout   un LCG plante mod 2^20, balayage de ses 524 288 impairs -> UN seul
+                   survivant, le bon (a = 195 517, retrouve dans sa famille)
+    croisement     700 instances tirees au hasard (2^30 et 2^32) : le compte de points
+                   du C en `double` et celui de `lab/cvp_exact.py` en `Fraction`
+                   coincident 700 fois sur 700
+
+Le troisième compte le plus. Le `C` travaille en flottants pour tenir le budget ; dire que
+c'est « exact à une marge bornée près » ne vaut que si on le **mesure** contre un oracle
+exact, et c'est ce que fait le mode `croise`.
+
+### Ce que rend l'archive
+
+    m = 2^29    268 435 456 multiplicateurs impairs, 3 384 s   ->  0 survivant
+    m = 2^30    536 870 912 multiplicateurs impairs, 7 446 s   ->  0 survivant
+    m = 2^31  1 073 741 824 multiplicateurs impairs, 15 065 s  ->  0 survivant
+
+    total     1 879 048 192 multiplicateurs, 0 survivant
+
+Vérification exacte en entiers sur les `204` classes de la plage maximale du §249. La nulle
+n'est pas une loi mais un **compte** : l'espérance de points parasites dans le pavé vaut
+`m/40⁸`, soit `6,5·10⁻⁴` pour `m = 2³²`, et celle de survivants après vérification des `204`
+classes est nulle à toute précision utile.
+
+> **Aucun générateur congruentiel de module `2²⁹`, `2³⁰` ou `2³¹` ne produit le flux du bonus
+> — quel que soit son multiplicateur, quel que soit son incrément, quel que soit son pas de
+> bloc.** C'est la première fois que le dossier ferme une famille sans connaître ses
+> constantes.
+
+### Deux fautes de performance, mesurées et non supposées
+
+La première version tenait `375 µs` par multiplicateur, soit `213 h` pour `2³²`. Deux causes,
+et les deux sont des fautes de raisonnement, pas des réglages :
+
+  la réduction recalculait la **Gram-Schmidt entière après chaque soustraction de ligne**,
+     alors que réduire `b_k` par `b_j` (`j < k`) laisse les `b*` inchangés : seuls les `μ[k][·]`
+     bougent, et leur mise à jour est **exacte** et locale ;
+  le `long double` du `x87` coûtait deux fois le `double` pour une précision dont on n'a pas
+     l'usage — la marge d'énumération est à `10⁻⁹`, sept ordres au-dessus de l'erreur d'un
+     `double` sur des quantités de l'ordre de `2⁶⁷`.
+
+    375 us  ->  41 us par multiplicateur
+
+### Ce qui n'est pas balayé, et il faut le dire
+
+**`m = 2³²`.** Au rythme mesuré, `2³¹` multiplicateurs impairs coûtent `32,4 h` sur un cœur,
+soit `8,1 h` sur quatre. C'est le seul module de la fenêtre du §252 qui reste, et il n'est pas
+« hors de portée » : il est **non fait**, et son prix est écrit ici.
+
+Au-dessus de `2³²`, le balayage redevient impossible — `2⁴⁶` valeurs de `a` sur `2⁴⁸`, `2⁶²`
+sur `2⁶⁴` — et l'argument des doublons du §229 n'y dit rien non plus. Cette moitié-là reste
+ouverte.
+
+Enfin, le balayage lit la classe par **troncature** (`⌊w·80/m⌋`). Sous `2³²` les deux règles du
+§232 coïncident (`decal = 0`), donc les deux sont couvertes ; la carte `shr16` du §248, elle,
+ne l'est pas pour des constantes inconnues.
+
+**Ligne de registre.** `h228.multiplicateur_inconnu`, piste B, conforme, `m_extra = 0`.
 
 ---
 
