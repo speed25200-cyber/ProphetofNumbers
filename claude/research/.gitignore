@@ -28,3 +28,16 @@ lowlcg3
 rank_*.bin
 bits_*.bin
 *.log
+
+# binaries from this session's rank tools — every one is rebuilt by verify_all.sh
+bm
+lcgrank
+ranklfg
+rankmix
+rankmwc
+rankseed
+rankseed2
+rankw32
+rankxo
+rankxo2
+lowlcg
