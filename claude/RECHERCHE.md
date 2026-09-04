@@ -485,9 +485,17 @@ quelques microsecondes par réduction au lieu de plusieurs minutes.
   -> no fit at any W ; total hits: 0
 ```
 
-La dernière famille classique est donc exclue elle aussi. Réserve honnête : l'attaque
-exige de **deviner le multiplicateur**. Un multiplicateur maison lui échappe — mais
-c'est aussi le seul degré de liberté qui reste, et l'ordre de tirage le referme.
+**Et `java.util.Random` avec un état 48 bits arbitraire.** Le balayage de graines ne
+couvrait java que pour `new Random(int)`, soit 2³² graines — pas un état quelconque.
+Or java est un LCG modulo 2⁴⁸ à sortie tronquée de poids fort : exactement le cadre du
+réseau, à condition de paramétrer le module. Contrôles sur données synthétiques :
+**récupéré à K = 12, 16, 20 et 24**, les trois contrôles négatifs rejetant à chaque
+fois — plus net encore que le cas 64 bits, où K = 12 produit un faux positif. Sur
+l'archive réelle : **0 correspondance**, 12 multiplicateurs × 48 W × 5 fenêtres.
+
+Les dernières familles classiques sont donc exclues elles aussi. Réserve honnête :
+l'attaque exige de **deviner le multiplicateur**. Un multiplicateur maison lui échappe
+— mais c'est aussi le seul degré de liberté qui reste, et l'ordre de tirage le referme.
 
 
 ---
