@@ -8,14 +8,16 @@ past that without needing the draw order, using one fact about Fisher-Yates:
 
 So "the first ball is one of the 20 published numbers" is a constraint on u alone —
 no array logic, no ordering. Keeping only the top 7 bits of u, the constraint is
-"w = u>>25 lies in an allowed set of about 34 values out of 128", worth ~1.9 bits.
+    "w = u>>25 lies in an allowed subset of 128".  On the 70,560 published
+sets, the subset has mean size 44.147 and carries 1.5376 bits per draw.  See
+``sorted_prefix_audit.py``; the older 1.9-bit estimate was too optimistic.
 Each output bit of an F2-linear generator is a XOR of state bits, so the whole thing
 is a CNF over B unknowns: chain the XORs with Tseitin variables, forbid the
 disallowed 7-bit prefixes, and let CaDiCaL search.
 
 Usage: python3 satbreak.py [B ...]      (default 32 48 64 80 96 128)
 """
-import sys, time, random
+import math, random, sys, time
 from pysat.formula import CNF
 from pysat.solvers import Cadical153
 
@@ -99,7 +101,6 @@ class Enc:
         self.n += 1; return self.n
     def xor_chain(self, mask):
         """Variable equal to the XOR of the state bits selected by mask."""
-        bits = [i+1 for i in range(self.n) if (mask >> i) & 1 and i < 10**9]
         bits = [i+1 for i in range(mask.bit_length()) if (mask >> i) & 1]
         if not bits:
             z = self.new(); self.cnf.append([-z]); return z
@@ -146,9 +147,11 @@ def run(B, verbose=True):
             j = i + ((u*(80-i)) >> 32)
             a[i], a[j] = a[j], a[i]; row.append(a[i])
         sets.append(sorted(row))
-    need = int(B/1.9) + 12
+    all_pref = [allowed_prefixes(set(row)) for row in sets]
+    mean_information = sum(7 - math.log2(len(ok)) for ok in all_pref) / len(all_pref)
+    need = int((B + 12) / mean_information) + 1
     forms = sym_forms(B, rows, need, 20)
-    pref = [allowed_prefixes(set(sets[d])) for d in range(need)]
+    pref = all_pref[:need]
     got, el, nc, nv = build_and_solve(B, need, pref, forms)
     ok = (got is not None) and (got == true_state)
     if got is not None and not ok:
@@ -169,7 +172,7 @@ def run(B, verbose=True):
 if __name__ == "__main__":
     Bs = [int(x) for x in sys.argv[1:]] or [32, 48, 64, 80, 96, 128]
     print("SAT recovery of an F2-linear PRNG state from SORTED keno draws")
-    print("  (only the first ball of each draw is used: 1.9 bits per draw, no ordering)")
+    print("  (only first-ball membership is used; information is measured, not assumed)")
     for B in Bs:
         try:
             run(B)

@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 enum LoroError: LocalizedError {
@@ -90,9 +91,7 @@ actor LoroClient {
         let details = dict(json["details"])
         let resultsDetails = dict(resultsJson?["details"])
         let gameSlot = slotFromDetails(details) ?? slotFromDetails(resultsDetails)
-        if let draw = gameSlot?.asDraw() {
-            cache[draw.drawNumber] = draw
-        }
+        if let draw = gameSlot?.asDraw() { cacheDraw(draw) }
 
         let hint = max(
             gameSlot?.asDraw()?.drawNumber ?? 0,
@@ -244,7 +243,7 @@ actor LoroClient {
         guard let url = URL(string: s) else { return nil }
         guard let json = try? await fetchJSON(url, language: lang) else { return nil }
         guard let slot = parseSlot(json) else { return nil }
-        if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+        if let draw = slot.asDraw() { cacheDraw(draw) }
         return slot
     }
 
@@ -267,13 +266,15 @@ actor LoroClient {
         var out: [Schedule.Slot] = []
         for row in rows {
             guard let rec = row as? [String: Any], let slot = parseSlot(rec) else { continue }
-            if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+            if let draw = slot.asDraw() { cacheDraw(draw) }
             out.append(slot)
         }
         return out
     }
 
-    private func parseSlot(_ raw: [String: Any]) -> Schedule.Slot? {
+    /// Pure payload parsing entry point. Kept nonisolated so fixture tests can
+    /// exercise the exact production parser without making network requests.
+    nonisolated func parseSlot(_ raw: [String: Any]) -> Schedule.Slot? {
         guard let drawNumber = asInt(raw["drawNumber"]) else { return nil }
         let drawDate = raw["drawDate"] as? String ?? ""
         guard !drawDate.isEmpty else { return nil }
@@ -321,73 +322,121 @@ actor LoroClient {
         let drawDate = raw["drawDate"] as? String ?? ""
         guard !drawDate.isEmpty else { return nil }
         let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
-        guard matrix.numbers.count >= 15 else { return nil }
+        guard matrix.numbers.count == ProphetConst.drawSize else { return nil }
         return Draw(
             drawNumber: drawNumber,
             drawDate: drawDate,
             numbers: matrix.numbers,
-            drawOrder: matrix.order,
             boost: matrix.boost,
-            bonus: matrix.bonus
+            bonus: matrix.bonus,
+            drawOrder: matrix.order
         )
     }
 
-    private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int], boost: Int?, bonus: Int?) {
+    nonisolated private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int]?, boost: Int?, bonus: Int?) {
         let obj = dict(raw)
         let matrix1 = dict(obj["matrix1"])
         let result = dict(obj["result"])
         let matrix = matrix1.isEmpty ? dict(result["matrix1"]) : matrix1
         let src = matrix.isEmpty ? obj : matrix
-        let order = parseOrderedNumbers(src["main"] ?? obj["primarySelection"])
+        let main = src["main"] ?? obj["primarySelection"]
+        let order = parseExplicitDrawOrder(main)
+        let numbers = parseNumbers(main, expectedCount: ProphetConst.drawSize)
         let boostArr = parseLoose(src["boost"])
-        let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"])
-        return (order.sorted(), order, boostArr.first, bonusArr.first)
+        let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"], expectedCount: 1)
+        return (numbers, order, boostArr.first, bonusArr.first)
     }
 
-    /// Numbers in the order the feed lists them, de-duplicated but never sorted.
-    /// If the records carry an explicit position field the feed order is rebuilt
-    /// from it; otherwise the array order is kept as-is.
-    private func parseOrderedNumbers(_ raw: Any?) -> [Int] {
-        guard let arr = raw as? [Any] else { return [] }
-        var out: [Int] = []
-        var seen = Set<Int>()
+    /// REST arrays are numeric-sorted upstream, so their array order is not draw
+    /// order. Only return an order when every ball carries a complete, unambiguous
+    /// position field. The animation SignalR sequence is captured separately.
+    nonisolated private func parseExplicitDrawOrder(_ raw: Any?) -> [Int]? {
+        guard let arr = raw as? [Any], arr.count == ProphetConst.drawSize else { return nil }
         var positioned: [(Int, Int)] = []
-        for (fallbackIndex, item) in arr.enumerated() {
-            var value: Int?
-            var position = fallbackIndex
+        for item in arr {
+            guard let rec = item as? [String: Any],
+                  let value = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"]),
+                  (1...ProphetConst.poolSize).contains(value)
+            else { return nil }
+            var position: Int?
+            for key in ["position", "drawOrder", "sequence"] {
+                if let candidate = asInt(rec[key]) {
+                    position = candidate
+                    break
+                }
+            }
+            guard let position else { return nil }
+            positioned.append((position, value))
+        }
+        let positions = positioned.map(\.0)
+        let values = positioned.map(\.1)
+        guard Set(positions).count == ProphetConst.drawSize,
+              Set(values).count == ProphetConst.drawSize,
+              let lo = positions.min(), let hi = positions.max(),
+              hi - lo == ProphetConst.drawSize - 1
+        else { return nil }
+        return positioned.sorted { $0.0 < $1.0 }.map(\.1)
+    }
+
+    /// Parse a complete REST selection atomically. A malformed or oversized
+    /// array must not become valid by dropping values or de-duplicating it.
+    nonisolated private func parseNumbers(_ raw: Any?, expectedCount: Int) -> [Int] {
+        guard let arr = raw as? [Any], arr.count == expectedCount else { return [] }
+        var out: [Int] = []
+        for item in arr {
+            let value: Int?
             if let rec = item as? [String: Any] {
                 value = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"])
-                for key in ["position", "order", "drawOrder", "index", "rank", "sequence"] {
-                    if let p = asInt(rec[key]) { position = p; break }
-                }
             } else {
                 value = asInt(item)
             }
-            guard let n = value, (1...80).contains(n), seen.insert(n).inserted else { continue }
-            positioned.append((position, n))
-            out.append(n)
+            guard let value, (1...ProphetConst.poolSize).contains(value) else { return [] }
+            out.append(value)
         }
-        let positions = positioned.map(\.0)
-        if Set(positions).count == positions.count, positions != positions.sorted() {
-            return positioned.sorted { $0.0 < $1.0 }.map(\.1)
-        }
-        return out
+        guard Set(out).count == expectedCount else { return [] }
+        return out.sorted()
     }
 
-    private func parseNumbers(_ raw: Any?) -> [Int] {
-        guard let arr = raw as? [Any] else { return [] }
-        var out: [Int] = []
-        for item in arr {
-            if let rec = item as? [String: Any], let n = asInt(rec["number"]), (1...80).contains(n) {
-                out.append(n)
-            } else if let n = asInt(item), (1...80).contains(n) {
-                out.append(n)
+    /// Keep a previously verified order when a later REST refresh contains only
+    /// the sorted set for the same draw.
+    private func cacheDraw(_ incoming: Draw) {
+        cache[incoming.drawNumber] = Self.mergingForCache(
+            incoming,
+            previous: cache[incoming.drawNumber]
+        )
+    }
+
+    /// Merge policy shared by the cache and its fixture tests. An order is
+    /// retained only for the same draw and the exact same 20-number set.
+    static func mergingForCache(_ incoming: Draw, previous: Draw?) -> Draw {
+        var draw = incoming
+        if let incomingOrder = draw.drawOrder {
+            if !order(incomingOrder, matches: draw.numbers) {
+                draw.drawOrder = nil
             }
+            return draw
         }
-        return Array(Set(out)).sorted()
+        guard let previous,
+              previous.drawNumber == draw.drawNumber,
+              let previousOrder = previous.drawOrder,
+              order(previousOrder, matches: draw.numbers)
+        else { return draw }
+        draw.drawOrder = previousOrder
+        return draw
     }
 
-    private func parseLoose(_ raw: Any?) -> [Int] {
+    private static func order(_ order: [Int], matches numbers: [Int]) -> Bool {
+        guard order.count == ProphetConst.drawSize,
+              numbers.count == ProphetConst.drawSize,
+              Set(order).count == ProphetConst.drawSize,
+              Set(numbers).count == ProphetConst.drawSize,
+              order.allSatisfy({ (1...ProphetConst.poolSize).contains($0) }),
+              numbers.allSatisfy({ (1...ProphetConst.poolSize).contains($0) })
+        else { return false }
+        return Set(order) == Set(numbers)
+    }
+
+    nonisolated private func parseLoose(_ raw: Any?) -> [Int] {
         guard let arr = raw as? [Any] else { return [] }
         return arr.compactMap(asInt)
     }
@@ -404,16 +453,40 @@ actor LoroClient {
         return out.sorted { $0.stake < $1.stake }
     }
 
-    private func dict(_ raw: Any?) -> [String: Any] {
+    nonisolated private func dict(_ raw: Any?) -> [String: Any] {
         raw as? [String: Any] ?? [:]
     }
 
-    private func asInt(_ v: Any?) -> Int? {
-        if let n = v as? Int { return n }
-        if let n = v as? Double { return Int(n) }
-        if let s = v as? String, let n = Int(s) { return n }
-        if let n = v as? NSNumber { return n.intValue }
+    nonisolated private func asInt(_ v: Any?) -> Int? {
+        if let n = v as? NSNumber {
+            guard CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+            switch String(cString: n.objCType) {
+            case "c", "s", "i", "l", "q":
+                return Int(exactly: n.int64Value)
+            case "C", "S", "I", "L", "Q":
+                return Int(exactly: n.uint64Value)
+            case "f", "d":
+                return exactInt(n.doubleValue)
+            default:
+                return nil
+            }
+        }
+        if let s = v as? String {
+            if let n = Int(s) { return n }
+            let pieces = s.split(separator: ".", omittingEmptySubsequences: false)
+            if pieces.count == 2,
+               !pieces[0].isEmpty,
+               !pieces[1].isEmpty,
+               pieces[1].allSatisfy({ $0 == "0" }) {
+                return Int(pieces[0])
+            }
+        }
         return nil
+    }
+
+    nonisolated private func exactInt(_ value: Double) -> Int? {
+        guard value.isFinite, value.rounded() == value else { return nil }
+        return Int(exactly: value)
     }
 
     private func asDouble(_ v: Any?) -> Double? {

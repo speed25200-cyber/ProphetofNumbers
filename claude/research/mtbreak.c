@@ -11,6 +11,7 @@
 #include <time.h>
 #define NB 19968            /* 624*32 unknown state bits */
 #define NW (NB/64)          /* 312 words per row */
+#define MT_RANK 19937       /* observable dimension after the canonical twist */
 #define MATRIX_A 0x9908b0dfU
 
 /* ---------- concrete MT19937 ---------- */
@@ -120,7 +121,7 @@ int main(int argc,char**argv){
     pos++;
   }
   if(!SCAN) printf("  linear equations used: %d (%.2f known bits per output)  rank=%d/%d  [%.1fs]\n",
-     eqs,(double)known_bits/T,NPIV,NB,(double)(clock()-c0)/CLOCKS_PER_SEC);
+     eqs,(double)known_bits/T,NPIV,MT_RANK,(double)(clock()-c0)/CLOCKS_PER_SEC);
   if(SCAN && CONTRA>0){ for(int p=0;p<NB;p++) if(PIV[p]){free(PIV[p]);PIV[p]=NULL;} NPIV=0;CONTRA=0; continue; }
   /* back substitution: free vars = 0 */
   uint64_t *x=calloc(NW,8);
@@ -139,15 +140,19 @@ int main(int argc,char**argv){
       uint8_t tt=a[i];a[i]=a[j];a[j]=tt; if(a[i]!=draws[d][i])match=0;}
     if(d<DRAWS) okobs+=match; else okfut+=match;
   }
-  if(okfut==50){
+  if(NPIV>=MT_RANK && CONTRA==0 && okobs==DRAWS && okfut==50){
     printf("  alignment %d -> rank %d, contradictions %d\n",POS0,NPIV,CONTRA);
     printf("  RESULT: observed %d/%d reproduced ; FUTURE %d/50 predicted  [%.1fs]\n",okobs,DRAWS,okfut,(double)(clock()-c0)/CLOCKS_PER_SEC);
     printf("  *** FULL BREAK: every future draw predicted exactly ***\n"); return 0; }
-  if(!SCAN){ printf("  rank %d/%d contradictions %d -> observed %d/%d future %d/50 : incomplete\n",
-      NPIV,NB,CONTRA,okobs,DRAWS,okfut); return 0; }
+  if(!SCAN){
+    const char*status = NPIV<MT_RANK ? "INCONCLUSIVE (state not uniquely determined)" : "REJECTED";
+    printf("  rank %d/%d contradictions %d -> observed %d/%d future %d/50 : %s\n",
+      NPIV,MT_RANK,CONTRA,okobs,DRAWS,okfut,status);
+    return NPIV<MT_RANK?4:2;
+  }
   for(int p=0;p<NB;p++) if(PIV[p]){free(PIV[p]);PIV[p]=NULL;}
   NPIV=0;CONTRA=0;free(x);
   }
   printf("  no consistent alignment found\n");
-  return 0;
+  return 2;
 }
