@@ -27,6 +27,7 @@ gcc -O3 -march=native -o rankw32       rankw32.c                 2>/dev/null
 gcc -O3 -march=native -o rankmwc       rankmwc.c       -lm       2>/dev/null
 gcc -O3 -march=native -o rankxo2       rankxo.c                  2>/dev/null
 gcc -O3 -march=native -o mrgkiss       mrgkiss.c       -lpthread 2>/dev/null
+gcc -O3 -march=native -o multibm       multibm.c                 2>/dev/null
 gcc -O3 -march=native -o rankseed2     rankseed.c      -lpthread 2>/dev/null
 python3 mkdata.py >/dev/null
 
@@ -111,6 +112,14 @@ echo "    the 2^32 seed sweep, for this architecture (20 generators):"
 ./rankseed2 selftest | tail -3
 echo "    provably-fair unranking, 23520 schemes:"
 python3 rankhash.py 2>&1 | tail -3
+
+echo
+echo "=== 8 quinquies. multi-sequence: several planes, ONE recurrence."
+echo "    Lifts BM's n/2 bound by noting every linear functional of an F2-linear state"
+echo "    obeys the same minimal recurrence. The cut must be two-sided and exact ==="
+./multibm selftest | grep -E "planted order|random bits"
+echo "    (below the planted order: INCONSISTENT; at or above it: consistent;"
+echo "     random bits: INCONSISTENT at every order)"
 
 echo
 echo "=== 8 quater. Berlekamp-Massey: the whole F2-linear class without enumerating."
