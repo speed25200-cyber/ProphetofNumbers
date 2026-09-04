@@ -5,6 +5,19 @@ Audit offensif de l'archive complète : 70 560 tirages (ids 1309614–1380173,
 
 Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 
+**Comment lire ce document.** Le §1 est le tableau de verdicts et suffit pour savoir ce
+qui est tombé. Le §6 quater est le cœur du travail : il change l'observable de 4 bits à
+61,6 par tirage, et c'est de là que vient la plupart de ce qui est écarté. Le §9 dit où
+en est la prédiction et **ce qui reste debout, sans arrondir**. Le §9 bis consigne les
+erreurs, y compris celles que les contrôles ont attrapées à temps.
+
+**La règle de tout le dossier :** aucun résultat négatif n'est écrit avant que l'outil
+qui l'a produit n'ait retrouvé une réponse plantée **et** rejeté de mauvaises hypothèses.
+`sh research/verify_all.sh` rejoue tous ces contrôles d'un coup. Cette règle a rattrapé,
+dans cette seule session, une matrice à moitié non initialisée, un faux « INVESTIGATE »,
+un signal à 211 σ purement tautologique, et quatre outils qui cherchaient au mauvais
+endroit.
+
 ---
 
 ## 1. Résumé
