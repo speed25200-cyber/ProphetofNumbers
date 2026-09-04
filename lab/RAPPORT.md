@@ -12877,6 +12877,35 @@ sur deux suites indépendantes il rend `2N/3` et non `N/2`.
 > **2 543 bits**. MT19937 et WELL19937 aussi, et tout état plus petit, **nommé ou
 > non**.
 
+> **PRÉCISION — et elle rétrécit cette conclusion, sérieusement.** Le théorème dit :
+> *« si un générateur de largeur `W` a produit les `M` suites, son polynôme caractéristique
+> `χ` annule les `M` préfixes »*. Cette implication demande que **chaque suite observée soit
+> une fonctionnelle `F₂`-linéaire de l'état**. C'est vrai des bits bruts d'une sortie
+> tempérée ; ce n'est **pas** vrai des bits que ce paragraphe mesure.
+>
+> Le rang du bonus vaut `⌊u·20⌋` (troncature) ou `u mod 20` (modulo). Ni l'un ni l'autre
+> n'est `F₂`-linéaire en `u` : le premier est un **seuil** avec ses retenues, le second un
+> modulo par un entier qui n'est pas une puissance de deux. Or une sortie **filtrée non
+> linéairement** peut avoir une complexité linéaire très supérieure à la largeur de son
+> état — c'est exactement le principe du *filtered LFSR*, et c'est pour cela qu'on en
+> construit.
+>
+>     ce qui est etabli   aucun generateur F2-lineaire de largeur < 47 040 ne produit ces
+>                         suites COMME FONCTIONNELLES LINEAIRES DE SON ETAT
+>     ce qui ne l'est pas W >= 47 040 pour un generateur cache derriere une carte non
+>                         lineaire — MT19937 suivi de floor(u*20) n'est PAS exclu ici
+>
+> La conclusion sur `WELL44497b` et `MT19937` vaut donc contre un générateur qui publierait
+> des **bits d'état** ; elle ne vaut pas contre le même générateur suivi de la carte de rang.
+> C'est la cinquième fois qu'une conclusion est recopiée plus large que sa source, et cette
+> fois-ci c'est moi qui l'ai recopiée.
+>
+> **Et cela a une conséquence constructive**, qui n'est pas une consolation : elle
+> **re-légitime** l'attaque `MT19937` de la branche `codex`, qui procède par élimination
+> `GF(2)` sur les tirages **ordonnés** et non par complexité linéaire. Là où ce paragraphe
+> croyait avoir rendu cette attaque superflue, il ne l'a pas fait — et c'est précisément
+> pourquoi la campagne de capture du §249 garde tout son sens.
+
 **Registre : consigné.** `m = 58 148`, zéro significatif.
 
 ### Ce que cela corrige
@@ -24531,7 +24560,7 @@ large qu'elle n'est :
 
 | ce qui est fermé | par quoi | nature |
 |---|---|---|
-| `MT19937`, `xorshift`, LFSR, WELL — tout état `F₂`-linéaire `< 47 040` bits | §124, Berlekamp-Massey | certaine |
+| générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `65`–`128` | §232, réseau + Babai | heuristique |

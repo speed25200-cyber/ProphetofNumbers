@@ -27,7 +27,7 @@ réseau ne voient un Fibonacci retardé.
 
 | famille | outil | ce qui la ferme |
 |---|---|---|
-| `F₂`-linéaire (Mersenne Twister, xorshift, LFSR, WELL) | Berlekamp-Massey | **§124** : tout état de moins de `47 040` bits |
+| `F₂`-linéaire (Mersenne Twister, xorshift, LFSR, WELL) | complexité linéaire conjointe | **§124** : tout état de moins de `47 040` bits — **à condition que les sorties observées soient des fonctionnelles linéaires de l'état**, ce que la carte de rang `⌊u·20⌋` n'est pas (voir la précision du §124) |
 | `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, **neuf** modules (`2¹⁶+1` à `2⁶⁴`), `614 400` relèvements, plus `1 024` cribles **exhaustifs** |
 | **coefficients unités** — Fibonacci retardé (`System.Random` .NET `21`/`55`, Go `273`/`607`, `ran3`) | concentration circulaire, **sans aucun paramètre** | **§242** : `1 537 600` relations, lags jusqu'à `620`, deux canaux. Les témoins plantés sont retrouvés *à leurs lags exacts* |
 | mélangeur non linéaire (PCG, splitmix64, xoshiro, CSPRNG, matériel) | *aucun outil connu* | **rien** |
