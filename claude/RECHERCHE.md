@@ -1332,6 +1332,34 @@ c'est celle qu'on peut exclure le plus fermement. La borne à 3 σ sur tout biai
 est de 0,00489 — **onze fois plus serrée** que le plus petit biais réaliste qui aurait
 servi à quelque chose.
 
+### Les trois lacunes, attaquées là où elles sont réellement déployables
+
+Une lacune dans l'abstrait n'est pas une lacune en pratique. PCG64 à état 128 bits
+inconnu, MRG32k3a à 192 bits et les combinés KISS résistent bien aux outils algébriques —
+mais **un opérateur ne choisit pas un état de 192 bits au hasard, il appelle
+`default_rng(graine)`**. C'est ce chemin-là qui est balayé.
+
+`modern_seed.py` passe par les **bibliothèques elles-mêmes** plutôt que par une
+réimplémentation, ce qui supprime tout risque de me tromper sur l'ensemencement :
+PCG64, PCG64DXSM, MT19937, Philox et SFC64 de numpy, chacun sur les quatre chemins de
+sortie qu'un développeur emploierait (`integers(0,C)` en Lemire, `random()*C` en
+flottant, `random_raw()` réduit mod C puis en mulhi). Contrôle positif : un rang pris de
+`PCG64(777)` et planté dans l'ensemble cible est retrouvé **à la graine 777**.
+
+`mrgkiss.c` couvre les deux familles que numpy n'a pas :
+
+- **MRG32k3a** de L'Ecuyer — deux récurrences d'ordre 3 modulo 2³²−209 et 2³²−22853
+  (MATLAB, Arena, Simul8), sous deux conventions d'ensemencement ;
+- **KISS99** de Marsaglia — la somme d'un LCG, d'un xorshift et de deux MWC, dont c'est
+  précisément la *somme* qui échappait à tout le reste, sous deux conventions.
+
+Contrôles : les quatre constructions plantées sont récupérées, et 2·10⁶ graines contre un
+rang n'appartenant à aucune donnent **0**.
+
+Ces balayages ne ferment pas les lacunes au sens strict — un état de 128 ou 192 bits
+choisi vraiment au hasard reste hors d'atteinte, et c'est dit. Ils ferment le cas
+**réaliste**, qui est celui d'un déploiement ensemencé sur un entier.
+
 ### Ce qui n'est PAS couvert, et pourquoi
 
 Deux choses, dites franchement plutôt que passées sous silence :
