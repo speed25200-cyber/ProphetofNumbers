@@ -24033,9 +24033,10 @@ donneraient jamais, même à mille :
   **le holdout** — un suffixe réservé qui n'a jamais servi à choisir le modèle.
 
 Le coût, lui, est réel et se dit : `400` tirages d'apprentissage `+ 50` de validation, au débit
-ci-dessus, c'est **une journée et demie de capture continue**, sans coupure de nuit dans le
-segment — et une coupure de nuit invalide le segment, puisque deux identifiants consécutifs
-séparés par la nuit ne sont pas à `300 s` l'un de l'autre.
+ci-dessus, c'est **`2,2` jours de capture** — deux nuits comprises. Le §249 explique pourquoi
+la nuit n'invalide pas le segment : les `345` coupures de l'archive sont franchies par la
+numérotation sans une seule exception, et un pas de bloc fixe compte des mots **par tirage**,
+pas par seconde.
 
 > **Ce n'est plus « ni caméra ni calcul, une boucle `HTTP` ». C'est une campagne de capture
 > prospective, et c'est la seule voie qui reste vers un relevé ordonné continu.**
@@ -24209,9 +24210,43 @@ On compte les plages maximales où l'identifiant s'incrémente de `1` **et** l'h
 Ce n'est pas une loi, c'est un **compte** : il porte sur tous les horodatages publiés, et un
 seul segment de `450` aurait suffi à rendre le verdict inverse.
 
-> **`450` demande `2,21` fois le plus long segment qui existe. `1400` en demande `6,86`.
-> Aucune campagne de capture, si longue soit-elle, ne produira un segment de `450` tirages
-> contigus : la journée n'en contient que `204`.**
+> **`450` demande `2,21` fois le plus long segment *temporellement* contigu. `1400` en
+> demande `6,86`.**
+
+### CORRECTION — « contigu » a deux sens, et j'avais pris le mauvais
+
+J'écrivais ici, en gras, qu'*« aucune campagne de capture, si longue soit-elle, ne produira un
+segment de `450` tirages contigus »*. **C'est faux, et l'erreur est dans ma lecture, pas dans
+la mesure.** Le `204` est exact ; ce qu'il compte ne l'est pas.
+
+  **contigu dans le temps** — l'intervalle vaut exactement `300 s`. C'est ce que la règle du
+     plan exige, et c'est là que la nuit coupe. Plafond : **`204`**.
+  **contigu dans la suite des tirages** — l'identifiant s'incrémente de `1`. C'est ce dont un
+     pas de bloc fixe `W` a réellement besoin : `W` mots **par tirage**, pas par seconde.
+     Plafond : **`70 560`**.
+
+Et le second chiffre était sous mes yeux depuis le début — `claude/CLAUDE.md` note « `0` trou
+d'identifiant » sur les `70 560` lignes. La mesure le confirme, et elle est nette :
+
+    ruptures d'identifiant sur toute l'archive              :      0
+    coupures de nuit ou l'identifiant s'incremente de 1     : 345 / 345
+    la plus longue plage a IDENTIFIANT consecutif           : 70 560 tirages
+
+**Les `345` nuits sont franchies par la numérotation sans une seule exception.** Le plafond de
+`204` est donc celui de la **règle**, pas celui de la **donnée** — et la règle s'est imposé le
+plus bas des deux plafonds sans le dire.
+
+> Si le générateur avance **par tirage** — un processus persistant qui ne consomme rien quand
+> il ne tire pas —, la nuit n'a aucun effet et `450` tirages consécutifs s'obtiennent en
+> **`2,2` jours** de capture. La voie `MT19937` n'est pas fermée ; elle coûte un jour de plus
+> que le plan ne le croyait.
+
+Ce que la correction ne retire pas : le plan **tel qu'il est écrit** plafonne bien à `204`,
+parce qu'il segmente sur l'intervalle de `300 ± 5 s`. Le correctif n'est pas de supprimer la
+prudence de `--allow-gaps` mais de la poser au bon endroit — **sur l'hypothèse de nuit, pas
+sur la contiguïté** : essayer `0` mot mort (générateur par tirage) *et* `85·P` mots morts
+(générateur par horloge), et voir lequel reproduit la suite. Deux hypothèses de plus à
+balayer, pas un obstacle.
 
 ### Ce que ça ne dit pas, et il faut le dire
 
@@ -24241,9 +24276,9 @@ Le plafond ne frappe pas les deux moitiés de la famille de la même façon :
 | congruentiels `m ≤ 2³²` | `≤ 32` bits | **un seul tirage ordonné** (`126` bits) | largement sur-déterminé |
 | congruentiels `m ≤ 2⁶⁴` | `64` bits | `≈ 11` numéros ordonnés | sur-déterminé dès le premier tirage |
 
-> Le plafond de la nuit **tue la voie `MT19937` sur segment unique et laisse la voie
-> congruentielle intacte** — celle-ci n'a jamais eu besoin de `450` tirages, elle a besoin
-> d'**un**.
+> Le plafond de la nuit **retarde la voie `MT19937` — d'un jour de capture, pas davantage,
+> une fois la correction ci-dessus faite — et laisse la voie congruentielle intacte** :
+> celle-ci n'a jamais eu besoin de `450` tirages, elle a besoin d'**un**.
 
 C'est pourquoi le §248 existe : un crible qui tranche sur un tirage isolé est exactement
 l'outil que ce plafond rend nécessaire.

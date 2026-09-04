@@ -34,13 +34,26 @@ Si la réponse est `>= 450`, le plan tient. Si elle est en dessous, `D >= 450` n
 « difficile » : il est **inaccessible sur un segment**, et le seuil doit changer ou la
 méthode doit changer.
 
-CE QUE ÇA NE DIT PAS
-====================
-Que la nuit plafonne le segment **observable** ne prouve pas qu'elle interrompe le
-**générateur**. Si le service tire sans publier, ou si un démon garde son état, la nuit est
-un décalage *connu* — `85` créneaux — et donc franchissable. Ce test ne tranche pas cela ;
-il chiffre le plafond **sous la règle que le plan s'est lui-même donnée**, et dit ce qu'il
-faudrait établir pour le lever.
+DEUX CONTIGUÏTÉS, ET ELLES NE DONNENT PAS LE MÊME CHIFFRE
+=========================================================
+C'est le point qui compte, et je l'avais d'abord manqué. « Contigu » a **deux** sens ici :
+
+  **contigu dans le temps** — l'intervalle vaut exactement `300 s`. C'est ce que la règle du
+     plan exige, et c'est là que la nuit coupe.
+  **contigu dans la suite des tirages** — l'identifiant s'incrémente de `1`. C'est ce dont un
+     pas de bloc fixe `W` a réellement besoin : `W` mots **par tirage**, pas par seconde.
+
+Les deux se mesurent, et ils ne donnent pas du tout le même plafond. Or `claude/CLAUDE.md`
+note depuis toujours « `0` trou d'identifiant » sur les `70 560` lignes — y compris **à travers
+les nuits**. Le test doit donc rendre les deux chiffres, et dire lequel contraint quoi :
+
+    si le generateur avance PAR TIRAGE   -> la nuit est sans effet, la plage vaut 70 560
+    si le generateur avance PAR HORLOGE  -> la nuit consomme 85*P mots, decalage CONNU
+    dans les deux cas                    -> le plafond de 204 est celui de la REGLE, pas
+                                            celui de la donnee
+
+Ce test ne tranche pas laquelle des deux hypothèses est vraie. Il chiffre les deux plafonds
+et montre que le plan s'est imposé le plus bas des deux sans le dire.
 """
 
 import csv
@@ -152,12 +165,35 @@ if __name__ == "__main__":
             + ("   <- le seuil mulhi du plan" if s == 450 else
                "   <- le seuil modulo du plan" if s == 1400 else ""))
 
+    # --- LA SECONDE CONTIGUITE, celle dont un pas de bloc fixe a reellement besoin
+    ruptures = sum(1 for i in range(n - 1) if T[i + 1][0] - T[i][0] != 1)
+    nuits_id = [i for i in range(n - 1) if T[i + 1][1] - T[i][1] > 3600]
+    nuits_ok = sum(1 for i in nuits_id if T[i + 1][0] - T[i][0] == 1)
+    Q, cur = [], 1
+    for i in range(n - 1):
+        if T[i + 1][0] - T[i][0] == 1:
+            cur += 1
+        else:
+            Q.append(cur)
+            cur = 1
+    Q.append(cur)
+    say(f"\n   la SECONDE contiguite — l'identifiant, dont un pas de bloc fixe a besoin")
+    say(f"      ruptures d'identifiant sur toute l'archive : {ruptures}")
+    say(f"      coupures de nuit ou l'identifiant s'incremente quand meme de 1 : "
+        f"{nuits_ok}/{len(nuits_id)}")
+    say(f"      la plus longue plage a IDENTIFIANT consecutif : {max(Q)} tirages")
+    say(f"   -> le plafond de {P[0]} est celui de la REGLE (contiguite temporelle), pas "
+        f"celui de la donnee ({max(Q)}).")
+
     tenable = P[0] >= 450
     verdict = "PLAN TENABLE" if tenable else "PLAFOND"
-    say(f"\n   {verdict}")
+    say(f"\n   {verdict} (au sens temporel)")
     if not tenable:
-        say(f"   -> 450 demande {450/P[0]:.2f} fois le plus long segment possible ; "
-            f"1400 en demande {1400/P[0]:.2f} fois.")
+        say(f"   -> 450 demande {450/P[0]:.2f} fois le plus long segment TEMPORELLEMENT "
+            f"contigu ; 1400 en demande {1400/P[0]:.2f} fois.")
+        say(f"      Mais {max(Q)} tirages se suivent sans un seul trou d'identifiant : si le "
+            f"generateur avance PAR TIRAGE, la nuit n'y change rien et 450 s'atteint en "
+            f"{450/204:.1f} jours de capture.")
         say(f"      Un etat congruentiel de 32 bits, lui, est sur-determine par UN SEUL "
             f"tirage ordonne (126 bits).")
 
@@ -179,5 +215,12 @@ if __name__ == "__main__":
                f"{sum(1 for r in P if r >= 450)} atteignent 450. La coupure de nuit vaut "
                f"{nuit} s = {nuit // PAS} creneaux exactement, donc franchissable SI le pas "
                f"est fixe et le processus unique — deux hypotheses a etablir, non etablies. "
-               f"{verdict}."))
+               f"MAIS le plafond de {P[0]} est celui de la REGLE, pas de la donnee : « "
+               f"contigu » a deux sens, et un pas de bloc fixe W demande W mots PAR TIRAGE, "
+               f"donc des identifiants consecutifs, pas des intervalles de {PAS} s. Or "
+               f"l'archive ne porte {ruptures} rupture d'identifiant, et les {len(nuits_id)} "
+               f"coupures de nuit s'incrementent toutes de 1 : la plus longue plage a "
+               f"identifiant consecutif vaut {max(Q)} tirages, l'archive entiere. Si le "
+               f"generateur avance PAR TIRAGE, la nuit est sans effet et 450 s'atteint en "
+               f"{450/204:.1f} jours de capture. {verdict} au sens temporel seulement."))
     say("   consigne.")

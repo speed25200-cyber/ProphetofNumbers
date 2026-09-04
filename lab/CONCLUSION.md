@@ -72,21 +72,29 @@ le plafond sans qu'il faille capturer quoi que ce soit :
     la plus longue plage a id consecutif et pas de 300 s exactement : 204 tirages (17 h)
     plages de >= 300 : 0        plages de >= 450 : 0        plages de >= 1400 : 0
 
-**`450` demande `2,21` fois le plus long segment qui existe.** Aucune campagne, si longue
-soit-elle, ne produira mieux : la journée n'en contient que `204`.
+**`450` demande `2,21` fois le plus long segment *temporellement* contigu.**
 
-**Ce qui reste ouvert.** Le plafond ne frappe pas les deux moitiés de la famille de la même
-façon, et c'est tout l'intérêt :
+**Mais « contigu » a deux sens, et le plan a pris le plus contraignant sans le dire.** Un pas
+de bloc fixe `W` compte `W` mots **par tirage**, pas par seconde : ce qu'il lui faut, ce sont
+des **identifiants consécutifs**. Or l'archive n'en a pas une seule rupture, et les `345`
+coupures de nuit sont franchies par la numérotation **sans exception** :
 
-| famille | état | ce qu'il faut | sous le plafond de `204` |
+    ruptures d'identifiant sur toute l'archive           :      0
+    coupures de nuit ou l'identifiant s'incremente de 1  : 345 / 345
+    la plus longue plage a IDENTIFIANT consecutif        : 70 560
+
+Le `204` est donc le plafond de la **règle**, pas de la **donnée**. Si le générateur avance par
+tirage, `450` s'obtient en `2,2` jours de capture ; s'il avance par horloge, la nuit consomme
+`85·P` mots — un décalage **connu**, puisque les `345` coupures sont toutes un nombre entier
+de créneaux. Dans les deux cas c'est une hypothèse de plus à balayer, pas un mur.
+
+**Ce qui reste ouvert.** Le coût, lui, reste asymétrique, et c'est tout l'intérêt :
+
+| famille | état | ce qu'il faut | ce que ça coûte |
 |---|---|---|---|
-| `MT19937` | `19 937` bits | `≈ 400` tirages | **hors d'atteinte sur un segment** |
-| congruentiels `m ≤ 2³²` | `≤ 32` bits | **un seul** tirage ordonné (`126` bits) | largement sur-déterminé |
-| congruentiels `m ≤ 2⁶⁴` | `64` bits | `≈ 11` numéros ordonnés | sur-déterminé dès le premier |
-
-Et les `345` coupures de nuit sont, **sans exception**, un nombre entier de créneaux de `300 s`
-— la modale vaut `85` créneaux. La nuit est donc un décalage *connu*, franchissable si le pas
-est fixe et le processus unique : deux hypothèses à établir, non établies.
+| `MT19937` | `19 937` bits | `≈ 400` tirages | `2,2` jours de capture, deux nuits comprises |
+| congruentiels `m ≤ 2³²` | `≤ 32` bits | **un seul** tirage ordonné (`126` bits) | cinq minutes |
+| congruentiels `m ≤ 2⁶⁴` | `64` bits | `≈ 11` numéros ordonnés | cinq minutes |
 
 Le §248 tire la conséquence : un crible qui tranche sur **un tirage isolé**, par énumération
 complète et en simulant le rejet dès le filtre, ferme la moitié `m ≤ 2³²` de la famille

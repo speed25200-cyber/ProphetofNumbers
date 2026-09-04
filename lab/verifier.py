@@ -951,6 +951,19 @@ def bloc_plafond_nuit(ids, ts):
     dit("toutes les coupures de nuit sont un nombre ENTIER de creneaux de 300 s",
         all(d % PAS == 0 for d in coup), f"{sum(1 for d in coup if d % PAS)} exception(s)",
         "0 exception")
+    # LA SECONDE CONTIGUITE — celle dont un pas de bloc fixe a reellement besoin, et
+    # celle que le §249 avait d'abord confondue avec la premiere.
+    ruptures = sum(1 for i in range(len(ids) - 1) if int(ids[i + 1]) - int(ids[i]) != 1)
+    nuits = [i for i in range(len(ts) - 1) if int(ts[i + 1]) - int(ts[i]) > 3600]
+    dit("aucune rupture d'IDENTIFIANT sur toute l'archive", ruptures == 0,
+        f"{ruptures} rupture(s)", "0")
+    dit("les coupures de nuit sont franchies par la numerotation",
+        all(int(ids[i + 1]) - int(ids[i]) == 1 for i in nuits),
+        f"{sum(1 for i in nuits if int(ids[i+1]) - int(ids[i]) == 1)}/{len(nuits)}",
+        f"{len(nuits)}/{len(nuits)}")
+    dit("donc le plafond de 204 est celui de la REGLE, pas de la donnee",
+        ruptures == 0 and max(runs) == 204, f"204 temporel / {len(ids)} par identifiant",
+        f"204 / {len(ids)}")
 
 
 if __name__ == "__main__":
