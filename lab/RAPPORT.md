@@ -23637,3 +23637,87 @@ rien ; celui-ci se déclenche, et tient.
 **Ligne de registre.** `h219.confirmation_relation`, piste B, ARTEFACT DE SEUIL, `m_extra = 5`.
 
 ---
+
+## 244. **Le seuil de bascule, grille par grille** : la seule arithmétique du dossier où le signe change
+
+### Pourquoi cette section n'est pas une expérience
+
+Elle ne teste rien : elle **calcule**. Le barème est relevé (§56, `Prophet/Models/PayTable.swift`),
+la loi des justes est hypergéométrique exacte, et il n'y a donc ni nulle, ni `p`, ni réplique —
+seulement une identité et ses conséquences. C'est aussi le seul endroit du dossier où
+l'espérance peut devenir **positive** sans le moindre biais du générateur.
+
+    J*(k, c) = ( c − E[base](k) ) / P(k/k)
+
+la cagnotte, en plus du gain fixe, à partir de laquelle une grille de `k` numéros au prix `c`
+devient favorable.
+
+### D'abord, un contrôle qui valide la transcription
+
+| `k` | `E[base]` | `P(k/k)` | `1/P(k/k)` | gain fixe `k/k` |
+|---|---|---|---|---|
+| `5` | `1,17111` | `6,449·10⁻⁴` | `1 551` | `360` |
+| `6` | `1,17646` | `1,290·10⁻⁴` | `7 753` | `1 000` |
+| `7` | `1,19712` | `2,440·10⁻⁵` | `40 979` | `2 000` |
+| `8` | `1,16682` | `4,346·10⁻⁶` | `230 115` | `10 000` |
+| `10` | `1,17612` | `1,122·10⁻⁷` | `8 911 711` | `100 000` |
+
+**Les cinq espérances tiennent dans `2,60 %`.** L'opérateur a égalisé son barème entre les
+mises — ce n'est pas une coïncidence, c'est une conception, et c'est le meilleur contrôle de
+transcription qu'on puisse avoir : cinq tables indépendantes qui retombent sur la même valeur.
+
+### Le résultat, qui va à l'inverse de l'intuition
+
+| `k` | `J*` à `c = 1,50` | `J*` à `c = 2,00` | `J*` à `c = 3,00` | `J*` / gain fixe |
+|---|---|---|---|---|
+| **`5`** | **`510`** | **`1 285`** | `2 836` | **`3,6 ×`** |
+| `6` | `2 508` | `6 385` | `14 138` | `6,4 ×` |
+| `7` | `12 412` | `32 902` | `73 881` | `16,5 ×` |
+| `8` | `76 670` | `191 727` | `421 842` | `19,2 ×` |
+| `10` | `2 886 335` | `7 342 190` | `16 253 902` | `73,4 ×` |
+
+> **La plus petite grille bascule `5 713` fois plus tôt que la plus grande.** À `CHF 2`, une
+> cagnotte de `1 285 CHF` sur le rang `5/5` suffit à rendre le pari favorable ; il en faudrait
+> `7 342 190` sur le rang `10/10`.
+
+L'intuition dit « jouer gros pour le gros lot ». L'arithmétique dit l'inverse, et la raison est
+structurelle : le rang plein pèse `20 %` de l'espérance sur une grille de cinq
+(`6,449·10⁻⁴ × 360 = 0,232` CHF sur `1,171`) et **`1 %`** sur une grille de dix
+(`1,122·10⁻⁷ × 100 000 = 0,0112` CHF sur `1,176`). Une cagnotte agit sur le rang plein ; elle a
+donc vingt fois plus de levier là où ce rang pèse vingt fois plus.
+
+### La dichotomie qu'il reste à trancher, et elle se lit sur un ticket
+
+Le barème a été relevé à **`BOOST ×1`**. Deux lectures sont arithmétiquement possibles, et
+elles ne demandent pas une statistique de plus — seulement de savoir ce qu'on achète :
+
+| | taux de retour à `c = 2` | borne inférieure sur `c` |
+|---|---|---|
+| **A** — le multiplicateur ne multiplie pas ce barème | `58,8 %` | `c > 1,1971` |
+| **B** — le multiplicateur multiplie tout (`E[boost] = 2,0125`) | **`118,3 %`** | `c > 2,4092` |
+
+`58,8 %` est un taux de retour de loterie parfaitement ordinaire. `118,3 %` est impossible pour
+un opérateur régulé. **La branche A est donc la lecture cohérente**, et c'est bien celle que le
+code de l'app suppose.
+
+Mais il faut voir ce que la branche B impliquerait si elle était vraie :
+
+> Sous la branche B, à `CHF 1,50` ou `CHF 2`, **le jeu serait favorable sans aucune cagnotte et
+> sans le moindre biais** — `E = 2,37 CHF` pour `2 CHF` misés.
+
+C'est la seule « faille » de tout le dossier qui n'exige ni prédiction, ni réseau, ni relevé
+ordonné. Elle se tranche en lisant **le prix du ticket et le règlement du multiplicateur**. Si
+le prix est de `CHF 2` et que le multiplicateur s'applique bien au barème publié, l'arithmétique
+ci-dessus dit que quelque chose ne colle pas — et ce quelque chose vaut `18 %` par franc.
+
+### Ce que ça ne dit pas
+
+Je ne sais pas si ce jeu porte une cagnotte progressive sur les rangs autres que `10/10`.
+S'il n'y en a que sur le rang plein de la plus grande grille, la ligne `k = 5` du tableau est
+sans objet. **C'est une question de règlement, pas de données**, et elle rejoint les deux autres
+questions du même genre : l'heure de clôture du multiplicateur (§4) et le prix exact du ticket.
+
+Trois questions, aucune ne demande un calcul, toutes les trois changent le signe de
+l'espérance.
+
+---

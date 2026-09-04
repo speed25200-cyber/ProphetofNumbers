@@ -752,6 +752,49 @@ def bloc_distances():
 
 
 # ======================================================================================
+# 16. LE SEUIL DE BASCULE, GRILLE PAR GRILLE (§244)
+# ======================================================================================
+
+def bloc_bascule():
+    print("\n16. LE SEUIL DE BASCULE (§244)")
+    BAREME = {5: {5: 360, 4: 36, 3: 6}, 6: {6: 1000, 5: 60, 4: 12, 3: 4},
+              7: {7: 2000, 6: 200, 5: 25, 4: 5, 3: 3},
+              8: {8: 10000, 7: 1000, 6: 80, 5: 20, 4: 5},
+              10: {10: 100000, 9: 5000, 8: 500, 7: 100, 6: 10, 5: 5, 4: 3, 0: 2}}
+
+    def pr(k, h):
+        return comb(k, h) * comb(POOL - k, DRAWN - h) / comb(POOL, DRAWN)
+
+    E = {k: sum(v * pr(k, h) for h, v in t.items()) for k, t in BAREME.items()}
+    ecart = 100 * (max(E.values()) / min(E.values()) - 1)
+    dit("le barème est égalisé entre les cinq mises", proche(ecart, 2.60, 0.05),
+        f"{ecart:.2f} %", "2,60 %")
+    dit("E[base] d'une grille de dix", proche(E[10], 1.17612, 1e-4),
+        f"{E[10]:.5f} CHF", "1,17612 CHF")
+    dit("taux de retour a CHF 2 (branche A)", proche(100 * E[10] / 2, 58.8, 0.1),
+        f"{100*E[10]/2:.1f} %", "58,8 %")
+    EB = (41 * 1 + 19 * 2 + 12 * 3 + 4 * 4 + 2 * 5 + 2 * 10) / 80
+    dit("E[multiplicateur] sur la grille du §106", proche(EB, 2.0125, 1e-4),
+        f"{EB:.4f}", "2,0125")
+    dit("branche B : taux de retour > 100 %, donc impossible",
+        100 * EB * E[10] / 2 > 100, f"{100*EB*E[10]/2:.1f} %", "> 100 %")
+    j5 = (2.0 - E[5]) / pr(5, 5)
+    j10 = (2.0 - E[10]) / pr(10, 10)
+    dit("seuil de bascule d'une grille de cinq a CHF 2", proche(j5, 1285, 2),
+        f"{j5:.0f} CHF", "1 285 CHF")
+    dit("seuil de bascule d'une grille de dix a CHF 2", proche(j10, 7342190, 200),
+        f"{j10:.0f} CHF", "7 342 190 CHF")
+    dit("la petite grille bascule 5 713 fois plus tot", proche(j10 / j5, 5713, 5),
+        f"x{j10/j5:.0f}", "x5 713")
+    part5 = pr(5, 5) * BAREME[5][5] / E[5]
+    part10 = pr(10, 10) * BAREME[10][10] / E[10]
+    dit("le rang plein pese 20 % de E sur une grille de cinq",
+        proche(100 * part5, 19.8, 0.3), f"{100*part5:.1f} %", "19,8 %")
+    dit("et 1 % sur une grille de dix", proche(100 * part10, 0.95, 0.05),
+        f"{100*part10:.2f} %", "0,95 %")
+
+
+# ======================================================================================
 # 15. L'OUTIL ALGEBRIQUE DU §230-§232, ET LA FAUTE QU'IL A FAILLI CACHER
 # ======================================================================================
 
@@ -819,6 +862,7 @@ if __name__ == "__main__":
     bloc_ordonnes()
     bloc_distances()
     bloc_reseau_bonus()
+    bloc_bascule()
 
     print("\n" + "=" * 78)
     if ECHECS:

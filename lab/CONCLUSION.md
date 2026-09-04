@@ -85,7 +85,29 @@ frais.
 > fois plus que ce qu'il voit.** Ce n'est pas « on cherche encore » : un biais assez gros pour
 > rapporter de l'argent serait à vingt-trois écarts-types, et aurait été vu depuis longtemps.
 
-## Les deux seules choses à faire, et aucune n'est un calcul
+## Le seul endroit où le signe peut changer, et il ne demande aucun biais
+
+Le barème est relevé. La cagnotte `J*` à partir de laquelle une grille de `k` numéros devient
+favorable au prix `c` vaut `(c − E[base](k))/P(k/k)`, et le résultat **va à l'inverse de
+l'intuition** :
+
+| `k` | `J*` à `CHF 2` | rapporté au gain fixe du rang plein |
+|---|---|---|
+| **`5`** | **`1 285` CHF** | `3,6 ×` |
+| `6` | `6 385` CHF | `6,4 ×` |
+| `8` | `191 727` CHF | `19,2 ×` |
+| `10` | `7 342 190` CHF | `73,4 ×` |
+
+> **La plus petite grille bascule `5 713` fois plus tôt que la plus grande.** Le rang plein pèse
+> `20 %` de l'espérance sur une grille de cinq et `1 %` sur une grille de dix ; une cagnotte agit
+> sur ce rang, elle a donc vingt fois plus de levier là où il pèse vingt fois plus.
+
+Si l'on chasse un pari favorable, on le chasse sur la **plus petite** grille, pas sur la plus
+grande. C'est du §244, c'est exact, et le bloc `16` du vérificateur le recalcule.
+
+## Les trois questions qui changent le signe, et aucune n'est un calcul
+
+
 
 **1. Lire le règlement du jeu : le multiplicateur est-il affiché avant la clôture des mises ?**
 
@@ -93,7 +115,15 @@ C'est le seul point du dossier où le **signe** de l'espérance change. Si oui, 
 tirages à `boost = 10` — sept par jour — vaut `+150 %` à `+360 %` par franc (§4). L'archive ne
 peut pas trancher : elle ne contient pas l'heure de clôture. **Coût : dix minutes de lecture.**
 
-**2. Filmer vingt tirages et noter les numéros dans l'ordre d'apparition.**
+**2. Lire le prix exact du ticket, et si le multiplicateur s'applique au barème publié.**
+
+Le barème a été relevé à `BOOST ×1`. Si le multiplicateur multiplie bien ce barème-là, le taux
+de retour à `CHF 2` vaudrait `118,3 %` — impossible pour un opérateur régulé, donc quelque
+chose ne colle pas, et ce quelque chose vaut `18 %` par franc. La lecture cohérente est que le
+multiplicateur ne multiplie pas ce barème (`58,8 %` de retour), mais **cela se vérifie sur un
+ticket**, pas dans l'archive. §244.
+
+**3. Filmer vingt tirages et noter les numéros dans l'ordre d'apparition.**
 
 Le `bonus` fournit déjà **un** mot ordonné par tirage (§230). Un tirage filmé en fournit
 **vingt consécutifs**, ce qui fixe le pas de bloc au lieu de le balayer et ouvre les
