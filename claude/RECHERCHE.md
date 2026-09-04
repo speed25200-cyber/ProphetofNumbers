@@ -19,16 +19,18 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Ligne d'attaque | Verdict |
 |---|---|
 | Structure statistique de l'historique publié | **Aucune.** 250 prédicteurs, 2,49 G de paires, 82 160 triplets, 60 000 lags, batterie NIST : rien au-delà du bruit |
-| Générateur à état ≤ 32 bits (234 variantes algorithmiques) | **Exclu** par balayage exhaustif 2³² |
-| Dérivation par hash de données publiques (« provably fair ») | **Exclu**, 390 schémas testés |
+| Initialisations 32 bits (234 variantes algorithmiques) | Configurations balayées rejetées ; pas les états arbitraires plus larges |
+| Dérivation par hash de données publiques (« provably fair ») | 390 schémas testés sans correspondance |
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
 | Générateurs F2-linéaires via canaux `bonus`/`boost` | Configurations implémentées rejetées sous leurs hypothèses de canal et de stride ; pas une exclusion de toute la famille |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
-| LCG 2⁶⁴ à sortie de poids fort | **Exclu** — 2 880 réductions de réseau (12 multiplicateurs standards × 48 W × 5 fenêtres), 0 correspondance |
+| LCG 2⁶⁴ à sortie de poids fort | 2 880 réductions LLL sans correspondance ; résultat heuristique sans reconstruction/replay |
 | Reconstruction d'état à partir des tirages **ordonnés** | Cassage complet démontré sur données synthétiques ; aucune capture LoRo ordonnée validée à ce jour |
 
-**Conclusion opérationnelle :** l'historique publié ne contient aucune information
-exploitable, et ce n'est pas une limite de méthode — c'est mesuré et borné (§4).
+**Conclusion opérationnelle :** les tests versionnés n'ont détecté aucune structure
+prédictive hors échantillon dans l'historique publié. Cela borne les signaux et les
+modèles effectivement testés ; ce n'est pas une preuve universelle d'absence
+d'information.
 La voie prioritaire est l'**ordre de sortie des boules**. Les endpoints REST sont
 confirmés triés en amont ; le candidat réel est `meta[lang].balls` dans le flux
 d'animation SignalR, désormais capturable par `research/capture_order.py`.
@@ -479,20 +481,18 @@ Voir [`REPRISE_ETAT.md`](REPRISE_ETAT.md) pour les commandes et les limites exac
 
 ## 9. Où en est exactement la prédiction
 
-**Réponse directe : depuis l'archive publiée, prédire ne serait-ce qu'un numéro
-au-dessus de 25 % n'est pas atteignable — et c'est mesuré, pas supposé.**
+**Réponse directe : aucun des modèles versionnés n'a prédit un numéro au-dessus du
+taux de base de 25 % sur le holdout. Cela rejette ces modèles, pas toute méthode
+possible ni tout générateur non testé.**
 
-Ce qui est **exclu** :
+Ce qui est **rejeté dans les configurations explicitement testées** :
 
-- toute structure statistique exploitable (250 prédicteurs, 2,49 G de paires,
-  82 160 triplets, 60 000 lags, batterie NIST, 14 blocs séparés) ;
-- tout générateur d'état ≤ 32 bits, 234 variantes algorithmiques, balayage 2³²
-  complet — plus MT19937 et glibc initialisés par une graine 32 bits avec 64
-  décalages de consommation ;
-- tout générateur **F2-linéaire** de 64 à 19 937 bits (MT19937, xorshift64/96/128,
-  LFSR 64/128/256/512), sous 7 sémantiques de canal × W de 1 à 64, soit plus de
-  3 900 configurations — **sans jamais utiliser l'ordre de tirage** ;
-- tout générateur congruentiel à sortie en bits faibles ;
+- les 250 prédicteurs, analyses de paires/triplets/lags et tests de flux exécutés ;
+- les 234 initialisations 32 bits balayées, ainsi que les initialisations MT19937
+  et glibc 32 bits avec les 64 décalages essayés ;
+- les récurrences F2-linéaires, sémantiques de canal et strides effectivement
+  énumérés par `channel_break`/`lin_break` — sans généralisation à toute la famille ;
+- les récurrences congruentielles d'ordre 1/2 et modules 2…16 testés ;
 - 390 schémas de dérivation par hash de données publiques.
 
 Ce qui **reste ouvert** :
@@ -501,7 +501,8 @@ Ce qui **reste ouvert** :
   troncature simple de l'état — PCG (permutation dépendante de l'état), xoshiro\*\*
   (multiplication en sortie), splitmix64 (mélange bijectif) : le canal donne bien
   6,32 bits par tirage, mais pas sous la forme « bits de tête de l'état » dont le
-  réseau a besoin. Le LCG 2⁶⁴ à troncature simple, lui, est **exclu** (§6 bis) ;
+  réseau a besoin. Pour le LCG 2⁶⁴ à troncature simple, l'échec LLL actuel reste
+  heuristique tant qu'aucun état/incrément n'est reconstruit puis rejoué (§6 bis) ;
 - un LCG 2⁶⁴ à **multiplicateur non standard** : l'attaque par réseau doit le deviner ;
 - un boost dérivé autrement que par des seuils sur `u/2³²` — par exemple
   `u % 1000 < 512` — ne livre aucun bit linéaire et échappe à l'attaque par canaux ;
@@ -520,19 +521,23 @@ calculatoirement cassable.
 
 ### Ce qu'il faut faire, dans l'ordre
 
-1. **Capter l'ordre.** Le patch de ce dépôt (`Draw.drawOrder`) le conserve. Une seule
-   requête suffit à trancher : si `primarySelection` arrive trié, cette voie est morte
-   et il faut le savoir tout de suite. `keno_break scanfile` le détecte seul.
+1. **Capter puis valider l'ordre.** `capture_order.py` conserve séparément le flux
+   SignalR ; le client REST Swift ne fabrique plus de `drawOrder`. Seul un
+   `DrawScene` non trié dont l'ensemble, le boost et le bonus correspondent au REST
+   du même ID devient `VERIFIED_ORDER`.
 2. **Vérifier la fenêtre de mise.** Le flux expose `wagerEndDate` et `phase` par
    tirage. Si un résultat existe dans l'API avant la clôture des mises, même d'une
    seconde, c'est une faille de pipeline — et elle ne demande aucune cryptanalyse.
    Le client de ce dépôt court déjà après la publication ; il suffit de mesurer l'écart.
-3. **Vérifier le boost.** Sa table est maintenant connue exactement (§7). S'il est
-   publié **avant** la clôture, ne jouer que les tirages à boost ≥ 4 multiplie le
-   retour par 2,86 — sans prédire un seul numéro.
+3. **Vérifier le boost.** Sa distribution historique est mesurée (§7), mais aucune
+   apparition avant clôture n'est établie. Toute observation éventuelle doit être
+   horodatée avec une marge supérieure à l'incertitude réseau/horloge.
 4. **Si l'ordre est disponible**, lancer `keno_break` avec un holdout intact : cible
    prudente de 400–500 tirages pour MT/`mulhi`, 1 600–2 000 pour les mappings à
-   faible fuite. Une prédiction n'est déclarée qu'après rang complet et holdout exact.
+   faible fuite. Une prédiction n'est déclarée qu'après rang complet, holdout exact
+   et modèle unique. L'option `--state-out` de `keno_break file/scanfile`
+   matérialise alors l'état après le dernier tirage consommé ; `keno_break predict`
+   produit les tirages suivants sans modifier ce checkpoint.
 
 ---
 
@@ -584,9 +589,12 @@ gcc -O3 -o seedhunt seedhunt.c -lpthread && ./seedhunt 0 0 4294967296 4
 gcc -O3 -o seedhunt2 seedhunt2.c -lpthread && ./seedhunt2 0 0 100000000
 gcc -O3 -o mtbreak mtbreak.c && ./mtbreak 400 0xC0FFEE42 0    # cassage complet
 gcc -O3 -o keno_break keno_break.c && ./keno_break scanfile ordered.txt 20 64
-python3 capture_order.py capture capture.jsonl                  # ordre SignalR brut
+python3 capture_order.py capture capture.jsonl --duration 900 --max-draws 1 \
+  --expected-draw-id ID_DU_TIRAGE                              # SignalR brut
 python3 capture_order.py inspect capture.jsonl
-python3 capture_order.py export capture.jsonl ordered.txt
+python3 capture_order.py validate capture.jsonl --draw-id ID_DU_TIRAGE
+python3 capture_order.py export capture.jsonl ordered.txt \
+  --validation capture.jsonl.validation.json
 gcc -O3 -o channel_break channel_break.c -lpthread && ./channel_break 0 22 5500 1 0 0 1
 gcc -O3 -o lin_break lin_break.c && sh run_lin_wide.sh          # 3584 essais
 ```

@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 enum LoroError: LocalizedError {
@@ -271,7 +272,9 @@ actor LoroClient {
         return out
     }
 
-    private func parseSlot(_ raw: [String: Any]) -> Schedule.Slot? {
+    /// Pure payload parsing entry point. Kept nonisolated so fixture tests can
+    /// exercise the exact production parser without making network requests.
+    nonisolated func parseSlot(_ raw: [String: Any]) -> Schedule.Slot? {
         guard let drawNumber = asInt(raw["drawNumber"]) else { return nil }
         let drawDate = raw["drawDate"] as? String ?? ""
         guard !drawDate.isEmpty else { return nil }
@@ -330,7 +333,7 @@ actor LoroClient {
         )
     }
 
-    private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int]?, boost: Int?, bonus: Int?) {
+    nonisolated private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int]?, boost: Int?, bonus: Int?) {
         let obj = dict(raw)
         let matrix1 = dict(obj["matrix1"])
         let result = dict(obj["result"])
@@ -338,16 +341,16 @@ actor LoroClient {
         let src = matrix.isEmpty ? obj : matrix
         let main = src["main"] ?? obj["primarySelection"]
         let order = parseExplicitDrawOrder(main)
-        let numbers = parseNumbers(main)
+        let numbers = parseNumbers(main, expectedCount: ProphetConst.drawSize)
         let boostArr = parseLoose(src["boost"])
-        let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"])
+        let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"], expectedCount: 1)
         return (numbers, order, boostArr.first, bonusArr.first)
     }
 
     /// REST arrays are numeric-sorted upstream, so their array order is not draw
     /// order. Only return an order when every ball carries a complete, unambiguous
     /// position field. The animation SignalR sequence is captured separately.
-    private func parseExplicitDrawOrder(_ raw: Any?) -> [Int]? {
+    nonisolated private func parseExplicitDrawOrder(_ raw: Any?) -> [Int]? {
         guard let arr = raw as? [Any], arr.count == ProphetConst.drawSize else { return nil }
         var positioned: [(Int, Int)] = []
         for item in arr {
@@ -375,32 +378,65 @@ actor LoroClient {
         return positioned.sorted { $0.0 < $1.0 }.map(\.1)
     }
 
-    private func parseNumbers(_ raw: Any?) -> [Int] {
-        guard let arr = raw as? [Any] else { return [] }
+    /// Parse a complete REST selection atomically. A malformed or oversized
+    /// array must not become valid by dropping values or de-duplicating it.
+    nonisolated private func parseNumbers(_ raw: Any?, expectedCount: Int) -> [Int] {
+        guard let arr = raw as? [Any], arr.count == expectedCount else { return [] }
         var out: [Int] = []
         for item in arr {
-            if let rec = item as? [String: Any],
-               let n = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"]),
-               (1...80).contains(n) {
-                out.append(n)
-            } else if let n = asInt(item), (1...80).contains(n) {
-                out.append(n)
+            let value: Int?
+            if let rec = item as? [String: Any] {
+                value = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"])
+            } else {
+                value = asInt(item)
             }
+            guard let value, (1...ProphetConst.poolSize).contains(value) else { return [] }
+            out.append(value)
         }
-        return Array(Set(out)).sorted()
+        guard Set(out).count == expectedCount else { return [] }
+        return out.sorted()
     }
 
     /// Keep a previously verified order when a later REST refresh contains only
     /// the sorted set for the same draw.
     private func cacheDraw(_ incoming: Draw) {
-        var draw = incoming
-        if draw.drawOrder == nil, let previous = cache[draw.drawNumber]?.drawOrder {
-            draw.drawOrder = previous
-        }
-        cache[draw.drawNumber] = draw
+        cache[incoming.drawNumber] = Self.mergingForCache(
+            incoming,
+            previous: cache[incoming.drawNumber]
+        )
     }
 
-    private func parseLoose(_ raw: Any?) -> [Int] {
+    /// Merge policy shared by the cache and its fixture tests. An order is
+    /// retained only for the same draw and the exact same 20-number set.
+    static func mergingForCache(_ incoming: Draw, previous: Draw?) -> Draw {
+        var draw = incoming
+        if let incomingOrder = draw.drawOrder {
+            if !order(incomingOrder, matches: draw.numbers) {
+                draw.drawOrder = nil
+            }
+            return draw
+        }
+        guard let previous,
+              previous.drawNumber == draw.drawNumber,
+              let previousOrder = previous.drawOrder,
+              order(previousOrder, matches: draw.numbers)
+        else { return draw }
+        draw.drawOrder = previousOrder
+        return draw
+    }
+
+    private static func order(_ order: [Int], matches numbers: [Int]) -> Bool {
+        guard order.count == ProphetConst.drawSize,
+              numbers.count == ProphetConst.drawSize,
+              Set(order).count == ProphetConst.drawSize,
+              Set(numbers).count == ProphetConst.drawSize,
+              order.allSatisfy({ (1...ProphetConst.poolSize).contains($0) }),
+              numbers.allSatisfy({ (1...ProphetConst.poolSize).contains($0) })
+        else { return false }
+        return Set(order) == Set(numbers)
+    }
+
+    nonisolated private func parseLoose(_ raw: Any?) -> [Int] {
         guard let arr = raw as? [Any] else { return [] }
         return arr.compactMap(asInt)
     }
@@ -417,19 +453,40 @@ actor LoroClient {
         return out.sorted { $0.stake < $1.stake }
     }
 
-    private func dict(_ raw: Any?) -> [String: Any] {
+    nonisolated private func dict(_ raw: Any?) -> [String: Any] {
         raw as? [String: Any] ?? [:]
     }
 
-    private func asInt(_ v: Any?) -> Int? {
-        if let n = v as? Int { return n }
-        if let n = v as? Double { return Int(n) }
+    nonisolated private func asInt(_ v: Any?) -> Int? {
+        if let n = v as? NSNumber {
+            guard CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+            switch String(cString: n.objCType) {
+            case "c", "s", "i", "l", "q":
+                return Int(exactly: n.int64Value)
+            case "C", "S", "I", "L", "Q":
+                return Int(exactly: n.uint64Value)
+            case "f", "d":
+                return exactInt(n.doubleValue)
+            default:
+                return nil
+            }
+        }
         if let s = v as? String {
             if let n = Int(s) { return n }
-            if let n = Double(s), n.isFinite, n.rounded() == n { return Int(n) }
+            let pieces = s.split(separator: ".", omittingEmptySubsequences: false)
+            if pieces.count == 2,
+               !pieces[0].isEmpty,
+               !pieces[1].isEmpty,
+               pieces[1].allSatisfy({ $0 == "0" }) {
+                return Int(pieces[0])
+            }
         }
-        if let n = v as? NSNumber { return n.intValue }
         return nil
+    }
+
+    nonisolated private func exactInt(_ value: Double) -> Int? {
+        guard value.isFinite, value.rounded() == value else { return nil }
+        return Int(exactly: value)
     }
 
     private func asDouble(_ v: Any?) -> Double? {

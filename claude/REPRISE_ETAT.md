@@ -51,19 +51,47 @@ reste nécessaire pour vérifier que le tableau contient bien 20 valeurs non tri
 et qu'il correspond au set REST.
 
 `research/capture_order.py` implémente maintenant cette capture. Chaque événement
-est écrit immédiatement en JSONL avec payload brut, UTC de réception, identifiant,
-scène, locale et SHA-256. Le token de négociation n'est jamais journalisé.
+est écrit immédiatement en JSONL avec payload brut, UTC et horloge monotone de
+réception, UUID de session, index de frame/message et empreintes SHA-256. Le hash
+`hub_message_sha256` porte sur le record SignalR exact, lui-même conservé pour
+permettre le recalcul ; `state_canonical_sha256` porte sur l'état JSON canonisé.
+Le token de négociation
+n'est jamais journalisé et le logger WebSocket est isolé, même si le logger racine
+est en mode DEBUG.
+
+Le décodeur conserve les records SignalR coupés entre deux lectures, refuse le JSON
+complet invalide et met en quarantaine les divergences entre langues. Il ne compacte
+jamais 21 éléments dont un invalide en un faux tirage de 20 valeurs. Seul un
+`DrawScene` complet et non trié est une source d'ordre ; `ReorderScene` et
+`ResultsScene` ne le sont pas. Le client émet le keepalive Hub type 6 toutes les
+15 secondes et impose une deadline absolue au premier état : des pings entrants ne
+peuvent donc pas masquer une souscription muette.
 
 ```bash
 cd claude/research
 python3 -m pip install -r requirements.txt
-python3 capture_order.py capture capture.jsonl
+python3 capture_order.py capture capture.jsonl --duration 900 --max-draws 1 \
+  --expected-draw-id ID_DU_TIRAGE
 python3 capture_order.py inspect capture.jsonl
-python3 capture_order.py export capture.jsonl ordered.txt
+python3 capture_order.py validate capture.jsonl --draw-id ID_DU_TIRAGE
+python3 capture_order.py export capture.jsonl ordered.txt \
+  --validation capture.jsonl.validation.json
 ```
 
-L'export refuse les séquences contradictoires et les trous d'identifiants, car un
-seul tirage manquant décale un modèle à stride fixe.
+`validate` conserve les octets REST exacts en base64 et leur hash, l'en-tête HTTP
+`Date`, les bornes murales et monotones de la requête, le RTT, `wagerEndDate` et chaque contrôle
+set/boost/bonus. Le rapport est lié au fichier de capture complet. Lors de l'export,
+le corps REST, tous les hashes et le verdict sont recalculés ; une simple étiquette
+`VERIFIED_ORDER` fabriquée est refusée. Une corrélation explicite `--draw-id` reste
+exportable même si le hub omet l'ID. Les scènes non autoritaires, les séquences
+contradictoires et tout trou d'identifiants sont refusés. L'ancien contournement
+`--allow-gaps` a été supprimé : concaténer
+deux segments ferait croire à tort au solveur qu'ils sont contigus.
+
+Les hashes détectent les modifications accidentelles, mais n'authentifient pas la
+machine de capture. Une affirmation temporelle forte demanderait en plus un
+horodatage externe signé ; le verdict courant indique donc explicitement la marge
+d'horloge/RTT plutôt que de transformer l'heure locale en preuve absolue.
 
 ## Corrections du solveur
 
@@ -88,8 +116,17 @@ Exemples :
 gcc -O3 -std=c11 -Wall -Wextra -Werror -o keno_break keno_break.c
 ./keno_break demo 400 0xC0FFEE42 41 0 0 20
 ./keno_break demo 400 0xC0FFEE42 41 0 0 21
-./keno_break scanfile ordered.txt 20 64
+./keno_break scanfile ordered.txt 20 64 --state-out recovered-state.txt --predict 1
+./keno_break predict recovered-state.txt 10
 ```
+
+Un checkpoint n'est écrit que pour un modèle **unique**, de rang complet, rejoué
+sur l'apprentissage et exact sur le holdout intact. Il contient les 624 mots MT,
+`mti`, sampler, mapping, stride et le nombre de tirages consommés. La commande
+`predict` part d'une copie, respecte le tail du stride et ne modifie pas le fichier.
+L'écriture est atomique et privée (`0600`), et refuse d'écraser l'entrée même via
+un hardlink. Son checksum FNV-1a détecte la corruption accidentelle ; ce n'est ni
+une signature cryptographique ni une preuve que MT19937 est le générateur réel.
 
 ## Quantité d'information
 
@@ -105,6 +142,29 @@ L'ensemble trié contient donc beaucoup d'information, mais sous forme d'une gra
 disjonction. L'absence d'ordre est une difficulté calculatoire, pas une absence
 d'information.
 
+### Mesure directe du canal « première boule dans l'ensemble »
+
+`research/sorted_prefix_audit.py` mesure maintenant ce canal sur les 70 560
+ensembles réels, sous l'hypothèse Fisher-Yates avant + `mulhi`. Pour un préfixe de
+7 bits de la première sortie, 44,146995 préfixes sur 128 sont permis en moyenne,
+soit **1,537557 bit par tirage**, et non les 1,9 bits précédemment annoncés dans
+`satbreak.py`. À 8 bits, la moyenne est 76,147860 sur 256, soit 1,749572 bit.
+
+| Préfixe | Information moyenne | Tirages heuristiques pour 19 937 + 64 bits | Rang affine des masques |
+|---:|---:|---:|---:|
+| 7 bits | 1,537557 bit | 13 009 | 7/7 pour 70 560 / 70 560 |
+| 8 bits | 1,749572 bit | 11 432 | 8/8 pour 70 560 / 70 560 |
+
+Le rang affine complet signifie qu'aucune parité certaine ne peut être extraite :
+une élimination gaussienne pure perd toute l'information. Un solveur doit conserver
+la disjonction complète (XOR-SAT/SMT/BDD). L'encodage Tseitin dense actuel de
+`satbreak.py` ne passe pas à MT19937 ; un timeout ne rejetterait donc que la méthode,
+jamais le générateur. Reproduction :
+
+```bash
+python3 sorted_prefix_audit.py
+```
+
 ## Protocole falsifiable
 
 ### 1. Valider un tirage actif
@@ -118,6 +178,11 @@ Lancer le collecteur avant un tirage et vérifier :
 - heure de première apparition comparée à `wagerEndDate` avec la latence mesurée.
 
 Si `balls` est absent, trié ou divergent, la piste d'ordre est réfutée.
+
+Préparation du premier essai actif du 4 septembre 2026 : l'endpoint REST annonçait
+le tirage ouvert **1382010** avec `wagerEndDate = 2026-09-04T04:05:00Z`
+(06:05 Europe/Zurich). Une nouvelle capture nocturne a confirmé la négociation et
+`NightModeScene`, sans constituer une validation de l'ordre actif.
 
 ### 2. Construire une capture exploitable
 

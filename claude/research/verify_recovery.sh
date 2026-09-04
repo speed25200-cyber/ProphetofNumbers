@@ -5,7 +5,7 @@ cc=${CC:-cc}
 
 "$cc" -O3 -std=c11 -Wall -Wextra -Werror -o mtbreak mtbreak.c
 "$cc" -O3 -std=c11 -Wall -Wextra -Werror -o keno_break keno_break.c
-python3 -m unittest -v test_capture_order.py
+python3 -m unittest discover -v
 
 ./keno_break demo 400 0xC0FFEE42 41 0 0 20
 ./keno_break demo 400 0xC0FFEE42 41 0 0 21
