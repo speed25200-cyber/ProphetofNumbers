@@ -296,9 +296,15 @@ if __name__ == "__main__":
     say("\n   controle 2 : un WELL19937a plante, lu par la carte de rang")
     import random
     rng = random.Random(230_230)
+    # LE TEMOIN DOIT ETRE ASSEZ LONG POUR SA PROPRE REGLE. Le rang sature vers `besoin`
+    # tirages en moyenne, mais quelques dizaines plus tard selon le pas ; la regle exige
+    # ensuite EXTRA tirages de plus. Une premiere version donnait besoin + EXTRA + 20
+    # tirages au temoin, et le pas 23 rendait « epuise » a rang plein sans la moindre
+    # incoherence — un systeme coherent que la regle n'avait pas eu le temps de declarer
+    # tel. Les temoins du §254 passaient avec dix a vingt tirages de marge.
     for pas_t in (21, 23):
         st = [rng.getrandbits(32) for _ in range(R)]
-        nt = besoin + EXTRA + 20
+        nt = besoin + EXTRA + 400
         outs = sorties_int(st, nt * pas_t + 8)
         # la sortie k est le mot produit au (k+1)-ieme pas ; l'attaque lit le mot t*stride
         # comme le t*stride-ieme mot produit, d'ou l'indice t*stride - 1
@@ -307,7 +313,7 @@ if __name__ == "__main__":
         say(f"      pas {pas_t} : {v}, rang {rang:,}/{NUNK:,}, {tt} tirages, {dt:.0f}s")
         if not v.startswith("COHERENT"):
             raise SystemExit("le temoin plante n'est pas reconnu : on n'exclut rien avec ca")
-    rg = [rng.randrange(KB) for _ in range(besoin + EXTRA + 20)]
+    rg = [rng.randrange(KB) for _ in range(besoin + EXTRA + 400)]
     v, rang, tt, dt = attaque(rg, 21, BUDGET * 3)
     say(f"      temoin NEGATIF (rangs au hasard) : {v}, rang {rang:,}, {tt} tirages, {dt:.0f}s")
     if v.startswith("COHERENT"):

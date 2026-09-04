@@ -24561,7 +24561,7 @@ large qu'elle n'est :
 | ce qui est fermé | par quoi | nature |
 |---|---|---|
 | générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
-| `MT19937` derrière la carte de rang du §106, pas `20`–`41` | §254, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
+| `MT19937` derrière la carte de rang du §106, pas `20`–`128` | §254 et son addendum, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m = 2²⁹`, `2³⁰`, `2³¹`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
@@ -24757,5 +24757,24 @@ ne laisse aucune place à un faux positif.
      récurrence est propre à `MT19937` ; la leur reste à écrire.
 
 **Ligne de registre.** `h229.mt19937_sous_troncature`, piste B, MT19937 EXCLU, `m_extra = 0`.
+
+### Addendum — les pas `42` à `128` (`h229b_mt19937_pas_longs.py`)
+
+Ce paragraphe s'arrêtait au pas `41` et le disait. Les §230 et §232 balayaient `128` pas de
+bloc pour les congruentiels ; rien ne justifie que le générateur `F₂`-linéaire soit balayé
+moins loin. Même machine, même lecture, même témoin — planté cette fois au pas `97`, un pas de
+**cet** intervalle :
+
+    temoin, MT19937 plante au pas 97   : COHERENT, rang 19 937/19 937, 6 502 tirages, 60 s
+
+    87 pas balayes (42 a 128) en 4 826 s
+    rang atteint : 19 928 a 19 937 sur 19 937, puis 0 = 1 a chaque fois
+    0 compatible, 0 incomplet            ->  MT19937 EXCLU
+
+> Avec le §254, **les pas `20` à `128` sont couverts sans trou** — l'intervalle même que le
+> dossier a toujours balayé pour les congruentiels. `MT19937` sous la carte de rang du §106
+> est exclu sur toute cette étendue, sur les données déjà publiées.
+
+**Ligne de registre.** `h229b.mt19937_pas_longs`, piste B, MT19937 EXCLU, `m_extra = 0`.
 
 ---
