@@ -1271,6 +1271,11 @@ Deux choses, dites franchement plutôt que passées sous silence :
   mélange. Et leur état fait 192 bits, hors de portée d'un balayage de graines. Les MRG à
   petit état — `minstd` et compagnie — sont couverts, eux, par les balayages 2³² exhaustifs
   sous les deux modèles de sortie ; c'est le cas combiné à grand état qui reste.
+  **Une remarque le rétrécit nettement** : l'interface normale de `MRG32k3a` rend un
+  **double** dans (0,1), et `quantize.py` écarte tout rang médié par un flottant (142
+  multiples de 512 observés contre 70 560 s'il l'était). Un opérateur qui l'utiliserait
+  par son API standard est donc déjà écarté ; il ne reste que l'usage entier
+  non standard.
 - **Les générateurs combinés** de type KISS, où la sortie est la **somme** de plusieurs
   flux (un LCG, un xorshift, un MWC). Chaque composant est écarté individuellement — mais
   leur somme n'est aucun d'eux, et c'est précisément ce qui la met hors de portée : elle
@@ -1476,7 +1481,9 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
   par tirage n'est plus constant, et les attaques par canaux supposent un W fixe.
   L'hypothèse « boost/bonus sur une instance séparée » contourne ce cas et a été testée.
 - **Les MRG à module premier et grand état** (`MRG32k3a`) : le bit bas d'une récurrence
-  mod un premier n'est pas linéaire, et 192 bits d'état excluent un balayage.
+  mod un premier n'est pas linéaire, et 192 bits d'état excluent un balayage — mais son
+  API standard rend un double, et les rangs médiés par un flottant sont écartés, ce qui
+  ne laisse que l'usage entier non standard.
 - **Les générateurs combinés** (KISS et sa famille) : la somme de plusieurs flux n'est
   aucune des structures testées, et n'est pas F2-linéaire à cause des retenues.
 - **Une troisième architecture** à laquelle je n'ai pas pensé. Les six conventions de rang
