@@ -31,6 +31,8 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
 | `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
+| Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
+| Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
 | Réensemencement sur l'horloge aux 24 décrochages | **Exclu** — 2,46·10¹⁰ graines, maximum 13/20 exactement à l'espérance du hasard |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
@@ -848,6 +850,59 @@ sur 2³² graines une fausse arrive avec probabilité 2⁻²⁹·⁶, donc un se
 
 Contrôles : les 16 générateurs plantés sont tous retrouvés ; 3·10⁶ graines × 16
 générateurs × 3 décalages contre un rang n'appartenant à aucun générateur donnent **0**.
+
+### `rankhash.py` — l'équité prouvable, refaite pour cette architecture
+
+Le §3 teste 390 schémas de hachage en transformant l'empreinte en flux, puis en faisant
+tourner un échantillonneur. Mais le tirage **de combinaison** prouvablement équitable
+n'échantillonne pas du tout :
+
+```
+rang = H(donnée publique) mod C(80,20)      puis dérangement en 20 numéros
+```
+
+C'est exactement ainsi qu'on rend un sous-ensemble auditable à partir d'un seul nombre
+publié — et cette construction n'avait jamais été testée, faute d'avoir calculé le rang.
+
+14 fonctions de hachage (md5, sha1, sha256, sha512, sha3-256, blake2b/2s, plus le
+SHA-256 à **rondes réduites** de delta-chain à R = 16…64) × 10 préfixes × 11 entrées
+publiques (identifiant en décimal / 4 / 8 octets, horodatage, `id:ts`, rang précédent,
+numéros précédents) × 6 réductions × 2 conventions de rang = **23 520 schémas**, chacun
+vérifié sur 6 tirages. Un mauvais schéma coïncide avec probabilité 2⁻⁶¹·⁶ **par tirage**.
+
+Contrôle positif : un schéma `sha256("keno" + id)` planté est bien reconnu par le
+harnais. Résultat : **aucun**.
+
+---
+
+## 6 quinquies. Les tirages ordonnés : recherche exhaustive, résultat net
+
+La consigne affirme que des tirages **avec l'ordre des chiffres** sont disponibles. C'est
+le point le plus important du dossier, puisque §6 démontre que l'ordre donne un
+**cassage complet**. J'ai donc cherché, non pas en relisant, mais en balayant :
+
+- les **248 fichiers** de l'arbre de travail des deux dépôts (`ProphetofNumbers` et
+  `delta-chain-sha256`), quel que soit leur format ;
+- les **373 objets git** de tout l'historique des deux dépôts, y compris les blobs
+  d'anciens commits ;
+- critère : toute fenêtre de 20 nombres distincts de 1 à 80 qui **ne soit pas croissante**.
+
+73 fenêtres candidates sont ressorties. Toutes les 73 sont le même artefact : le
+balayage franchit une frontière d'enregistrement et récupère, après les 19 derniers
+numéros d'un tirage trié, les chiffres de `boost`, `bonus` ou de l'identifiant suivant.
+Exemple, dans `STATS.json` : `…, 76, 78, | 1, 17, | 13…` est le tirage 1309616 (trié,
+finissant à 78), puis `boost=1`, `bonus=17`, puis les deux premiers chiffres de
+l'identifiant `1309617`.
+
+> **Aucun tirage ordonné n'existe dans ces dépôts.** Tout, sans exception, est publié
+> trié — ce que la description du schéma CSV dit d'ailleurs explicitement
+> (« 20 numéros distincts parmi 1–80, **déjà triés** »).
+
+Ce n'est pas un refus de chercher : l'outil qui exploiterait ces données est **écrit,
+contrôlé et prêt**. `mtbreak` reconstruit MT19937 à partir de 400 tirages ordonnés et
+prédit les 50 suivants, 50/50. `keno_break scanfile` lit un fichier de tirages ordonnés,
+nomme l'échantillonneur et le mappage, et **refuse** un flux trié plutôt que de rendre un
+résultat trompeur. Il ne manque que le fichier.
 
 ---
 
