@@ -784,6 +784,32 @@ xoshiro, tout générateur à fonction de sortie brouillée ne satisfait pas l'i
 sont traités par `rankxo.c` et `rankmix.c`. Ce que `lcgident` apporte, c'est la
 **suppression du catalogue** : plus aucun multiplicateur ne peut se cacher.
 
+### `rank128.c` — le rang tiré sur 128 bits, l'implémentation *correcte* qui manquait
+
+Tous les outils de rang ci-dessus supposent que le rang vient d'**une** sortie 64 bits :
+`u mod C` avec rejet, ou Lemire `(u·C)>>64`. Or `C(80,20) = 2^61,617` est proche de 2⁶⁴,
+donc le rejet honnête frappe **4,1 %** des tirages — et un implémenteur soigneux l'évite
+autrement : il prend **deux** sorties 64 bits consécutives, les concatène en 128 bits, et
+réduit. Le biais tombe alors à 2⁻⁶⁶·⁴, indétectable.
+
+Autrement dit : c'est ce qu'un opérateur **compétent** écrirait, et aucun outil du dossier
+ne le couvrait. `rankw32` fait deux mots de **32** bits, ce qui est autre chose — la valeur
+y reste sur 64 bits et le rejet reste nécessaire. C'est une lacune que je n'avais pas vue
+en la formulant comme « deux mots », alors qu'elle se distingue par la largeur.
+
+Quatre compositions balayées : ordre des mots (`hi|lo`, `lo|hi`) × réduction (`mod C`,
+Lemire porté en 256 bits).
+
+Contrôles : les 28 configurations retrouvent la graine plantée ; le contrôle négatif donne
+**0/8 sur 7,84·10⁶ essais**, et le seuil d'alarme est ici à **un seul rang**, puisqu'un
+rang reproduit vaut déjà 2⁻⁶¹·⁶.
+
+Et une vérification que le contrôle croisé n'aurait pas donnée : `lemire128` plante *et*
+recherche avec la même fonction, donc une implémentation fausse serait **auto-cohérente**
+et passerait le contrôle. Elle est donc vérifiée séparément contre l'arithmétique exacte
+en 256 bits — 200 000 valeurs, **0 écart**. C'est précisément la classe de bug que ce
+dossier a attrapée quatre fois (§9 bis).
+
 ### `rankmix.c` — splitmix64, que le §6 bis classait « hors d'atteinte »
 
 Le tableau de synthèse porte `splitmix64 / PCG / xoshiro**` en **hors d'atteinte,
