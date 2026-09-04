@@ -1150,6 +1150,25 @@ La leçon est celle qui revient : un résultat négatif ne dit rien tant qu'on n
 vérifié que l'outil regardait au bon endroit — et ici la vérification a montré que
 j'avais tort dans un sens comme dans l'autre.
 
+**Et ces deux modèles ne sont pas choisis au hasard : ce sont ceux des bibliothèques.**
+Un développeur qui veut un entier dans `[0, C)` a trois chemins réalistes, et les trois
+tombent dans ce qui a été testé :
+
+| ce qu'on écrit | ce que la bibliothèque fait | couvert par |
+|---|---|---|
+| `random.randrange(C)` (Python) | `getrandbits(62)` + rejet | le rang **est** les 62 bits bas de u — c'est le cas k = 0 du modèle `u mod C`, donc dans l'ensemble de candidats |
+| `default_rng().integers(C)` (numpy) | méthode de Lemire | le modèle **mulhi** |
+| `Math.floor(Math.random() * C)` | un double de 53 bits | **écarté d'emblée** par `quantize.py` |
+
+Vérifié plutôt que supposé : `numpy.integers(C)` sur 400 000 tirages donne
+P(rang < R₀) = 0,21809 contre 0,21785 pour l'uniforme et 0,25050 pour un modulo naïf —
+c'est bien Lemire, non biaisé. Et `random.randrange` passe bien par `getrandbits` avec
+rejet.
+
+Autrement dit, la couverture ne repose pas sur une hypothèse de ma part quant à ce que
+l'opérateur aurait pu écrire : elle épouse ce que les bibliothèques standard font
+réellement.
+
 ### `rankserial.py` — la dépendance sérielle générique, et un « signal » à 211 σ
 
 Le rang a été attaqué **algébriquement** — LCG, Fibonacci retardé, multiply-with-carry,
