@@ -43,3 +43,23 @@ for k, v in out.items():
     assert v.shape[0] == N and v.max() <= 1
     v.tofile("bits_%s.bin" % k)
 print("wrote %d streams of %d bits each" % (len(out), N))
+
+# --- the complementary channel, for the mulhi reduction ---------------------------
+# Under u mod C the LOW 4 bits of u are k-free (v2(C)=4) and the high bits are not.
+# Under mulhi it is the other way round: r = floor(u*C/2^64) pins u to an interval of
+# about 5.2 integers, so every bit above position ~3 is determined — and above position
+# 32 the chance the interval straddles a carry is 5.2/2^32, i.e. 8e-5 expected errors
+# across the whole archive. Those planes are exact linear functionals of u, which is
+# what Berlekamp-Massey needs, so the F2-linear exclusion covers this reduction too.
+import math as _m
+C = _m.comb(80, 20)
+hi = {}
+for conv in ("colex0", "lex0", "comp0"):
+    r = np.fromfile("rank_%s.bin" % conv, dtype=np.uint64)
+    a = np.array([( (int(x) << 64) + C - 1 ) // C for x in r], dtype=object)   # ceil(r*2^64/C)
+    a = np.array([int(v) & ((1 << 64) - 1) for v in a], dtype=np.uint64)
+    for b in (32, 40, 48, 56, 63):
+        hi["mulhi_%s_bit%d" % (conv, b)] = ((a >> np.uint64(b)) & np.uint64(1)).astype(np.uint8)
+for k, v in hi.items():
+    v.tofile("bits_%s.bin" % k)
+print("wrote %d high bit planes for the mulhi reduction" % len(hi))

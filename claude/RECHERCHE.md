@@ -761,6 +761,21 @@ Les 4 plans de bits du rang sont les plus rigoureux du lot : `v₂(C(80,20)) = 4
 inconnu. Les plans de `bonus` et `boost` sont plus faibles — si `bonus−1 = u % 80`, ses
 bits bas ne sont pas des fonctionnelles linéaires de u — et sont rapportés comme tels.
 
+**Et la réduction mulhi a son propre canal, exactement complémentaire.** Sous `u mod C`
+les bits **bas** de u sont connus et les hauts ne le sont pas ; sous mulhi c'est
+l'inverse : `r = ⌊u·C/2⁶⁴⌋` épingle u à un intervalle d'environ 5,2 entiers, donc tout
+bit au-dessus de la position 32 est déterminé — la probabilité que l'intervalle
+enjambe une retenue y vaut 5,2/2³², soit **8·10⁻⁵ erreur attendue sur toute l'archive**.
+Ces plans-là sont donc eux aussi des fonctionnelles linéaires exactes, et
+Berlekamp-Massey s'y applique sans réserve :
+
+```
+15 plans hauts (bits 32, 40, 48, 56, 63 × 3 conventions) : complexité 35 276 à 35 282
+```
+
+L'exclusion de la classe F2-linéaire vaut donc pour **les deux** réductions, et non plus
+seulement pour `u mod C`.
+
 ### `rankxo.c` — les brouilleurs `**`, que ni l'un ni l'autre n'atteint
 
 Restent les générateurs « brouillés » modernes : `xoshiro256**` et `xoroshiro128**`
