@@ -900,6 +900,43 @@ mulhi, bits 24/28/32/40/48 : 0 différence sur 200 000 chacun
 Les deux canaux sont exacts là où l'argument le dit, et cessent de l'être exactement là
 où il dit qu'ils cessent.
 
+### `multibm.c` — la borne F2-linéaire portée à 48 000 bits, contrôlée à cette taille
+
+Berlekamp-Massey sur une seule suite plafonne à `n/2` : avec 70 560 bits, la borne est
+35 280, ce qui laisse **WELL44497** (état 44 497 bits) hors d'atteinte. Or plusieurs
+suites issues du **même** générateur obéissent à la **même** récurrence caractéristique —
+chaque bit de sortie est une fonctionnelle linéaire de l'état. Avec `m` plans, un ordre `L`
+demande `L` équations et on en a `m·(n − L)` : la borne passe de `n/2` à `m·n/(m+1)`.
+
+Le système est résolu par élimination sur GF(2), et le verdict est **à deux faces** : une
+inconsistance **prouve** qu'aucune récurrence de cet ordre n'existe, quels que soient ses
+coefficients — ce n'est pas une non-détection.
+
+Sur les quatre bits de poids faible du rang (`colex0`, réduction `u mod C`) :
+
+```
+order L = 48000, 4 sequences; 4 * (70560 - 48000) = 90240 equations  ->  assez
+  lignes fournies 48002, rang 48000
+  *** INCONSISTANT a la ligne 50881 — AUCUNE recurrence F2-lineaire d'ordre <= 48000 ***
+```
+
+Le rang atteint **48 000, la valeur pleine** : le système est déterminé, puis une ligne
+ultérieure le contredit. C'est le bon motif — pas une déficience de rang.
+
+**Le contrôle, à la taille exacte de l'énoncé.** C'est celui qui a démasqué un contrôle
+creux (§9 bis) ; le voici corrigé, générateur F2-linéaire planté d'état 48 000 bits :
+
+```
+L=45952 : INCONSISTENT — no such recurrence  (rang 45952, 45955 lignes)   comme il se doit
+L=48000 : consistent                         (rang 48000, 90240 lignes)   comme il se doit
+L=51503 : consistent                         (rang 48000, 76228 lignes)   comme il se doit
+```
+
+La coupure est nette **des deux côtés** à 48 000 bits. Ce qui est exclu : **tout**
+générateur F2-linéaire d'état ≤ 48 000 bits — MT19937 (19 937), WELL19937, WELL44497
+(44 497), les xoshiro/xoroshiro, tous les LFSR et GFSR de cette taille, **sans en énumérer
+un seul et sans supposer quoi que ce soit de leurs coefficients**.
+
 ### `twoadic.py` — la contrepartie « à retenue » de Berlekamp-Massey
 
 `bm.c` règle la classe F2-linéaire sans l'énumérer, parce qu'une suite linéaire récurrente
@@ -1687,6 +1724,41 @@ son décalage**, chacune confirmée par 24/24 boosts ; le contrôle négatif pla
 1,68·10⁶ essais là où le hasard en attend 0,525. Et un contrôle de **surjectivité** que la
 première version n'avait pas : chaque réduction doit pouvoir produire les 20 positions et
 les 6 boosts (voir §9 bis — la version initiale ne pouvait en produire que cinq).
+
+Balayage 2³² complet sur l'archive :
+
+```
+essais 9,621e12 ; le hasard attend 0,0023 appariements de longueur >= 12
+  xorshift32  mod 8   mulhi 9     (etat entierement couvert)
+  minstd      mod 9   mulhi 8     (etat entierement couvert)
+  glibc_lcg   mod 8   mulhi 9     (etat entierement couvert)
+  msvc_lcg    mod 9   mulhi 9     (etat entierement couvert)
+  java48      mod 8   mulhi 9     (graines seulement, etat 48 bits)
+  pcg32       mod 9   mulhi 8     (graines seulement, etat 64 bits)
+  splitmix64  mod 9   mulhi 9     (graines seulement, etat 64 bits)
+meilleur global 9 / 24 ; alarmes 0
+```
+
+Le maximum attendu par le hasard sur 1,37·10¹² tirages de graine vaut `log₂(1,37e12)/log₂20
+= 9,3`. Observé : 9. **Exactement le bruit**, sans un seul point au-dessus.
+
+Pour les quatre premières familles l'état tient sur 32 bits : le balayage est donc
+**exhaustif**, pas un échantillonnage. Pour java48, pcg32 et splitmix64 il ne couvre que
+les graines de 32 bits, et c'est dit comme tel.
+
+**Complexité linéaire des plans de bits du bonus.** Sous l'hypothèse `indice = u mod 20`,
+`4` divise `20` donc `(u mod 20) mod 4 = u mod 4` : les deux bits de poids faible de la
+sortie brute sont lisibles **sans approximation**. Sous mulhi, `(u·20)>>64 ≥ 10 ⟺ u ≥ 2⁶³`
+donne exactement le bit de poids fort. Berlekamp-Massey sur ces trois plans :
+
+```
+bonuspos_bit0  n=70560  complexite lineaire 35280   n/2 = 35280
+bonuspos_bit1  n=70560  complexite lineaire 35282   n/2 = 35280
+bonuspos_top   n=70560  complexite lineaire 35280   n/2 = 35280
+```
+
+Tous à `n/2` : aucun générateur F2-linéaire d'état inférieur à 35 280 bits ne produit ces
+positions, ce qui couvre MT19937 et tout ce qui est plus petit.
 
 ### `poslll.c` — le réseau, pour les états de 64 bits
 

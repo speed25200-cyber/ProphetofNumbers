@@ -124,7 +124,9 @@ int main(int argc, char **argv){
      claiming at another. */
   if(argc > 2 && !strcmp(argv[1], "bigtest")){
     int R = atoi(argv[2]);                 /* planted order, rounded up to whole words */
-    int m = 4; long n = 70560;
+    /* the number of planes is part of the claim's scale too: a 2-plane run has half the
+       equations of a 4-plane one, so a control at m=4 does not license a result at m=2. */
+    int m = (argc > 3) ? atoi(argv[3]) : 4; long n = 70560;
     R = ((R + 63) / 64) * 64;
     printf("planting an F2-linear generator of state %d bits, %d planes of %ld bits\n\n",
            R, m, n);
