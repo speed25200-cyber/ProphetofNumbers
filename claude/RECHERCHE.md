@@ -1019,41 +1019,75 @@ Protocole, dans l'ordre :
 **Réponse directe : depuis l'archive publiée, prédire ne serait-ce qu'un numéro
 au-dessus de 25 % n'est pas atteignable — et c'est mesuré, pas supposé.**
 
-Ce qui est **exclu** :
+L'analyse se lit maintenant sur **deux axes**, parce que le tirage peut avoir été produit
+de deux façons très différentes, et que l'observable n'a pas la même largeur dans les deux
+cas :
 
-- toute structure statistique exploitable (250 prédicteurs, 2,49 G de paires,
-  82 160 triplets, 60 000 lags, batterie NIST, 14 blocs séparés) ;
-- tout générateur d'état ≤ 32 bits, 234 variantes algorithmiques, balayage 2³²
-  complet — plus MT19937 et glibc initialisés par une graine 32 bits avec 64
-  décalages de consommation ;
-- tout générateur **F2-linéaire** de 64 à 19 937 bits (MT19937, xorshift64/96/128,
-  LFSR 64/128/256/512), sous 7 sémantiques de canal × W de 1 à 64, soit plus de
-  3 900 configurations — **sans jamais utiliser l'ordre de tirage** ;
-- tout générateur congruentiel à sortie en bits faibles ;
-- 390 schémas de dérivation par hash de données publiques.
+| | le générateur produit un **ordre** (mélange) | le générateur tire **un entier** et le dérange |
+|---|---|---|
+| ce que l'archive livre | 4 à 6 bits par tirage (`bonus`, `boost`) | **61,6 bits** par tirage (le rang) |
+| ce que le tri détruit | 89,6 bits — tout l'ordre | **rien** : il n'y a jamais eu d'ordre |
 
-Ce qui **reste ouvert** :
+### Exclu quelle que soit l'architecture
 
-- les générateurs dont la sortie n'est ni une troncature de l'état, ni une somme :
-  **PCG** (rotation dépendante de l'état), **xoshiro\*\*** (multiplication en sortie),
-  **splitmix64** (mélange bijectif). Le canal donne bien ses 6,32 bits, mais sous une
-  forme que ni le réseau ni GF(2) n'exploitent. Le LCG 2⁶⁴ à troncature simple est
-  **exclu** (réseau), et les sorties **additives** — xorshift128+, xoshiro256+ — le
-  sont aussi (bit 0 exactement linéaire) ;
-- un LCG 2⁶⁴ à **multiplicateur non standard** : l'attaque par réseau doit le deviner ;
-- un boost dérivé autrement que par des seuils sur `u/2³²` — par exemple
-  `u % 1000 < 512` — ne livre aucun bit linéaire et échappe à l'attaque par canaux ;
-- un échantillonneur à **consommation variable** (rejet avec redraw) : le nombre de
-  mots par tirage n'est alors plus constant, et l'attaque par canaux suppose un W fixe.
-  L'hypothèse « boost/bonus sur une instance séparée » (W ∈ 1…4) contourne ce cas et a
-  été testée ;
-- un CSPRNG (ChaCha20, AES-CTR-DRBG) ou un RNG matériel : dans ce cas la partie est
-  close mathématiquement, quelle que soit la quantité de données.
+- Toute structure statistique exploitable : 250 prédicteurs, 2,49 G de paires,
+  82 160 triplets, 60 000 lags, batterie NIST, 14 blocs séparés.
+- **Toute** la classe F2-linéaire d'état inférieur à **35 280 bits** — sans énumérer,
+  sans supposer de W, par la complexité linéaire (§6 quater). MT19937, MT19937-64,
+  WELL19937, xorshift1024\*, toute la famille xoshiro/xoroshiro, et les générateurs que
+  personne n'a nommés en font partie.
+- Tout générateur d'état ≤ 32 bits : 234 variantes, balayage 2³² complet, sous les deux
+  modèles de sortie (`seedhunt` pour le mélange, `rankseed` pour le dérangement).
+- Réensemencement sur l'horloge : aux 24 décrochages **et** aux 358 redémarrages
+  quotidiens, aux granularités seconde et milliseconde.
 
-**Le verrou est l'ordre des boules, et il est chiffrable :** 6,32 bits par tirage
+### Exclu sous l'architecture par mélange
+
+- Générateurs F2-linéaires de 64 à 19 937 bits sous 7 sémantiques de canal × W de 1 à
+  64, plus de 3 900 configurations, **sans jamais utiliser l'ordre**.
+- Sorties additives (xorshift128+ de V8, xoshiro256+) : le bit 0 est exactement linéaire.
+- LCG 2⁶⁴ et 2⁴⁸ à sortie de poids fort : 2 880 réductions de réseau.
+- Congruentiel `u >> shift` puis `% 80`, incrément **connu ou inconnu**.
+- 390 schémas de dérivation par hash, 1 920 schémas à rondes réduites, 360 modes
+  compteur à clé par défaut.
+
+### Exclu sous l'architecture par dérangement (§6 quater)
+
+C'est le gain de cette session, et il porte précisément là où le §6 bis butait :
+
+- **LCG quelconque** — multiplicateur, incrément et W tous inconnus, résolu en forme
+  close. Le « multiplicateur maison » qui échappait au réseau n'échappe plus.
+- **splitmix64** et cinq autres finaliseurs bijectifs : la sortie complète rend l'état
+  par simple inversion. Le §6 bis les classait « hors d'atteinte, barrière des retenues ».
+- **xoshiro256\*\*, xoroshiro128\*\*, xoshiro512\*\*** : le brouilleur non linéaire se
+  décolle par inversion, le cœur linéaire tombe en une résolution.
+- **Fibonacci retardé** (le `random()` de la glibc, Boost, add-with-carry) : famille que
+  ni le balayage congruentiel ni GF(2) ne pouvaient voir.
+- **Rang concaténé à partir de deux mots** 32 ou 31 bits.
+- **Équité prouvable par dérangement** : 23 520 schémas.
+- Le tout sur **cinq conventions de rang distinctes**, dont celle du complément.
+
+### Ce qui reste ouvert, sans arrondir
+
+- **PCG64 à état 128 bits complet.** Le pliage `hi ^ lo` perd la moitié de l'état et la
+  rotation dépend de l'état : ni `rankxo` ni une résolution bit à bit ne s'y appliquent.
+  Seul le cas ensemencé sur 32 bits est couvert. C'est la seule famille nommée et
+  répandue qui reste debout.
+- **Un CSPRNG** (ChaCha20, AES-CTR-DRBG, HMAC-DRBG) **à clé inconnue**, ou un RNG
+  matériel. Là, la partie est close mathématiquement, quelle que soit la quantité de
+  données : ce n'est pas une lacune de méthode.
+- **Un échantillonneur à consommation variable** (rejet avec redraw) : le nombre de mots
+  par tirage n'est plus constant, et les attaques par canaux supposent un W fixe.
+  L'hypothèse « boost/bonus sur une instance séparée » contourne ce cas et a été testée.
+- **Une troisième architecture** à laquelle je n'ai pas pensé. Les six conventions de rang
+  et les deux modèles de sortie couvrent ce que je sais construire ; ils ne couvrent pas
+  ce que je n'ai pas imaginé.
+
+**Le verrou reste l'ordre des boules, et il est chiffrable :** 6,32 bits par tirage
 aujourd'hui contre **126 bits** avec l'ordre. C'est un facteur 20, et il fait basculer
 chaque famille ci-dessus du côté cassable — `mtbreak` le démontre de bout en bout,
-`keno_break` est l'outil prêt à l'emploi.
+`keno_break` est l'outil prêt à l'emploi. Et §6 quinquies dit où en est la recherche de
+ces tirages ordonnés : **ils ne sont pas dans les dépôts**, vérification exhaustive faite.
 
 ### Ce qu'il faut faire, dans l'ordre
 
