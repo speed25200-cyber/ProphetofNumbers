@@ -41,3 +41,8 @@ rankw32
 rankxo
 rankxo2
 lowlcg
+
+# generated exact high planes for the multi-sequence test
+mh_*.bin
+multibm
+mrgkiss

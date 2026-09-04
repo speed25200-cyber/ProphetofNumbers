@@ -25,6 +25,8 @@ gcc -O3 -march=native -o ranklfg       ranklfg.c                 2>/dev/null
 gcc -O3 -march=native -o rankw32       rankw32.c                 2>/dev/null
 gcc -O3 -march=native -o rankw32       rankw32.c                 2>/dev/null
 gcc -O3 -march=native -o rankmwc       rankmwc.c       -lm       2>/dev/null
+gcc -O3 -march=native -o rankxo2       rankxo.c                  2>/dev/null
+gcc -O3 -march=native -o mrgkiss       mrgkiss.c       -lpthread 2>/dev/null
 gcc -O3 -march=native -o rankseed2     rankseed.c      -lpthread 2>/dev/null
 python3 mkdata.py >/dev/null
 
@@ -91,7 +93,18 @@ echo "    the rank assembled from two machine words:"
 ./rankw32 selftest | grep -E "2 x"
 echo "    multiply-with-carry, by carry consistency:"
 ./rankmwc selftest | grep "a="
-echo "    both reductions: the same tools under mulhi instead of u mod C"
+echo "    MRG32k3a and KISS99, seeded as a programmer seeds them:"
+./mrgkiss selftest | tail -2
+echo "    both reductions: EVERY rank tool must pass under mulhi too"
+for M in 0 1; do
+  printf '      reduction %s : ' "$M"
+  printf 'ranklfg %s  rankmwc %s  rankw32 %s  rankmix %s  rankxo %s\n' \
+    "$(./ranklfg selftest $M | grep -c PASS)" "$(./rankmwc selftest $M | grep -c PASS)" \
+    "$(./rankw32 selftest $M | grep -c PASS)" "$(./rankmix selftest $M | grep -c PASS)" \
+    "$(./rankxo2 selftest $M | grep -c PASS)"
+done
+echo "    (expected 4 3 4 6 3 on both lines)"
+echo "    the older per-tool spot checks:"
 ./ranklfg selftest 1 | grep -E "glibc|Boost"
 ./rankmwc selftest 1 | grep "a=" | head -1
 echo "    the 2^32 seed sweep, for this architecture (20 generators):"
