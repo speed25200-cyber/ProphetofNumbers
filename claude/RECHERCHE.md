@@ -16,6 +16,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Dérivation par hash de données publiques (« provably fair ») | **Exclu**, 390 schémas testés |
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
 | Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
+| Sortie additive (xorshift128+ de V8, xoshiro256+) | **Exclu** — bit 0 exactement linéaire, 128 essais, 0 consistant |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
 | LCG 2⁶⁴ à sortie de poids fort | **Exclu** — 2 880 réductions de réseau (12 multiplicateurs standards × 48 W × 5 fenêtres), 0 correspondance |
 | Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
@@ -341,6 +342,32 @@ doubler W. Et W ∈ {1…4} couvre l'hypothèse où le boost et le bonus provien
 **instance de générateur distincte** de celle qui tire les numéros (192 essais
 supplémentaires, tous rejetés).
 
+### Sortie additive — xorshift128+ (V8) et xoshiro256+
+
+Ces deux-là ont une mise à jour d'état **F2-linéaire** mais une sortie **additive**
+(`s0 + s1`, `s0 + s3` modulo 2⁶⁴), ce qui casse la linéarité… sauf en **bit 0** : une
+addition n'a pas de retenue entrante, donc `(a+b)₀ = a₀ ⊕ b₀` **exactement**.
+
+Avec le mapping `u % 80`, `(bonus−1) mod 2` livre donc **une équation linéaire exacte
+par tirage**. Il faut 128 tirages pour xorshift128+ et 256 pour xoshiro256+ — l'archive
+en a 70 560. C'est la famille des générateurs modernes rapides, dont `Math.random` de
+V8 : elle méritait d'être fermée.
+
+Validation, et une erreur trouvée au passage : mon premier pas symbolique de xoshiro256+
+était faux (`t = s1 << 17` doit capturer `s1` **avant** la chaîne de XOR). Le contrôle
+positif l'a signalé — il rejetait ses propres données. Après correction :
+
+| test | résultat |
+|---|---|
+| xorshift128+ sur ses propres données | rang 128/128, 0 contradiction → **consistant** |
+| xoshiro256+ sur ses propres données | rang 256/256, 0 contradiction → **consistant** |
+| xoshiro256+ sur les données de xorshift128+ | rejeté |
+| xorshift128+ sur les données de xoshiro256+ | rejeté |
+| xorshift128+ avec un mauvais W | rejeté |
+
+Sur l'archive **réelle** : 2 générateurs × W de 1 à 64 = **128 essais, 128 rejetés,
+0 consistant**.
+
 ### Générateurs congruentiels — `modlcg.py`
 
 Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,
@@ -492,11 +519,12 @@ Ce qui est **exclu** :
 
 Ce qui **reste ouvert** :
 
-- tout générateur **non-F2-linéaire d'état ≥ 64 bits** dont la sortie n'est pas une
-  troncature simple de l'état — PCG (permutation dépendante de l'état), xoshiro\*\*
-  (multiplication en sortie), splitmix64 (mélange bijectif) : le canal donne bien
-  6,32 bits par tirage, mais pas sous la forme « bits de tête de l'état » dont le
-  réseau a besoin. Le LCG 2⁶⁴ à troncature simple, lui, est **exclu** (§6 bis) ;
+- les générateurs dont la sortie n'est ni une troncature de l'état, ni une somme :
+  **PCG** (rotation dépendante de l'état), **xoshiro\*\*** (multiplication en sortie),
+  **splitmix64** (mélange bijectif). Le canal donne bien ses 6,32 bits, mais sous une
+  forme que ni le réseau ni GF(2) n'exploitent. Le LCG 2⁶⁴ à troncature simple est
+  **exclu** (réseau), et les sorties **additives** — xorshift128+, xoshiro256+ — le
+  sont aussi (bit 0 exactement linéaire) ;
 - un LCG 2⁶⁴ à **multiplicateur non standard** : l'attaque par réseau doit le deviner ;
 - un boost dérivé autrement que par des seuils sur `u/2³²` — par exemple
   `u % 1000 < 512` — ne livre aucun bit linéaire et échappe à l'attaque par canaux ;
@@ -552,6 +580,17 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
 ---
 
 ## 10. Reproduire
+
+Chaque résultat négatif ne vaut que ce que vaut le contrôle positif de l'outil qui l'a
+produit. `verify_all.sh` les rejoue tous d'un coup — graine plantée retrouvée,
+prédiction des tirages retenus, refus d'un flux trié, bon modèle accepté et mauvais W
+rejeté, bon générateur accepté et trois mauvais rejetés, LCG64 récupéré et trois
+contrôles négatifs rejetés :
+
+```bash
+sh verify_all.sh
+```
+
 
 ```bash
 cd claude/research

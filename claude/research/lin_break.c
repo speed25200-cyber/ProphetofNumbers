@@ -10,6 +10,12 @@
  *   ./lin_break <gen> <mode> <W> <ndraws> [first] [bin]
  *      gen   0 xorshift64(out=hi32)  1 xorshift64(out=lo32)  2 xorshift128(Marsaglia)
  *            3 xorshift96            4 lfsr64  5 lfsr128  6 lfsr256  7 lfsr512
+ *            8 xorshift128+ (V8)     9 xoshiro256+
+ *
+ * 8 and 9 have an ADDITIVE output, which is not F2-linear — except in bit 0, where a
+ * sum carries nothing in: (a+b) bit 0 = a0 XOR b0 exactly. Their state update is
+ * F2-linear, so with the u %% 80 mapping (which fixes u mod 16) bit 0 alone is one
+ * exact linear equation per draw. Mode 9 uses only that bit.
  *      mode  0 bonus = first ball    1 bonus = sorted[(u*20)>>32]    3 boost only
  *            5 bonus rank via u %% 20  6 first ball via u %% 80        7 Floyd (k=61)
  *            8 boost at r=0 (its own generator stream)
@@ -49,6 +55,26 @@ static void lfsr_step(const int*taps){
   rx(SYM[0],fb);
   for(int t=1;t<4;t++){ int p=B-taps[t]; if(p>0&&p<B) rx(SYM[p],fb); }
 }
+/* 64-bit word helpers at bit offset `base` */
+static void w_shl(int base,int k){
+  for(int i=0;i<64;i++) rc(TMPS[i],SYM[base+i]);
+  for(int i=63;i>=k;i--) rx(TMPS[i],SYM[base+i-k]);
+  for(int i=0;i<64;i++) rc(SYM[base+i],TMPS[i]);
+}
+static void w_shr(int base,int k){
+  for(int i=0;i<64;i++) rc(TMPS[i],SYM[base+i]);
+  for(int i=0;i+k<64;i++) rx(TMPS[i],SYM[base+i+k]);
+  for(int i=0;i<64;i++) rc(SYM[base+i],TMPS[i]);
+}
+static void w_xor_shr(int dst,int src,int k){      /* dst ^= src >> k */
+  for(int i=0;i+k<64;i++) rx(SYM[dst+i],SYM[src+i+k]);
+}
+static void w_xor(int dst,int src){ for(int i=0;i<64;i++) rx(SYM[dst+i],SYM[src+i]); }
+static void w_rotl(int base,int k){
+  static uint64_t t[64][MAXW];
+  for(int i=0;i<64;i++) rc(t[(i+k)%64],SYM[base+i]);
+  for(int i=0;i<64;i++) rc(SYM[base+i],t[i]);
+}
 static void gen_step(int g){
   switch(g){
    case 0: case 1: sh_left(0,64,13); sh_right(0,64,7); sh_left(0,64,17); break;
@@ -74,6 +100,29 @@ static void gen_step(int g){
      for(int i=0;i+19<32;i++) rx(SYM[64+i],SYM[64+i+19]);
      for(int i=0;i<32;i++) rx(SYM[64+i],TMPS[i]);
      break; }
+   case 8: {  /* V8 xorshift128+ : state0 at 0, state1 at 64
+                 s1=state0; s0=state1; state0=s0;
+                 s1^=s1<<23; s1^=s1>>17; s1^=s0; s1^=s0>>26; state1=s1 */
+     static uint64_t old0[64][MAXW];
+     for(int i=0;i<64;i++) rc(old0[i],SYM[i]);           /* keep s1 = old state0 */
+     for(int i=0;i<64;i++) rc(SYM[i],SYM[64+i]);         /* state0 = old state1 */
+     for(int i=0;i<64;i++) rc(SYM[64+i],old0[i]);        /* state1 = old state0 */
+     w_shl(64,23);                /* s1 ^= s1 << 23 */
+     w_shr(64,17);                /* s1 ^= s1 >> 17 */
+     w_xor(64,0);                 /* s1 ^= s0  (s0 now sits in state0) */
+     w_xor_shr(64,0,26);          /* s1 ^= s0 >> 26 */
+     break; }
+   case 9: {  /* xoshiro256+ : words at 0,64,128,192.
+                 t = s1 << 17 is taken from the ORIGINAL s1, before the xor chain. */
+     static uint64_t t1[64][MAXW];
+     for(int i=0;i<64;i++) rc(t1[i],SYM[64+i]);          /* keep s1 as it was */
+     w_xor(128,0);                                       /* s2 ^= s0 */
+     w_xor(192,64);                                      /* s3 ^= s1 */
+     w_xor(64,128);                                      /* s1 ^= s2 */
+     w_xor(0,192);                                       /* s0 ^= s3 */
+     for(int i=63;i>=17;i--) rx(SYM[128+i],t1[i-17]);    /* s2 ^= t */
+     w_rotl(192,45);                                     /* s3 = rotl(s3,45) */
+     break; }
    case 4: lfsr_step(LT64); break;
    case 5: lfsr_step(LT128); break;
    case 6: lfsr_step(LT256); break;
@@ -81,6 +130,8 @@ static void gen_step(int g){
   }
 }
 static void gen_out(int g){
+  if(g==8){ for(int b=0;b<32;b++){ rc(OUT[b],SYM[b]); rx(OUT[b],SYM[64+b]); } return; }
+  if(g==9){ for(int b=0;b<32;b++){ rc(OUT[b],SYM[b]); rx(OUT[b],SYM[192+b]); } return; }
   if(g==0){ for(int b=0;b<32;b++) rc(OUT[b],SYM[32+b]); }            /* hi 32 of 64 */
   else if(g==1){ for(int b=0;b<32;b++) rc(OUT[b],SYM[b]); }          /* lo 32 of 64 */
   else if(g==2||g==3){ int base=(g==2)?96:64; for(int b=0;b<32;b++) rc(OUT[b],SYM[base+b]); }
@@ -128,9 +179,10 @@ int main(int argc,char**argv){
   fclose(f);
   int g=argc>1?atoi(argv[1]):0, mode=argc>2?atoi(argv[2]):0, W=argc>3?atoi(argv[3]):20;
   long D=argc>4?atol(argv[4]):300; int first=argc>5?atoi(argv[5]):0;
-  const int BS[8]={64,64,128,96,64,128,256,512};
-  const char*GN[8]={"xorshift64(hi32)","xorshift64(lo32)","xorshift128(Marsaglia)",
-                    "xorshift96","lfsr64","lfsr128","lfsr256","lfsr512"};
+  const int BS[10]={64,64,128,96,64,128,256,512,128,256};
+  const char*GN[10]={"xorshift64(hi32)","xorshift64(lo32)","xorshift128(Marsaglia)",
+                    "xorshift96","lfsr64","lfsr128","lfsr256","lfsr512",
+                    "xorshift128+(V8)","xoshiro256+"};
   B=BS[g]; NWB=(B+63)/64;
   memset(SYM,0,sizeof SYM);
   for(int i=0;i<B;i++) SYM[i][i/64]|=1ULL<<(i%64);
@@ -148,6 +200,10 @@ int main(int argc,char**argv){
       for(int q=0;q<20;q++) if(NUMS[(size_t)(first+d)*20+q]==BONUS[first+d]){rk=q;break;}
       if(rk>=0){ gen_out(g); int nb=low_bits((uint32_t)rk,20,bp,bv);
         for(int q=0;q<nb;q++){memcpy(row,OUT[bp[q]],NWB*8); insert_eq(row,bv[q]); neq++;} }
+      gen_step(g); continue; }
+    else if(r==0&&mode==9){ /* bit 0 only: exact for an additive output */
+      gen_out(g); int rr=(BONUS[first+d]-1)&1;
+      memcpy(row,OUT[0],NWB*8); insert_eq(row,rr); neq++;
       gen_step(g); continue; }
     else if(r==0&&mode==6){ gen_out(g); int nb=low_bits((uint32_t)(BONUS[first+d]-1),80,bp,bv);
       for(int q=0;q<nb;q++){memcpy(row,OUT[bp[q]],NWB*8); insert_eq(row,bv[q]); neq++;}
