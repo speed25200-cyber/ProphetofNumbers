@@ -1009,14 +1009,36 @@ Même cardinal, ensemble différent. Un outil qui ne connaît que la première e
 (`lcgrank` traitait déjà mulhi séparément, c'est son mode 1.)
 
 Les quatre outils prennent désormais la réduction en argument, et leurs contrôles
-plantent le rang **avec la même réduction que celle qu'ils cherchent** : un générateur
-planté sous mulhi doit être retrouvé sous mulhi. Les contrôles passent dans les deux
-modes.
+plantent le rang **avec la même réduction que celle qu'ils cherchent**.
 
-C'est une lacune de couverture qui ne se voyait pas : les quatre outils rendaient zéro
-sur l'archive, et ils auraient rendu zéro de la même façon en cherchant les mauvais
-candidats. Un résultat négatif ne dit rien tant qu'on n'a pas vérifié que l'outil
-regardait au bon endroit.
+**Et une mesure croisée a corrigé mon diagnostic.** Je m'attendais à ce que chercher
+sous la mauvaise réduction ne trouve rien. Ce n'est vrai que pour la moitié des outils,
+et la raison mérite d'être écrite. mulhi est un **redimensionnement linéaire**,
+`u → ⌊u·C/2⁶⁴⌋`, donc une relation **additive** y survit : si
+`u_d = u_{d−l} + u_{d−s} − w·2⁶⁴` avec w ∈ {0,1}, après redimensionnement le terme
+correctif vaut exactement `w·C` — précisément le décalage que l'ensemble de candidats
+`r + kC` énumère déjà.
+
+| outil | relation | planté sous une réduction, cherché sous l'autre |
+|---|---|---|
+| `ranklfg` | additive | **1 168/1 168** puis 586/1 168 — détecté dans les deux sens |
+| `rankmix` | inversion d'une bijection | 399/399 puis **1/399** — le drapeau décide tout |
+
+Donc `ranklfg` n'a jamais été aveugle. `rankmix`, `rankmwc` et `rankw32`, si : leur
+relation ne survit pas à un redimensionnement. Leurs résultats sous mulhi sont donc du
+travail **neuf**, et ils sont eux aussi à zéro :
+
+```
+mulhi, archive réelle, conventions colex0 et lex0
+  rankmix : chaque finaliseur exactement sur son nul
+  rankmwc : 0 / 4 000
+  rankw32 : 0 / 8 000 pour chaque disposition
+  ranklfg : 0 / 2 000
+```
+
+La leçon est celle qui revient : un résultat négatif ne dit rien tant qu'on n'a pas
+vérifié que l'outil regardait au bon endroit — et ici la vérification a montré que
+j'avais tort dans un sens comme dans l'autre.
 
 ### `rankserial.py` — la dépendance sérielle générique, et un « signal » à 211 σ
 

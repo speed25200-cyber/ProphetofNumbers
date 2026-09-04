@@ -207,6 +207,23 @@ int main(int argc, char **argv){
              (bij && tgt >= nd-2 && fp < nd/10) ? "PASS" : "FAIL");
       fflush(stdout);
     }
+    /* The same measurement as ranklfg's, for a tool whose relation is NOT additive:
+       inverting a bijective finalizer does not survive a rescaling, so here the
+       reduction flag genuinely decides whether anything is found. */
+    printf("\n  cross-model measurement (a bijective finalizer does NOT survive it):\n");
+    for(int pm = 0; pm <= 1; pm++){
+      long nd = 400; N = nd; R = malloc(8*nd);
+      uint64_t st = 0xCAFEBABEDEADBEEFULL, g = 0x9E3779B97F4A7C15ULL * 7;
+      int save = MODEL; MODEL = pm;
+      for(long i = 0; i < nd; i++){ R[i] = mkrank(fwd(0, st)); st += g; }
+      uint64_t bd;
+      MODEL = pm;     uint32_t same  = scan2(0, nd, &bd, g);
+      MODEL = 1 - pm; uint32_t cross = scan2(0, nd, &bd, g);
+      MODEL = save; free(R);
+      printf("    planted under %-9s matching search recurs %u/%ld, opposite %u/%ld  %s\n",
+             pm ? "mulhi" : "u mod C", same, nd-1, cross, nd-1,
+             cross < 10 ? "(the flag decides)" : "(no difference)");
+    }
     return 0;
   }
   const char *fn = argc > 2 ? argv[2] : "rank_colex0.bin";

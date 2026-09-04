@@ -43,7 +43,11 @@ static int MODEL = 0;   /* 0 = u mod C (with rejection), 1 = mulhi */
 
 /* plant a rank using whichever reduction MODEL names, so the selftest exercises the
    same path the archive run will take */
-static u64 mkrank(u64 u){ return MODEL ? (u64)(((u128)u * CC) >> 64) : u % CC; }
+static int PLANT = -1;   /* -1 = plant with whatever MODEL searches */
+static u64 mkrank(u64 u){
+  int m = (PLANT < 0) ? MODEL : PLANT;
+  return m ? (u64)(((u128)u * CC) >> 64) : u % CC;
+}
 
 static int cands_model(u64 rank, u64 *o){
   int n = 0;
@@ -131,6 +135,38 @@ int main(int argc, char **argv){
              P[t].what, hit, nd-l, best, bs, bl, fp,
              (hit == nd-l && best < 20 && fp < 20) ? "PASS" : "FAIL");
       fflush(stdout);
+    }
+    /* Cross-model measurement.
+     *
+     * The expectation going in was that searching under the wrong reduction would find
+     * nothing. It does not work out that way HERE, and the reason is worth recording:
+     * mulhi is a linear rescaling, u -> floor(u*C/2^64), so an ADDITIVE relation
+     * survives it. If u_d = u_{d-l} + u_{d-s} - w*2^64 with w in {0,1}, then after
+     * rescaling the correction term is exactly w*C — which is precisely the offset the
+     * r + kC candidate set already enumerates. So for a lagged Fibonacci the two models
+     * are not distinguishable, and this tool was never blind to either.
+     *
+     * That is specific to an additive relation. rankmix inverts a bijective finalizer
+     * and rankmwc multiplies; neither absorbs a rescaling, and for those the flag does
+     * change what is found. So this prints the rates rather than passing or failing. */
+    printf("\n  cross-model measurement (an additive relation survives the rescaling):\n");
+    for(int pm = 0; pm <= 1; pm++){
+      int s0 = P[0].s, l0 = P[0].l, op0 = P[0].op;
+      long nd = 1200; N = nd; R = malloc(8*nd);
+      u64 *u = malloc(8*nd), st = 0x243F6A8885A308D3ULL;
+      for(long i = 0; i < l0; i++){ st = st*6364136223846793005ULL + 1442695040888963407ULL; u[i] = st; }
+      for(long i = l0; i < nd; i++) u[i] = u[i-l0] + u[i-s0];
+      PLANT = pm;
+      for(long i = 0; i < nd; i++) R[i] = mkrank(u[i]);
+      PLANT = -1;
+      int save = MODEL;
+      MODEL = pm;      long same  = 0; for(long d=l0; d<nd-1; d++) same  += holds(d, s0, l0, op0);
+      MODEL = 1 - pm;  long cross = 0; for(long d=l0; d<nd-1; d++) cross += holds(d, s0, l0, op0);
+      MODEL = save;
+      free(u); free(R);
+      printf("    planted under %-9s matching search %ld/%ld, opposite search %ld/%ld  %s\n",
+             pm ? "mulhi" : "u mod C", same, nd-1-l0, cross, nd-1-l0,
+             same == nd-1-l0 ? "(detected either way)" : "MATCHING SEARCH FAILED");
     }
     return 0;
   }
