@@ -1799,7 +1799,16 @@ $ head -2 ../draws/draws-01.csv | tail -1
 1309614,1757829900,3,4,7,11,16,...,80,3,70
 ```
 
-Identique aux indices 0, 1 et 9000, masque compris.
+Identique aux indices 0, 1 et 9000, masque compris — et revérifié en fin de session aux
+trois points les plus éloignés possibles : **0** (id 1309614), **35 280** (id 1344894,
+milieu exact) et **70 559** (id 1380173, dernier tirage). Identifiant, horodatage, les
+vingt numéros, boost et bonus concordent avec le chargeur Python à chaque fois, et le
+masque de bits ressort à popcount 20.
+
+C'est le contrôle qui compte le plus de tout le dossier : un `draws.bin` décalé d'un seul
+enregistrement ferait rejeter **toutes** les hypothèses pour une raison qui n'a rien à
+voir avec le générateur — un faux négatif systématique, et invisible, sur l'ensemble du
+travail.
 
 
 ```bash
