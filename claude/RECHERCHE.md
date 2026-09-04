@@ -299,6 +299,12 @@ Contrôles sur une archive synthétique MT19937 (graine et préchauffage cachés
 | **boost seul** (24 000 tirages) | 22 | — | 19 937 | ≥3 | **rejeté** |
 | bonus = 1ʳᵉ boule via `u % 80` | 20 / 21 / 22 | 19 940–19 944 | 19 936–19 937 | 3–4 | **rejeté** |
 | bonus = 1ʳᵉ boule, Floyd (k=61) | 21 / 22 | 19 949 | 19 937 | 4–5 | **rejeté** |
+| bonus = 1ʳᵉ boule, **`nextDouble()`** (2 mots/indice) | 40 / 41 / 42 / 44 | 19 944–19 949 | 19 937 | 4–6 | **rejeté** |
+
+La variante W ≈ 40 couvre l'échantillonneur qui tire un flottant :
+`j = (int)(nextDouble() * k)` consomme **deux** mots 32 bits par indice, donc une
+quarantaine par tirage. Les bits de tête du premier mot restent épinglés, l'attaque
+s'applique telle quelle.
 
 Les variantes `% ` couvrent le style de code `j = i + u %% (80-i)` : 80 = 16·5, donc
 `u %% 80` fixe `u mod 16`, soit 4 bits **de poids faible**. Validé sur une archive
