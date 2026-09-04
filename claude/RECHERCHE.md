@@ -1265,6 +1265,12 @@ Deux choses, dites franchement plutôt que passées sous silence :
   l'inconnue. Une attaque correcte demande un solveur dédié ; je préfère déclarer la
   lacune que livrer une attaque à moitié vérifiée. Le cas réellement plausible — un
   déploiement ensemencé sur un entier 32 bits — est, lui, couvert par `rankseed`.
+- **Les générateurs récursifs multiples à module premier**, dont `MRG32k3a` (MATLAB,
+  Arena, beaucoup de simulation). Les deux mesures de complexité ne les voient pas : le
+  bit de poids faible d'une récurrence **mod un premier** n'est pas linéaire, la réduction
+  mélange. Et leur état fait 192 bits, hors de portée d'un balayage de graines. Les MRG à
+  petit état — `minstd` et compagnie — sont couverts, eux, par les balayages 2³² exhaustifs
+  sous les deux modèles de sortie ; c'est le cas combiné à grand état qui reste.
 - **Les générateurs combinés** de type KISS, où la sortie est la **somme** de plusieurs
   flux (un LCG, un xorshift, un MWC). Chaque composant est écarté individuellement — mais
   leur somme n'est aucun d'eux, et c'est précisément ce qui la met hors de portée : elle
@@ -1469,6 +1475,8 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
 - **Un échantillonneur à consommation variable** (rejet avec redraw) : le nombre de mots
   par tirage n'est plus constant, et les attaques par canaux supposent un W fixe.
   L'hypothèse « boost/bonus sur une instance séparée » contourne ce cas et a été testée.
+- **Les MRG à module premier et grand état** (`MRG32k3a`) : le bit bas d'une récurrence
+  mod un premier n'est pas linéaire, et 192 bits d'état excluent un balayage.
 - **Les générateurs combinés** (KISS et sa famille) : la somme de plusieurs flux n'est
   aucune des structures testées, et n'est pas F2-linéaire à cause des retenues.
 - **Une troisième architecture** à laquelle je n'ai pas pensé. Les six conventions de rang
