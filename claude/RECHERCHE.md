@@ -993,6 +993,46 @@ l'implémentation est soignée — réduction non biaisée et arithmétique enti
 précision. Ce qui est cohérent avec tout le reste du dossier : un RNG correctement
 implémenté.
 
+### `rankserial.py` — la dépendance sérielle générique, et un « signal » à 211 σ
+
+Le rang a été attaqué **algébriquement** — LCG, Fibonacci retardé, multiply-with-carry,
+F2-linéaire, brouillé — et tout est revenu vide. Mais ce sont des structures
+**spécifiées**. Restait la question sans modèle : `rang_d` est-il seulement indépendant
+de `rang_{d+k}` ? C'est le seul test qui n'exige pas de nommer le générateur.
+
+Rang découpé en 16 tranches égales, table de contingence 16×16 à chaque lag :
+
+```
+lag     1   2   3   4   5   6   7   8   9  10   20   50  100  179  500 1000
+z   -0,96 -1,14 -0,42 -0,83 -1,13 +1,08 +1,07 +0,36 +0,21 -0,03 +0,41 -0,91 -2,55 -0,46 -1,00 +0,97
+```
+
+Rien : le pire est −2,55 sur 16 lags testés, où |z| jusqu'à ~2,7 est l'attendu.
+
+**Et un piège.** La même table entre le rang et la *valeur* du bonus donne
+**χ² = 11 488 pour df = 1 185, soit z = +211,6**. Un lecteur pressé y verrait une
+découverte. C'est une **tautologie** : le bonus est toujours l'une des vingt boules
+tirées, et le rang encode exactement **quelles** vingt ont été tirées — en colex sa
+magnitude est dominée par la plus grande. Rang élevé ⟺ maximum élevé ⟺ bonus pouvant
+être élevé.
+
+Le contrôle le prouve plutôt que de l'affirmer : en remplaçant le vrai bonus par un
+bonus tiré **uniformément dans l'ensemble propre à chaque tirage** — c'est-à-dire
+exactement le modèle nul —
+
+```
+bonus réel        χ² = 11 488,2   z = +211,64
+contrôle 1        χ² = 11 730,7   z = +216,62
+contrôle 2        χ² = 11 638,6   z = +214,73
+contrôle 3        χ² = 11 468,8   z = +211,24
+```
+
+Le nul reproduit l'effet. La version **non** tautologique — rang × *position* du bonus
+parmi les vingt, qui est ce que le générateur choisit réellement — donne z = **−1,10**.
+
+C'est le même piège que le χ² des paires de gaps (§3), et il a été attrapé de la même
+façon : par un contrôle construit sur le nul, pas par intuition.
+
 ### `blockseed.py` — les 358 ouvertures de bloc, comparées **entre elles**
 
 Le calendrier n'est pas continu : les tirages vont par blocs quotidiens séparés d'une
@@ -1323,6 +1363,15 @@ Une note d'audit n'a de valeur que si les échecs y figurent aussi.
 - Les tests statistiques n'ont **aucun pouvoir** contre un PRNG à petit état : un
   xorshift32 cassable en secondes est indiscernable d'un PCG64 (§5). C'est la raison
   pour laquelle tout l'effort a basculé vers l'algèbre.
+- **Un préfixe de 14/20 signalé, poursuivi, et rendu au hasard.** Le balayage des
+  ouvertures de bloc a signalé `pcg32/mulhi/floyd`, graine 1 760 486 308 991, tirage
+  6 300 : 14 numéros consécutifs corrects. À ce nombre d'essais (5,19·10⁹) le hasard en
+  attend 0,13 — un écart de 7 contre 1, assez pour ne pas hausser les épaules. Trois
+  vérifications le rendent au hasard : (1) une vraie graine donnerait **20/20**, pas 14 ;
+  (2) le voisinage ±20 000 ms ne s'améliore pas, le suivant tombe à 10 puis 9, alors
+  qu'un modèle presque juste progresserait ; (3) le tirage **suivant** ne dépasse pas 9
+  dans la fenêtre analogue. Signalé, poursuivi, classé — avec les mesures, pas avec une
+  intuition.
 - **Un « INVESTIGATE » qui n'en était pas un.** `rankmwc` a d'abord signalé 4 000/4 000
   positions compatibles avec un multiply-with-carry. Le signalement venait entièrement
   de la statistique choisie : tester « la retenue est-elle `< a` » n'a aucune puissance
