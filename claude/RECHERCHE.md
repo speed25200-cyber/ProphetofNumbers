@@ -633,9 +633,19 @@ Pas 4 bits. **61,6 bits**, et le tri n'en perd aucun, puisqu'il n'y avait pas d'
 perdre. C'est un facteur 15 sur le débit d'information, et il change la nature des
 attaques possibles.
 
-`rank.py` calcule ce rang sous trois conventions (colex/lex, numéros 0- ou 1-basés). Les
-deux formules sont vérifiées par **énumération exhaustive** à (n,k) = (5,2), (7,3), (9,4),
-(12,5), puis recalculées en grands entiers exacts sur six vrais tirages. Le flux de rangs
+`rank.py` calcule ce rang sous **six** conventions, dont cinq distinctes : colex et lex
+sur les numéros 0-basés, colex sur les 1-basés, l'alphabet renversé (v → 81−v) en colex
+et en lex, et le rang du **complément** — c'est celle qu'il aurait été facile d'oublier,
+puisque C(80,60) = C(80,20) : un opérateur qui tire les 60 numéros **perdants** et publie
+le reste produit un rang de taille identique, et tous les outils regarderaient le mauvais
+nombre.
+
+Les deux formules sont vérifiées par **énumération exhaustive** à (n,k) = (5,2), (7,3),
+(9,4), (12,5), puis recalculées en grands entiers exacts sur six vrais tirages. Un
+recoupement indépendant tombe en prime : le rang du complément s'avère **exactement égal**
+au rang lex de l'alphabet renversé, sur les 70 560 tirages — l'identité combinatoire
+attendue, que deux implémentations séparées n'auraient aucune raison de satisfaire si
+l'une des deux était fausse. Le flux de rangs
 est uniforme sur `[0, C)` comme le veut le modèle nul : moyenne/C = 0,5011, écart-type/C
 = 0,28897 contre 1/√12 = 0,28868, χ² = 45,9 sur 64 cases (df 63, z = −1,52).
 
@@ -663,7 +673,8 @@ non-affines** sont rejetés. Le contrôle négatif évident — « des rangs al�
 d'abord été écrit comme un LCG réduit mod C : c'est-à-dire *exactement* le mode 0, donc
 un second positif déguisé en contrôle. Corrigé.
 
-Sur l'archive, **3 conventions de rang × 5 mappages × 70 557 positions de départ : 0**.
+Sur l'archive, **5 conventions de rang distinctes × 5 mappages × 70 557 positions de
+départ : 0**.
 
 ### `rankmix.c` — splitmix64, que le §6 bis classait « hors d'atteinte »
 

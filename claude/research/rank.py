@@ -113,3 +113,26 @@ print("  sd/C   = %.6f   (%.6f)" % (a.std() / TOT, 1 / math.sqrt(12)))
 h, _ = np.histogram(a / TOT, bins=64, range=(0, 1))
 chi = ((h - N / 64.0) ** 2 / (N / 64.0)).sum()
 print("  chi2 on 64 bins = %.1f (df 63)  z = %+.2f" % (chi, (chi - 63) / math.sqrt(2 * 63)))
+
+# --- three further conventions an implementer could plausibly pick ---------------
+# The complement is the interesting one: C(80,60) = C(80,20), so an operator who draws
+# the 60 LOSING numbers and publishes the rest produces a rank of exactly the same size,
+# and every tool above would be looking at the wrong number.
+extra = {}
+comp = np.empty((N, 60), dtype=np.int64)
+for j in range(N):
+    m = np.ones(81, dtype=bool); m[nums[j]] = False; m[0] = False
+    comp[j] = np.nonzero(m)[0]
+Tc = table(81, 61)
+extra["comp0"] = colex_rank(comp - 1, Tc)
+
+rev = np.sort(81 - nums.astype(np.int64), axis=1)      # alphabet reversed, then resorted
+extra["revcolex0"] = colex_rank(rev - 1, T80)
+extra["revlex0"]   = lex_rank(rev - 1, T80, 80)
+
+for k, v in extra.items():
+    a = v.astype(np.uint64); a.tofile("rank_%s.bin" % k)
+    print("  %-9s min=%d max=%d  -> rank_%s.bin" % (k, int(a.min()), int(a.max()), k))
+    for b in range(4):
+        ((a >> np.uint64(b)) & np.uint64(1)).astype(np.uint8).tofile("bits_rank_%s_bit%d.bin" % (k, b))
+print("wrote 3 further rank conventions and their k-free bit planes")
