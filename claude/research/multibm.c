@@ -191,8 +191,8 @@ int main(int argc, char **argv){
   }
   printf("  rows fed %ld, rank %ld%s\n", rows, NPIV,
          bad ? "" : "   (system still consistent)");
-  if(bad) printf("  *** INCONSISTENT at row %ld — NO F2-linear recurrence of order <= %d ***\n",
-                 where, order);
+  if(bad) printf("  *** INCONSISTENT at sequence position %ld — NO F2-linear recurrence "
+                 "of order <= %d exists, whatever its coefficients ***\n", where, order);
   else printf("  consistent: a recurrence of order <= %d is not excluded by these rows\n", order);
   teardown();
   return 0;
