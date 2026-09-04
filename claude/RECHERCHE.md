@@ -595,6 +595,20 @@ contrôles négatifs rejetés :
 sh verify_all.sh
 ```
 
+Et une vérification du risque le plus dangereux — un `draws.bin` désaligné ferait
+rejeter **toutes** les hypothèses pour une raison qui n'a rien à voir avec le
+générateur, donc un faux négatif systématique. `dumpbin.c` imprime ce que les outils C
+lisent réellement, à comparer au CSV source :
+
+```
+$ ./dumpbin draws.bin 0 2
+id=1309614 ts=1757829900 nums=3,4,7,11,16,... boost=3 bonus=70 mask=3,4,7,11,16,... (popcount=20)
+$ head -2 ../draws/draws-01.csv | tail -1
+1309614,1757829900,3,4,7,11,16,...,80,3,70
+```
+
+Identique aux indices 0, 1 et 9000, masque compris.
+
 
 ```bash
 cd claude/research
