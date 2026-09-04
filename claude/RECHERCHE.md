@@ -1760,6 +1760,27 @@ bonuspos_top   n=70560  complexite lineaire 35280   n/2 = 35280
 Tous à `n/2` : aucun générateur F2-linéaire d'état inférieur à 35 280 bits ne produit ces
 positions, ce qui couvre MT19937 et tout ce qui est plus petit.
 
+Et le système multi-suites porte la borne plus haut sur ce flux aussi. Les deux plans de
+bits de `u mod 4` obéissent à la même récurrence, donc :
+
+```
+order L = 46000, 2 sequences; 2 * (70560 - 46000) = 49120 equations  ->  assez
+  lignes fournies 46001, rang 46000
+  *** INCONSISTANT — AUCUNE recurrence F2-lineaire d'ordre <= 46000, quels que soient
+      ses coefficients ***
+
+controle a la meme echelle, 2 plans, generateur plante d'etat 46 016 bits :
+  L=43968 : INCONSISTENT   (rang 43963)   comme il se doit
+  L=46016 : consistent     (rang 46015, 49088 lignes)   comme il se doit
+  L=49519 : pas assez de lignes (42082 < 49519) — hors de la borne multi-suites
+```
+
+Le contrôle est refait **à deux plans**, pas repris de celui à quatre : le nombre
+d'équations est divisé par deux, donc un contrôle à quatre plans ne licencie pas un
+résultat à deux. `bigtest` prend désormais le nombre de plans en argument pour cette
+raison. Le rang atteint la valeur pleine sur l'archive (46 000), donc l'inconsistance
+n'est pas un artefact de déficience.
+
 ### `poslll.c` — le réseau, pour les états de 64 bits
 
 Le balayage épuise les familles dont l'état tient sur 32 bits. Au-delà, le réseau prend le
@@ -1786,6 +1807,60 @@ la borne d'unicité théorique en donnait 15. Le résumé de l'outil affichait d
 petit K qui récupère : 12 », ce qui aurait conduit à lire un résultat là où il n'y en a
 pas — corrigé pour n'annoncer que le K qui réussit le positif **et** rejette les trois
 négatifs.
+
+## 6 septies. La troisième architecture — `selsamp.c`
+
+Le dossier traitait deux façons de fabriquer un tirage 20/80 : le **mélange**
+(Fisher-Yates puis tri) et le **dérangement** (unrank d'un entier). Il en existe une
+troisième, et c'est la plus naturelle pour un opérateur qui publie des numéros triés,
+parce qu'elle les produit **déjà triés sans aucun tri** — l'échantillonnage par sélection,
+Knuth 3.4.2 algorithme S :
+
+```
+m = 0
+pour t = 1..80 :  u = next()
+                  si (80-t+1)*u < (20-m)*M  alors selectionner t, m++
+                  si m == 20 : arreter
+```
+
+Ce qui la rend attaquable, et bien plus que les deux autres : **le seuil de chaque appel
+se calcule entièrement à partir du tirage publié.** Un tirage donne jusqu'à 80 contraintes
+d'intervalle sur 80 sorties consécutives — pas 4 bits, mais 61,6 répartis sur 80
+comparaisons dont je connais chaque seuil. Une graine fausse meurt en ~2,7 contraintes
+(l'accord par contrainte vaut `θ² + (1−θ)² = 0,625` pour `θ = 1/4`).
+
+Le nombre d'appels par tirage varie, mais il est **connu** : c'est `n₂₀` si
+l'implémentation s'arrête dès les 20 trouvés, 80 sinon. Les deux variantes sont balayées.
+
+Contrôles : les quatorze configurations retrouvent la graine plantée **avec son décalage**;
+le contrôle négatif sur des tirages SRS équitables donne 0/8 sur 3,36·10⁶ essais. Le
+chargeur vérifie en outre que chaque tirage est trié et dans 1..80 — un `draws.bin`
+désaligné ferait échouer toutes les hypothèses pour une raison étrangère au générateur.
+
+```
+balayage 2^32 x 7 generateurs x 2 variantes d'arret x 6 decalages = 3,608e11 essais
+  un seul tirage reproduit vaut 2^-61,6, donc le hasard en attend 1,02e-07
+
+  xorshift32 early 0/8   full80 0/8      (etat entierement couvert)
+  minstd     early 0/8   full80 0/8      (etat entierement couvert)
+  glibc_lcg  early 0/8   full80 0/8      (etat entierement couvert)
+  msvc_lcg   early 0/8   full80 0/8      (etat entierement couvert)
+  java48     early 0/8   full80 0/8      (graines seulement)
+  pcg32      early 0/8   full80 0/8      (graines seulement)
+  splitmix64 early 0/8   full80 0/8      (graines seulement)
+
+meilleur global 0 ; alarmes 0
+```
+
+**Pas un seul tirage reproduit**, sur aucune des 84 configurations. Le « 0/8 » est ici plus
+fort qu'ailleurs : reproduire **un** tirage entier vaut déjà 2⁻⁶¹·⁶, donc le seuil d'alarme
+est à 1, pas à 12.
+
+Ce paragraphe existe pour une raison qui vaut plus que son résultat : **la liste des
+architectures n'était pas close.** Je l'avais écrite à deux entrées, et la troisième était
+un algorithme de manuel qui produit exactement la forme publiée. C'est le même
+avertissement que le `bonus` du §6 sexies, et il est maintenu tel quel dans les lacunes du
+§9 : il peut en rester une quatrième.
 
 ## 7. Ce qui a été appris sur le jeu
 
@@ -2055,10 +2130,20 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
 
 ### Ce qui reste ouvert, sans arrondir
 
-- **PCG64 à état 128 bits complet.** Le pliage `hi ^ lo` perd la moitié de l'état et la
-  rotation dépend de l'état : ni `rankxo` ni une résolution bit à bit ne s'y appliquent.
-  Seul le cas ensemencé sur 32 bits est couvert. C'est la seule famille nommée et
-  répandue qui reste debout.
+- **PCG64 à état 128 bits vraiment aléatoire.** Le pliage `hi ^ lo` perd la moitié de
+  l'état et la rotation dépend de l'état : ni `rankxo` ni une résolution bit à bit ne s'y
+  appliquent. La voie SMT a été **tentée et mesurée** (`pcg128.py`, `pcgbench.py`) : z3
+  sur vecteurs de bits, avec la décomposition exacte de la multiplication 128 bits en
+  opérations 64 bits — `low64(A·S) = low64(A_lo·lo)` et `high64(A·S) = A_hi·lo + A_lo·hi
+  + high64(A_lo·lo)`, vérifiée sur 20 000 états — et l'inconnue réduite de 128 à 64 bits
+  par le pliage lui-même. Le solveur **ne conclut pas** : `unknown` à 45 s par appel, même
+  à K = 2 observations et même en fixant la rotation. C'est une mesure sur la **méthode**,
+  pas un résultat sur PCG64 : le pliage suivi d'une rotation dépendant de l'état est
+  précisément conçu pour cela. La lacune passe donc de « non tentée » à « tentée, mesurée,
+  et voici le mur ». Le cas **ensemencé sur 32 bits** — le cas réellement déployé — est
+  balayé exhaustivement par `pcg64seed.c`, dans les deux variantes de sortie (XSL-RR et
+  **DXSM**, le défaut de numpy depuis 1.19), trois conventions d'amorçage, deux
+  réductions, huit pas, sur les deux observables.
 - **Un CSPRNG** (ChaCha20, AES-CTR-DRBG, HMAC-DRBG) **à clé inconnue**, ou un RNG
   matériel. Là, la partie est close mathématiquement, quelle que soit la quantité de
   données : ce n'est pas une lacune de méthode.
