@@ -24561,6 +24561,7 @@ large qu'elle n'est :
 | ce qui est fermé | par quoi | nature |
 |---|---|---|
 | générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
+| `MT19937` derrière la carte de rang du §106, pas `20`–`41` | §254, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `65`–`128` | §232, réseau + Babai | heuristique |
@@ -24574,5 +24575,86 @@ large qu'elle n'est :
 | congruentiels `m > 2³²`, constantes inconnues | `2⁴⁶` à `2⁶²` valeurs de `a` — hors de portée |
 | mélangeurs non linéaires — `splitmix64`, `PCG`, `xoshiro` | aucune prise algébrique à `6,32` bits par tirage |
 | générateur matériel | aucune quantité de données ne le distingue d'un bon PRNG |
+
+---
+
+## 254. **MT19937 sous la troncature** : le trou que le §106 avait nommé lui-même (`h229_mt19937_sous_troncature.py`)
+
+### Trois paragraphes qui croyaient s'être couverts, et ne l'avaient pas fait
+
+Le §106 lit le bonus par la **désignation par indice** — `bonus = triés[⌊u·20⌋]`, donc le rang
+du bonus parmi les vingt numéros triés vaut `⌊u·20⌋` — et exclut `10` familles `F₂`-linéaires.
+Puis il nomme ce qu'il laisse :
+
+> *« RESTE : MT19937 et WELL19937. Le budget de `3,20` bits par tirage les met à portée en
+>   `6 230` tirages, largement disponibles — c'est le **coût de calcul** des formes linéaires
+>   qui bloque, pas la donnée. »*
+
+Or ce coût, le §80 l'avait **déjà** levé — on construit les formes de `MT19937` par la
+**récurrence** au lieu de propager `19 937` vecteurs de base — et le §88 s'en était **déjà**
+servi pour conclure « MT19937 INCOHÉRENT ».
+
+Sauf que le §88 teste un **autre modèle** :
+
+    §88    bonus = premier numero sorti, bits BAS (mod 16), pas 20     -> INCOHERENT
+    §106   bonus = tries[floor(u*20)], bits HAUTS, 10 pas              -> MT19937 ABSENT
+    ici    bonus = tries[floor(u*20)], bits HAUTS, 22 pas balayes      -> MT19937
+
+> Aucun des deux ne couvre l'autre. **Le §88 a le bon générateur et la mauvaise lecture ; le
+> §106 a la bonne lecture et pas ce générateur-là.** Chacun pouvait croire l'autre suffisant.
+
+Et le §124 ne comble pas le trou non plus. On pourrait croire `W ≥ 47 040` décisif contre
+`MT19937` et ses `19 937` bits — mais la précision ajoutée au §124 dit pourquoi non : ce
+théorème exige que les suites observées soient des fonctionnelles **linéaires** de l'état, et
+`⌊u·20⌋` est un **seuil**. Une sortie filtrée non linéairement peut avoir une complexité
+linéaire bien supérieure à la largeur de son état — c'est le principe même du *filtered LFSR*.
+
+**MT19937 sous la carte de rang n'était donc fermé nulle part.**
+
+### Le décalage interne s'absorbe, il n'est pas négligé
+
+Le §106 balayait « tous les décalages internes », ce qui multiplie le travail par le pas. Ce
+n'est pas nécessaire : lire les mots aux positions `décalage + t·pas` revient à prendre pour
+inconnue l'état **au mot `décalage`** — `x[décalage .. décalage+623]` est un état `MT19937`
+parfaitement légitime —, et les positions lues redeviennent `0, pas, 2·pas, …`. Le §230 avait
+fait la même remarque pour les congruentiels. **Il ne reste que le pas à balayer.**
+
+### Le témoin d'abord, parce que « incohérent » ne dit rien sans lui
+
+    MT19937 plante, lu par la carte de rang, pas 21 : COHERENT, rang 19 937/19 937, 48 s
+    MT19937 plante, lu par la carte de rang, pas 23 : COHERENT, rang 19 937/19 937, 55 s
+    temoin NEGATIF, rangs tires au hasard          : INCOHERENT, 45 s
+
+C'est la calibration que le §106 n'a jamais eue pour cette famille : la machine reconnaît un
+`MT19937` qu'on y a mis, **sous cette lecture-là**, et rejette une suite de rangs sans
+structure.
+
+### Ce que rend l'archive
+
+    22 pas balayes (20 a 41), 19 937 inconnues, ~6 243 tirages par systeme
+    0 compatible, 0 incomplet          ->  MT19937 EXCLU
+
+Le rang atteint `19 934` à `19 937` sur `19 937` selon le pas, puis l'équation suivante rend
+`0 = 1`. Ce n'est pas un test statistique : **un système incompatible exclut le générateur**,
+il ne le rend pas improbable. On empile de surcroît `300` tirages après le rang plein, ce qui
+ne laisse aucune place à un faux positif.
+
+> `MT19937` est la famille que toute la campagne de capture de la branche `codex` est bâtie
+> pour attaquer — `D ≥ 450` tirages ordonnés, `2,2` jours de capture. Ce paragraphe l'exclut
+> **sur des données déjà publiées**, sans capturer quoi que ce soit, pour les vingt-deux pas
+> de bloc balayés et sous la désignation par indice du §106.
+
+### Ce que ça ne couvre pas, et il faut le dire
+
+  **La désignation par indice dans l'ordre d'émission** plutôt que dans le tableau trié : le
+     rang calculé serait alors une permutation aléatoire du vrai indice, et l'attaque ne voit
+     rien. C'est la limite que le §106 énonçait déjà pour ses dix familles, et elle vaut ici
+     à l'identique.
+  **Les pas hors de `20`–`41`.** Chacun coûte `≈ 50 s` ; l'intervalle a été choisi parce que
+     le budget d'un tirage vaut au moins vingt mots, plus le bonus, le boost et les rejets.
+  **`WELL19937` et `WELL44497b`**, que le §106 nommait dans la même phrase. La machinerie de
+     récurrence est propre à `MT19937` ; la leur reste à écrire.
+
+**Ligne de registre.** `h229.mt19937_sous_troncature`, piste B, MT19937 EXCLU, `m_extra = 0`.
 
 ---
