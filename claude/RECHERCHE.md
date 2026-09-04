@@ -734,6 +734,56 @@ un second positif déguisé en contrôle. Corrigé.
 Sur l'archive, **5 conventions de rang distinctes × 5 mappages × 70 557 positions de
 départ : 0**.
 
+### `lcgident.py` — l'identité qui teste TOUT LCG mod 2⁶⁴ sans deviner le multiplicateur
+
+`lcgrank.c` balaie une liste de multiplicateurs standards. C'est une couverture par
+catalogue : elle rate un opérateur qui aurait choisi le sien. Il existe mieux.
+
+Sous la réduction `u mod C`, la sortie brute se retrouve **à six candidats près** :
+`u = rang + k·C`, et `2⁶⁴/C = 5,2159` donc `k ∈ 0..5`. Sous mulhi, `u` vit dans un
+intervalle de ~5,2 entiers : même structure, même compte.
+
+Si le générateur est un LCG de module 2⁶⁴, les différences `d_t = u_{t+1} − u_t` vérifient
+`d_{t+1} = A′·d_t` — où `A′ = A^s` absorbe le **pas**, donc le nombre d'appels par tirage
+n'a pas besoin d'être connu. En éliminant `A′` entre trois différences :
+
+```
+                    d₁²  ≡  d₀ · d₂     (mod 2⁶⁴)
+```
+
+**Aucune inconnue.** Pas de multiplicateur à deviner, pas d'incrément, pas de graine, pas
+de pas. Une identité exacte que tout LCG mod 2⁶⁴ satisfait et qu'un flux quelconque ne
+satisfait qu'avec probabilité 2⁻⁶⁴.
+
+```
+CONTROLE POSITIF
+  LCG plante MMIX, pas 1              quadruplets 2997   touches 8321   hasard 2,1e-13  RECOVERED
+  LCG plante L'Ecuyer a, pas 3        quadruplets 2997   touches 8356   hasard 2,1e-13  RECOVERED
+  LCG plante increment nul, pas 7     quadruplets 2997   touches 8273   hasard 2,1e-13  RECOVERED
+CONTROLE NEGATIF
+  rangs uniformes                     quadruplets 2997   touches    0                   PASS
+
+ARCHIVE (5 conventions x 2 reductions)
+  colex0 / u mod C     70557 quadruplets   0 touches      colex0 / mulhi      0
+  lex0   / u mod C                    0                   lex0   / mulhi      0
+  colex1 / u mod C                    0                   colex1 / mulhi      0
+  comp0  / u mod C                    0                   comp0  / mulhi      0
+  revcolex0 / u mod C                 0                   revcolex0 / mulhi   0
+```
+
+**0 sur 9,1·10⁸ vérifications**, là où le hasard en attend 5·10⁻¹¹.
+
+Deux points sur la portée du contrôle, parce qu'ils décident de ce que vaut le zéro.
+Le contrôle plante un **rejet honnête** (`u < 5C`), donc le nombre d'appels entre deux
+tirages acceptés **varie** — et l'identité est quand même vue, massivement. Le test est
+donc robuste au pas variable qu'impose le rejet, ce qui n'allait pas de soi. Et il ne
+suppose rien du pas fixe : `A′ = A^s` l'absorbe.
+
+Limite, dite d'emblée : ceci couvre les LCG **dont la sortie est l'état**. Un PCG, un
+xoshiro, tout générateur à fonction de sortie brouillée ne satisfait pas l'identité — ils
+sont traités par `rankxo.c` et `rankmix.c`. Ce que `lcgident` apporte, c'est la
+**suppression du catalogue** : plus aucun multiplicateur ne peut se cacher.
+
 ### `rankmix.c` — splitmix64, que le §6 bis classait « hors d'atteinte »
 
 Le tableau de synthèse porte `splitmix64 / PCG / xoshiro**` en **hors d'atteinte,
