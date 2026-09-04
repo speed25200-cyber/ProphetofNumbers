@@ -68,7 +68,7 @@ sur 15 fenêtres (W = 2 … 4000) : tous les ratios à 1,000 ± 0,006.
 | E24/E28 | Composition en 21 gaps, paires de gaps consécutifs | χ²=2759 — **sous les 4 contrôles SRS** (2848–2968) : artefact du modèle nul | — |
 | E26 | #impairs, #bas, somme vs hypergéométrique exact | z = +1,82 / +0,72 / +1,29 | — |
 | **hash** | 390 schémas « provably fair » (6 hashs × 13 entrées publiques × 5 dérivations) | chance pure (max 11/20) | ~10/20 |
-| **seed** | Balayage 2³² **complet et terminé**, 224 combinaisons × 4,29·10⁹ graines = **9,62·10¹¹ essais**, plus 10 générateurs de plateforme, plus MT/glibc avec 64 décalages sur la plage des timestamps unix, plus les graines en millisecondes (16 familles PRNG × 4 mappings × 4 échantillonneurs, + .NET, V8, Python `random.sample`, PHP `mt_rand`) | meilleur **15/20**, exactement le modèle nul | voir ci-dessous |
+| **seed** | Balayage 2³² **complet et terminé**, 224 combinaisons × 4,29·10⁹ graines = **9,62·10¹¹ essais**, plus 10 générateurs de plateforme, plus MT/glibc avec 64 décalages sur la plage des timestamps unix, plus les graines en **millisecondes** et en **nanosecondes** (fenêtre de ±0,5 s autour de la seconde du tirage, 10⁹ candidates × 224 combos = 2,24·10¹¹ essais supplémentaires) (16 familles PRNG × 4 mappings × 4 échantillonneurs, + .NET, V8, Python `random.sample`, PHP `mt_rand`) | meilleur **15/20**, exactement le modèle nul | voir ci-dessous |
 
 ### Le balayage 2³² colle au modèle nul, ce qui prouve qu'il cherchait bien
 
@@ -83,6 +83,10 @@ du « plus long préfixe correct » est donc entièrement prévisible.
 | 14 | 2,57·10⁻¹¹ | 0,11 | 23,4 | 17 |
 | 15 | 2,34·10⁻¹² | 0,01 | **2,2** | **3** |
 | 16 | 1,80·10⁻¹³ | 0,00 | 0,2 | 0 |
+
+Le balayage **nanoseconde** — ce qu'aurait réellement un système qui s'ensemence sur
+une horloge à la nanoseconde, hors de portée de 2³² — donne la même chose : 224 combos
+× 10⁹ graines, meilleur **15/20**, 2 combos l'atteignant.
 
 `P(20/20) = 2,83·10⁻¹⁹ = 1/C(80,20)` ; sur 9,62·10¹¹ essais cela fait **0,0000**
 attendu. Le maximum observé sur tout le balayage est 15/20, et les 3 combos qui
