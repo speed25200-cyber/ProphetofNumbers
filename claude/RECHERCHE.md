@@ -1252,6 +1252,24 @@ parmi les vingt, qui est ce que le générateur choisit réellement — donne z 
 C'est le même piège que le χ² des paires de gaps (§3), et il a été attrapé de la même
 façon : par un contrôle construit sur le nul, pas par intuition.
 
+### `auxserial.py` — les champs annexes, testés pour eux-mêmes
+
+`rankserial` demande si le rang est indépendant de lui-même à un décalage. Le `boost` et
+le `bonus` ont eu leurs plans de bits mesurés par `bm` et `twoadic`, et leur loi jointe
+avec le rang vérifiée — mais **jamais leur propre structure sérielle** sur une gamme de
+décalages. Or sous une architecture à flux unique ce sont des sorties consécutives du même
+générateur : un générateur faible s'y verrait aussi bien que dans le rang.
+
+Trois champs (`boost`, position du bonus, valeur du bonus) × 12 décalages de 1 à 1 000,
+plus les croisements à décalage 0 et 1 :
+
+```
+pire |z| sur les 36 tests sériels : 1,98 (valeur du bonus, lag 2)
+croisements position×boost : z = −0,71 (lag 0) et −1,26 (lag 1)
+```
+
+Sur 36 tests, |z| jusqu'à ~2,6 est l'attendu. Rien.
+
 ### `blockseed.py` — les 358 ouvertures de bloc, comparées **entre elles**
 
 Le calendrier n'est pas continu : les tirages vont par blocs quotidiens séparés d'une
