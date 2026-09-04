@@ -1356,9 +1356,23 @@ flottant, `random_raw()` réduit mod C puis en mulhi). Contrôle positif : un ra
 Contrôles : les quatre constructions plantées sont récupérées, et 2·10⁶ graines contre un
 rang n'appartenant à aucune donnent **0**.
 
+Résultats :
+
+```
+numpy, 5 générateurs x 10^6 graines x 4 chemins de sortie   ->  0
+   (PCG64, PCG64DXSM, MT19937, Philox, SFC64 ; 798 s)
+   contrôle positif : rang de PCG64(777) planté, retrouvé à la graine 777
+   flux unique — une graine émettant les rangs consécutifs de l'archive : 0
+
+MRG32k3a + KISS99, balayage EXHAUSTIF 2^32
+   4 constructions x 3 décalages x 2 mappages = 1,03·10^11 comparaisons  ->  0
+```
+
 Ces balayages ne ferment pas les lacunes au sens strict — un état de 128 ou 192 bits
 choisi vraiment au hasard reste hors d'atteinte, et c'est dit. Ils ferment le cas
-**réaliste**, qui est celui d'un déploiement ensemencé sur un entier.
+**réaliste**, qui est celui d'un déploiement ensemencé sur un entier : `default_rng(42)`,
+`RngStream(seed)`, `KISS(seed)`. C'est la forme sous laquelle ces générateurs sont
+effectivement écrits.
 
 ### Ce qui n'est PAS couvert, et pourquoi
 
