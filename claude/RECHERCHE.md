@@ -1569,6 +1569,102 @@ résultat trompeur. Il ne manque que le fichier.
 
 ---
 
+## 6 sexies. Le champ que le tri n'a pas écrasé — le bonus
+
+Tout ce qui précède se bat contre le tri. Vingt numéros publiés en ordre croissant : le
+tirage consomme 61,6 bits, la publication en rend 4. C'est la contrainte qui a fait
+échouer chaque famille testée, et c'est elle qui a motivé le §8 (capter l'ordre en direct).
+
+Il y avait un champ non trié dans l'archive depuis le début, et je ne l'ai pas vu.
+
+### L'observation
+
+Le **bonus est toujours l'un des 20 numéros** — vérifié sur les 70 560 tirages, sans une
+exception. Sa **position parmi les 20 triés** est donc une fonction de l'ordre caché, et
+elle est publiée. Elle vaut log₂ 20 = **4,32 bits par tirage**, intacts.
+
+Et sous l'architecture par dérangement — celle du §6 quater, la seule que tout le reste du
+dossier n'a pas pu exclure — cette position est **directement une sortie du générateur**.
+Le dérangement rend les 20 numéros déjà triés ; « l'élément d'indice *i* » ne peut donc
+désigner que le *i*-ème plus petit, et `i = reduce(u, 20)` pour une sortie brute `u`.
+
+Le **boost** en ajoute 1,88. Six valeurs (1, 2, 3, 4, 5, 10) dont j'ai retrouvé la table
+de seuils exacte :
+
+```
+seuils cumules 0,512 / 0,75 / 0,90 / 0,95 / 0,975      chi2 = 0,55 sur 5 ddl   p = 0,997
+  valeur  observe  attendu   z            candidats concurrents pour le premier seuil :
+     1     36122   36126,7  -0,04           0,500 -> chi2 = 61,5
+     2     16791   16793,3  -0,02           0,520 -> chi2 = 28,9
+     3     10626   10584,0  +0,44           0,525 -> chi2 = 76,2   (celui qui donnerait E = 2 exact)
+     4      3525    3528,0  -0,05
+     5      1739    1764,0  -0,60         E[boost] = 2,0117
+    10      1757    1764,0  -0,17
+```
+
+Chaque case tombe à moins de 0,6 σ. L'opérateur tire donc un uniforme et le compare à une
+table fixe — ce qui fait de chaque boost une **contrainte d'intervalle sur une sortie
+brute**, exactement le réglage où l'attaque par réseau du §6 ter fonctionne.
+
+Total : **6,2 bits par tirage sans tri**, soit 437 538 bits sur l'archive.
+
+### La règle de sélection, établie et non supposée
+
+Avant d'attaquer, il faut savoir ce qu'on observe. La loi conjointe (position, valeur) a
+une forme exacte sous l'hypothèse « SRS 20/80, indice uniforme » : la valeur sachant la
+position *p* suit la (*p*+1)-ème statistique d'ordre, `P(X₍ₚ₊₁₎ = v) = C(v−1,p)·C(80−v,19−p)/C(80,20)`.
+Testée position par position, regroupement adaptatif à espérance ≥ 5 :
+
+```
+chi2 total 738,25 sur 654 ddl   z = +2,33
+pire position p = 2 a z = +2,28   (20 tests, seuil Bonferroni 5 % : |z| > 2,81)
+```
+
+Conforme. Le bonus **est** l'élément d'un indice uniforme d'un tirage équitable — ce qui
+valide précisément le modèle sur lequel reposent les deux attaques ci-dessous.
+
+### `bonusseed.c` — le balayage 2³², cent fois moins cher qu'avant
+
+Une graine fausse meurt dès la **première** comparaison avec probabilité 19/20. Le coût
+tombe à ~1 sortie par graine, contre un rang complet de 20 numéros dans `rankseed`.
+
+Et le pas (nombre d'appels entre deux tirages) n'intervient pas dans cette première
+comparaison : un seul test tue les 40 pas d'un coup. Le balayage 2³² passe ainsi de
+25 heures à une heture et demie sur un cœur.
+
+Contrôles — quatorze configurations, toutes retrouvent la graine plantée **avec son pas et
+son décalage**, chacune confirmée par 24/24 boosts ; le contrôle négatif plafonne à 5 sur
+1,68·10⁶ essais là où le hasard en attend 0,525. Et un contrôle de **surjectivité** que la
+première version n'avait pas : chaque réduction doit pouvoir produire les 20 positions et
+les 6 boosts (voir §9 bis — la version initiale ne pouvait en produire que cinq).
+
+### `poslll.c` — le réseau, pour les états de 64 bits
+
+Le balayage épuise les familles dont l'état tient sur 32 bits. Au-delà, le réseau prend le
+relais : la position pince `u` dans un intervalle de largeur `M/20`, la différenciation
+élimine l'incrément, et il reste un problème du nombre caché que LLL résout.
+
+`lcg_lll` (§6 ter) suppose « bonus = première boule tirée », soit 6,32 bits — c'est
+l'hypothèse de l'architecture par **mélange**. `poslll` suppose « bonus = élément d'indice
+tiré », soit 4,32 bits — l'architecture par **dérangement**. Aucune ne subsume l'autre, et
+il fallait les deux.
+
+Le contrôle donne le point de fonctionnement, et il est instructif :
+
+```
+K=12  recupere  | mauvais W: faux positif | mauvais a: faux positif | bruit: faux positif
+K=16  recupere  | mauvais W: faux positif | mauvais a: faux positif | bruit: faux positif
+K=20  recupere  | mauvais W: rejete       | mauvais a: rejete       | bruit: rejete
+K>=20 idem jusqu'a K=40
+```
+
+K = 12 **récupère l'état** — et n'a aucune valeur de preuve, parce qu'il accepte aussi un
+mauvais multiplicateur, un mauvais pas et du bruit pur. Le K utilisable est 20, pas 12 ;
+la borne d'unicité théorique en donnait 15. Le résumé de l'outil affichait d'abord « plus
+petit K qui récupère : 12 », ce qui aurait conduit à lire un résultat là où il n'y en a
+pas — corrigé pour n'annoncer que le K qui réussit le positif **et** rejette les trois
+négatifs.
+
 ## 7. Ce qui a été appris sur le jeu
 
 - **Table du multiplicateur boost reconstruite exactement** :
@@ -1597,7 +1693,11 @@ résultat trompeur. Il ne manque que le fichier.
   qui est le comportement qu'un opérateur attentif implémenterait, précisément pour
   fermer ce levier — alors il ne reste rien.
 - Le **bonus** est un tirage uniforme parmi les 20 boules (rang : χ² = 27,5 / df 19),
-  indépendant du boost et du tirage suivant. Aucune information d'ordre.
+  indépendant du boost et du tirage suivant. J'avais écrit ici « aucune information
+  d'ordre » : **c'est faux, et c'était l'erreur la plus coûteuse de ce dossier.**
+  Uniforme ne veut pas dire sans information. La position du bonus parmi les 20 est une
+  observation *directe* d'une sortie du générateur — 4,32 bits par tirage que le tri n'a
+  pas touchés. Voir §6 sexies, qui en fait la meilleure surface d'attaque de l'archive.
 - La cadence est une grille stricte de 300 s ; **24 décrochages** en 70 559 pas,
   toujours par paires compensées exactes (300+δ puis 300−δ, δ ≤ 5 s) : un tirage
   isolé publié en retard, la grille se recale au suivant. Les timestamps sont donc
