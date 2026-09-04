@@ -443,6 +443,32 @@ puis `j = u % 80`, où le bonus épingle des bits faibles de `u` — ni un inter
 
 **Zéro survivant.** Aucun générateur congruentiel de cette forme ne reproduit l'archive.
 
+`lowlcg2` élargit la même attaque sur deux axes. La **position du quartet** devient un
+paramètre : `j = (u >> 16) % 80` — le style `shr16mod` que le balayage de graines teste
+déjà — décale les bits observés de 16, soit les bits 32…35 pour java (L = 36, toujours
+dans le budget). Et le **canal** aussi : si le bonus n'est pas la première boule mais
+`trié[u % 20]`, alors 20 = 4·5 ne fixe que `u mod 4`, deux bits par tirage contre
+quatre, mais face à une inconnue d'autant plus étroite. Contrôles : **11 familles sur
+11 récupérées**, un survivant chacune. Sur l'archive réelle, canal « première boule » :
+**11 familles, 0 survivant, total 0**.
+
+### Une réserve que je n'ai PAS pu lever : l'incrément inconnu
+
+`lowlcg` fixe l'incrément au constant standard de chaque famille. Un opérateur qui
+garderait un multiplicateur connu mais choisirait son propre incrément y échappe.
+`lowlcg3` tente de lever ça : les deux premiers tirages épinglent déjà quatre bits de
+`x₀` et quatre de `x₁`, donc l'espace des paires tombe de 2²ᴸ à 2^(2L−8) = 2³², et
+chaque paire **détermine** l'incrément `C = x₁ − A·x₀`.
+
+**Le contrôle positif échoue** : au lieu d'un survivant unique, on en compte 11 477
+(java), 5 789 (Borland), 2 804 (MSVC), 452 (glibc). Et le nombre **plafonne** entre 10
+et 18 tirages au lieu de décroître d'un facteur 16 par tirage — ce n'est donc pas un
+manque de contraintes mais une dégénérescence : le quartet observé ne détermine pas la
+paire (état, incrément).
+
+Aucun résultat négatif n'est tiré de cet outil. La version à incrément connu, elle,
+donne bien un survivant unique sur les 11 familles et son résultat tient.
+
 ### Clés par défaut en mode compteur — `defaultkey.py`
 
 Un déploiement certifié utilise AES-CTR-DRBG ou ChaCha20 avec une vraie clé, et aucune
