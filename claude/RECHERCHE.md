@@ -394,9 +394,38 @@ fait `satmix.py` : une seule inconnue (les 64 bits de s₀, l'état étant un co
 les intervalles du canal bonus comme contraintes, aucun tableau Fisher-Yates à encoder.
 
 Premier encodage — 31 additions à propagation de retenue en chaîne par multiplication —
-**budget épuisé sans verdict** sur une instance pourtant sous-déterminée. Second
-encodage avec l'**arbre de compression 3:2** (`wcsa`, exactement la primitive du
-toolkit delta-chain) : une seule chaîne de retenue au lieu de trente.
+**budget épuisé sans verdict** en 153 s sur une instance pourtant *sous*-déterminée
+(31 bits connus pour 64 inconnues, 74 050 variables, 343 285 clauses). Second encodage
+avec l'**arbre de compression 3:2** (`wcsa`, exactement la primitive du toolkit
+delta-chain) : une seule chaîne de retenue au lieu de trente. **Toujours aucun verdict**
+à 600 s.
+
+C'est un résultat, pas un échec : **la barrière des retenues tient**, exactement comme
+la transition de phase que documente delta-chain. Deux multiplications 64 bits placent
+splitmix64 hors de portée de CaDiCaL à cette taille — et donc, par le même argument,
+PCG (rotation dépendante de l'état) et xoshiro\*\* (multiplication en sortie).
+
+**3. Effondrement en bits faibles** (`lowlcg.c`) — et là, l'algèbre gagne. Pour un LCG
+modulo 2^M, les **L bits de poids faible de l'état forment eux-mêmes un LCG modulo 2^L**,
+quoi que fassent les bits hauts. Or 80 = 16·5, donc `u %% 80` fixe `u mod 16`, c'est-à-dire
+les bits `shift..shift+3` de l'état — qui vivent dans `s mod 2^(shift+4)`. L'inconnue
+s'effondre de M bits à shift+4 :
+
+| famille | modulo | décalage | candidats | coût |
+|---|---|---|---|---|
+| `java.util.Random` | 2⁴⁸ | 16 | **2²⁰** | instantané |
+| MSVC | 2³² | 16 | 2²⁰ | instantané |
+| PCG (cœur LCG) | 2⁶⁴ | 27 | 2³¹ | secondes |
+| MMIX, L'Ecuyer, Lehmer | 2⁶⁴ | 32 | **2³⁶** | ~une minute |
+
+Une recherche 2⁶⁴ ramenée à 2²⁰–2³⁶ par pure algèbre modulaire. Chaque tirage vérifie
+4 bits, donc un mauvais candidat survit avec probabilité 1/16 et seize tirages ne
+laissent rien. Contrôle positif : **9 familles sur 9, exactement 1 survivant chacune**.
+
+Cela comble le trou entre `modlcg` (sortie en bits faibles) et `lcg_lll` (sortie
+tronquée de poids fort + mapping `mulhi`) : le cas intermédiaire, `u = s >> shift`
+puis `j = u %% 80`, où le bonus épingle des bits faibles de `u` — ni un intervalle
+(pas de réseau), ni linéaire sur F2 (pas d'élimination).
 
 ### Générateurs congruentiels — `modlcg.py`
 
