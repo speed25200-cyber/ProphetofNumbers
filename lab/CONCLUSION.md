@@ -48,10 +48,50 @@ positifs sur huit blocs disjoints (`p = 0,14`), et un excès relatif de `1,26·1
 entièrement à l'intérieur de la borne d'information du §235. Y trancher sur des tirages neufs
 demanderait `59 498` tirages, soit **dix mois de jeu**.
 
-Enfin le compte global : plus de **`34,6` millions** de tests, plus petit `p` = `1,8·10⁻⁴` —
+Enfin le compte global : plus de **`36,1` millions** de tests, plus petit `p` = `1,8·10⁻⁴` —
 et encore, celui-là (`§h114`, l'angle de la roue du multiplicateur) est un résultat de
 **fermeture**, pas une piste : il dit que la roue ne publie *rien*. Le seuil de Holm est à
 `1,4·10⁻⁹`. Il manque un facteur **`125 000`**.
+
+## Le relevé ordonné : ce qui a changé, et ce que ça coûte vraiment
+
+Deux corrections tardives touchent la seule voie qui restait, et elles vont en sens contraire.
+
+**Ce qui se ferme.** J'ai écrit au §247 que l'archive se re-téléchargerait *ordonnée* par une
+simple boucle `HTTP`, et j'en tirais un facteur `5 880`. C'est faux : chaque endpoint `REST`,
+dans les trois langues, sert un ensemble **déjà trié**, et aucun objet de boule ne porte de
+position. La seule source d'ordre est le flux d'animation `SignalR` — et il est **direct**. Il
+n'y a pas de levier à `5 880` ; il y a un **débit**, d'un tirage ordonné toutes les cinq
+minutes.
+
+**Ce qui se ferme aussi, et personne ne l'avait chiffré.** Le plan de capture demande `450`
+tirages consécutifs à pas fixe (`~1 400` pour les mappings modulo) et refuse — à raison — de
+concaténer deux segments séparés par la nuit. Or les `70 560` horodatages du dossier donnent
+le plafond sans qu'il faille capturer quoi que ce soit :
+
+    la plus longue plage a id consecutif et pas de 300 s exactement : 204 tirages (17 h)
+    plages de >= 300 : 0        plages de >= 450 : 0        plages de >= 1400 : 0
+
+**`450` demande `2,21` fois le plus long segment qui existe.** Aucune campagne, si longue
+soit-elle, ne produira mieux : la journée n'en contient que `204`.
+
+**Ce qui reste ouvert.** Le plafond ne frappe pas les deux moitiés de la famille de la même
+façon, et c'est tout l'intérêt :
+
+| famille | état | ce qu'il faut | sous le plafond de `204` |
+|---|---|---|---|
+| `MT19937` | `19 937` bits | `≈ 400` tirages | **hors d'atteinte sur un segment** |
+| congruentiels `m ≤ 2³²` | `≤ 32` bits | **un seul** tirage ordonné (`126` bits) | largement sur-déterminé |
+| congruentiels `m ≤ 2⁶⁴` | `64` bits | `≈ 11` numéros ordonnés | sur-déterminé dès le premier |
+
+Et les `345` coupures de nuit sont, **sans exception**, un nombre entier de créneaux de `300 s`
+— la modale vaut `85` créneaux. La nuit est donc un décalage *connu*, franchissable si le pas
+est fixe et le processus unique : deux hypothèses à établir, non établies.
+
+Le §248 tire la conséquence : un crible qui tranche sur **un tirage isolé**, par énumération
+complète et en simulant le rejet dès le filtre, ferme la moitié `m ≤ 2³²` de la famille
+congruentielle *sans aucune heuristique* — là où le §246 la fermait par un réseau qui suppose
+un préfixe sans rejet, hypothèse fausse dans `17` à `87 %` des tirages selon le module.
 
 ## Ce qui reste ouvert, et pourquoi ce n'est pas de la paresse
 

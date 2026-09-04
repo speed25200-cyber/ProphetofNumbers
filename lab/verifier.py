@@ -865,6 +865,94 @@ def bloc_reseau_bonus():
 
 
 
+# ======================================================================================
+# 17. LE CRIBLE EXHAUSTIF SOUS LE REJET (§248), ET SES TROIS FAUTES
+# ======================================================================================
+def bloc_crible_rejet():
+    """Les trois fautes du §248 sont des fautes d'OUTIL, pas de generateur, et chacune
+    rendait « aucune solution » sur une entree qui en avait une. Elles reviendraient sans
+    bruit ; ce bloc les rend impossibles."""
+    print("\n17. LE CRIBLE EXHAUSTIF SOUS LE REJET (§248)")
+    ici = os.path.dirname(os.path.abspath(__file__))
+    sol = os.path.join(os.path.dirname(ici), "claude", "research", "lcg_family_solver.py")
+    if not os.path.exists(sol):
+        dit("le solveur exhaustif est present", False, "absent", sol)
+        return
+    sys.path.insert(0, os.path.dirname(sol))
+    import lcg_family_solver as S
+
+    # -- faute 1 : haut32 mesurait la largeur de m au lieu de celle de m - 1
+    dit("haut32(2^32) vaut 0 — l'etat tient deja sur trente-deux bits",
+        S.haut32(1 << 32) == 0, str(S.haut32(1 << 32)), "0")
+    dit("haut32(2^64) vaut 32", S.haut32(1 << 64) == 32, str(S.haut32(1 << 64)), "32")
+
+    # -- faute 3 : l'enumeration shr16 tronquait le bloc de tete. Elle ne se voit QUE sur
+    #    un module qui n'est pas une puissance de deux, et il faut donc en tester un.
+    for m in ((1 << 32), (1 << 31) - 1, (1 << 16) + 1):
+        for mapping in range(len(S.MAPPINGS)):
+            if S.image(m, mapping) < 2:
+                continue
+            total = 0
+            for n1 in range(1, POOL + 1):
+                total += sum(int(b.size) for b in S.candidats(n1, m, mapping))
+            dit(f"l'enumeration couvre le module {m} en entier ({S.MAPPINGS[mapping]})",
+                total == m, f"{total} mots", f"{m} mots")
+
+    # -- faute 2 : le filtre supposait un prefixe SANS REJET. On plante donc un temoin
+    #    dont le prefixe EN A un, sinon le controle ne controle rien.
+    m, a, c = (1 << 32), 1664525, 1013904223
+    w1, vus, ordre, w, k, kpref = 123456789, set(), [], 123456789, 0, None
+    while len(ordre) < DRAWN and k < S.CAP:
+        n = S.numero(w, m, 2)
+        if n not in vus:
+            vus.add(n)
+            ordre.append(n)
+            if len(ordre) == S.PROF:
+                kpref = k + 1
+        w = (a * w + c) % m
+        k += 1
+    dit("le temoin a bien un rejet DANS la fenetre du filtre",
+        kpref is not None and kpref > S.PROF,
+        f"{(kpref or S.PROF) - S.PROF} rejet(s)", "> 0")
+    dit("le crible retrouve sa propre graine plantee malgre le rejet",
+        w1 in S.crible_exhaustif(ordre, m, a, c, 2), "trouvee", "trouvee")
+
+    # -- et le temoin negatif, sans lequel « zero » ne veut rien dire
+    rng = np.random.default_rng(7)
+    faux = (rng.permutation(POOL)[:DRAWN] + 1).tolist()
+    dit("un tirage au hasard ne rend aucune solution",
+        len(S.crible_exhaustif(faux, m, a, c, 0)) == 0, "0", "0")
+
+
+# ======================================================================================
+# 18. LE PLAFOND DE LA NUIT (§249)
+# ======================================================================================
+def bloc_plafond_nuit(ids, ts):
+    print("\n18. LE PLAFOND DE LA NUIT (§249)")
+    PAS = 300
+    runs, cur = [], 1
+    for i in range(len(ts) - 1):
+        if int(ts[i + 1]) - int(ts[i]) == PAS and int(ids[i + 1]) - int(ids[i]) == 1:
+            cur += 1
+        else:
+            runs.append(cur)
+            cur = 1
+    runs.append(cur)
+    dit("la plus longue plage a pas de 300 s et id consecutif", max(runs) == 204,
+        f"{max(runs)} tirages", "204 tirages")
+    dit("aucune plage n'atteint le seuil mulhi de 450",
+        sum(1 for r in runs if r >= 450) == 0,
+        f"{sum(1 for r in runs if r >= 450)} plage(s)", "0")
+    dit("aucune plage n'atteint le seuil modulo de 1400",
+        sum(1 for r in runs if r >= 1400) == 0,
+        f"{sum(1 for r in runs if r >= 1400)} plage(s)", "0")
+    coup = [int(ts[i + 1]) - int(ts[i]) for i in range(len(ts) - 1)
+            if int(ts[i + 1]) - int(ts[i]) > 3600]
+    dit("toutes les coupures de nuit sont un nombre ENTIER de creneaux de 300 s",
+        all(d % PAS == 0 for d in coup), f"{sum(1 for d in coup if d % PAS)} exception(s)",
+        "0 exception")
+
+
 if __name__ == "__main__":
     print("=" * 78)
     print("VERIFICATION DU DOSSIER — tout est recalcule depuis les sources")
@@ -886,6 +974,8 @@ if __name__ == "__main__":
     bloc_distances()
     bloc_reseau_bonus()
     bloc_bascule()
+    bloc_crible_rejet()
+    bloc_plafond_nuit(ids, ts)
 
     print("\n" + "=" * 78)
     if ECHECS:

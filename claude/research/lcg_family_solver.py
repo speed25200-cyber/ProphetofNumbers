@@ -65,6 +65,7 @@ C'est le bon outil pour douze relevés pris des jours différents.
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Iterable
 
@@ -400,7 +401,20 @@ def selftest() -> bool:
     return ok
 
 
-def crible_independant(tirages, verbeux=True):
+def _travail(arg):
+    """une tache = (configuration, mapping) sur tous les tirages. Niveau module, pour
+    que `multiprocessing` puisse la serialiser."""
+    (nom, m, a, c), mapping, tirages = arg
+    if image(m, mapping) < DRAWN:
+        return nom, mapping, [], 0          # impossible par construction, et c'est un fait
+    trouves = []
+    for i, ordre in enumerate(tirages):
+        for w1 in crible_exhaustif(ordre, m, a, c, mapping):
+            trouves.append((nom, MAPPINGS[mapping], i, w1))
+    return nom, mapping, trouves, len(tirages)
+
+
+def crible_independant(tirages, verbeux=True, procs=None):
     """chaque ligne est un tirage INDEPENDANT : on ne suppose aucune continuite de flux.
 
     C'est le bon instrument pour un relevé qui n'est pas continu — douze tirages pris
@@ -411,20 +425,26 @@ def crible_independant(tirages, verbeux=True):
     lit les `n` premiers numeros comme les classes de `n` mots CONSECUTIFS : ici le
     rejet est simule des le filtre.
     """
+    import multiprocessing as mp
+
     petits = [k for k in CONFS if k[1] <= (1 << 32) and k[2] < (1 << 32)]
+    taches = [(k, mp_i, tirages) for k in petits for mp_i in range(len(MAPPINGS))]
+    if procs is None:
+        procs = max(1, min(len(taches), (os.cpu_count() or 1)))
     touches, essais = [], 0
-    for nom, m, a, c in petits:
-        for mapping in range(len(MAPPINGS)):
-            for i, ordre in enumerate(tirages):
-                essais += 1
-                for w1 in crible_exhaustif(ordre, m, a, c, mapping):
-                    touches.append((nom, MAPPINGS[mapping], i, w1))
-                    if verbeux:
-                        print(f"   *** {nom}, {MAPPINGS[mapping]}, tirage #{i + 1}, "
-                              f"etat {w1}")
-        if verbeux:
-            print(f"      {nom:>28} : {m.bit_length() - 1 if m & (m - 1) == 0 else '~'} "
-                  f"bits, {len(MAPPINGS) * len(tirages)} cribles exhaustifs")
+    if procs > 1:
+        with mp.Pool(procs) as pool:
+            for nom, mapping, trouves, faits in pool.imap_unordered(_travail, taches):
+                essais += faits
+                touches.extend(trouves)
+                if verbeux and trouves:
+                    for t in trouves:
+                        print(f"   *** {t[0]}, {t[1]}, tirage #{t[2] + 1}, etat {t[3]}")
+    else:
+        for t in taches:
+            nom, mapping, trouves, faits = _travail(t)
+            essais += faits
+            touches.extend(trouves)
     return touches, essais, len(petits)
 
 

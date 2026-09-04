@@ -23811,6 +23811,15 @@ d'un canal dont l'information extractible hors échantillon a été mesurée à
 
 ## 246. **Les douze tirages ordonnés contre la famille élargie** (`h221_ordonnes_famille_elargie.py`, `h221b_calibrage_corrige.py`)
 
+> **PORTÉE CORRIGÉE PAR LE §248 — à lire avant ce qui suit.** Le `h221b` ci-dessous corrige le
+> **témoin** de cette section, qui était planté avec des rejets dans le préfixe alors que
+> l'attaque suppose un préfixe *sans* rejet. Il ne corrige **pas l'attaque**, qui lit toujours
+> `ordre[:n]` comme les classes de `n` mots **consécutifs**. Dès qu'un rejet tombe dans ce
+> préfixe, le réseau travaille sur une entrée fausse et son « pas de solution » ne dit rien.
+> Selon le `n` retenu — le §232 le mesure de `6` à `18` —, cela vaut de `17 %` à `87 %` des
+> tirages. **Le zéro de cette section est donc partiel.** Le §248 refait le même travail par
+> énumération complète, sans aucune hypothèse de préfixe, pour tous les modules `≤ 2³²`.
+
 ### Le trou entre deux sections
 
 Le §223 a passé le réseau sur les douze tirages ordonnés — mais avec **douze jeux de
@@ -24036,6 +24045,129 @@ calculé à chaque tirage puis **jeté**. Il suffit de le compter.
 
 **Lignes de registre.** `h222.ordre_publie`, piste B, ORDRE REEL, `m_extra = 4` ;
 `h223.ordre_reproductible`, piste B, ORDRE REEL.
+
+---
+
+## 248. **Le crible exhaustif sous le rejet** : ce que le §246 ne testait pas (`h224_crible_congruentiel_exhaustif.py`, `claude/research/lcg_family_solver.py`)
+
+### L'angle mort du §246, et il est dans mon propre outil
+
+Le §246 a passé les douze tirages ordonnés au réseau sur la famille élargie. Le §246 *bis*
+(`h221b`) a corrigé le **témoin** : il était planté avec des rejets dans le préfixe alors que
+l'attaque suppose un préfixe *sans* rejet, ce qui faisait déclarer « NON COUVERT » neuf
+configurations qui l'étaient.
+
+Mais la correction s'arrêtait au témoin. **L'attaque, elle, garde l'hypothèse.** Elle lit
+`ordre[:n]` comme les classes de `n` mots **consécutifs** ; dès qu'un rejet tombe dans ce
+préfixe — un numéro déjà sorti, consommé sans rien publier — les classes ne sont pas
+celles-là. Le réseau ne rend alors pas « pas de solution » : il rend *« pas de solution à un
+problème que personne ne posait »*.
+
+> Corriger le témoin sans corriger l'attaque, c'est mesurer correctement la portée d'un
+> instrument qui reste borgne.
+
+Et le trou n'est pas petit. La probabilité qu'aucun rejet ne tombe dans les `n` premiers mots
+vaut exactement `prod_{j<n} (1 − j/80)`, et le §232 mesure `n` **configuration par
+configuration**, de `6` à `18` :
+
+| `n` | `6` | `8` | `10` | `12` | `14` | `18` | `20` |
+|---|---|---|---|---|---|---|---|
+| `p` | `0,825` | `0,697` | `0,556` | `0,420` | `0,299` | `0,126` | `0,075` |
+
+**L'attaque du §246 travaille sur une entrée juste dans `13` à `83 %` des cas selon le
+module.** Le reste lui échappe, en silence.
+
+> **CORRECTION du texte pré-enregistré de `h224`.** Le jeton scellé dit « `p = 0,0746` » —
+> exact, c'est `n = 20` — puis en tire « **deux tirages sur trois** échappaient ». Les deux ne
+> vont pas ensemble : « deux sur trois » est la valeur de `n = 14`, et `0,0746` en donnerait
+> treize sur quatorze. Le chiffre juste n'est ni l'un ni l'autre mais l'**intervalle**
+> ci-dessus, puisque `n` dépend de la configuration. La phrase scellée est conservatrice ; je
+> la laisse telle quelle plutôt que de la réécrire après coup.
+
+### La règle exacte, en trois cas
+
+`claude/research/lcg_family_solver.py` n'a pas cette hypothèse. Pour `m ≤ 2³²` il **énumère**
+les mots compatibles avec le premier numéro et déroule le flux en simulant le rejet **dès le
+filtre**. Les numéros déjà publiés sont *exactement* `ordre[:pos]`, donc, en notant `PREM[n]`
+le rang de `n` dans le tirage (`255` s'il n'y figure pas) :
+
+    PREM[n] == pos    le numero attendu        -> on publie, pos avance
+    PREM[n] <  pos    un numero deja sorti     -> REJET, le mot est consomme
+    PREM[n] >  pos    contradiction            -> le candidat meurt
+
+Trois cas, aucun arbitrage. Un candidat n'est écarté que s'il **contredit** le tirage, ou s'il
+ne publie pas cinq numéros en `400` mots — et dans ce dernier cas il n'en publierait pas vingt
+non plus. **Si une solution existe, elle est trouvée** : un « aucun état » rendu par cet outil
+est une absence *certaine*, pas l'échec d'une recherche.
+
+### Trois fautes, toutes attrapées par des témoins plantés
+
+L'outil ne s'est pas écrit juste du premier coup, et le détail vaut mieux que le résultat :
+
+  **`haut32` mesurait la largeur de `m`, pas celle de `m − 1`.** Pour `m = 2³²` l'état tient
+     déjà sur trente-deux bits et le décalage doit valoir zéro ; `m.bit_length()` vaut `33`.
+     Le vrai mot était **absent de la liste des candidats**, ce qu'un test direct a montré
+     — `w1 présent dans candidats : False` — pendant que le filtre de profondeur, lui,
+     concordait parfaitement.
+  **Le filtre de profondeur supposait un préfixe sans rejet.** Il comparait `numero(w_j)` à
+     `ordre[j]`. Le crible écartait alors **sa propre graine plantée**, et exactement sur les
+     quatre couples dont le témoin avait un rejet dans la fenêtre du filtre. C'est la faute
+     décrite plus haut, dans ma propre implémentation.
+  **L'énumération `shr16` tronquait le bloc de tête.** Elle s'arrêtait au haut `borne >> 16`
+     alors que le plus grand haut atteignable vaut `(borne − 1) >> 16`. Sur une puissance de
+     deux les deux coïncident — **et les cinq configurations que l'autotest tirait étaient
+     toutes des puissances de deux.** Le module `2³¹−1` perdait `65 536` mots dès que le
+     premier numéro valait `48` ; `2¹⁶+1` perdait un mot entier.
+
+> La troisième est la plus instructive : ce n'est pas le crible qui était faible, c'est
+> l'**autotest** qui échantillonnait. Un autotest qui échantillonne ne peut pas soutenir le
+> mot « exhaustif » — il ne mesure que l'échantillon.
+
+L'autotest replante donc désormais une graine dans **chacun** des `45` couples que l'outil
+prétend couvrir :
+
+    44 couples plantes                : 44 etats exacts releves
+    1 couple                          : IMPOSSIBLE PAR CONSTRUCTION, et affiche comme tel
+                                        (ZX81 sous shr16 : son image ne compte que 2 numeros,
+                                         donc aucun tirage de 20 numeros distincts n'en sort)
+    9 temoins ont un rejet DANS LA FENETRE DU FILTRE
+    temoin negatif (tirage au hasard) : 0 solution
+
+Ce dernier point compte : un couple qu'on ne peut pas planter n'est **pas** sauté en silence.
+Ou bien son image compte moins de vingt numéros — et c'est alors une **conclusion exhaustive à
+part entière** —, ou bien c'est la graine qui est mauvaise, et l'autotest échoue.
+
+### Ce que rend l'archive
+
+    528 cribles COMPLETS en 285 s (4 coeurs), 0 etat trouve
+    12 des 540 cribles annonces sont IMPOSSIBLES PAR CONSTRUCTION, pas « non faits »
+
+La nulle n'est pas une loi mais un **compte** : reproduire vingt numéros *dans l'ordre* demande
+`log₂(80!/60!) = 126,0` bits de contrainte à un état qui en compte au plus `32`. Un candidat
+faux y parvient avec une probabilité inférieure à `2⁻⁹⁴`, donc l'espérance du nombre de faux
+positifs sur les `528` cribles reste sous `2⁻⁷⁰`. **Un seul survivant aurait été réel.**
+
+> Ce zéro-là n'est pas de la même nature que celui du §246. Le §246 rend zéro **par une
+> heuristique calibrée** — Babai, dont l'échec ne prouve rien — et sur la seule branche du
+> préfixe sans rejet. Celui-ci rend zéro **par une énumération qui ne peut pas manquer de
+> solution**, sur toutes les branches. Il ferme définitivement la moitié `m ≤ 2³²` de la
+> famille congruentielle.
+
+### La limite, et elle se dit
+
+`m ≤ 2³²`. Au-delà, l'énumération est hors de portée et seul le réseau reste — avec son
+hypothèse de préfixe sans rejet, donc avec le trou du tableau ci-dessus. Les modules `2⁴⁸`,
+`2⁶¹−1` et `2⁶⁴` ne sont **pas** couverts par ce crible, et le §246 ne les couvre qu'en partie.
+C'est écrit ici plutôt que laissé à deviner.
+
+Enfin, et c'est ce qui relie ce paragraphe au suivant : douze relevés pris des jours différents
+ne partagent aucun état, donc le crible ne peut pas **chaîner**. C'est pourquoi l'outil sépare
+`crible` — chaque ligne indépendante, aucune continuité supposée — de `scan`, qui exige un
+relevé continu et rend les verdicts tri-valués de `keno_break`. Le §249 dit ce que ce relevé
+continu peut, et ne peut pas, contenir.
+
+**Ligne de registre.** `h224.crible_congruentiel_exhaustif`, piste B, conforme, `m_extra = 0`
+(le compte est exact, pas multiple).
 
 ---
 

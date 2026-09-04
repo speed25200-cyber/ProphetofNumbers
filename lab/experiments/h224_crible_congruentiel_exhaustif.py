@@ -17,10 +17,24 @@ solution » : il rend « pas de solution **à un problème que personne ne posai
 > Corriger le témoin sans corriger l'attaque, c'est mesurer correctement la portée d'un
 > instrument qui reste borgne.
 
-Sur un tirage réel, la probabilité qu'aucun rejet ne tombe dans les `n` premiers mots
-n'est pas négligeable, mais elle n'est pas `1` non plus : elle vaut
-`prod_{j<n} (1 - j/80)`, soit ≈ `0,29` pour `n = 20`. **Deux tirages sur trois échappent
-donc à l'attaque du §246**, en silence.
+Sur un tirage réel, la probabilité qu'aucun rejet ne tombe dans les `n` premiers mots vaut
+exactement `prod_{j<n} (1 - j/80)`. Et le §246 n'utilise pas un seul `n` : le §232 le
+mesure configuration par configuration, de `6` à `18`.
+
+    n     6      8     10     12     14     18     20
+    p  0,825  0,697  0,556  0,420  0,299  0,126  0,075
+
+    part des tirages sur lesquels l'attaque du §246 travaille sur une entree JUSTE :
+        de 83 % (module 2^16+1, n = 6) a 13 % (module 2^61-1, n = 18)
+
+> **CORRECTION du texte pré-enregistré.** Le jeton scellé de cette expérience dit
+> « `p = 0,0746` » — exact, c'est la valeur pour `n = 20` — puis en tire « **deux tirages
+> sur trois** échappaient ». Les deux ne vont pas ensemble : « deux sur trois » est la
+> valeur de `n = 14`, et `p = 0,0746` en donnerait **treize sur quatorze**. Le chiffre
+> juste n'est ni l'un ni l'autre mais un **intervalle**, celui du tableau ci-dessus,
+> puisque `n` dépend de la configuration. La phrase scellée est donc **conservatrice** —
+> elle sous-estime le trou sur les grands modules et le surestime sur les petits — et je
+> la laisse telle quelle plutôt que de la réécrire après coup.
 
 CE QUE FAIT CELUI-CI
 ====================
@@ -130,7 +144,12 @@ if __name__ == "__main__":
         f"{n} tirages ordonnes -> {essais} cribles EXHAUSTIFS")
     say(f"   part des tirages a prefixe sans rejet : {p20:.4f} sur vingt mots, "
         f"{p5:.4f} sur cinq")
-    say(f"   -> le §246 ne testait donc reellement qu'environ {100*p20:.0f} % des tirages")
+    say("   le §246 n'utilise pas un seul n — le §232 le mesure de 6 a 18 selon la "
+        "configuration :")
+    say("      " + "  ".join(f"n={k}:{sans_rejet(k):.3f}" for k in (6, 8, 10, 12, 14, 18, 20)))
+    say(f"   -> l'attaque du §246 travaille sur une entree JUSTE dans "
+        f"{100*sans_rejet(18):.0f} a {100*sans_rejet(6):.0f} % des cas selon le module ; "
+        f"le reste lui echappe en silence")
 
     # --- l'autotest de l'outil fait foi : on ne crible pas avec un outil non calibre
     say("\n   autotest du solveur (temoins plantes AVEC rejets dans la fenetre du filtre)")
@@ -144,7 +163,16 @@ if __name__ == "__main__":
     t0 = time.time()
     touches, faits, nconf = S.crible_independant(ORD, verbeux=False)
     dt = time.time() - t0
+    # le compte annonce et le compte fait doivent se rejoindre A LA LIGNE PRES
+    impossibles = [(nom, S.MAPPINGS[mp]) for nom, m, a, c in petits
+                   for mp in range(len(S.MAPPINGS)) if S.image(m, mp) < DRAWN]
     say(f"\n   {faits} cribles complets en {dt:.1f}s, {len(touches)} etats trouves")
+    if impossibles:
+        say(f"   {essais - faits} des {essais} cribles annonces sont IMPOSSIBLES PAR "
+            f"CONSTRUCTION et non « non faits » : "
+            + ", ".join(f"{n}/{g}" for n, g in impossibles))
+        say(f"   (leur image compte moins de {DRAWN} numeros, donc aucun tirage de "
+            f"{DRAWN} numeros distincts ne peut en sortir — c'est une conclusion, pas un trou)")
     for nom, mapping, i, w1 in touches:
         say(f"   *** {nom}, {mapping}, tirage {IDS[i]}, etat {w1}")
 
@@ -173,7 +201,13 @@ if __name__ == "__main__":
         notes=(f"CRIBLE EXHAUSTIF SOUS LE REJET (§248) — le §246b avait corrige le TEMOIN du "
                f"§246 mais pas l'ATTAQUE, qui lit toujours ordre[:n] comme n mots consecutifs "
                f"et travaille donc sur une entree fausse des qu'un rejet tombe dans le "
-               f"prefixe : seuls {100*p20:.0f} % des tirages y echappent. Ce crible-ci simule "
+               f"prefixe. CORRECTION DU TEXTE PRE-ENREGISTRE : le jeton dit « p = "
+               f"{p20:.4f} » (exact, c'est n = 20) puis en tire « deux tirages sur trois », "
+               f"ce qui est la valeur de n = 14 ; les deux ne vont pas ensemble et le chiffre "
+               f"juste est un INTERVALLE, car le §232 mesure n de 6 a 18 selon la "
+               f"configuration — l'attaque travaille sur une entree juste dans "
+               f"{100*sans_rejet(18):.0f} a {100*sans_rejet(6):.0f} % des cas. La phrase "
+               f"scellee est conservatrice et je la laisse telle quelle. Ce crible-ci simule "
                f"le rejet des le filtre par une regle a trois cas et n'a aucune heuristique. "
                f"{faits} cribles complets, {len(touches)} etats. {verdict}."))
     say("   consigne.")
