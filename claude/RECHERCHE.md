@@ -427,6 +427,15 @@ tronquée de poids fort + mapping `mulhi`) : le cas intermédiaire, `u = s >> sh
 puis `j = u %% 80`, où le bonus épingle des bits faibles de `u` — ni un intervalle
 (pas de réseau), ni linéaire sur F2 (pas d'élimination).
 
+### Clés par défaut en mode compteur — `defaultkey.py`
+
+Un déploiement certifié utilise AES-CTR-DRBG ou ChaCha20 avec une vraie clé, et aucune
+quantité de sortie ne la révèle. Un déploiement **mal configuré**, si. C'est la panne
+classique des identifiants par défaut, et elle ne coûte rien à écarter : 2 chiffrements
+× 9 clés (tout à zéro, tout à 0xFF, 0…31, le nom du produit, le nom de l'opérateur, le
+SHA-256 de chacun, le SHA-256 du vide) × 5 compteurs publics × 4 dérivations =
+**360 combinaisons**, meilleur recouvrement **11/20** — le hasard.
+
 ### Générateurs congruentiels — `modlcg.py`
 
 Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,
