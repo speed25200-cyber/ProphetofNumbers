@@ -34,6 +34,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
 | `Math.floor(Math.random() * C)` — le rang médié par un double | **Exclu** — 142 multiples de 512 observés pour 137,8 attendus, contre 70 560 si c'était le cas |
+| Mélange naïf et `sort(random()−0,5)` — les deux fautes qui **auraient** donné un avantage | **Exclus** — elles produiraient \|ΔP\| = 0,054 et 0,070, soit \|z\| de 33 et 43 ; l'archive plafonne à 2,72 |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
@@ -990,6 +991,36 @@ Les deux mesures se lisent ensemble : **si** l'architecture est celle du dérang
 l'implémentation est soignée — réduction non biaisée et arithmétique entière pleine
 précision. Ce qui est cohérent avec tout le reste du dossier : un RNG correctement
 implémenté.
+
+### `shufbias.py` — les deux bugs de mélange qui auraient VRAIMENT donné un avantage
+
+Tout ce qui précède écarte des générateurs. Cette mesure pose une autre question : si
+l'opérateur mélange correctement mais **écrit le mélange faux**, les numéros cessent
+d'être équiprobables — et c'est exactement le biais exploitable qu'on cherche. Les deux
+fautes que le vrai code commet :
+
+1. **Le mélange naïf** — `for i in 0..n−1: swap(a[i], a[random(n)])`, l'indice tiré sur
+   tout le tableau au lieu de la queue restante. `n^n` déroulés pour `n!` permutations :
+   elles ne peuvent pas sortir à égalité.
+2. **`sort(() => Math.random() − 0,5)`** — un comparateur incohérent, l'anti-patron
+   JavaScript classique.
+
+Simulés, ils donnent :
+
+| faute | max \|P(v tiré) − 0,25\| | \|z\| que l'archive montrerait |
+|---|---|---|
+| mélange naïf | **0,0538** | 33,0 |
+| `sort(random() − 0,5)` | **0,0704** | 43,2 |
+
+Or l'archive montre **max \|z\| = 2,72** et Σz² = 71,46 pour une espérance de 80.
+
+Le point n'est pas seulement que ces fautes sont écartées. C'est que leurs biais —
+0,054 et 0,070 en probabilité absolue — tombent **précisément dans la fourchette de
+0,05 à 0,10 nécessaire pour battre la marge du keno** (§4). Autrement dit : la faute
+d'implémentation la plus banale qui existe aurait suffi à rendre le jeu battable, et
+c'est celle qu'on peut exclure le plus fermement. La borne à 3 σ sur tout biais marginal
+est de 0,00489 — **onze fois plus serrée** que le plus petit biais réaliste qui aurait
+servi à quelque chose.
 
 ### Ce qui n'est PAS couvert, et pourquoi
 
