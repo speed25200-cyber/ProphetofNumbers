@@ -208,12 +208,15 @@ int main(int argc, char **argv){
   if(argc < 4){ fprintf(stderr, "usage: %s <draws.bin> <first> <nseeds>\n", argv[0]); return 2; }
   loadbin(argv[1]);
   long first = atol(argv[2]); u64 nseeds = strtoull(argv[3], 0, 0);
+  /* reprise apres redemarrage : "cs" ne fait que C#, "rb" que Ruby, rien = les deux */
+  const char *only = (argc > 4) ? argv[4] : "";
+  int do_cs = strcmp(only, "rb") != 0, do_rb = strcmp(only, "cs") != 0;
   const uint8_t *row0 = NUMS + 20*(size_t)first;
   printf("archive : %u tirages ; depart %ld ; %llu graines\n", N, first, (unsigned long long)nseeds);
   printf("  UN SEUL tirage reproduit vaut 2^-61,6 : seuil d'alarme a 1.\n\n");
   fflush(stdout);
   long alarms = 0;
-  for(int m = 0; m < CS_NM; m++){
+  for(int m = 0; m < CS_NM && do_cs; m++){
     long hits = 0;
     for(u64 s = 0; s < nseeds && s < 2147483648ULL; s++){
       CS r; cs_seed(&r, (i32)s); uint8_t o[20]; cs_draw(&r, m, o);
@@ -227,7 +230,7 @@ int main(int argc, char **argv){
   }
   /* Ruby n'emploie init_by_array que pour une graine de plus d'un mot : sur 32 bits c'est
      toujours init_genrand (verifie contre le runtime). Balayer l'autre serait 2 h perdues. */
-  for(int by = 0; by < 1; by++){
+  for(int by = 0; by < 1 && do_rb; by++){
     long hits = 0;
     for(u64 s = 0; s < nseeds; s++){
       MT S; rb_seed(&S, (u32)s, by); uint8_t o[20]; rb_sample20(&S, o); sort20(o);

@@ -15,3 +15,12 @@ case "$1" in
     echo "keysort : reprise au generateur $done_g"
     ./keysort draws.bin 0 4294967296 "$done_g" >> keysort_real.log 2>&1 ;;
 esac
+# langhunt : deux moities independantes, C# (2^31, ~1h30) et Ruby (2^32, ~4h)
+case "$1" in
+  langhunt-cs)
+    grep -q "OrderBy(Next())        : " langhunt_cs.log 2>/dev/null && { echo "langhunt C# termine"; exit 0; }
+    ./langhunt2 draws.bin 0 4294967296 cs > langhunt_cs.log 2>&1 ;;
+  langhunt-rb)
+    grep -q "Ruby init_genrand" langhunt_rb.log 2>/dev/null && { echo "langhunt Ruby termine"; exit 0; }
+    ./langhunt2 draws.bin 0 4294967296 rb > langhunt_rb.log 2>&1 ;;
+esac
