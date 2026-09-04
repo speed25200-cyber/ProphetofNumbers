@@ -372,6 +372,32 @@ positif l'a signalé — il rejetait ses propres données. Après correction :
 Sur l'archive **réelle** : 2 générateurs × W de 1 à 64 = **128 essais, 128 rejetés,
 0 consistant**.
 
+### Ce que delta-chain apporte réellement, et où il s'arrête
+
+Le dépôt `delta-chain-sha256` casse SHA-256 à rondes réduites en exploitant la
+structure de la fonction de tour, et il documente une **transition de phase de
+résolution des retenues** : en dessous d'un certain nombre de rondes le système est
+SAT-résoluble, au-dessus il ne l'est plus. Deux choses en découlent ici.
+
+**1. Hachages à rondes réduites** (`redhash.py`). `hashhunt` n'avait testé que des
+hachages complets. La fonction de compression réduite est reprise **verbatim** de
+`delta-chain-sha256/src/sha256_attack_toolkit.py`, et vérifiée : à R = 64 elle
+reproduit `hashlib` bit à bit. Rondes 1 à 64 × 6 entrées publiques × 5 dérivations =
+**1 920 schémas**, meilleur recouvrement **11/20** — le hasard. Rien.
+
+**2. Inversion par SAT** (`satmix.py`). L'élimination sur GF(2) atteint les générateurs
+F2-linéaires, le réseau atteint un LCG à sortie tronquée. Ni l'un ni l'autre n'atteint
+un générateur dont la sortie est un **mélange bijectif** — splitmix64 avance son état
+d'une constante puis le pousse à travers deux multiplications 64 bits, ce qui *est* la
+barrière des retenues de delta-chain. L'outil approprié est donc SAT, et c'est ce que
+fait `satmix.py` : une seule inconnue (les 64 bits de s₀, l'état étant un compteur),
+les intervalles du canal bonus comme contraintes, aucun tableau Fisher-Yates à encoder.
+
+Premier encodage — 31 additions à propagation de retenue en chaîne par multiplication —
+**budget épuisé sans verdict** sur une instance pourtant sous-déterminée. Second
+encodage avec l'**arbre de compression 3:2** (`wcsa`, exactement la primitive du
+toolkit delta-chain) : une seule chaîne de retenue au lieu de trente.
+
 ### Générateurs congruentiels — `modlcg.py`
 
 Les bits de poids faible d'un LCG modulo 2^k forment eux-mêmes un LCG modulo 2^t,

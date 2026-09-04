@@ -22,7 +22,8 @@
 #define MAXN 64
 typedef __int128 i128;
 typedef unsigned __int128 u128;
-static const u128 MOD = (u128)1 << 64;
+static u128 MOD = (u128)1 << 64;
+static int MODBITS = 64;   /* 48 for java.util.Random, 64 for the rest */
 
 static int NDIM;
 static i128 Bm[MAXN][MAXN];
@@ -61,14 +62,16 @@ static void lll(void){
            gso(); k = (k-1>1)?k-1:1; }
   }
 }
-static uint64_t powmod(uint64_t a,int e){ uint64_t r=1,b=a; while(e){ if(e&1)r*=b; b*=b; e>>=1; } return r; }
+static inline uint64_t mmask(void){ return (MODBITS>=64)? ~0ULL : ((1ULL<<MODBITS)-1); }
+static uint64_t powmod(uint64_t a,int e){ uint64_t r=1,b=a&mmask();
+  while(e){ if(e&1) r=(r*b)&mmask(); b=(b*b)&mmask(); e>>=1; } return r; }
 
 /* returns 1 if a vector consistent with every |e_d| <= bound is found */
 static int hnp(uint64_t A, const uint64_t*cen, int K, u128 bound){
   int n=K+1; NDIM=n;
   static uint64_t Dc[MAXN], beta[MAXN];
-  for(int d=0; d<K; d++) Dc[d] = cen[d+1]-cen[d];            /* mod 2^64 by wraparound */
-  for(int d=1; d<K; d++) beta[d-1] = powmod(A,d)*Dc[0] - Dc[d];
+  for(int d=0; d<K; d++) Dc[d] = (cen[d+1]-cen[d]) & mmask();
+  for(int d=1; d<K; d++) beta[d-1] = (powmod(A,d)*Dc[0] - Dc[d]) & mmask();
   memset(Bm,0,sizeof Bm);
   for(int i=0;i<K-1;i++) Bm[i][i] = (i128)MOD;
   for(int d=1; d<K; d++) Bm[K-1][d-1] = (i128)powmod(A,d);
@@ -87,9 +90,12 @@ static int hnp(uint64_t A, const uint64_t*cen, int K, u128 bound){
   return 0;
 }
 static void interval(uint32_t j,uint32_t k,uint64_t*lo,uint64_t*hi){
+  /* u = the 32-bit output taken from the top of the state; bonus-1 = (u*k)>>32 pins u
+     to [l,h), and the state's remaining low bits (MODBITS-32 of them) are free. */
   u128 a=((u128)j<<32), b=((u128)(j+1)<<32);
   uint64_t l=(uint64_t)(a/k) + ((a%k)?1:0), h=(uint64_t)(b/k) + ((b%k)?1:0);
-  *lo=(uint64_t)l<<32; *hi=((uint64_t)h<<32);
+  int sh = MODBITS-32;
+  *lo=(uint64_t)l<<sh; *hi=((uint64_t)h<<sh);
 }
 static uint64_t centre_from_bonus(int bonus){
   uint64_t lo,hi; interval((uint32_t)(bonus-1),80,&lo,&hi); return lo + ((hi-lo)>>1);
@@ -112,21 +118,26 @@ static void loadbin(void){
 }
 int main(int argc,char**argv){
   const char*mode = argc>1?argv[1]:"selftest";
+  /* trailing arg "48" switches to java.util.Random's modulus */
+  for(int i=1;i<argc;i++) if(!strcmp(argv[i],"m48")){ MODBITS=48; MOD=(u128)1<<48; }
   uint64_t lo,hi; interval(0,80,&lo,&hi); u128 bound=(u128)(hi-lo);
   if(!strcmp(mode,"selftest")){
-    uint64_t a=6364136223846793005ULL, c=1442695040888963407ULL; int W=21;
-    printf("selftest: synthetic LCG64 (MMIX), W=%d, output s>>32, bonus = first ball\n",W);
+    uint64_t a = (MODBITS==48)? 25214903917ULL : 6364136223846793005ULL;
+    uint64_t c = (MODBITS==48)? 11ULL : 1442695040888963407ULL; int W=21;
+    printf("selftest: synthetic LCG mod 2^%d (%s), W=%d, bonus = first ball\n",
+           MODBITS, MODBITS==48?"java.util.Random":"MMIX", W);
     printf("  positive AND negative controls must both pass before any real run\n\n");
     for(int K=12;K<=24;K+=4){
-      static uint64_t cen[MAXN]; uint64_t s=0xC0FFEE1234567890ULL;
-      for(int d=0;d<=K;d++){ uint32_t u=(uint32_t)(s>>32); uint32_t j=(uint32_t)(((uint64_t)u*80)>>32);
+      static uint64_t cen[MAXN]; uint64_t s=0xC0FFEE1234567890ULL & mmask();
+      for(int d=0;d<=K;d++){ uint32_t u=(uint32_t)(s>>(MODBITS-32));
+        uint32_t j=(uint32_t)(((uint64_t)u*80)>>32);
         uint64_t l,h; interval(j,80,&l,&h); cen[d]=l+((h-l)>>1);
-        for(int t=0;t<W;t++) s=a*s+c; }
+        for(int t=0;t<W;t++) s=(a*s+c)&mmask(); }
       int good=hnp(powmod(a,W),cen,K,bound);
       int badW=hnp(powmod(a,W+1),cen,K,bound);
-      int badA=hnp(powmod(2862933555777941757ULL,W),cen,K,bound);
+      int badA=hnp(powmod((MODBITS==48)?1103515245ULL:2862933555777941757ULL,W),cen,K,bound);
       static uint64_t rnd[MAXN]; uint64_t z=1;
-      for(int d=0;d<=K;d++){ z=z*6364136223846793005ULL+1442695040888963407ULL; rnd[d]=z; }
+      for(int d=0;d<=K;d++){ z=(z*6364136223846793005ULL+1442695040888963407ULL)&mmask(); rnd[d]=z; }
       int badD=hnp(powmod(a,W),rnd,K,bound);
       printf("  K=%2d  correct a,W: %-10s | wrong W: %-9s | wrong a: %-9s | random data: %s\n",
         K, good?"RECOVERED":"missed", badW?"false hit":"rejected",

@@ -88,13 +88,25 @@ class Enc:
                 if i < 63:
                     carry = self.and2(A[i], carry)      # carry out = A AND carry
         return out
+    def wcsa(self, a, b, c):
+        """3:2 carry-save compressor — the trick the delta-chain toolkit uses. It turns
+        three addends into two without ever propagating a carry, which is what makes the
+        difference for a solver: one long carry chain instead of thirty."""
+        s = [self.xor(self.xor(a[i], b[i]), c[i]) for i in range(64)]
+        carry = [self.FALSE] + [self.maj(a[i], b[i], c[i]) for i in range(63)]
+        return s, carry
     def wmul_const(self, A, k):
-        acc = None
-        for i in range(64):
-            if (k >> i) & 1:
-                term = self.wshl(A, i)
-                acc = term if acc is None else self.wadd(acc, term)
-        return acc if acc is not None else [self.FALSE]*64
+        """A * k for a literal k: shift-and-add over k's set bits, reduced by a
+        carry-save tree down to two addends, then exactly one ripple-carry addition."""
+        terms = [self.wshl(A, i) for i in range(64) if (k >> i) & 1]
+        if not terms: return [self.FALSE]*64
+        while len(terms) > 2:
+            nxt = []
+            while len(terms) >= 3:
+                a, b, c = terms.pop(), terms.pop(), terms.pop()
+                s_, c_ = self.wcsa(a, b, c); nxt += [s_, c_]
+            nxt += terms; terms = nxt
+        return terms[0] if len(terms) == 1 else self.wadd(terms[0], terms[1])
     def fix_range(self, A, lo, hi):
         """Constrain the 64-bit word A to [lo, hi] by fixing the bits lo and hi share."""
         x = lo ^ hi
