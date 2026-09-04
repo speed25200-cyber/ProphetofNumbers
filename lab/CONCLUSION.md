@@ -42,8 +42,16 @@ Et trois **formes** de défaut, fermées sans viser aucune famille :
 | « chaud reste chaud » | **§239** | `24` statistiques, nulle **calculée** et non simulée, `70 000` tirages |
 | les stratégies du joueur (chauds, froids, « en retard », récents, liés au tirage précédent) | **§240** | `21` statistiques, même nulle exacte, plus une grille fixe de contrôle |
 
-Enfin le compte global : **`34 618 170`** tests, plus petit `p` = `1,8·10⁻⁴` contre un seuil de
-Holm de `1,4·10⁻⁹`. Il manque un facteur **`125 000`**.
+Et le seul fil qui ait jamais répliqué — l'énergie à trois termes au triplet `(3,1,1)`,
+`z = +3,267` — a été chassé trois fois sur cible fixe et clos au **§245** : `6/8` signes
+positifs sur huit blocs disjoints (`p = 0,14`), et un excès relatif de `1,26·10⁻⁴` qui vit
+entièrement à l'intérieur de la borne d'information du §235. Y trancher sur des tirages neufs
+demanderait `59 498` tirages, soit **dix mois de jeu**.
+
+Enfin le compte global : plus de **`34,6` millions** de tests, plus petit `p` = `1,8·10⁻⁴` —
+et encore, celui-là (`§h114`, l'angle de la roue du multiplicateur) est un résultat de
+**fermeture**, pas une piste : il dit que la roue ne publie *rien*. Le seuil de Holm est à
+`1,4·10⁻⁹`. Il manque un facteur **`125 000`**.
 
 ## Ce qui reste ouvert, et pourquoi ce n'est pas de la paresse
 

@@ -23721,3 +23721,81 @@ Trois questions, aucune ne demande un calcul, toutes les trois changent le signe
 l'espérance.
 
 ---
+
+## 245. **La chasse 3 au triplet `(3,1,1)`** : le seul fil qui ait répliqué, et sa clôture (`h220_chasse_triplet_huit.py`)
+
+### Une correction, d'abord, et elle est de mon côté
+
+Sur deux cent quatre-vingt-onze lignes de registre, **un seul** écart s'est reproduit sur des
+données disjointes : l'énergie additive à trois termes au triplet `(3,1,1)`.
+
+    §183  (h168)   z = +3,267 sur l'archive entière     p = 0,0381 après Bonferroni sur 35
+    §183a (h168b)  z₁ = +3,145 / z₂ = +2,196, deux moitiés disjointes, mêmes signes
+    §183b (h168c)  z = +2,520 sur les quadruplets intra-nuit                « PERSISTE »
+
+**Le §183b n'est pas une réplication indépendante.** Il mesure le même triplet sur `69 474`
+des `70 557` quadruplets de l'archive — **`98,5 %` des mêmes données**. Un « PERSISTE » y
+était acquis d'avance : retirer un centième et demi d'un échantillon ne peut pas défaire un
+`z` de `+3,3`.
+
+> La chaîne « ÉCART → réplique → PERSISTE » compte **une** mesure, **une** vraie réplication en
+> deux moitiés, et **un quasi-doublon**. Le dossier la présentait comme trois confirmations.
+
+### Huit blocs disjoints, et un partage orthogonal
+
+| bloc | quadruplets | `z` |
+|---|---|---|
+| `1` | `8 817` | `+1,070` |
+| `2` | `8 817` | `+1,908` |
+| `3` | `8 817` | `+1,943` |
+| `4` | `8 817` | `+0,567` |
+| `5` | `8 817` | `+0,836` |
+| `6` | `8 817` | `−0,242` |
+| `7` | `8 817` | `+2,693` |
+| `8` | `8 817` | `−0,340` |
+
+    agrégat Z = +2,982        (un effet homogène donnerait +3,27)
+    signes positifs : 6/8     p binomial EXACT = 0,1445
+    nuits paires   : z = +2,684        nuits impaires : z = +1,306
+
+    FLUCTUATION
+
+### Et voici ce qu'il faut dire sur la méthode, parce que c'est le vrai enseignement
+
+**Re-découper les mêmes `70 560` tirages ne peut pas renforcer la preuve.** L'agrégat `Z` sur
+huit blocs disjoints *est*, à la pondération près, le `z` de l'archive entière : `+2,98` contre
+`+3,27` n'est pas une confirmation, c'est la **même mesure** relue. La seule information neuve
+qu'apporte ce découpage, c'est :
+
+  * le **patron des signes** — `6/8`, `p = 0,14`, quand un effet homogène en donnerait `8/8` ;
+  * le **partage par nuits alternées**, orthogonal à la chronologie — `+2,68` et `+1,31` là où
+    un effet homogène donnerait `+2,31` de chaque côté.
+
+Ni l'un ni l'autre ne montre l'homogénéité qu'un effet réel produirait. Et surtout, aucune
+troisième, quatrième ou dixième découpe ne le montrera : **l'information est épuisée.**
+
+### Ce qu'il faudrait, chiffré
+
+    excès mesuré : 0,7547 coïncidence par tirage sur une moyenne de 6 000
+    soit un excès RELATIF de 1,26·10⁻⁴
+
+    pour trancher à z = 3 sur des tirages JAMAIS REGARDÉS : 59 498 tirages
+    soit environ 9,6 mois de jeu
+
+L'archive s'arrête au `2026-08-25`. Une dizaine de jours de tirages neufs existent
+aujourd'hui — `≈ 2 040` — et si l'effet était réel ils rendraient `z = +0,56`. **Ils ne
+peuvent pas trancher.** Il faut dix mois, ou rien.
+
+### Pourquoi c'est clos quand même
+
+Parce que le §235 a déjà mesuré ce que **n'importe quelle** structure de ce genre peut
+rapporter. Un excès relatif de `1,26·10⁻⁴` sur un comptage de coïncidences vit à l'intérieur
+d'un canal dont l'information extractible hors échantillon a été mesurée à
+`−0,000181` bit par tirage, avec un `95ᵉ` centile sous SRS **lui-même négatif**.
+
+> Même réel, cet écart ne paie rien. Il n'est pas clos parce qu'on renonce à le confirmer :
+> il est clos parce que la borne d'information l'enveloppe déjà.
+
+**Ligne de registre.** `h220.chasse_triplet_huit`, piste B, FLUCTUATION, `m_extra = 10`.
+
+---
