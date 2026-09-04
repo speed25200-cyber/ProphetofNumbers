@@ -545,11 +545,15 @@ chaque famille ci-dessus du côté cassable — `mtbreak` le démontre de bout e
 1. **Capter l'ordre.** Le patch de ce dépôt (`Draw.drawOrder`) le conserve. Une seule
    requête suffit à trancher : si `primarySelection` arrive trié, cette voie est morte
    et il faut le savoir tout de suite. `keno_break scanfile` le détecte seul.
-2. **Vérifier la fenêtre de mise.** Le flux expose `wagerEndDate` et `phase` par
-   tirage. Si un résultat existe dans l'API avant la clôture des mises, même d'une
-   seconde, c'est une faille de pipeline — et elle ne demande aucune cryptanalyse.
-   Le client de ce dépôt court déjà après la publication ; il suffit de mesurer l'écart.
-3. **Vérifier le boost.** Sa table est maintenant connue exactement (§7). S'il est
+2. **Vérifier la fenêtre de mise — c'est maintenant automatique.** `LeakProbe.swift`
+   enregistre, pour chaque tirage, le premier instant où l'app voit ses 20 numéros et
+   le compare au `wagerEndDate` du même tirage. Une marge **négative** est le cas
+   normal (le résultat paraît après la clôture). Une marge **positive**, sur un seul
+   tirage, c'est la faille — et elle ne demande aucune cryptanalyse. L'app affiche la
+   marge maximale observée sous le dernier tirage ; il suffit de la laisser tourner.
+   La sonde note aussi si un tirage a exposé son **boost alors qu'il était encore
+   `OPEN`**, ce qui déclencherait le levier du point 3.
+3. **Vérifier le boost** — même sonde. Sa table est connue exactement (§7). S'il est
    publié **avant** la clôture, ne jouer que les tirages à boost ≥ 4 multiplie le
    retour par 2,86 — sans prédire un seul numéro.
 4. **Si l'ordre est disponible**, lancer `keno_break` : 300 tirages (25 h) pour un

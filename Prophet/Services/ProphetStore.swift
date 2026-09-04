@@ -10,6 +10,8 @@ final class ProphetStore: ObservableObject {
     @Published var stake: Int = 10
     @Published var tickets: [SavedTicket] = []
     @Published var now = Date()
+    /// Publication-timing probe: is a result readable before its wager window closes?
+    @Published var probe: String = LeakProbe.shared.summary
 
     private var timer: Timer?
     private var poll: Timer?
@@ -51,6 +53,7 @@ final class ProphetStore: ObservableObject {
             oracle = Oracle.run(live.history)
             error = nil
             rememberTickets(live: live)
+            probe = LeakProbe.shared.summary
         } catch {
             self.error = error.localizedDescription
         }

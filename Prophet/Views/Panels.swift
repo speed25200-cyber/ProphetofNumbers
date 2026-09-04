@@ -144,6 +144,11 @@ struct LiveView: View {
                     }
                     .font(Typeface.mono(12))
                     .padding(.top, 12)
+                    Text(store.probe)
+                        .font(Typeface.mono(11))
+                        .foregroundStyle(LeakProbe.shared.best.map { $0.marginSeconds > 0 } == true
+                                         ? Palette.gain : Palette.muted)
+                        .padding(.top, 6)
                 }
             }
         }

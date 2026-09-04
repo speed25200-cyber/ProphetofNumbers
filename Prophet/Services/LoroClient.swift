@@ -278,6 +278,13 @@ actor LoroClient {
         let drawDate = raw["drawDate"] as? String ?? ""
         guard !drawDate.isEmpty else { return nil }
         let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
+        LeakProbe.shared.note(
+            drawNumber: drawNumber,
+            complete: matrix.numbers.count >= 15,
+            wagerEndDate: raw["wagerEndDate"] as? String,
+            boost: matrix.boost,
+            phase: raw["phase"] as? String
+        )
         return Schedule.Slot(
             drawNumber: drawNumber,
             drawDate: drawDate,
