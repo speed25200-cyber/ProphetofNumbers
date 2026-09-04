@@ -1698,6 +1698,24 @@ gcc -O3 -march=native -o rankmwc rankmwc.c -lm && ./rankmwc selftest && ./rankmw
 gcc -O3 -march=native -o rankseed rankseed.c -lpthread && ./rankseed selftest
 gcc -O3 -march=native -o bm bm.c && ./bm selftest && for f in bits_*.bin; do ./bm $f; done
 python3 daily_reseed.py   # les 358 redémarrages quotidiens, deux modèles de sortie
+python3 rankserial.py     # dépendance sérielle générique, et la tautologie à 211 σ
+python3 bitchannel.py     # les deux canaux de bits, vérifiés au lieu d'être argumentés
+python3 lowbit_reach.py   # jusqu'où porte vraiment la complexité linéaire
+python3 twoadic.py 70560  # complexité 2-adique : toute la classe FCSR / à retenue
+gcc -O3 -march=native -o rankmwc rankmwc.c -lm && ./rankmwc selftest && ./rankmwc real rank_colex0.bin
+```
+
+Et chaque outil du rang prend la **réduction** en second argument — `0` pour `u mod C`
+avec rejet, `1` pour mulhi/Lemire — les deux devant être passées :
+
+```bash
+for M in 0 1; do
+  ./rankmix real rank_colex0.bin $M
+  ./rankmwc real rank_colex0.bin $M
+  ./rankw32 real rank_colex0.bin 20000 $M
+  ./ranklfg real rank_colex0.bin 64 3000 $M
+  ./rankxo  real rank_colex0.bin 24 $M
+done
 ```
 
 Chacun de ces outils commence par son `selftest` : aucun résultat sur l'archive n'est
