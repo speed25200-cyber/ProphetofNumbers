@@ -66,3 +66,50 @@ for name, fn, TT in (("naive shuffle", naive_shuffle_counts, T),
 print()
 print("The archive's own marginals: max |z| = 2.72 over the 80 numbers, Sum z^2 = 71.46")
 print("for an expectation of 80. Both bugs above would be far outside that.")
+
+# --- the other Fisher-Yates faults real code commits -----------------------------
+print()
+print("Other faults, same measurement:")
+
+def counts(shuffler, TT):
+    cnt = np.zeros(n, dtype=np.int64)
+    for _ in range(TT):
+        cnt[shuffler()[:k]] += 1
+    return cnt
+
+def sattolo():
+    """Sattolo's algorithm: j drawn from [0,i) instead of [0,i]. Produces only cyclic
+       permutations — no element can stay where it started."""
+    a = np.arange(n)
+    for i in range(n - 1, 0, -1):
+        j = rng.integers(0, i)
+        a[i], a[j] = a[j], a[i]
+    return a
+
+def offbyone():
+    """j = i + random(n-1-i): the last index is never a target, so a[n-1] barely moves."""
+    a = np.arange(n)
+    for i in range(n - 1):
+        j = i + rng.integers(0, n - 1 - i)
+        a[i], a[j] = a[j], a[i]
+    return a
+
+def forward_wrong():
+    """Selection sampling with the range taken from the front instead of the tail."""
+    a = np.arange(n)
+    for i in range(k):
+        j = rng.integers(0, i + 1)
+        a[i], a[j] = a[j], a[i]
+    return a
+
+N = 70560
+for name, fn, TT in (("Sattolo (j < i, not <= i)", sattolo, 300000),
+                     ("off-by-one range", offbyone, 300000),
+                     ("selection from the front", forward_wrong, 300000)):
+    c = counts(fn, TT); p = c / TT; dev = p - k/n
+    z = dev * N / math.sqrt(N * (k/n) * (1 - k/n))
+    print("  %-26s max |dP| = %.5f   archive would show max |z| = %6.1f   %s"
+          % (name, np.abs(dev).max(), np.abs(z).max(),
+             "EXPLOITABLE" if np.abs(dev).max() > 0.05 else
+             "detectable but not exploitable" if np.abs(z).max() > 4 else
+             "below the archive's own resolution"))

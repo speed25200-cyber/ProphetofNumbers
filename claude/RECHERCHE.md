@@ -34,7 +34,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
 | `Math.floor(Math.random() * C)` — le rang médié par un double | **Exclu** — 142 multiples de 512 observés pour 137,8 attendus, contre 70 560 si c'était le cas |
-| Mélange naïf et `sort(random()−0,5)` — les deux fautes qui **auraient** donné un avantage | **Exclus** — elles produiraient \|ΔP\| = 0,054 et 0,070, soit \|z\| de 33 et 43 ; l'archive plafonne à 2,72 |
+| Les 5 fautes de mélange qui **auraient** donné un avantage | **Exclues** — \|ΔP\| de 0,011 à 0,750, soit \|z\| de 6,5 à 460 ; l'archive plafonne à 2,72 |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
@@ -1007,16 +1007,24 @@ fautes que le vrai code commet :
 
 Simulés, ils donnent :
 
-| faute | max \|P(v tiré) − 0,25\| | \|z\| que l'archive montrerait |
-|---|---|---|
-| mélange naïf | **0,0538** | 33,0 |
-| `sort(random() − 0,5)` | **0,0704** | 43,2 |
+| faute d'implémentation | max \|P(v tiré) − 0,25\| | \|z\| que l'archive montrerait | exploitable ? |
+|---|---|---|---|
+| sélection prise par l'avant | 0,7500 | 460,1 | **oui, massivement** |
+| plage décalée d'un cran | 0,2500 | 153,4 | **oui, massivement** |
+| `sort(random() − 0,5)` | 0,0704 | 43,2 | **oui** |
+| mélange naïf | 0,0538 | 33,0 | **oui, tout juste** |
+| Sattolo (`j < i` au lieu de `j ≤ i`) | 0,0107 | 6,5 | non — détectable mais sous le seuil |
 
 Or l'archive montre **max \|z\| = 2,72** et Σz² = 71,46 pour une espérance de 80.
 
-Le point n'est pas seulement que ces fautes sont écartées. C'est que leurs biais —
-0,054 et 0,070 en probabilité absolue — tombent **précisément dans la fourchette de
-0,05 à 0,10 nécessaire pour battre la marge du keno** (§4). Autrement dit : la faute
+La dernière ligne mérite d'être lue : le mélange de Sattolo laisserait une signature que
+l'archive **verrait** (z = 6,5) sans pour autant offrir de quoi battre la marge. Entre
+« détectable » et « exploitable » il y a un facteur cinq, et l'archive est du bon côté
+des deux.
+
+Le point n'est pas seulement que ces fautes sont écartées. C'est que quatre d'entre elles
+tombent **au-dessus de la fourchette de 0,05 à 0,10 nécessaire pour battre la marge du
+keno** (§4). Autrement dit : la faute
 d'implémentation la plus banale qui existe aurait suffi à rendre le jeu battable, et
 c'est celle qu'on peut exclure le plus fermement. La borne à 3 σ sur tout biais marginal
 est de 0,00489 — **onze fois plus serrée** que le plus petit biais réaliste qui aurait
