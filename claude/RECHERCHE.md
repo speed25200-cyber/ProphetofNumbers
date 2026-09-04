@@ -32,7 +32,8 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | `xoshiro256**`, `xoroshiro128**`, `xoshiro512**` (brouilleur non linéaire) | **Exclus** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
-| **Toute** la classe FCSR / à retenue, sans énumérer | **Exclue** — complexité **2-adique**, la contrepartie de Berlekamp-Massey ; contrôles exacts à 64, 128, 256, 1 024 bits |
+| **Toute** la classe FCSR / à retenue d'état < 35 280 bits, sans énumérer | **Exclue** — complexité **2-adique**, la contrepartie de Berlekamp-Massey ; contrôles exacts à 64, 128, 256, 1 024 bits |
+| **Toute** récurrence linéaire entière mod 2^k, tout ordre (LCG, LFG, MRG) | **Exclue** — le bit de poids faible suffit : mesuré à 2, 31, 4 et 7 sur les cas plantés |
 | Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
 | `Math.floor(Math.random() * C)` — le rang médié par un double | **Exclu** — 142 multiples de 512 observés pour 137,8 attendus, contre 70 560 si c'était le cas |
 | Les 5 fautes de mélange qui **auraient** donné un avantage | **Exclues** — \|ΔP\| de 0,011 à 0,750, soit \|z\| de 6,5 à 460 ; l'archive plafonne à 2,72 |
@@ -836,8 +837,35 @@ connexion absurde et donc un contrôle absurde — corrigé en entiers Python) :
 | MWC `a = 4 294 967 118`, `q = a·2³² − 1` | **64,0** | 64 |
 | bits aléatoires | 3 999,9 | n/2 = 4 000 |
 
-Sur l'archive, tous les flux observables tombent sur n/2. **Aucun FCSR ni multiply-with-carry**
-n'y produit un seul flux.
+Sur l'archive, à pleine longueur (n = 70 560), tous les flux observables tombent entre
+**35 278,5 et 35 279,4** pour n/2 = 35 280 :
+
+> **Aucun FCSR ni générateur à retenue de nombre de connexion inférieur à 35 280 bits
+> ne produit un seul de ces flux.**
+
+### La portée réelle du test de complexité linéaire, mesurée
+
+Berlekamp-Massey a été introduit ici pour les générateurs F2-linéaires. Sa portée est plus
+large, et la raison est assez simple pour être **vérifiée** plutôt qu'argumentée : le
+**bit de poids faible** de n'importe quelle récurrence linéaire entière mod 2^k est
+lui-même une suite linéaire récurrente sur GF(2) du même ordre, puisque les retenues ne
+se propagent que vers le haut.
+
+`lowbit_reach.py` plante chaque construction et mesure ce que `bm` en dit :
+
+| construction plantée | complexité du bit 0 |
+|---|---|
+| LCG mod 2⁶⁴ (ordre 1) | **2** |
+| Fibonacci retardé 3,31 | **31** |
+| MRG d'ordre 3 mod 2⁶⁴ | **4** |
+| MRG d'ordre 7 mod 2⁶⁴ | **7** |
+| splitmix64 (non linéaire) | 1 999 = n/2 |
+
+Autrement dit, **toute** récurrence linéaire entière mod 2^k — LCG, Fibonacci retardé,
+générateur récursif multiple de n'importe quel ordre — se trahit par son seul bit de poids
+faible. Les flux de bits bas de l'archive sont à n/2. Cette classe entière tombe donc
+aussi, et le résultat de `lcgrank` comme celui de `ranklfg` en sont des cas particuliers
+confirmés par une seconde voie indépendante.
 
 ### `rankxo.c` — les brouilleurs `**`, que ni l'un ni l'autre n'atteint
 
