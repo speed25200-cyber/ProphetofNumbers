@@ -1391,6 +1391,16 @@ Deux choses, dites franchement plutôt que passées sous silence :
   à retenue simple. Berlekamp-Massey ne la voit pas non plus, puisque le bit 0 d'une somme
   de trois flux dont l'un est un MWC n'est pas une fonctionnelle linéaire. Il faudrait
   modéliser chaque combinaison, et l'espace est combinatoire. Lacune réelle, déclarée.
+- **Les générateurs à état-tableau non linéaires** — RC4/ARC4, ISAAC, l'automate
+  cellulaire règle 30 (le défaut de Mathematica). Aucun n'est F2-linéaire, aucun n'est à
+  retenue, aucun n'est congruentiel : les trois mesures les manquent, et leurs états
+  (1 684 bits pour RC4) excluent tout balayage. Ils tombent en pratique dans la même
+  catégorie que les DRBG ci-dessous — sans clé ni état connus, rien dans la sortie ne les
+  trahit à cette quantité de données.
+- *(En revanche, les générateurs à **carte chaotique** — logistique, tente, chat d'Arnold —
+  sont couverts sans travail supplémentaire : leur état est un flottant, donc le rang qui
+  en dérive est médié par un double, et `quantize.py` écarte cela à 142 multiples de 512
+  observés contre 70 560 s'il en était un.)*
 - **Les DRBG cryptographiques à clé inconnue** (AES-CTR, ChaCha20, HMAC-DRBG). C'est par
   construction hors d'atteinte, et ce n'est pas une lacune de méthode : si l'opérateur
   utilise cela correctement, aucune quantité de sortie publiée ne le trahit. Le §7 ter
@@ -1615,7 +1625,10 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
   API standard rend un double, et les rangs médiés par un flottant sont écartés, ce qui
   ne laisse que l'usage entier non standard.
 - **Les générateurs combinés** (KISS et sa famille) : la somme de plusieurs flux n'est
-  aucune des structures testées, et n'est pas F2-linéaire à cause des retenues.
+  aucune des structures testées, et n'est pas F2-linéaire à cause des retenues. Le cas
+  ensemencé sur un entier est balayé (`mrgkiss.c`) ; l'état de 128 bits libre ne l'est pas.
+- **Les générateurs à état-tableau** (RC4, ISAAC, règle 30) : ni linéaires, ni à retenue,
+  ni congruentiels, et d'état bien trop grand pour un balayage.
 - **Une troisième architecture** à laquelle je n'ai pas pensé. Les six conventions de rang
   et les deux modèles de sortie couvrent ce que je sais construire ; ils ne couvrent pas
   ce que je n'ai pas imaginé.
