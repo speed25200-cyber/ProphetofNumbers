@@ -1662,7 +1662,14 @@ Tout ce qui précède se bat contre le tri. Vingt numéros publiés en ordre cro
 tirage consomme 61,6 bits, la publication en rend 4. C'est la contrainte qui a fait
 échouer chaque famille testée, et c'est elle qui a motivé le §8 (capter l'ordre en direct).
 
-Il y avait un champ non trié dans l'archive depuis le début, et je ne l'ai pas vu.
+**Ce paragraphe n'ouvre pas le canal `bonus`/`boost` : le §6 bis l'ouvrait déjà.**
+`mtbreak` et `lin_break` s'en servent depuis le début comme canaux d'équations
+F2-linéaires, et la table du boost y figure. Ce que ce paragraphe ajoute est d'un autre
+ordre : la **position** du bonus comme flux à part entière, attaquée par balayage de
+graine, par réseau, et par complexité linéaire — trois outils qu'aucune version antérieure
+n'appliquait à ce flux — plus la **règle de sélection du bonus établie** au lieu de
+supposée. Le §7 disait par ailleurs du bonus qu'il ne portait « aucune information
+d'ordre », ce qui contredisait le §6 bis : cette ligne est corrigée.
 
 ### L'observation
 
@@ -1891,10 +1898,10 @@ avertissement que le `bonus` du §6 sexies, et il est maintenu tel quel dans les
   fermer ce levier — alors il ne reste rien.
 - Le **bonus** est un tirage uniforme parmi les 20 boules (rang : χ² = 27,5 / df 19),
   indépendant du boost et du tirage suivant. J'avais écrit ici « aucune information
-  d'ordre » : **c'est faux, et c'était l'erreur la plus coûteuse de ce dossier.**
-  Uniforme ne veut pas dire sans information. La position du bonus parmi les 20 est une
-  observation *directe* d'une sortie du générateur — 4,32 bits par tirage que le tri n'a
-  pas touchés. Voir §6 sexies, qui en fait la meilleure surface d'attaque de l'archive.
+  d'ordre » : **c'est faux, et cette ligne contredisait le §6 bis du même rapport**, qui
+  utilise le bonus comme canal d'équations depuis le début. Uniforme ne veut pas dire sans
+  information : la position du bonus parmi les 20 est une observation *directe* d'une
+  sortie du générateur, 4,32 bits par tirage que le tri n'a pas touchés. Voir §6 sexies.
 - La cadence est une grille stricte de 300 s ; **24 décrochages** en 70 559 pas,
   toujours par paires compensées exactes (300+δ puis 300−δ, δ ≤ 5 s) : un tirage
   isolé publié en retard, la grille se recale au suivant. Les timestamps sont donc
@@ -2164,8 +2171,6 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
   (`selsamp`), ce qui est la preuve que la liste n'était pas close, et donc qu'elle ne
   l'est peut-être toujours pas. Les six conventions de rang et les trois architectures
   couvrent ce que je sais construire ; elles ne couvrent pas ce que je n'ai pas imaginé.
-  Le `bonus` en est l'illustration : il était dans l'archive depuis le début, j'avais
-  écrit qu'il ne portait « aucune information d'ordre », et c'était faux.
 
 **Le verrou reste l'ordre des boules, et il est chiffrable :** 6,2 bits par tirage
 aujourd'hui — le `bonus` et le `boost`, désormais exploités (§6 sexies) — contre
