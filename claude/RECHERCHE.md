@@ -1392,5 +1392,29 @@ gcc -O3 -o channel_break channel_break.c -lpthread && ./channel_break 0 22 5500 
 gcc -O3 -o lin_break lin_break.c && sh run_lin_wide.sh          # 3584 essais
 ```
 
+Et la ligne du rang (§6 quater), qui se rejoue en entier depuis `draws.bin` :
+
+```bash
+python3 rank.py           # 5 conventions de rang, formules vérifiées par énumération
+python3 modbias.py        # biais de modulo : exclu à 20–86 σ, contrôle positif inclus
+python3 quantize.py       # médiation par un double : exclue (multiples de 512)
+python3 shufbias.py       # les 5 fautes de mélange qui auraient donné un avantage
+python3 blockseed.py      # les 358 ouvertures de bloc comparées entre elles
+python3 rankhash.py       # 23 520 schémas provably-fair par dérangement
+gcc -O3 -march=native -o lcgrank lcgrank.c && ./lcgrank selftest && ./lcgrank real rank_colex0.bin
+gcc -O3 -march=native -o rankmix rankmix.c && ./rankmix selftest && ./rankmix real rank_colex0.bin
+gcc -O3 -march=native -o rankxo  rankxo.c  && ./rankxo  selftest && ./rankxo  real rank_colex0.bin 24
+gcc -O3 -march=native -o ranklfg ranklfg.c && ./ranklfg selftest && ./ranklfg real rank_colex0.bin 64 3000
+gcc -O3 -march=native -o rankw32 rankw32.c && ./rankw32 selftest && ./rankw32 real rank_colex0.bin 20000
+gcc -O3 -march=native -o rankmwc rankmwc.c -lm && ./rankmwc selftest && ./rankmwc real rank_colex0.bin
+gcc -O3 -march=native -o rankseed rankseed.c -lpthread && ./rankseed selftest
+gcc -O3 -march=native -o bm bm.c && ./bm selftest && for f in bits_*.bin; do ./bm $f; done
+python3 daily_reseed.py   # les 358 redémarrages quotidiens, deux modèles de sortie
+```
+
+Chacun de ces outils commence par son `selftest` : aucun résultat sur l'archive n'est
+lu si le contrôle positif ne passe pas d'abord. C'est la règle qui a rattrapé la matrice
+non initialisée de `rankxo` et le faux « INVESTIGATE » de `rankmwc`.
+
 `seedhunt` s'auto-valide : `./seedhunt 0 0 3000000 4 -1 "0,1,0,1234567"`
 plante une graine connue et la retrouve.
