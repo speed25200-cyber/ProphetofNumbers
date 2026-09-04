@@ -205,6 +205,41 @@ class CaptureOrderTests(unittest.TestCase):
         self.assertEqual(record["boost"], 2)
         self.assertEqual(record["extra"], 20)
 
+    def test_fractional_boost_is_preserved_and_verified(self):
+        payload = state()
+        payload["meta"]["fr-ch"]["boost"] = 1.5
+        record = captured(raw_state=payload)
+        rest_payload = rest(boost="1.5")
+        parsed = capture_order.parse_rest_draw(rest_payload)
+        _, evidence = rest_evidence(payload=rest_payload)
+        report = capture_order.verify_record(record, parsed, evidence, 101)
+        self.assertEqual(record["boost"], 1.5)
+        self.assertEqual(parsed["boost"], 1.5)
+        self.assertEqual(report["verdict"], "VERIFIED_ORDER")
+        self.assertTrue(report["checks"]["boost_match"])
+
+    def test_boost_parser_rejects_nonfinite_boolean_and_out_of_domain_values(self):
+        for value in (True, False, float("nan"), float("inf"), -(10 ** 10_000)):
+            with self.subTest(value=type(value).__name__):
+                parsed = capture_order.first_boost(value)
+                self.assertFalse(capture_order.valid_boost(parsed))
+
+    def test_legacy_fractional_boost_is_replayed_from_raw(self):
+        payload = state()
+        payload["meta"]["fr-ch"]["boost"] = 1.5
+        record = captured(raw_state=payload)
+        record["boost"] = None
+        rest_payload = rest(boost="1.5")
+        parsed = capture_order.parse_rest_draw(rest_payload)
+        _, evidence = rest_evidence(payload=rest_payload)
+        report = capture_order.verify_record(record, parsed, evidence, 101)
+        self.assertEqual(capture_order.record_integrity_errors(record), [])
+        self.assertEqual(capture_order.observed_boost(record), 1.5)
+        self.assertEqual(report["verdict"], "VERIFIED_ORDER")
+        self.assertEqual(
+            report["animation"]["auxiliary"]["effective_boost"], 1.5
+        )
+
     def test_empty_preferred_ball_list_does_not_mask_complete_locale(self):
         payload = state()
         payload["meta"] = {

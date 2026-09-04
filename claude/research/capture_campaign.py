@@ -506,6 +506,7 @@ def verify_manifest(root: Path) -> list[dict[str, Any]]:
             raise CampaignIntegrityError(f"draw {draw_id} export manifest is not singular")
         captured_record = verified[draw_id]
         expected_export_record = dict(captured_record)
+        expected_export_record["boost"] = capture_order.observed_boost(captured_record)
         expected_export_record["capture_draw_id"] = captured_record.get("draw_id")
         expected_export_record["draw_id"] = draw_id
         expected_export_record["draw_id_source"] = (

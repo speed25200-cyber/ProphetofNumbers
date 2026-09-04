@@ -41,7 +41,7 @@ NEGOTIATE_URL = (
 REST_DRAW_URL = "https://jeux.loro.ch/api/dbg/game/lotoexpress/draws/{draw_id}"
 SOURCE = "Loto Express animationhub / SendCurrentState"
 MAX_SIGNALR_BUFFER = 8 * 1024 * 1024
-VALID_BOOSTS = frozenset((1, 2, 3, 4, 5, 10))
+VALID_BOOSTS = frozenset((1, 1.5, 2, 3, 4, 5, 10))
 ORDER_SCOPE = "ANIMATION_SEQUENCE_ONLY"
 AUXILIARY_STATE_SCENES = frozenset((
     "drawscene", "reorderscene", "extrascene", "bangoscene", "resultsscene",
@@ -88,6 +88,42 @@ def first_int(value: Any) -> int | None:
             return None
         return as_int(value[0])
     return as_int(value)
+
+
+def as_boost(value: Any) -> int | float | None:
+    """Parse an official boost while preserving the exact x1.5 value."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = float(value)
+        except ValueError:
+            return None
+    else:
+        return None
+    if not math.isfinite(parsed):
+        return None
+    return int(parsed) if parsed.is_integer() else parsed
+
+
+def first_boost(value: Any) -> int | float | None:
+    if isinstance(value, list):
+        if not value:
+            return None
+        return as_boost(value[0])
+    return as_boost(value)
+
+
+def valid_boost(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    if isinstance(value, float) and not math.isfinite(value):
+        return False
+    return value in VALID_BOOSTS
 
 
 def post_json(url: str, token: str | None = None) -> dict[str, Any]:
@@ -305,7 +341,7 @@ def extract_state(
         "balls": balls,
         "balls_raw_count": raw_count,
         "balls_parse_errors": parse_errors,
-        "boost": first_int(localized.get("boost")),
+        "boost": first_boost(localized.get("boost")),
         "extra": first_int(localized.get("extra")),
         "next_draw_time": localized.get("nextDrawTime"),
         "duration": as_int(state.get("duration")),
@@ -318,6 +354,20 @@ def extract_state(
         "raw": state,
     }
     return result
+
+
+def observed_boost(record: dict[str, Any]) -> int | float | None:
+    """Return the boost, including the x1.5 value lost by the legacy parser."""
+    value = record.get("boost")
+    if valid_boost(value):
+        return as_boost(value)
+    if value is not None or record.get("schema") != 2:
+        return None
+    raw = record.get("raw")
+    if not isinstance(raw, dict):
+        return None
+    reparsed = extract_state(raw, str(record.get("locale") or "fr-ch")).get("boost")
+    return 1.5 if reparsed == 1.5 else None
 
 
 def record_integrity_errors(record: dict[str, Any]) -> list[str]:
@@ -349,6 +399,15 @@ def record_integrity_errors(record: dict[str, Any]) -> list[str]:
     for key in required_derived_fields:
         if key not in record:
             errors.append(f"required derived field {key} is missing")
+        elif (
+            key == "boost"
+            and record.get(key) is None
+            and derived.get(key) == 1.5
+        ):
+            # Schema 2 was deployed with an integer-only parser. The raw Hub
+            # message and its hashes remain authoritative for this exact,
+            # officially documented fractional value.
+            pass
         elif record.get(key) != derived.get(key):
             errors.append(f"derived field {key} differs from raw state")
     if "state_canonical_sha256" not in record:
@@ -415,8 +474,7 @@ def capture_envelope_errors(record: dict[str, Any]) -> list[str]:
 
 def valid_auxiliary_values(boost: Any, bonus: Any, balls: list[int]) -> bool:
     return (
-        type(boost) is int
-        and boost in VALID_BOOSTS
+        valid_boost(boost)
         and type(bonus) is int
         and 1 <= bonus <= 80
         and bonus in balls
@@ -470,7 +528,7 @@ def parse_rest_draw(payload: dict[str, Any]) -> dict[str, Any]:
         "numbers": numbers,
         "numbers_raw_count": raw_count,
         "numbers_parse_errors": parse_errors,
-        "boost": first_int(matrix.get("boost", payload.get("secondarySelection"))),
+        "boost": first_boost(matrix.get("boost", payload.get("secondarySelection"))),
         "bonus": first_int(matrix.get("bonus", payload.get("tertiarySelection"))),
     }
 
@@ -698,6 +756,10 @@ def verify_record(
     auxiliary_bound = auxiliary_state_is_bound(
         first_seen_record, auxiliary_record, target_draw_id
     )
+    auxiliary_boost = observed_boost(auxiliary_record)
+    auxiliary_values_valid = valid_auxiliary_values(
+        auxiliary_boost, auxiliary_record.get("extra"), balls
+    )
     checks = {
         "record_integrity": not integrity_errors,
         "structured_http_evidence": not http_errors,
@@ -721,18 +783,13 @@ def verify_record(
         "auxiliary_state_bound": auxiliary_bound,
         "boost_match": (
             auxiliary_bound
-            and valid_auxiliary_values(
-                auxiliary_record.get("boost"), auxiliary_record.get("extra"), balls
-            )
-            and type(rest.get("boost")) is int
-            and rest.get("boost") in VALID_BOOSTS
-            and auxiliary_record.get("boost") == rest.get("boost")
+            and auxiliary_values_valid
+            and valid_boost(rest.get("boost"))
+            and auxiliary_boost == rest.get("boost")
         ),
         "bonus_match": (
             auxiliary_bound
-            and valid_auxiliary_values(
-                auxiliary_record.get("boost"), auxiliary_record.get("extra"), balls
-            )
+            and auxiliary_values_valid
             and type(rest.get("bonus")) is int
             and rest.get("bonus") in numbers
             and auxiliary_record.get("extra") == rest.get("bonus")
@@ -809,6 +866,8 @@ def verify_record(
             "raw_sha256", "hub_message_sha256",
         )
     }
+    if auxiliary_record.get("boost") is None and auxiliary_boost is not None:
+        result["animation"]["auxiliary"]["effective_boost"] = auxiliary_boost
     result["animation"]["auxiliary"]["capture_record_sha256"] = canonical_sha256(
         auxiliary_record
     )
@@ -892,11 +951,11 @@ def validation_records_for_draw(
         record for record in matching
         if auxiliary_state_is_bound(first_seen, record, target_id)
         and valid_auxiliary_values(
-            record.get("boost"), record.get("extra"), record["balls"]
+            observed_boost(record), record.get("extra"), record["balls"]
         )
     ]
     auxiliary_variants = {
-        (record.get("boost"), record.get("extra"))
+        (observed_boost(record), record.get("extra"))
         for record in auxiliary_candidates
     }
     if len(auxiliary_variants) > 1:
@@ -1198,6 +1257,7 @@ def export_order(
             else "validation"
         )
         record["order_scope"] = ORDER_SCOPE
+        record["boost"] = observed_boost(captured_record)
         draws.append(record)
     if not draws:
         raise ValueError("capture contains no VERIFIED_ORDER result")
@@ -1430,7 +1490,7 @@ async def capture(
                                         else expected_draw_id,
                                     )
                                     and valid_auxiliary_values(
-                                        record.get("boost"), record.get("extra"), record["balls"]
+                                        observed_boost(record), record.get("extra"), record["balls"]
                                     )
                                 ):
                                     complete_draws.add(key)
