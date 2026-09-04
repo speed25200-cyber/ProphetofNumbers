@@ -1119,10 +1119,27 @@ résultat trompeur. Il ne manque que le fichier.
   `×1 : 51,2 % · ×2 : 23,8 % · ×3 : 15,0 % · ×4 : 5,0 % · ×5 : 2,5 % · ×10 : 2,5 %`
   (χ² = 0,55 pour df = 5 — ajustement quasi parfait ; l'hypothèse 500/250/… est
   rejetée à χ² = 61,5). **Multiplicateur moyen = 2,013.**
-  Conséquence : si le boost était publié **avant** la clôture des mises,
-  ne jouer que les tirages à boost ≥ 4 multiplierait le retour par
-  5,75 / 2,013 = **2,86×** — un levier structurel qui ne demande aucune prédiction.
-  À vérifier sur le flux live (champ `secondarySelection` d'un tirage `OPEN`).
+  Conséquence, et c'est le seul levier de ce dossier qui rapporte de l'argent sans
+  prédire quoi que ce soit : si le boost était publié **avant** la clôture des mises,
+  ne jouer que les tirages à boost ≥ 4 multiplierait le retour par 5,75 / 2,013 =
+  **2,856×**. Formulé autrement — la formulation qui rend la décision évidente :
+
+  > le seuil de rentabilité est un RTP de base de **0,350**.
+
+  Autrement dit, ce filtre est profitable pour **n'importe quel** taux de retour
+  plausible d'un keno. À 0,70 (valeur typique) le RTP passe à **2,00** ; même à 0,50 il
+  passe à 1,43. Un keno dont le RTP de base serait sous 0,35 n'existe pas.
+
+  Coût opérationnel : boost ≥ 4 concerne **10,0 %** des tirages, soit environ
+  **18 tirages jouables par jour** sur les 179 d'un bloc. Il faut donc attendre, pas
+  jouer en continu.
+
+  Deux hypothèses restent à vérifier sur le flux live, et elles sont toutes deux
+  binaires : (1) le champ `secondarySelection` est-il renseigné sur un tirage encore
+  `OPEN` ? (2) le multiplicateur s'applique-t-il bien aux gains sans modifier la mise ?
+  `LeakProbe.swift` mesure la première tirage par tirage. Si la réponse est non — ce
+  qui est le comportement qu'un opérateur attentif implémenterait, précisément pour
+  fermer ce levier — alors il ne reste rien.
 - Le **bonus** est un tirage uniforme parmi les 20 boules (rang : χ² = 27,5 / df 19),
   indépendant du boost et du tirage suivant. Aucune information d'ordre.
 - La cadence est une grille stricte de 300 s ; **24 décrochages** en 70 559 pas,
