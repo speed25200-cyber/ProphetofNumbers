@@ -32,6 +32,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
 | Fibonacci retardé (le `random()` de la glibc, Boost, add-with-carry) | **Exclu** — 2 016 couples de lags × 3 opérations, meilleur 0/3 000 |
 | Multiply-with-carry (Marsaglia, KISS, xorwow) | **Exclu** — cohérence de retenue, 31 multiplicateurs × 2 largeurs × 5 conventions, 0/4 000 |
+| Réduction `u % C` **naïve** (biais de modulo) | **Exclu à 20–86 σ** — et c'est une mesure *sur l'implémentation*, pas une exclusion de famille |
 | Équité prouvable **par dérangement** (`rang = H(public) mod C`) | **Exclu** — 23 520 schémas × 6 tirages, contrôle positif validé |
 | Existence de tirages **ordonnés** dans les dépôts | **Aucun** — 248 fichiers + 373 objets git balayés ; tout est trié (§6 quinquies) |
 | Rang concaténé à partir de **deux mots** 32 ou 31 bits | **Exclu** — a et c en forme close, 0/20 000 positions, 4 dispositions |
@@ -927,6 +928,40 @@ Contrôle positif : un schéma `sha256("keno" + id)` planté est bien reconnu pa
 harnais. Résultat : **aucun**.
 
 ---
+
+### `modbias.py` — une mesure, pas une exclusion de plus
+
+Tout le reste de ce chapitre demande « la famille X colle-t-elle ? » et répond non.
+Celle-ci dit quelque chose de **positif** sur l'implémentation.
+
+Si l'opérateur calcule `rang = u mod C` depuis un uniforme de w bits **sans rejet**, les
+rangs inférieurs à `2^w mod C` reçoivent une préimage de plus que les autres. L'excès
+n'est pas subtil :
+
+| largeur w | ⌊2^w/C⌋ | P(rang < R₀) si uniforme | si `u mod C` naïf | **observé** | z vs naïf | z vs uniforme |
+|---|---|---|---|---|---|---|
+| 62 | 1 | 0,30446 | 0,46680 | 0,30486 | **−86,2** | +0,23 |
+| 63 | 2 | 0,60892 | 0,70020 | 0,60663 | **−54,2** | −1,25 |
+| 64 | 5 | 0,21785 | 0,25050 | 0,21678 | **−20,7** | −0,69 |
+
+Contrôle positif : 70 560 rangs fabriqués de la façon naïve à w = 64 ressortent à
+0,25064 — soit **+21,1 σ** au-dessus de l'uniforme, exactement là où la théorie les
+place. Le test voit donc bien ce qu'il cherche.
+
+Sur l'archive, il ne voit rien : l'observé tombe sur l'uniforme à moins de 1,3 σ dans les
+trois largeurs. Donc **si** l'architecture est bien celle du dérangement, la réduction
+employée est **non biaisée** — rejet, `mulhi`, ou méthode de Lemire — et pas le
+`u % C` naïf. C'est le seul énoncé de ce dossier qui contraigne l'implémentation au lieu
+d'écarter une famille.
+
+Cela a une conséquence sur la portée de Berlekamp-Massey, qu'il faut dire : un rejet fait
+**varier** le nombre de sorties consommées par tirage (4,2 % des tirages en consomment
+une de plus à w = 64), et une suite échantillonnée à cadence variable n'est plus une
+suite linéaire récurrente. Les attaques par fenêtre y survivent — 68 % des fenêtres de
+9 tirages restent sans rejet, et `lcgrank` en balaie 70 557 — mais l'énoncé « aucun
+générateur F2-linéaire d'état < 35 280 bits » suppose une **cadence constante**. Sous
+rejet, il se réduit aux familles nommées explicitement. `mulhi` et Lemire, eux, gardent
+une cadence fixe et laissent l'énoncé entier.
 
 ### Ce qui n'est PAS couvert, et pourquoi
 
