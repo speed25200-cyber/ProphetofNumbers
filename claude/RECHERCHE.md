@@ -26,7 +26,7 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Mode compteur à clé par défaut (AES-CTR, ChaCha20) | **Exclu**, 360 combinaisons |
 | splitmix64 / PCG / xoshiro\*\* par SAT, canal 4 bits | **Hors d'atteinte, mesuré** — la barrière des retenues tient |
 | **Le tirage trié vu comme un rang combinatoire** (61,6 bits/tirage au lieu de 4) | **Piste neuve — le tri ne perd rien si le tirage n'a jamais eu d'ordre.** Voir §6 quater |
-| LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 3 conventions × 5 mappages × 70 557 départs, 0 |
+| LCG **quelconque** (multiplicateur, incrément et W tous inconnus) sur le rang | **Exclu** — forme close sur 3 rangs, 5 conventions × 5 mappages × 70 557 départs, 0 |
 | splitmix64 et 5 autres finaliseurs bijectifs sur le rang | **Exclu** — la sortie complète rend l'état par inversion ; chaque ligne exactement sur son nul |
 | **Toute** la classe F2-linéaire d'état < 35 280 bits, sans énumérer | **Exclu** — complexité linéaire mesurée à 35 278–35 282 pour n/2 = 35 280 |
 | `xoshiro256**`, `xoroshiro128**` (brouilleur non linéaire) sur le rang | **Exclu** — le brouilleur se décolle par inversion, 0 fenêtre sur 1 536, tous les W |
@@ -799,8 +799,14 @@ de k par tirage ajouté. Résultat : **0 W encore singulier**, jusqu'à 6 tirage
 
 ```
 xoshiro256**     0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 6 tirages)
-xoroshiro128**   0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 4 tirages)
+xoroshiro128**   0 fenêtres résolues sur 1536   (0 W encore singulier, jusqu'à 3 tirages)
 ```
+
+À la différence des autres outils du §6 quater, `rankxo` n'a été passé que sur **trois**
+conventions de rang, pas cinq : chaque fenêtre coûte 6⁹ affectations pour l'état de
+512 bits, et le budget a été mis sur le balayage de W plutôt que sur des conventions
+supplémentaires. C'est une couverture moindre, pas un résultat différent — mais elle est
+dite.
 
 `xoshiro512**` demande 6⁹ affectations de k par fenêtre et **reste hors budget** —
 c'est une lacune, elle est déclarée comme telle.
@@ -827,8 +833,8 @@ subtract-with-borrow, 7/33 XOR). Chacun tient à **toutes** les positions, aucun
 couple de lags ne tient **une seule fois**, et un flux non-LFG non plus. La séparation
 est totale.
 
-Sur l'archive : 2 016 couples de lags × 3 opérations × 3 conventions × 3 000 positions,
-**meilleur couple : 0/3 000**. Aucune relation de Fibonacci retardé.
+Sur l'archive : 2 016 couples de lags × 3 opérations × **5 conventions** × 3 000
+positions, **meilleur couple : 0/3 000**. Aucune relation de Fibonacci retardé.
 
 ### `rankw32.c` — le rang assemblé à partir de DEUX mots
 
@@ -847,7 +853,8 @@ tirages se lit ensuite en cherchant quelle puissance de a mène `w₀` à `w₂`
 Contrôles : quatre dispositions (2×32 et 2×31 bits, mot fort ou mot faible en tête),
 générateur planté récupéré avec `(a,c)` **exacts** dans les quatre, flux mélangé rejeté.
 
-Sur l'archive : **0 / 20 000 positions** pour chaque disposition et chaque convention.
+Sur l'archive : **0 / 20 000 positions** pour chacune des 4 dispositions et chacune des
+5 conventions.
 
 ### `rankseed.c` — le balayage 2³² refait pour cette architecture
 
@@ -934,6 +941,13 @@ Deux choses, dites franchement plutôt que passées sous silence :
   l'inconnue. Une attaque correcte demande un solveur dédié ; je préfère déclarer la
   lacune que livrer une attaque à moitié vérifiée. Le cas réellement plausible — un
   déploiement ensemencé sur un entier 32 bits — est, lui, couvert par `rankseed`.
+- **Les générateurs combinés** de type KISS, où la sortie est la **somme** de plusieurs
+  flux (un LCG, un xorshift, un MWC). Chaque composant est écarté individuellement — mais
+  leur somme n'est aucun d'eux, et c'est précisément ce qui la met hors de portée : elle
+  n'est pas F2-linéaire (les retenues), pas congruentielle (deux états indépendants), pas
+  à retenue simple. Berlekamp-Massey ne la voit pas non plus, puisque le bit 0 d'une somme
+  de trois flux dont l'un est un MWC n'est pas une fonctionnelle linéaire. Il faudrait
+  modéliser chaque combinaison, et l'espace est combinatoire. Lacune réelle, déclarée.
 - **Les DRBG cryptographiques à clé inconnue** (AES-CTR, ChaCha20, HMAC-DRBG). C'est par
   construction hors d'atteinte, et ce n'est pas une lacune de méthode : si l'opérateur
   utilise cela correctement, aucune quantité de sortie publiée ne le trahit. Le §7 ter
@@ -1113,6 +1127,8 @@ C'est le gain de cette session, et il porte précisément là où le §6 bis but
 - **Un échantillonneur à consommation variable** (rejet avec redraw) : le nombre de mots
   par tirage n'est plus constant, et les attaques par canaux supposent un W fixe.
   L'hypothèse « boost/bonus sur une instance séparée » contourne ce cas et a été testée.
+- **Les générateurs combinés** (KISS et sa famille) : la somme de plusieurs flux n'est
+  aucune des structures testées, et n'est pas F2-linéaire à cause des retenues.
 - **Une troisième architecture** à laquelle je n'ai pas pensé. Les six conventions de rang
   et les deux modèles de sortie couvrent ce que je sais construire ; ils ne couvrent pas
   ce que je n'ai pas imaginé.
