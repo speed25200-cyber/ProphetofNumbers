@@ -427,6 +427,17 @@ tronquée de poids fort + mapping `mulhi`) : le cas intermédiaire, `u = s >> sh
 puis `j = u %% 80`, où le bonus épingle des bits faibles de `u` — ni un intervalle
 (pas de réseau), ni linéaire sur F2 (pas d'élimination).
 
+**Résultat sur l'archive réelle** — 9 familles × W jusqu'à 32 × jusqu'à 4 fenêtres,
+16 quartets vérifiés par candidat (un mauvais candidat survit avec probabilité 2⁻⁶⁴) :
+
+```
+  java.util.Random    java (nextInt bits)   MMIX 64    L'Ecuyer 64   Lehmer64
+  PCG (cœur LCG)      glibc TYPE_0          MSVC       Numerical Recipes
+  -> best survivors 0 partout ; total : 0
+```
+
+**Zéro survivant.** Aucun générateur congruentiel de cette forme ne reproduit l'archive.
+
 ### Clés par défaut en mode compteur — `defaultkey.py`
 
 Un déploiement certifié utilise AES-CTR-DRBG ou ChaCha20 avec une vraie clé, et aucune
