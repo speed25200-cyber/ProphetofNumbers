@@ -1,0 +1,2 @@
+numpy
+websockets>=15,<17

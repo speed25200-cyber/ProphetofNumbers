@@ -14,7 +14,11 @@ enum Schedule {
         var bonus: Int?
         var phase: String?
         var wagerEndDate: String?
-        var isComplete: Bool { numbers.count >= 15 }
+        var isComplete: Bool {
+            numbers.count == ProphetConst.drawSize
+                && Set(numbers).count == ProphetConst.drawSize
+                && numbers.allSatisfy { (1...ProphetConst.poolSize).contains($0) }
+        }
 
         func asDraw() -> Draw? {
             guard isComplete else { return nil }

@@ -18,6 +18,9 @@ keno_break
 mthunt
 ordered_demo.txt
 sorted_demo.txt
+capture*.jsonl
+ordered*.txt
+*.manifest.jsonl
 lcg_lll_c
 draws_synth*.bin
 draws_lin.bin

@@ -1,8 +1,8 @@
 /* keno_break — algebraic recovery of an MT19937 state from ORDERED keno draws (20 of 80).
  *
- *   ./keno_break demo <draws> <seed> <skip> <sampler> <mapping>
- *   ./keno_break file <path> <sampler> <mapping>
- *   ./keno_break scanfile <path>          try all 3x3 sampler/mapping hypotheses
+ *   ./keno_break demo <draws> <seed> <skip> <sampler> <mapping> [stride]
+ *   ./keno_break file <path> <sampler> <mapping> [stride]
+ *   ./keno_break scanfile <path> [min_stride] [max_stride]
  *
  * <path> holds one draw per line, 20 numbers in DRAW order (not sorted).
  *
@@ -14,8 +14,10 @@
  *   u%k    -> 80 = 16*5, so u mod 16 = j mod 16, i.e. bits 0..3       (4 bits)
  *   u>>16  -> bits 16..19                                            (4 bits)
  * MT19937 is F2-linear, so those bits are linear forms over the 19968 state bits
- * and Gaussian elimination over GF(2) finishes the job. A wrong hypothesis makes
- * the (heavily over-determined) system inconsistent, which is how the scan works.
+ * and Gaussian elimination over GF(2) finishes the job. ``stride`` is the fixed
+ * number of outputs consumed per draw; outputs after the first 20 are latent.
+ *
+ * Exit status: 0 recovered, 2 rejected, 3 input is sorted, 4 inconclusive rank.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +26,8 @@
 #include <time.h>
 #define NB 19968
 #define NW (NB/64)
+#define MT_RANK 19937
+#define UNKNOWN_INDEX UINT32_MAX
 #define MATRIX_A 0x9908b0dfU
 
 typedef struct{uint32_t mt[624];int mti;}MT;
@@ -68,24 +72,27 @@ static int invert_sampler(int s,const int*v,uint32_t*r){
   uint8_t a[81]; for(int i=0;i<80;i++)a[i]=i+1;
   if(s==0){
     for(int i=0;i<20;i++){int j=-1; for(int q=i;q<80;q++) if(a[q]==v[i]){j=q;break;}
-      if(j<0)return 0; r[i]=j-i; uint8_t t=a[i];a[i]=a[j];a[j]=t;}
+      if(j<0)return 0;
+      r[i]=j-i; uint8_t t=a[i];a[i]=a[j];a[j]=t;}
     return 1;
   }
   if(s==1){
     for(int i=79,c=0;i>=60;i--,c++){int j=-1; for(int q=0;q<=i;q++) if(a[q]==v[c]){j=q;break;}
-      if(j<0)return 0; r[c]=j; uint8_t t=a[i];a[i]=a[j];a[j]=t;}
+      if(j<0)return 0;
+      r[c]=j; uint8_t t=a[i];a[i]=a[j];a[j]=t;}
     return 1;
   }
   /* floyd: for j=61..80, t=rnd(j)+1 ; value = t if unseen else j */
-  uint64_t lo=0,hi=0; int seen[81]={0};
+  int seen[81]={0};
   for(int c=0,jj=61;jj<=80;jj++,c++){
     int val=v[c];
-    if(val==jj){ /* t was already seen: t is not observable -> hypothesis unusable */
-      return 0; }
-    if(seen[val])return 0;
-    seen[val]=1; r[c]=val-1;
+    if(val<1||val>80||seen[val])return 0;
+    /* val==jj is ambiguous: t may be jj or any previously selected value.
+       It still consumes one output, but contributes no safe linear equation. */
+    r[c]=(val==jj)?UNKNOWN_INDEX:(uint32_t)(val-1);
+    seen[val]=1;
   }
-  (void)lo;(void)hi; return 1;
+  return 1;
 }
 static void run_sampler(int s,int m,MT*G,int*out){
   uint8_t a[81]; for(int i=0;i<80;i++)a[i]=i+1;
@@ -134,35 +141,48 @@ static void insert_eq(uint64_t*row,int rhs){
 }
 static void reset_basis(void){ for(int p=0;p<NB;p++) if(PIV[p]){free(PIV[p]);PIV[p]=NULL;} NPIV=0;CONTRA=0; }
 
-/* attempt one hypothesis; returns 1 on a consistent full recovery */
-static int attempt(int s,int m,int D,uint32_t (*R)[20],int (*draws)[20],int nchk,int pos0,int verbose){
+enum result { REJECTED=0, INCONCLUSIVE=1, RECOVERED=2 };
+
+/* Attempt one exact fixed-layout hypothesis. */
+static enum result attempt(int s,int m,int stride,int D,uint32_t (*R)[20],int (*draws)[20],int nchk,int verbose){
   reset_basis();
   memset(SS,0,(size_t)624*32*NW*8);
   for(int i=0;i<624;i++)for(int b=0;b<32;b++){int p=i*32+b; SB(i,b)[p/64]|=1ULL<<(p%64);}
-  uint64_t row[NW]; int pos=pos0, eqs=0;
+  uint64_t row[NW]; int pos=624, eqs=0;
   int bitpos[32],bitval[32];
-  for(int t=0;t<D*20 && CONTRA<3;t++){
-    if(pos>=624){sym_twist();pos=0;}
-    int i=t%20;
-    int nb=known_bits(m,R[t/20][i],range_at(s,i),bitpos,bitval);
-    if(nb){ sym_temper(pos);
-      for(int q=0;q<nb;q++){ memcpy(row,TEMPO[bitpos[q]],NW*8); insert_eq(row,bitval[q]); eqs++; } }
-    pos++;
+  for(int d=0;d<D && !CONTRA;d++){
+    for(int i=0;i<stride && !CONTRA;i++){
+      if(pos>=624){sym_twist();pos=0;}
+      if(i<20 && R[d][i]!=UNKNOWN_INDEX){
+        int nb=known_bits(m,R[d][i],range_at(s,i),bitpos,bitval);
+        if(nb){ sym_temper(pos);
+          for(int q=0;q<nb;q++){ memcpy(row,TEMPO[bitpos[q]],NW*8); insert_eq(row,bitval[q]); eqs++; } }
+      }
+      pos++;
+    }
   }
-  if(CONTRA>=3){ if(verbose)printf("    sampler %d mapping %d : INCONSISTENT (rank %d, %d eqs)\n",s,m,NPIV,eqs); return 0; }
+  if(CONTRA){
+    if(verbose)printf("    sampler %d mapping %d stride %d : REJECTED (rank %d, %d eqs, %d contradiction)\n",s,m,stride,NPIV,eqs,CONTRA);
+    return REJECTED;
+  }
+  if(NPIV<MT_RANK){
+    if(verbose)printf("    sampler %d mapping %d stride %d : INCONCLUSIVE (rank %d/%d, %d eqs)\n",s,m,stride,NPIV,MT_RANK,eqs);
+    return INCONCLUSIVE;
+  }
   uint64_t x[NW]; memset(x,0,NW*8);
   for(int p=NB-1;p>=0;p--){ if(!PIV[p])continue;
     uint64_t acc=0; for(int w=0;w<NW;w++) acc^=PIV[p][w]&x[w];
     if(PRHS[p]^__builtin_parityll(acc)) x[p/64]|=1ULL<<(p%64); }
   MT G; for(int i=0;i<624;i++){uint32_t v=0;for(int b=0;b<32;b++) if((x[(i*32+b)/64]>>((i*32+b)%64))&1) v|=1u<<b; G.mt[i]=v;} G.mti=624;
-  for(int i=0;i<pos0 && pos0<624;i++) mt_next(&G);
   int okobs=0,okfut=0,o[20];
   for(int d=0;d<D+nchk;d++){ run_sampler(s,m,&G,o); int mt2=1;
     for(int i=0;i<20;i++) if(o[i]!=draws[d][i]) mt2=0;
-    if(d<D) okobs+=mt2; else okfut+=mt2; }
-  if(verbose) printf("    sampler %d mapping %d : rank %d/%d, %d eqs -> replayed %d/%d, predicted %d/%d\n",
-      s,m,NPIV,NB,eqs,okobs,D,okfut,nchk);
-  return (okobs==D && (nchk==0||okfut==nchk));
+    if(d<D) okobs+=mt2; else okfut+=mt2;
+    for(int i=20;i<stride;i++) mt_next(&G);
+  }
+  if(verbose) printf("    sampler %d mapping %d stride %d : rank %d/%d, %d eqs -> replayed %d/%d, holdout %d/%d\n",
+      s,m,stride,NPIV,MT_RANK,eqs,okobs,D,okfut,nchk);
+  return (okobs==D && (nchk==0||okfut==nchk))?RECOVERED:REJECTED;
 }
 
 int main(int argc,char**argv){
@@ -171,56 +191,83 @@ int main(int argc,char**argv){
   if(!strcmp(mode,"demo")){
     int D=argc>2?atoi(argv[2]):400; uint32_t seed=argc>3?(uint32_t)strtoul(argv[3],0,0):0xC0FFEE42U;
     int skip=argc>4?atoi(argv[4]):0, s=argc>5?atoi(argv[5]):0, m=argc>6?atoi(argv[6]):0;
-    printf("demo: %d ordered draws, hidden seed 0x%08X, skip %d, sampler %d, mapping %d\n",D,seed,skip,s,m);
+    int stride=argc>7?atoi(argv[7]):20;
+    if(stride<20){fprintf(stderr,"stride must be >= 20\n");return 1;}
+    printf("demo: %d ordered draws, hidden seed 0x%08X, skip %d, sampler %d, mapping %d, stride %d\n",D,seed,skip,s,m,stride);
     MT G; mt_seed(&G,seed); for(int i=0;i<skip;i++)mt_next(&G);
-    while(G.mti!=624 && G.mti!=0) mt_next(&G);
     int (*draws)[20]=malloc(sizeof(int)*20*(D+50));
     uint32_t (*R)[20]=malloc(sizeof(uint32_t)*20*D);
     for(int d=0;d<D+50;d++){ run_sampler(s,m,&G,draws[d]);
-      if(d<D && !invert_sampler(s,draws[d],R[d])){printf("  sampler %d not invertible on draw %d\n",s,d);return 1;} }
+      if(d<D && !invert_sampler(s,draws[d],R[d])){printf("  sampler %d not invertible on draw %d\n",s,d);return 1;}
+      for(int i=20;i<stride;i++)mt_next(&G);
+    }
     clock_t c0=clock();
-    int ok=attempt(s,m,D,R,draws,50,624,1);
-    printf("  %s   [%.1fs]\n", ok?"*** FULL BREAK: every future draw predicted exactly ***":"incomplete",
+    enum result result=attempt(s,m,stride,D,R,draws,50,1);
+    const char*label=result==RECOVERED?"*** RECOVERED: holdout predicted exactly ***":result==INCONCLUSIVE?"INCONCLUSIVE":"REJECTED";
+    printf("  %s   [%.1fs]\n",label,
            (double)(clock()-c0)/CLOCKS_PER_SEC);
-    return ok?0:2;
+    return result==RECOVERED?0:result==INCONCLUSIVE?4:2;
   }
   /* file / scanfile: one draw per line, 20 numbers in DRAW order */
   const char*path = argc>2?argv[2]:"ordered.txt";
   FILE*f=fopen(path,"r"); if(!f){perror(path);return 1;}
-  int cap=4096,D=0; int (*draws)[20]=malloc(sizeof(int)*20*cap);
+  int cap=4096,D=0,line_number=0; int (*draws)[20]=malloc(sizeof(int)*20*cap);
   char line[512];
   while(fgets(line,sizeof line,f)){
+    line_number++;
     int v[20],n=0; char*p=line;
     while(n<20){ while(*p&&!(*p>='0'&&*p<='9'))p++; if(!*p)break; v[n++]=(int)strtol(p,&p,10); }
     if(n!=20)continue;
+    int seen[81]={0};
+    for(int i=0;i<20;i++) if(v[i]<1||v[i]>80||seen[v[i]]++){
+      fprintf(stderr,"%s:%d: expected 20 unique values in 1..80\n",path,line_number); fclose(f); return 1;
+    }
     if(D>=cap){cap*=2;draws=realloc(draws,sizeof(int)*20*cap);}
     memcpy(draws[D++],v,sizeof v);
   }
   fclose(f);
   printf("%s: %d ordered draws read\n",path,D);
+  if(!D){fprintf(stderr,"no complete draws\n");return 1;}
   if(D<300) printf("  WARNING: %d draws; MT19937 needs ~300 (19937 bits / ~90 usable bits per draw)\n",D);
   /* sanity: is the feed really ordered, or already sorted? */
-  int sortedcount=0, rankhist[21]={0};
+  int sortedcount=0,reversecount=0,rankhist[20]={0};
   for(int d=0;d<D;d++){ int srt[20]; memcpy(srt,draws[d],sizeof srt);
     for(int a=0;a<20;a++)for(int b=a+1;b<20;b++) if(srt[b]<srt[a]){int t=srt[a];srt[a]=srt[b];srt[b]=t;}
     int issorted=1; for(int i=0;i<20;i++) if(srt[i]!=draws[d][i]) issorted=0;
-    sortedcount+=issorted;
+    int isreverse=1; for(int i=0;i<20;i++) if(srt[19-i]!=draws[d][i]) isreverse=0;
+    sortedcount+=issorted; reversecount+=isreverse;
     for(int i=0;i<20;i++) if(srt[i]==draws[d][0]){rankhist[i]++;break;} }
   printf("  already-sorted lines: %d/%d  (%.1f%%; a real draw order gives ~0%%)\n",sortedcount,D,100.0*sortedcount/D);
   printf("  rank of the first drawn ball inside the sorted set:");
-  for(int i=0;i<20;i++)printf(" %d",rankhist[i]); printf("\n");
-  if(sortedcount>D/2){ printf("  -> the feed publishes sorted numbers; the order attack cannot run.\n"); return 3; }
+  for(int i=0;i<20;i++)printf(" %d",rankhist[i]);
+  printf("\n");
+  if(sortedcount>D/2||reversecount>D/2){ printf("  -> the feed publishes a deterministic sort; the order attack cannot run.\n"); return 3; }
   int lo_s=0,hi_s=3,lo_m=0,hi_m=3;
-  if(!strcmp(mode,"file")){ lo_s=argc>3?atoi(argv[3]):0; hi_s=lo_s+1; lo_m=argc>4?atoi(argv[4]):0; hi_m=lo_m+1; }
-  int nchk = D>350 ? 25 : 0; int Duse = D-nchk;
+  int min_stride=argc>3?atoi(argv[3]):20,max_stride=argc>4?atoi(argv[4]):min_stride;
+  if(!strcmp(mode,"file")){
+    lo_s=argc>3?atoi(argv[3]):0; hi_s=lo_s+1;
+    lo_m=argc>4?atoi(argv[4]):0; hi_m=lo_m+1;
+    min_stride=argc>5?atoi(argv[5]):20; max_stride=min_stride;
+  }
+  if(min_stride<20||max_stride<min_stride){fprintf(stderr,"invalid stride range\n");return 1;}
+  int nchk = D>450 ? 50 : (D>350 ? 25 : 0); int Duse = D-nchk;
   uint32_t (*R)[20]=malloc(sizeof(uint32_t)*20*Duse);
+  int inconclusive=0,tested=0;
   for(int s=lo_s;s<hi_s;s++){
     int bad=0; for(int d=0;d<Duse;d++) if(!invert_sampler(s,draws[d],R[d])){bad=1;break;}
     if(bad){ printf("    sampler %d : draw order not consistent with this sampler\n",s); continue; }
-    for(int m=lo_m;m<hi_m;m++) if(attempt(s,m,Duse,R,draws,nchk,624,1)){
-      printf("  *** CONSISTENT: sampler %d, mapping %d — generator recovered ***\n",s,m); return 0; }
+    for(int m=lo_m;m<hi_m;m++) for(int stride=min_stride;stride<=max_stride;stride++){
+      enum result result=attempt(s,m,stride,Duse,R,draws,nchk,1); tested++;
+      if(result==RECOVERED){
+        printf("  *** RECOVERED: sampler %d, mapping %d, stride %d ***\n",s,m,stride); return 0;
+      }
+      inconclusive+=result==INCONCLUSIVE;
+    }
   }
-  printf("  no consistent hypothesis: the generator is not MT19937 under these samplers,\n");
-  printf("  or the buffer alignment differs (rerun with a shifted window).\n");
+  if(inconclusive){
+    printf("  no recovered hypothesis; %d/%d models remain INCONCLUSIVE (insufficient rank)\n",inconclusive,tested);
+    return 4;
+  }
+  printf("  all %d exact fixed-layout MT19937 hypotheses were rejected\n",tested);
   return 2;
 }

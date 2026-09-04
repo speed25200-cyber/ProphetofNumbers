@@ -5,6 +5,13 @@ Audit offensif de l'archive complète : 70 560 tirages (ids 1309614–1380173,
 
 Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 
+> **Mise à jour du 4 septembre 2026 :** l'audit de reprise et le protocole
+> opérationnel corrigé sont dans [`REPRISE_ETAT.md`](REPRISE_ETAT.md). En
+> particulier, le REST est maintenant confirmé trié, le seuil de 300 tirages n'est
+> pas robuste et `keno_break` ne couvre pas encore rejet/Java. Les formulations
+> historiques trop générales ci-dessous ne doivent pas être lues comme des preuves
+> au-delà des configurations explicitement testées.
+
 ---
 
 ## 1. Résumé
@@ -15,15 +22,16 @@ Tout le code est dans [`research/`](research/) et rejouable hors ligne.
 | Générateur à état ≤ 32 bits (234 variantes algorithmiques) | **Exclu** par balayage exhaustif 2³² |
 | Dérivation par hash de données publiques (« provably fair ») | **Exclu**, 390 schémas testés |
 | Reconstruction d'état à partir des tirages **triés** | **Barrière combinatoire** : 20! ≈ 2,4·10¹⁸ ordres par tirage |
-| Générateur F2-linéaire (64 → 19 937 bits) via canaux `bonus`/`boost` | **Exclu** — 3 900+ configurations testées sur les vrais tirages, 0 consistante |
+| Générateurs F2-linéaires via canaux `bonus`/`boost` | Configurations implémentées rejetées sous leurs hypothèses de canal et de stride ; pas une exclusion de toute la famille |
 | Générateur congruentiel à sortie en bits faibles | **Exclu** — récurrences modulaires d'ordre 1 et 2 mod 2…16 |
 | LCG 2⁶⁴ à sortie de poids fort | **Exclu** — 2 880 réductions de réseau (12 multiplicateurs standards × 48 W × 5 fenêtres), 0 correspondance |
-| Reconstruction d'état à partir des tirages **ordonnés** | **CASSAGE COMPLET démontré** — voir §6 |
+| Reconstruction d'état à partir des tirages **ordonnés** | Cassage complet démontré sur données synthétiques ; aucune capture LoRo ordonnée validée à ce jour |
 
 **Conclusion opérationnelle :** l'historique publié ne contient aucune information
 exploitable, et ce n'est pas une limite de méthode — c'est mesuré et borné (§4).
-La seule voie ouverte est l'**ordre de sortie des boules**, que le client jetait
-(`Array(Set(out)).sorted()`). Le patch de ce dépôt le conserve désormais.
+La voie prioritaire est l'**ordre de sortie des boules**. Les endpoints REST sont
+confirmés triés en amont ; le candidat réel est `meta[lang].balls` dans le flux
+d'animation SignalR, désormais capturable par `research/capture_order.py`.
 
 ---
 
@@ -187,19 +195,23 @@ Le rang atteint **19 937/19 968** — exactement la dimension réelle de MT19937
 les 50 tirages suivants, jamais montrés au solveur, sont prédits **exactement**,
 les 20 numéros à chaque fois.
 
-Minimum mesuré : **300 tirages ordonnés = 25 h d'observation**, résolution en 2,4 s.
+Le seuil dépend de la graine et du rang des contraintes. À 300 tirages, la graine
+de démonstration ne donne que 19 935/19 937 dimensions observables : le résultat est
+**inconclusif**, même si une complétion arbitraire passe un court holdout. La cible
+prudente vérifiée est **400 tirages** pour `mulhi` ; voir `REPRISE_ETAT.md`.
 
 | tirages | rang | tirages observés rejoués | tirages futurs prédits |
 |---|---|---|---|
 | 230 | 19 633 | 2/230 | 0/50 |
 | 250 | 19 894 | 55/250 | 0/50 |
 | 270 | 19 928 | 183/270 | 26/50 |
-| **300** | **19 937** | **300/300** | **50/50** |
+| **300** | **19 935 sur la graine publiée** | **300/300 pour une complétion** | **inconclusif** |
+| **400** | **19 937** | **400/400** | **50/50** |
 
-L'alignement du tampon (624 possibilités) et le nombre de mots consommés par
-tirage n'ont pas besoin d'être connus : une hypothèse fausse rend le système
-**incohérent** (35 842 équations pour 19 968 inconnues ⇒ détection certaine),
-ce que l'outil exploite pour balayer les hypothèses automatiquement (`SCAN=1`).
+La phase absolue peut être absorbée par une représentation canonique de l'état. En
+revanche, le nombre de mots consommés par tirage doit être modélisé : `keno_break`
+balaie maintenant un stride fixe `W`, et distingue rejet, rang insuffisant et
+récupération validée sur holdout.
 
 ### Généralisation — tirages ordonnés nécessaires par famille
 
@@ -443,26 +455,25 @@ c'est aussi le seul degré de liberté qui reste, et l'ordre de tirage le referm
 
 ## 8. Étape suivante — capter l'ordre
 
-Le flux LoRo renvoie `primarySelection`; le client faisait
-`Array(Set(out)).sorted()` (`LoroClient.swift:355`) et détruisait l'ordre.
+`primarySelection` et `drawResult.matrix1.main` sont confirmés triés par le serveur
+REST : ils ne contiennent aucun ordre. La source candidate est le flux d'animation
+SignalR `SendCurrentState`, champ `meta[lang].balls`, que le frontend anime selon la
+position du tableau avant de le trier dans `ReorderScene`.
 
-Ce dépôt ajoute `Draw.drawOrder` et `parseOrderedNumbers`, qui conserve la séquence
-du flux et reconstruit l'ordre à partir d'un champ de position s'il existe
-(`position`, `order`, `drawOrder`, `index`, `rank`, `sequence`).
+Protocole corrigé :
 
-Protocole, dans l'ordre :
+1. Lancer `capture_order.py` pendant un tirage actif et conserver le JSON brut.
+2. Exiger 20 valeurs uniques non triées et vérifier que leur tri égale le REST du
+   même identifiant. Sinon, la piste est réfutée.
+3. Collecter 500 tirages pour `mulhi`, ou 1 600–2 000 pour inclure les mappings à
+   faible fuite, avec 50 tirages réservés au holdout. L'arrêt nocturne porte 400
+   tirages à environ 47 h murales.
+4. Balayer les 3 samplers et 3 mappings actuellement implémentés ainsi que le stride
+   fixe `W`. Rejet et vrai `javaNextInt` restent à implémenter et ne sont pas couverts.
+5. Ne conclure à une récupération que pour un rang 19 937, un replay intégral et un
+   holdout exact. Un rang insuffisant est `INCONCLUSIVE`, pas un rejet.
 
-1. Collecter 400 tirages consécutifs avec `drawOrder` (~33 h).
-2. Vérifier que l'ordre est réel et non un tri : la distribution du rang du premier
-   élément dans l'ensemble trié doit être **uniforme sur 1…20**. Si elle est
-   dégénérée (toujours le plus petit), le flux publie déjà trié et cette voie est morte.
-3. Lancer `mtbreak` sur les indices Fisher-Yates reconstruits, en balayant
-   l'échantillonneur (Fisher-Yates avant/arrière, rejet, Floyd) et le mapping
-   (`mod`, `mulhi`, `shr16`, java) — 16 combinaisons, quelques minutes chacune.
-4. Système cohérent ⇒ tous les tirages suivants sont prédits exactement.
-   Système incohérent sur les 16 combinaisons × 625 alignements ⇒ le générateur
-   n'est pas de classe F2-linéaire : c'est un CSPRNG ou du matériel, et la partie
-   est mathématiquement close.
+Voir [`REPRISE_ETAT.md`](REPRISE_ETAT.md) pour les commandes et les limites exactes.
 
 ---
 
@@ -501,10 +512,11 @@ Ce qui **reste ouvert** :
 - un CSPRNG (ChaCha20, AES-CTR-DRBG) ou un RNG matériel : dans ce cas la partie est
   close mathématiquement, quelle que soit la quantité de données.
 
-**Le verrou est l'ordre des boules, et il est chiffrable :** 6,32 bits par tirage
-aujourd'hui contre **126 bits** avec l'ordre. C'est un facteur 20, et il fait basculer
-chaque famille ci-dessus du côté cassable — `mtbreak` le démontre de bout en bout,
-`keno_break` est l'outil prêt à l'emploi.
+**Le verrou est l'ordre des boules, et il est chiffrable :** l'ensemble trié porte
+61,617 bits d'entropie, l'ordre complet 122,694 bits. Sous `mulhi`, le solveur
+extrait environ 89,66 bits linéaires certains par tirage. Cette information rend la
+récupération synthétique praticable, sans garantir qu'une famille non linéaire soit
+calculatoirement cassable.
 
 ### Ce qu'il faut faire, dans l'ordre
 
@@ -518,9 +530,9 @@ chaque famille ci-dessus du côté cassable — `mtbreak` le démontre de bout e
 3. **Vérifier le boost.** Sa table est maintenant connue exactement (§7). S'il est
    publié **avant** la clôture, ne jouer que les tirages à boost ≥ 4 multiplie le
    retour par 2,86 — sans prédire un seul numéro.
-4. **Si l'ordre est disponible**, lancer `keno_break` : 300 tirages (25 h) pour un
-   générateur de classe MT, 2 pour un xorshift128, et tout tirage suivant est prédit
-   exactement.
+4. **Si l'ordre est disponible**, lancer `keno_break` avec un holdout intact : cible
+   prudente de 400–500 tirages pour MT/`mulhi`, 1 600–2 000 pour les mappings à
+   faible fuite. Une prédiction n'est déclarée qu'après rang complet et holdout exact.
 
 ---
 
@@ -571,7 +583,10 @@ gcc -O3 -o pairs pairs.c -lpthread -lm && ./pairs             # 2,49 G de paires
 gcc -O3 -o seedhunt seedhunt.c -lpthread && ./seedhunt 0 0 4294967296 4
 gcc -O3 -o seedhunt2 seedhunt2.c -lpthread && ./seedhunt2 0 0 100000000
 gcc -O3 -o mtbreak mtbreak.c && ./mtbreak 400 0xC0FFEE42 0    # cassage complet
-gcc -O3 -o keno_break keno_break.c && ./keno_break scanfile ordered.txt
+gcc -O3 -o keno_break keno_break.c && ./keno_break scanfile ordered.txt 20 64
+python3 capture_order.py capture capture.jsonl                  # ordre SignalR brut
+python3 capture_order.py inspect capture.jsonl
+python3 capture_order.py export capture.jsonl ordered.txt
 gcc -O3 -o channel_break channel_break.c -lpthread && ./channel_break 0 22 5500 1 0 0 1
 gcc -O3 -o lin_break lin_break.c && sh run_lin_wide.sh          # 3584 essais
 ```

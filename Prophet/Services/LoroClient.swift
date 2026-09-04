@@ -90,9 +90,7 @@ actor LoroClient {
         let details = dict(json["details"])
         let resultsDetails = dict(resultsJson?["details"])
         let gameSlot = slotFromDetails(details) ?? slotFromDetails(resultsDetails)
-        if let draw = gameSlot?.asDraw() {
-            cache[draw.drawNumber] = draw
-        }
+        if let draw = gameSlot?.asDraw() { cacheDraw(draw) }
 
         let hint = max(
             gameSlot?.asDraw()?.drawNumber ?? 0,
@@ -244,7 +242,7 @@ actor LoroClient {
         guard let url = URL(string: s) else { return nil }
         guard let json = try? await fetchJSON(url, language: lang) else { return nil }
         guard let slot = parseSlot(json) else { return nil }
-        if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+        if let draw = slot.asDraw() { cacheDraw(draw) }
         return slot
     }
 
@@ -267,7 +265,7 @@ actor LoroClient {
         var out: [Schedule.Slot] = []
         for row in rows {
             guard let rec = row as? [String: Any], let slot = parseSlot(rec) else { continue }
-            if let draw = slot.asDraw() { cache[draw.drawNumber] = draw }
+            if let draw = slot.asDraw() { cacheDraw(draw) }
             out.append(slot)
         }
         return out
@@ -321,70 +319,85 @@ actor LoroClient {
         let drawDate = raw["drawDate"] as? String ?? ""
         guard !drawDate.isEmpty else { return nil }
         let matrix = parseMatrix(raw["drawResult"] ?? raw["result"] ?? raw)
-        guard matrix.numbers.count >= 15 else { return nil }
+        guard matrix.numbers.count == ProphetConst.drawSize else { return nil }
         return Draw(
             drawNumber: drawNumber,
             drawDate: drawDate,
             numbers: matrix.numbers,
-            drawOrder: matrix.order,
             boost: matrix.boost,
-            bonus: matrix.bonus
+            bonus: matrix.bonus,
+            drawOrder: matrix.order
         )
     }
 
-    private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int], boost: Int?, bonus: Int?) {
+    private func parseMatrix(_ raw: Any) -> (numbers: [Int], order: [Int]?, boost: Int?, bonus: Int?) {
         let obj = dict(raw)
         let matrix1 = dict(obj["matrix1"])
         let result = dict(obj["result"])
         let matrix = matrix1.isEmpty ? dict(result["matrix1"]) : matrix1
         let src = matrix.isEmpty ? obj : matrix
-        let order = parseOrderedNumbers(src["main"] ?? obj["primarySelection"])
+        let main = src["main"] ?? obj["primarySelection"]
+        let order = parseExplicitDrawOrder(main)
+        let numbers = parseNumbers(main)
         let boostArr = parseLoose(src["boost"])
         let bonusArr = parseNumbers(src["bonus"] ?? obj["tertiarySelection"])
-        return (order.sorted(), order, boostArr.first, bonusArr.first)
+        return (numbers, order, boostArr.first, bonusArr.first)
     }
 
-    /// Numbers in the order the feed lists them, de-duplicated but never sorted.
-    /// If the records carry an explicit position field the feed order is rebuilt
-    /// from it; otherwise the array order is kept as-is.
-    private func parseOrderedNumbers(_ raw: Any?) -> [Int] {
-        guard let arr = raw as? [Any] else { return [] }
-        var out: [Int] = []
-        var seen = Set<Int>()
+    /// REST arrays are numeric-sorted upstream, so their array order is not draw
+    /// order. Only return an order when every ball carries a complete, unambiguous
+    /// position field. The animation SignalR sequence is captured separately.
+    private func parseExplicitDrawOrder(_ raw: Any?) -> [Int]? {
+        guard let arr = raw as? [Any], arr.count == ProphetConst.drawSize else { return nil }
         var positioned: [(Int, Int)] = []
-        for (fallbackIndex, item) in arr.enumerated() {
-            var value: Int?
-            var position = fallbackIndex
-            if let rec = item as? [String: Any] {
-                value = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"])
-                for key in ["position", "order", "drawOrder", "index", "rank", "sequence"] {
-                    if let p = asInt(rec[key]) { position = p; break }
+        for item in arr {
+            guard let rec = item as? [String: Any],
+                  let value = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"]),
+                  (1...ProphetConst.poolSize).contains(value)
+            else { return nil }
+            var position: Int?
+            for key in ["position", "drawOrder", "sequence"] {
+                if let candidate = asInt(rec[key]) {
+                    position = candidate
+                    break
                 }
-            } else {
-                value = asInt(item)
             }
-            guard let n = value, (1...80).contains(n), seen.insert(n).inserted else { continue }
-            positioned.append((position, n))
-            out.append(n)
+            guard let position else { return nil }
+            positioned.append((position, value))
         }
         let positions = positioned.map(\.0)
-        if Set(positions).count == positions.count, positions != positions.sorted() {
-            return positioned.sorted { $0.0 < $1.0 }.map(\.1)
-        }
-        return out
+        let values = positioned.map(\.1)
+        guard Set(positions).count == ProphetConst.drawSize,
+              Set(values).count == ProphetConst.drawSize,
+              let lo = positions.min(), let hi = positions.max(),
+              hi - lo == ProphetConst.drawSize - 1
+        else { return nil }
+        return positioned.sorted { $0.0 < $1.0 }.map(\.1)
     }
 
     private func parseNumbers(_ raw: Any?) -> [Int] {
         guard let arr = raw as? [Any] else { return [] }
         var out: [Int] = []
         for item in arr {
-            if let rec = item as? [String: Any], let n = asInt(rec["number"]), (1...80).contains(n) {
+            if let rec = item as? [String: Any],
+               let n = asInt(rec["number"]) ?? asInt(rec["value"]) ?? asInt(rec["ball"]),
+               (1...80).contains(n) {
                 out.append(n)
             } else if let n = asInt(item), (1...80).contains(n) {
                 out.append(n)
             }
         }
         return Array(Set(out)).sorted()
+    }
+
+    /// Keep a previously verified order when a later REST refresh contains only
+    /// the sorted set for the same draw.
+    private func cacheDraw(_ incoming: Draw) {
+        var draw = incoming
+        if draw.drawOrder == nil, let previous = cache[draw.drawNumber]?.drawOrder {
+            draw.drawOrder = previous
+        }
+        cache[draw.drawNumber] = draw
     }
 
     private func parseLoose(_ raw: Any?) -> [Int] {
@@ -411,7 +424,10 @@ actor LoroClient {
     private func asInt(_ v: Any?) -> Int? {
         if let n = v as? Int { return n }
         if let n = v as? Double { return Int(n) }
-        if let s = v as? String, let n = Int(s) { return n }
+        if let s = v as? String {
+            if let n = Int(s) { return n }
+            if let n = Double(s), n.isFinite, n.rounded() == n { return Int(n) }
+        }
         if let n = v as? NSNumber { return n.intValue }
         return nil
     }

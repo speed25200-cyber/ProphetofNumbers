@@ -69,4 +69,23 @@ final class OracleTests: XCTestCase {
         XCTAssertNotNil(date)
         XCTAssertEqual(Zurich.parts(date!).dayKey, "2026-08-24")
     }
+
+    func testSlotRequiresExactlyTwentyUniqueNumbers() {
+        let valid = Schedule.Slot(
+            drawNumber: 1,
+            drawDate: "2026-09-04T06:05:00+02:00",
+            numbers: Array(1...20),
+            boost: 2,
+            bonus: 1
+        )
+        XCTAssertTrue(valid.isComplete)
+
+        var partial = valid
+        partial.numbers = Array(1...19)
+        XCTAssertFalse(partial.isComplete)
+
+        var duplicate = valid
+        duplicate.numbers[19] = 1
+        XCTAssertFalse(duplicate.isComplete)
+    }
 }

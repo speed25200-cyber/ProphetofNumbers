@@ -13,9 +13,8 @@ struct Draw: Identifiable, Hashable, Codable {
     var numbers: [Int]
     var boost: Int?
     var bonus: Int?
-    /// Numbers exactly as the LoRo feed lists them, before any sorting.
-    /// The feed order is the only observable trace of the generator's internal
-    /// draw sequence; `numbers` throws it away. Nil when the feed gave no order.
+    /// Verified draw order from an explicit position field or the animation feed.
+    /// REST number arrays are sorted upstream and must leave this nil.
     var drawOrder: [Int]? = nil
 
     var id: Int { drawNumber }
