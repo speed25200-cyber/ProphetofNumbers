@@ -42,7 +42,7 @@ struct RootView: View {
     private var header: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("LOTO EXPRESS · LORO")
+                Text("GÉNÉRATEUR MAISON")
                     .font(.system(size: 11, weight: .medium))
                     .tracking(2.4)
                     .foregroundStyle(Palette.subtle)

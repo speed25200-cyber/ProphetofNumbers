@@ -422,7 +422,7 @@ struct AnalyseView: View {
                 }
             }
 
-            Text("Le Loto Express tire 20 boules parmi 80, toutes les 5 minutes. CRF-9 est un ensemble statistique. Un RNG équitable reste imbattable au sens strict — le modèle se recale tout seul dans ce cas.")
+            Text("Le générateur tire 20 boules parmi 80, toutes les 5 minutes. CRF-9 est un ensemble statistique. Un RNG équitable reste imbattable au sens strict — le modèle se recale tout seul dans ce cas.")
                 .font(.system(size: 11))
                 .foregroundStyle(Palette.subtle)
                 .padding(.horizontal, 4)
@@ -466,7 +466,7 @@ struct HistoryView: View {
             Text(payload.today.isEmpty ? "Dernière séance" : "Séance du jour")
                 .font(Typeface.display(26))
                 .foregroundStyle(Palette.fg)
-            Text("\(rows.count) tirages · source Loterie Romande")
+            Text("\(rows.count) tirages · générateur fait maison par moi")
                 .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
 

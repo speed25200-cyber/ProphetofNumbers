@@ -1,6 +1,6 @@
 # Prophet
 
-Oracle iOS pour **Loto Express** (Loterie Romande). Tirage live, grilles CRF-9
+Oracle iOS pour un **générateur fait maison par moi**. Tirage live, grilles CRF-9
 (Alpha / Omega / Nexus) pour 5/5 → 10/10, analyse 1–80, séance du jour.
 
 Bundle ID : `com.prophetofnumbers.app`  
@@ -30,7 +30,7 @@ statistique (Bayes, Hawkes, Weibull, résidu spectral, ACP en ligne).
 
 ## Dossier Claude
 
-Archive **70 560** tirages Loto Express (sans API LoRo) dans [`claude/`](claude/) :
+Archive **70 560** tirages du générateur fait maison par moi dans [`claude/`](claude/) :
 
 - [`claude/CLAUDE.md`](claude/CLAUDE.md) — consigne
 - [`claude/REPORT.md`](claude/REPORT.md) — χ², overlap, paires, mois
