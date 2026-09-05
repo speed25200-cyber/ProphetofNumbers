@@ -24562,6 +24562,7 @@ large qu'elle n'est :
 |---|---|---|
 | générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
 | `MT19937` derrière la carte de rang du §106, pas `20`–`128` | §254 et son addendum, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
+| `WELL19937a` derrière la carte de rang, pas `20`–`41` | §255, même machine | **certaine** — sous réserve de la fidélité de la transcription, dite au §255 |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m = 2²⁹`, `2³⁰`, `2³¹`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
@@ -24776,5 +24777,80 @@ moins loin. Même machine, même lecture, même témoin — planté cette fois a
 > est exclu sur toute cette étendue, sur les données déjà publiées.
 
 **Ligne de registre.** `h229b.mt19937_pas_longs`, piste B, MT19937 EXCLU, `m_extra = 0`.
+
+---
+
+## 255. **WELL19937a sous la troncature** : le second nom de la phrase du §106 (`h230_well19937_sous_troncature.py`)
+
+### La phrase, encore
+
+> *« RESTE : MT19937 **et WELL19937**. Le budget de `3,20` bits par tirage les met à portée en
+>   `6 230` tirages, largement disponibles — c'est le coût de calcul des formes linéaires qui
+>   bloque, pas la donnée. »*
+
+Le §254 a pris le premier. Voici le second, à la même machine — les formes par la
+**récurrence** du générateur, comme au §80 —, sous la même lecture — le rang du bonus vaut
+`⌊u·20⌋` —, et avec le même témoin.
+
+### Le générateur, transcrit en miroir
+
+`WELL19937a` (Panneton, L'Ecuyer, Matsumoto 2006) : `R = 624`, `P = 31`, `M1 = 70`, `M2 = 179`,
+`M3 = 449`, et à chaque pas, l'indice décroissant d'un cran,
+
+    z0     = (V[i-1] & 0x80000000) | (V[i-2] & 0x7fffffff)
+    z1     = M0neg(25, V[i])    ^ M0pos(27, V[i+M1])
+    z2     = M3pos(9, V[i+M2])  ^ M0pos(1, V[i+M3])
+    V[i]   = z1 ^ z2
+    V[i-1] = z0 ^ M0neg(9, z1) ^ M0neg(21, z2) ^ M0pos(21, V[i])      <- la sortie
+
+Pas de tempérage pour la variante `a`. Chaque opération est `F₂`-linéaire — décalage, masque,
+ou-exclusif —, donc la récurrence tourne telle quelle **sur des formes** : un mot est une liste
+de trente-deux entiers de `19 937` bits, un par position.
+
+**Les `31` bits qui ne comptent pas.** `z0` ne lit que le bit `31` de `V[i−1]`, mot aussitôt
+écrasé. Ses trente-et-un bits bas, à l'état initial, ne sont donc **jamais lus** :
+`624 × 32 − 31 = 19 937` inconnues, exactement comme le bit `31` seul de `x[0]` compte pour
+`MT19937`.
+
+### Deux contrôles, de portée différente — et il faut les distinguer
+
+    formes contre entiers   1 500 pas cote a cote sur un etat au hasard : JUSTE
+    WELL19937a plante, lu par la carte de rang, pas 21 : COHERENT, 19 937/19 937, 64 s
+    WELL19937a plante, pas 23                          : COHERENT, 19 937/19 937, 68 s
+    temoin NEGATIF, rangs au hasard                    : INCOHERENT, 63 s
+
+Le premier prouve que la propagation des formes est juste **par rapport à la transcription**.
+Le second, que l'attaque **reconnaît ce qu'elle cherche**. Ce que **rien** ici ne prouve, et
+qui est écrit dans le jeton : que la transcription soit fidèle au `WELL19937a.c` publié — il
+n'y a pas d'implémentation de référence sur cette machine pour la confronter. Une erreur de
+décalage ferait tester un générateur que personne n'utilise.
+
+Un accident de témoin, qui vaut d'être noté parce qu'il rendait un faux « épuisé » : la
+première version donnait `besoin + 300 + 20` tirages au témoin, et au pas `23` le rang
+saturait quelques dizaines de tirages plus tard qu'en moyenne — assez pour que la règle
+*« rang plein, puis `300` de plus »* n'ait pas le temps de conclure. Un système cohérent
+déclaré indécis par manque de longueur ; les témoins du §254 passaient avec dix à vingt
+tirages de marge. Le témoin reçoit maintenant `400` tirages de marge.
+
+### Ce que rend l'archive
+
+    22 pas balayes (20 a 41), 19 937 inconnues, ~6 243 tirages par systeme
+    rang atteint : 19 935 a 19 937 sur 19 937, puis 0 = 1 a chaque fois
+    0 compatible, 0 incomplet            ->  WELL19937a EXCLU
+
+> Les deux noms de la phrase du §106 sont pris. Ni `MT19937` ni `WELL19937a`, lus par la carte
+> de rang, ne produisent les `70 560` rangs du bonus — et cela sur des données déjà publiées,
+> sans capture.
+
+### Ce que ça ne couvre pas
+
+  la **désignation par indice dans l'ordre d'émission** — même limite qu'aux §106 et §254 ;
+  les **pas hors de `20`–`41`** — l'addendum en cours les prend, comme pour `MT19937` ;
+  la variante **`c`** (tempérée) et **`WELL44497b`** — la seconde demande des constantes dont
+     je suis moins sûr encore, et elle attendra une référence ;
+  et, une fois de plus, **la fidélité de la transcription**.
+
+**Ligne de registre.** `h230.well19937_sous_troncature`, piste B, WELL19937a EXCLU,
+`m_extra = 0`.
 
 ---
