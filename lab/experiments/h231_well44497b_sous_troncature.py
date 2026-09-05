@@ -55,8 +55,13 @@ POOL, DRAWN = 80, 20
 KB = DRAWN
 EXP_ID = "h231.well44497b_sous_troncature"
 FJETON = "/tmp/h231_jeton.json"
-CACHE = "/tmp/h231_faits.json"   # un pas coute dix minutes, et la machine redemarre
-STRIDES = tuple(range(20, 42))
+CACHE = os.environ.get("H231_CACHE", "/tmp/h231_faits.json")   # un pas coute dix minutes
+# Le balayage peut etre DECOUPE entre plusieurs processus : H231_PAS="25,26,27" restreint
+# les pas, H231_CACHE isole le cache, H231_SEULEMENT_CACHE=1 ecrit le cache sans
+# consigner. La consignation finale se fait en UNE passe, sur le cache fusionne, avec les
+# 22 pas du jeton scelle.
+STRIDES = (tuple(int(x) for x in os.environ["H231_PAS"].split(","))
+           if os.environ.get("H231_PAS") else tuple(range(20, 42)))
 EXTRA = 300
 R, P, M1, M2, M3 = 1391, 15, 23, 481, 229
 MASKU = (0xFFFFFFFF >> (32 - P)) & 0xFFFFFFFF
@@ -350,6 +355,10 @@ if __name__ == "__main__":
             marque = "   (rien conclu pour ce pas)"
         say(f"      pas {pas:>3} : {v:<24} rang {rang:>6,}/{NUNK:,}, {tt:>5} tirages, "
             f"{dt:>5.0f}s{marque}")
+
+    if os.environ.get("H231_SEULEMENT_CACHE"):
+        say(f"\n   cache seul ({CACHE}) : {len(res)} pas ecrits, pas de consignation")
+        raise SystemExit(0)
 
     verdict = ("ETAT RELEVE" if compat else
                ("WELL44497b EXCLU" if not incomplets else "INCOMPLET"))
