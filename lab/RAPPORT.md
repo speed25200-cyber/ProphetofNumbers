@@ -25335,9 +25335,12 @@ contrainte contre `64` d'état.
 Les `15` générateurs congruentiels à constantes publiées de module `> 2³²` du dossier : deux
 sur `2⁴⁸` (`java.util.Random`/`drand48`, avec et sans incrément), un sur `2⁶¹−1`, et les douze
 `mod 2⁶⁴` du §223. Deux règles de sortie, troncature pleine et troncature des `32` bits hauts.
-La règle « modulo `80` » n'est **pas** couverte au-dessus de `2³²` : sur un module puissance de
-deux, `x mod 80` n'est pas un intervalle de `x`, et le réseau ne la lit pas — c'est dit, pas
-contourné.
+La règle « modulo `80` » n'est **pas** lue par ce réseau : sur un module puissance de deux,
+`x mod 80` n'est pas un intervalle de `x`. Mais elle n'a pas besoin de l'être — le §226 l'exclut
+déjà sur l'archive triée, pour **tout** `LCG mod 2^W`, quels que soient `a`, `c` et l'état :
+`w mod 16` y est un sous-système clos de période `16`, et les comptes par classe de résidus
+le trahiraient. Ne reste hors de portée que le module **premier** `2⁶¹−1` sous modulo `80`, où
+aucun sous-système bas n'existe — un générateur, une règle, et c'est dit.
 
 Six témoins **plantés** — un par module et par règle, depuis un état tiré au sort, avec un ou
 deux rejets dans le préfixe, la voie que le §246 n'exerçait pas — et un témoin négatif

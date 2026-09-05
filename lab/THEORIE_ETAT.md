@@ -6093,7 +6093,9 @@ deux satisfaits par le même état. Un témoin l'a montré ; c'est un doublon, p
 ### Ce que le motif ne sauve pas
 
   * la règle **modulo `80`** sur un module puissance de deux : `x mod 80` n'est pas un
-    intervalle de `x`, il n'y a pas de pavé, et le réseau n'en lit que la partie modulo `16`,
-    de période `16` — hors de cette méthode, et dit comme tel ;
+    intervalle de `x`, il n'y a pas de pavé. Mais ce cas n'a pas besoin du réseau : `w mod 16`
+    y est un sous-système clos de période `16`, et le §226 l'exclut sur l'archive triée pour
+    tout `a`, tout `c`, tout état. Seul le module **premier** `2⁶¹−1` sous modulo `80` échappe
+    aux deux méthodes ;
   * les constantes **non publiées** : les différences éliminent `c`, pas `a`, et un
     multiplicateur inconnu ramène au balayage du §253, qui s'arrête à `2³²`.
