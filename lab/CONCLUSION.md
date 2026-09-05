@@ -31,6 +31,7 @@ réseau ne voient un Fibonacci retardé.
 | `MT19937` sous la carte de rang — **confirmation constructive** de la ligne ci-dessus, par une méthode indépendante | élimination `GF(2)`, `19 937` inconnues | **§254** : les 109 pas de bloc `20`–`128` rendent tous un système **incompatible** |
 | `WELL19937a` derrière la même carte de rang | même machine | **§255** : les 109 pas `20`–`128` rendent tous un système **incompatible** — sous réserve de la fidélité de ma transcription du générateur, faute de référence sur la machine |
 | `WELL19937c`, la variante tempérée | même machine, tempérage ajouté aux formes de sortie | **§255, addendum 2** : les 109 pas `20`–`128` rendent tous un système **incompatible** — même réserve |
+| `WELL44497b`, le plus grand état publié, dernier nom de la phrase du §106 | même machine, `44 497` inconnues, `M5` affine en un bit | **§256** : les 22 pas `20`–`41` rendent tous un système **incompatible** — réserve de fidélité la plus forte du dossier, sur `M5` et le tempérage |
 | `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, **neuf** modules (`2¹⁶+1` à `2⁶⁴`), `614 400` relèvements, plus `1 024` cribles **exhaustifs** |
 | **coefficients unités** — Fibonacci retardé (`System.Random` .NET `21`/`55`, Go `273`/`607`, `ran3`) | concentration circulaire, **sans aucun paramètre** | **§242** : `1 537 600` relations, lags jusqu'à `620`, deux canaux. Les témoins plantés sont retrouvés *à leurs lags exacts* |
 | mélangeur non linéaire (PCG, splitmix64, xoshiro, CSPRNG, matériel) | *aucun outil connu* | **rien** |
@@ -277,4 +278,4 @@ zone grise.
 | le protocole du labo et les deux pistes | `lab/README.md` |
 | le relevé ordonné à produire | `lab/RELEVE_ORDONNE.md` |
 | tout recalculé depuis les sources | `python3 lab/verifier.py` |
-| les 310 lignes de registre | `lab/ledger.jsonl` |
+| les 311 lignes de registre | `lab/ledger.jsonl` |

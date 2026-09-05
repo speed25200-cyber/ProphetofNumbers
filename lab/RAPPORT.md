@@ -24924,9 +24924,115 @@ La réserve de fidélité tient, et s'étend aux deux constantes de tempérage.
 
 > Sous la carte de rang du §106, sur les pas `20` à `128`, sur les données déjà publiées :
 > **ni `MT19937`, ni `WELL19937a`, ni `WELL19937c`.** La phrase du §106 n'a plus de reste,
-> hormis `WELL44497b` — qui attendra une implémentation de référence.
+> hormis `WELL44497b` — qui attendra une implémentation de référence. *(Pris au §256, sous la
+> même réserve de fidélité, transcrit en miroir du code publié faute de référence.)*
 
 **Ligne de registre.** `h230c.well19937c_tempere`, piste B, WELL19937c EXCLU, `m_extra = 0`.
+
+---
+
+## 256. **WELL44497b sous la troncature** : le dernier nom de la phrase du §106 (`h231_well44497b_sous_troncature.py`)
+
+### Le dernier nom, et ce que ce paragraphe est — et n'est pas
+
+Le §124 citait `WELL44497b` comme la plus large famille `F₂`-linéaire déployée — `44 497`
+bits, publiée en 2006 — et la donnait couverte par la complexité linéaire conjointe, sous le
+seuil de `47 040` avec `2 543` bits de marge. La « précision » que j'avais ajoutée à ce
+paragraphe disait le contraire ; elle était fausse, et le bloc de correction du §124 dit
+pourquoi : les deux bits exacts du rang sont les bits `31` et `30` du mot, **linéaires**, et le
+théorème tenait. Sous un filtre linéaire, la borne de Key exclut tout état `F₂`-linéaire de
+moins de `47 040` bits, `WELL44497b` compris.
+
+Ce paragraphe n'est donc pas une première fermeture. Comme les §254 et §255 pour `MT19937` et
+`WELL19937`, c'est une **confirmation constructive, par une méthode indépendante** : les formes
+linéaires du générateur lui-même, propagées par sa récurrence, et l'élimination sur `GF(2)`
+qui dit si les `70 560` rangs du bonus sont compatibles avec **un** état. Deux voies, deux
+calculs, le même zéro — et c'est ce que vaut une confirmation.
+
+### Le générateur, transcrit en miroir
+
+`WELL44497b` (Panneton, L'Ecuyer, Matsumoto 2006) : `R = 1391`, `P = 15`, `M1 = 23`, `M2 = 481`,
+`M3 = 229`, `MASKU = 0x7fff`, `MASKL = 0xffff8000`, et à chaque pas, l'indice décroissant d'un
+cran,
+
+    z0     = (V[i-1] & MASKL) | (V[i-2] & MASKU)
+    z1     = M0neg(24, V[i])     ^ M0pos(30, V[i+M1])
+    z2     = M0neg(10, V[i+M2])  ^ M3neg(26, V[i+M3])
+    V[i]   = z1 ^ z2
+    V[i-1] = z0 ^ M0pos(20, z1) ^ M5(9, 0xb729fcec, 0xfbffffff, 0x00020000, z2) ^ V[i]
+
+avec `M3neg(t, v) = v << t` et `M5(r, a, ds, dt, v) = (rot_r(v) & ds) ⊕ (a si le bit dt de v)`.
+Ce `M5` est **affine en un bit** — la constante `a` s'ajoute si le bit `17` de `v` vaut un —,
+donc `F₂`-linéaire : chaque bit de `a` est multiplié par le seul bit `v[17]`. La variante `b`
+tempère la sortie :
+
+    y  = v ^ ((v << 7)  & 0x93dd1400)
+    y ^=     ((y << 15) & 0xfa118000)
+
+**Les `15` bits qui ne comptent pas.** `z0` ne lit que les `17` bits hauts de `V[i−1]`, mot
+aussitôt écrasé ; ses quinze bits bas, à l'état initial, ne sont jamais lus :
+`1391 × 32 − 15 = 44 497` inconnues, exactement le compte publié. Sous la carte de rang du
+§106 — `bonus = triés[⌊u·20⌋]` — chaque tirage livre `3,20` équations exactes en moyenne, et le
+rang sature vers `13 906` tirages ; `300` de plus sont empilés après le rang plein, ce qui
+laisse `2⁻⁹⁰⁰` de chance à un faux positif.
+
+### Deux contrôles, de portée différente — les mêmes qu'au §255
+
+    formes temperees contre entiers temperes, 1 500 pas cote a cote      : JUSTE
+    WELL44497b plante, lu par la carte de rang, pas 21 : COHERENT — rang plein, 44 497/44 497,
+                                                          14 208 tirages, 519 s
+    temoin NEGATIF, rangs au hasard                    : INCOHERENT, rang 44 497, 13 926 tirages, 524 s
+
+Le premier prouve que la propagation des formes est juste **par rapport à la transcription** ;
+le second, que l'attaque reconnaît ce qu'elle cherche et rejette ce qui n'est pas lui. Ce que
+rien ici ne prouve, et qui est dans le jeton : la **fidélité de la transcription** au
+`WELL44497b.c` publié. Il n'y a pas d'implémentation de référence sur cette machine, et les
+constantes de `M5` et du tempérage sont celles dont je suis le moins sûr — plus encore qu'au
+§255. Une erreur d'un décalage ferait tester un générateur que personne n'utilise.
+
+### Le coût, et comment il a été payé
+
+Un système compte `44 497` inconnues et `~13 900` tirages : **`500` à `570` secondes** par pas
+sur un cœur, contre une minute au §255. Le script tournait seul, un pas après l'autre, et le
+conteneur avait déjà redémarré deux fois en cours de balayage — d'où le cache par pas. Pour
+finir en une heure et non en quatre, le balayage a été **découpé entre quatre processus**, un
+cache chacun (`H231_PAS`, `H231_CACHE`, `H231_SEULEMENT_CACHE`), puis consigné en **une seule
+passe** sur le cache fusionné, avec les `22` pas du jeton scellé. Le témoin, déterministe par
+sa graine, n'a été passé qu'une fois.
+
+### Ce que rend l'archive
+
+    22 pas balayes (20 a 41), 44 497 inconnues, 13 879 a 13 884 tirages par systeme
+    rang atteint : 44 490 a 44 497 sur 44 497, puis 0 = 1 a chaque fois
+    502 a 686 s par pas, 13 186 s de calcul en tout (1 h 50 en quatre processus)
+    0 compatible, 0 incomplet            ->  WELL44497b EXCLU
+
+Les rangs `44 490` à `44 497` disent la même chose qu'aux §254 et §255 : le système sature à
+quelques équations du plein, et la contradiction `0 = 1` tombe **avant** ou **au** rang plein
+sur chacun des vingt-deux pas — jamais un « budget épuisé », jamais un « incomplet ».
+
+> La phrase du §106 — *« reste : `MT19937` et `WELL19937` »* — et son prolongement au §124
+> n'ont plus de reste : sous la carte de rang, sur les données déjà publiées, ni `MT19937`,
+> ni `WELL19937a`, ni `WELL19937c`, ni `WELL44497b`.
+
+### Ce que ça ne couvre pas
+
+  la **désignation par indice dans l'ordre d'émission** — même limite qu'aux §106, §254 et §255 ;
+  les **pas hors de `20`–`41`** : les §254 et §255 vont jusqu'à `128` ; ici chaque pas coûte
+     dix fois plus, et le §124 couvre déjà tous les pas d'un coup, sans famille — le
+     prolongement se ferait, il n'apporterait qu'une confirmation de plus ;
+  et, plus fort qu'ailleurs, **la fidélité de la transcription**.
+
+### Ce que ça change sur la carte
+
+La ligne `F₂`-linéaire de la carte du §233 est fermée **deux fois** : par une borne qui ne
+nomme aucune famille (§124, tout état de moins de `47 040` bits sous un filtre linéaire), et par
+quatre confirmations constructives qui en nomment une chacune. Ce n'est pas plus de
+certitude sur le résultat — le théorème suffisait —, c'est une certitude d'une autre nature :
+celle d'une machine qui **retrouve** un générateur planté, et qui ne trouve rien dans les
+données.
+
+**Ligne de registre.** `h231.well44497b_sous_troncature`, piste B, WELL44497b EXCLU, `m_extra = 0`.
 
 ---
 
@@ -25146,8 +25252,8 @@ existe et elle a été empruntée une fois ; cet environnement ne la joint pas (
 `lab/RELEVE_ORDONNE.md` (addendum §258) dit avec quoi.
 
 **Lignes de registre.** `h232.treizieme_tirage_premier_du_jour`, piste B, conforme, `m_extra = 0`.
-Le registre compte `310` lignes ; le plus petit `p` reste celui du §131, l'angle de la roue
-(`1,81·10⁻⁴`, contre un seuil de Holm à `1,61·10⁻⁴`) : **zéro résultat significatif sur le
-registre entier.**
+Le registre compte `311` lignes avec le §256 ; le plus petit `p` reste celui du §131, l'angle
+de la roue (`1,81·10⁻⁴`, contre un seuil de Holm à `1,61·10⁻⁴`) : **zéro résultat significatif
+sur le registre entier.**
 
 ---
