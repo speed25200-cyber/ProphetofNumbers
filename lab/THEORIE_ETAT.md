@@ -6032,3 +6032,68 @@ zéro.
 > laquelle un dossier de prédiction sans fenêtre de mesure disjointe ne vaut rien — et
 > pourquoi le seul chiffre à regarder, ici comme ailleurs, est celui de la colonne de
 > droite.
+
+## 7.38 — Le rejet comme **motif** : le réseau des positions publiées, et ce qu'il coûte de ne plus supposer le préfixe sans rejet
+
+Le réseau du §7.36 et des §223, §246 lit les `n` premiers numéros d'un tirage ordonné comme les
+classes de `n` mots **consécutifs**. Sous un échantillonneur à rejet, c'est faux dès qu'un mot
+dont le numéro est déjà sorti tombe dans ce préfixe — un mot **muet**, consommé sans rien
+publier —, et cela arrive avec probabilité `1 − Π_{j<n}(1 − j/80)`, soit `58 %` pour `n = 12`.
+Le §259 retire cette hypothèse, et voici ce que cela demande.
+
+### Le réseau des positions publiées
+
+Soit `w_j = a^j·w₀ + c_j (mod m)` le `j`-ième mot, `c_j = c·(a^j − 1)/(a − 1)`. Les numéros
+publiés `v₁, …, vₙ` sont les classes des mots aux positions `p₁ = 0 < p₂ < … < pₙ` ; entre
+`pᵢ` et `pᵢ₊₁` il y a `pᵢ₊₁ − pᵢ − 1 ≥ 0` mots muets. Un **motif** est le choix de ces
+positions. Pour un motif fixé, le vecteur `(w_{pᵢ})ᵢ` appartient au translaté
+
+    (c_{p_i})_i  +  L(P),      L(P) = { t·(a^{p_i} mod m)_i : t ∈ Z } + m·Zⁿ
+
+qui est la **projection** du réseau des mots consécutifs sur les coordonnées `P`. Une base :
+le vecteur `(a^{pᵢ} mod m)ᵢ` et les `m·eᵢ` — `n + 1` générateurs, rang `n`, déterminant
+`m^{n−1}`. Les mots muets n'y figurent pas : ils ne contraignent rien, ils sont **retirés**.
+La contrainte reste un pavé, `w_{pᵢ} ∈ [lo(vᵢ), hi(vᵢ)]`, de côté `m/80`, et l'on est ramené
+au §251 : énumération exacte des points du réseau dans le pavé, sans Babai.
+
+### Le compte des motifs, et la loi du nombre de rejets
+
+Le premier mot n'est jamais muet, et le dernier des `n + r` mots est la `n`-ième publication :
+les `r` muets se placent parmi les positions `1 … n + r − 2`, soit **`C(n + r − 2, r)`** motifs
+à `r` rejets. Après la `k`-ième publication, chaque mot est muet avec probabilité `k/80`,
+indépendamment : le nombre de muets `G_k` avant la publication suivante est géométrique,
+`P(G_k = s) = (k/80)^s·(1 − k/80)`, et `r = Σ_{k<n} G_k`. La loi de `r` est donc une
+convolution de géométriques, **exacte**, et le résidu d'un balayage à `r ≤ R` se calcule :
+
+    n     motifs (R = 4)    E[r]     P(r > 4)
+    9          495          0,485    0,00042
+    11       1 001          0,754    0,00232
+    12       1 365          0,914    0,00474
+
+C'est un résidu de **tirages** — la part de ceux dont le préfixe est plus troué que `R` —, pas
+d'états : sur un relevé continu, un seul tirage au préfixe court suffit à poser la question
+sans lui.
+
+### Pourquoi l'énumération reste vide, et ce qu'elle coûte
+
+Le pavé a pour volume `(m/80)ⁿ` et le réseau pour déterminant `m^{n−1}` : sous la nulle, une
+énumération rend `m/80ⁿ` points en espérance, **quel que soit le motif**. Avec `n` tel que
+`m/80ⁿ < 2⁻⁶` (`9` pour `2⁴⁸`, `11` pour `2⁶¹−1`, `12` pour `2⁶⁴`), presque toutes les
+énumérations sont vides, et les rares candidats sont tués par le rejeu des vingt numéros —
+`126` bits de contrainte. Fincke-Pohst dans la boule circonscrite au pavé, en `Fraction`, est
+**complet** : la réduction de base ne change que le nombre de nœuds visités. Mesuré : `5,4 s`
+par base en LLL exact, `0,4 s` en LLL flottant suivi de la décomposition exacte — la réduction
+flottante est unimodulaire, donc c'est le **même** réseau —, une cinquantaine de nœuds par
+énumération, une base par motif et par générateur servie à tous les tirages.
+
+Une dégénérescence à connaître : si un mot muet répète le numéro **qui vient d'être publié**,
+les deux motifs qui échangent sa position avec celle de la publication précédente sont tous
+deux satisfaits par le même état. Un témoin l'a montré ; c'est un doublon, pas une ambiguïté.
+
+### Ce que le motif ne sauve pas
+
+  * la règle **modulo `80`** sur un module puissance de deux : `x mod 80` n'est pas un
+    intervalle de `x`, il n'y a pas de pavé, et le réseau n'en lit que la partie modulo `16`,
+    de période `16` — hors de cette méthode, et dit comme tel ;
+  * les constantes **non publiées** : les différences éliminent `c`, pas `a`, et un
+    multiplicateur inconnu ramène au balayage du §253, qui s'arrête à `2³²`.
