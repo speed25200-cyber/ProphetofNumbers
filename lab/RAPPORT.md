@@ -24929,3 +24929,102 @@ La réserve de fidélité tient, et s'étend aux deux constantes de tempérage.
 **Ligne de registre.** `h230c.well19937c_tempere`, piste B, WELL19937c EXCLU, `m_extra = 0`.
 
 ---
+
+## 257. **La frontière de la théorie** : ce qu'une mathématique nouvelle pourrait atteindre ici, et ce qu'elle ne pourrait pas
+
+On m'a posé la question, et elle est juste : *pourquoi, avec tout ce qui est accumulé, ne pas
+développer une théorie nouvelle qui atteigne le but ?* Ce paragraphe y répond en trois
+constats, chacun chiffré, et il commence par ce que le dossier a **déjà** construit comme
+théorie propre à ce problème — parce que la réponse n'est pas « je n'ai pas essayé ».
+
+### Ce qui a été construit, et qui n'existait pas avant ce dossier
+
+| résultat | § | ce qu'il ferme |
+|---|---|---|
+| l'histogramme des recouvrements a une variance **exacte** — les indicatrices sont deux à deux non corrélées | §229 | tout espace d'états `≲ 2²⁸`, sans nommer de famille |
+| le codeur séquentiel SRS atteint `log₂ C(80,20)` **par tirage**, pas en moyenne | §235 | la borne d'information, exacte |
+| le pas de bloc **s'absorbe** dans `A = a^P`, et l'incrément **s'élimine** par les différences | §253 | tous les `(a, c, P)` d'un module, d'un coup |
+| la solution congruentielle est une **famille** `(x₀+δ, c+δ(1−a))`, pas un point | §253 | ce qu'un crible doit chercher |
+| le pavé des contraintes s'énumère **exactement**, et la qualité de la base n'y change rien | §251 | Babai, partout |
+| les deux bits exacts du rang sont les bits `31` et `30` du mot, et la borne de Key étend `W ≥ 47 040` aux filtres de degré `δ` | §124 corrigé | tout LFSR filtré jusqu'à `(L, δ) = (306, 2)`, `(65, 3)`, `(33, 4)` |
+
+Ce sont de petits théorèmes, mais chacun a fermé quelque chose que le calcul seul n'aurait
+pas fermé. La question n'est donc pas de *vouloir* de la théorie ; c'est de savoir **où une
+théorie peut encore mordre**.
+
+### Premier constat — l'information n'est pas le mur
+
+    archive triee : 70 560 x 61,617 bits = 4,348 Mbit
+    + bonus (4,32 bits) + boost (1,88 bit)  = 4,785 Mbit
+
+Tout générateur dont l'état tient en moins de `4,7` millions de bits est **déterminé** par
+l'archive, au sens de l'information : il n'existe qu'un état compatible. `MT19937` en a
+`19 937`, `WELL44497b` en a `44 497`, un `AES-CTR` en a `256`. **Le mur n'est jamais le
+manque de données.** C'est le coût de l'inversion — et cela change la nature de la question.
+
+### Deuxième constat — pour un générateur conçu comme une fonction à sens unique, le mur est la définition même de sa qualité
+
+Un opérateur régulé qui tire toutes les cinq minutes utilise un générateur **certifié**, et
+un générateur certifié est, en pratique, un chiffre en mode compteur ou un accumulateur
+d'entropie matérielle. Contre lui, « une théorie qui retrouve l'état depuis `6,3` bits par
+tirage » n'est pas un résultat de loterie : **c'est une attaque sur le chiffre.** Personne
+n'en a ; ce dossier n'en produira pas ; et un signal qui en viendrait serait, avant toute
+chose, un signe que le générateur n'est pas ce qu'il prétend. Ce constat est probablement la
+**vraie raison** pour laquelle `309` expériences rendent zéro — non une faiblesse de
+l'imagination, mais la réussite de quelqu'un d'autre.
+
+### Troisième constat — là où une théorie nouvelle est *possible*, et ce qu'elle coûterait
+
+Entre les familles closes (linéaires, congruentielles) et le mur cryptographique, il y a une
+bande : les **mélangeurs non linéaires modernes**, `PCG`, `xoshiro`, `splitmix`. Ils ne sont
+pas conçus comme des chiffres, et la littérature en casse certains — mais depuis des
+**sorties entières**. Ici on n'a que `6,3` bits par mot, filtrés, à pas inconnu.
+
+Prenons le plus prometteur, `PCG32-XSH-RR`, parce que sa structure est mixte et que cela se
+voit :
+
+    etat        x_{t+1} = a x_t + c   mod 2^64      a connu, c inconnu (63 bits)
+    sortie      rot = x >> 59                          5 bits, dependants de l'etat
+                y   = ((x >> 18) ^ x) >> 27            32 bits
+                out = rotr(y, rot)
+
+Les treize bits hauts de `y` sont les bits `46` à `58` de `x`, **purs** — une fenêtre de bits
+de l'état d'un LCG, ce que le réseau du §251 sait lire. La rotation, elle, est une autre
+fenêtre du même état. L'attaque existe donc sur le papier : deviner `rot_t` (`32` valeurs par
+tirage), poser la contrainte d'intervalle qui en découle, et laisser le réseau trancher.
+
+    information observee     6,3 bits par tirage
+    information devinee      5,0 bits par tirage
+    net                      1,3 bit par tirage    ->  ~50 tirages pour 64 bits d'etat
+    faisceau naif            32^50, elague par le reseau seulement au-dela de ~11 tirages
+                             ->  de l'ordre de 2^55 chemins avant le premier elagage
+
+Un élagage plus fin est concevable — les bits hauts de `a·x + c` contraignent la rotation
+suivante —, mais son pouvoir n'est pas connu. **C'est un projet de recherche à issue
+incertaine**, pas une expérience de plus ; il est nommé ici pour qu'on sache exactement où
+la frontière passe, et à quel prix on la franchirait.
+
+### Et l'algèbre sans famille ? Elle est dominée, et cela se démontre
+
+On pourrait vouloir un test qui ne suppose *aucune* famille : chercher, sur une fenêtre de `w`
+tirages, une relation de degré `d` entre les bits observés — un annulateur, comme en
+cryptanalyse des chiffres à flot. Avec `R = 70 560` fenêtres, un tel test ne voit un état
+`F₂`-linéaire de `L` bits filtré au degré `δ` que si le nombre de monômes dépasse la dimension
+qu'ils engendrent : `C(bw, ≤d) > Σ_{i ≤ dδ} C(L, i)`, et il faut `R > C(bw, ≤d)`. Pour
+`d = 2`, `δ = 2`, `b = 2` : `L ≤ 36`. Or la borne de Key, au §124, exclut déjà `L ≤ 306` à ce
+degré — et le §229 exclut tout `L ≤ 28` sans même parler de degré.
+
+> **Le test sans famille le plus général qu'on puisse monter sur cette archive est
+> strictement dominé par deux résultats déjà acquis.** Ce n'est pas une porte fermée par
+> manque d'idée : c'est une porte qui donne sur une pièce déjà vide.
+
+### Ce qui ferait bouger la frontière
+
+Une seule chose, et le dossier la répète parce qu'elle est la seule : **la donnée**. Le relevé
+ordonné continu du flux d'animation — `126` bits par tirage au lieu de `61,6` — ne change pas
+la théorie ; il change le *prix* de l'inversion. Il ramène `PCG` de « projet de recherche » à
+« calcul », et un état congruentiel de `2³²` à **un seul tirage**. Les outils qui le liraient
+sont écrits et calibrés. C'est là, et seulement là, que la théorie accumulée ici redevient
+une arme.
+
+---
