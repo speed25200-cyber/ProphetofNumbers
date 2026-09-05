@@ -24564,7 +24564,7 @@ large qu'elle n'est :
 | `MT19937` derrière la carte de rang du §106, pas `20`–`128` | §254 et son addendum, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
 | `WELL19937a` derrière la carte de rang, pas `20`–`128` | §255 et son addendum, même machine | **certaine** — sous réserve de la fidélité de la transcription, dite au §255 |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
-| congruentiels `m = 2²⁹`, `2³⁰`, `2³¹`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
+| congruentiels `m = 2²⁹` à `2³²`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `65`–`128` | §232, réseau + Babai | heuristique |
 | tirages ordonnés contre `m ≤ 2³²`, rejets compris | §248, énumération complète | **certaine** |
@@ -24573,8 +24573,7 @@ large qu'elle n'est :
 
 | ce qui reste ouvert | pourquoi |
 |---|---|
-| ~~congruentiels `m = 2²⁹`–`2³¹`, constantes inconnues~~ | **FAIT au §253** : `1 879 048 192` multiplicateurs, `0` survivant |
-| congruentiels `m = 2³²`, constantes **inconnues** | non fait — `8,1 h` sur quatre cœurs au rythme mesuré |
+| ~~congruentiels `m = 2²⁹`–`2³²`, constantes inconnues~~ | **FAIT au §253** : `4 026 531 840` multiplicateurs, `0` survivant |
 | congruentiels `m > 2³²`, constantes inconnues | `2⁴⁶` à `2⁶²` valeurs de `a` — hors de portée |
 | mélangeurs non linéaires — `splitmix64`, `PCG`, `xoshiro` | aucune prise algébrique à `6,32` bits par tirage |
 | générateur matériel | aucune quantité de données ne le distingue d'un bon PRNG |
@@ -24632,21 +24631,22 @@ exact, et c'est ce que fait le mode `croise`.
 
 ### Ce que rend l'archive
 
-    m = 2^29    268 435 456 multiplicateurs impairs, 3 384 s   ->  0 survivant
-    m = 2^30    536 870 912 multiplicateurs impairs, 7 446 s   ->  0 survivant
+    m = 2^29    268 435 456 multiplicateurs impairs,  3 384 s  ->  0 survivant
+    m = 2^30    536 870 912 multiplicateurs impairs,  7 446 s  ->  0 survivant
     m = 2^31  1 073 741 824 multiplicateurs impairs, 15 065 s  ->  0 survivant
+    m = 2^32  2 147 483 648 multiplicateurs impairs, 34 149 s  ->  0 survivant
 
-    total     1 879 048 192 multiplicateurs, 0 survivant
+    total     4 026 531 840 multiplicateurs, 0 survivant
 
 Vérification exacte en entiers sur les `204` classes de la plage maximale du §249. La nulle
 n'est pas une loi mais un **compte** : l'espérance de points parasites dans le pavé vaut
 `m/40⁸`, soit `6,5·10⁻⁴` pour `m = 2³²`, et celle de survivants après vérification des `204`
 classes est nulle à toute précision utile.
 
-> **Aucun générateur congruentiel de module `2²⁹`, `2³⁰` ou `2³¹` ne produit le flux du bonus
-> — quel que soit son multiplicateur, quel que soit son incrément, quel que soit son pas de
-> bloc.** C'est la première fois que le dossier ferme une famille sans connaître ses
-> constantes.
+> **Aucun générateur congruentiel de module `2²⁹`, `2³⁰`, `2³¹` ou `2³²` ne produit le flux du
+> bonus — quel que soit son multiplicateur, quel que soit son incrément, quel que soit son pas
+> de bloc.** C'est la première fois que le dossier ferme une famille sans connaître ses
+> constantes, et la fenêtre du §252 est close sur ses quatre modules.
 
 ### Deux fautes de performance, mesurées et non supposées
 
@@ -24664,9 +24664,10 @@ et les deux sont des fautes de raisonnement, pas des réglages :
 
 ### Ce qui n'est pas balayé, et il faut le dire
 
-**`m = 2³²`.** Au rythme mesuré, `2³¹` multiplicateurs impairs coûtent `32,4 h` sur un cœur,
-soit `8,1 h` sur quatre. C'est le seul module de la fenêtre du §252 qui reste, et il n'est pas
-« hors de portée » : il est **non fait**, et son prix est écrit ici.
+Le module `2³²` a d'abord été laissé de côté et chiffré ici à `8,1 h` sur quatre cœurs ; il a
+ensuite été fait — `34 149 s`, soit `9,5 h`, le ralentissement venant d'un balayage `WELL`
+qui partageait les cœurs. Un cache par module garantit que la ligne de registre couvre les
+quatre modules et non le seul dernier.
 
 Au-dessus de `2³²`, le balayage redevient impossible — `2⁴⁶` valeurs de `a` sur `2⁴⁸`, `2⁶²`
 sur `2⁶⁴` — et l'argument des doublons du §229 n'y dit rien non plus. Cette moitié-là reste

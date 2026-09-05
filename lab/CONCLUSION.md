@@ -129,13 +129,12 @@ un préfixe sans rejet, hypothèse fausse dans `17` à `87 %` des tirages selon 
    `220 ms` est le prix de `Fraction`, pas celui du problème. **En `C`, `2³⁰` réductions
    tiennent en une dizaine d'heures.**
 
-   > **Et c'est fait, pour trois des quatre modules.** Le §253 balaie `1 879 048 192`
-   > multiplicateurs impairs — `2²⁹`, `2³⁰`, `2³¹` — et n'en retient **aucun** : aucun
+   > **Et c'est fait, pour les quatre modules.** Le §253 balaie `4 026 531 840`
+   > multiplicateurs impairs — `2²⁹`, `2³⁰`, `2³¹`, `2³²` — et n'en retient **aucun** : aucun
    > générateur congruentiel de ces modules ne produit le flux du bonus, quel que soit son
    > multiplicateur, son incrément **et** son pas de bloc. C'est la première fois que le
-   > dossier ferme une famille sans connaître ses constantes. Reste `2³²`, chiffré à `8,1 h`
-   > sur quatre cœurs et **non fait**. Au-dessus, le balayage redevient impossible (`2⁴⁶` à
-   > `2⁶²` valeurs de `a`).
+   > dossier ferme une famille sans connaître ses constantes. Au-dessus de `2³²`, le balayage
+   > redevient impossible (`2⁴⁶` à `2⁶²` valeurs de `a`).
 
    Et une relation **sans paramètre** aurait tout réglé — trois différences consécutives
    vérifient `y_1·y_3 ≡ y_2² (mod m)`, indépendamment de `a` et de `c`. Mais avec des `y_i`
