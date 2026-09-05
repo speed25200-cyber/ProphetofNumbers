@@ -24209,7 +24209,8 @@ positifs sur les `528` cribles reste sous `2⁻⁷⁰`. **Un seul survivant aura
 `m ≤ 2³²`. Au-delà, l'énumération est hors de portée et seul le réseau reste — avec son
 hypothèse de préfixe sans rejet, donc avec le trou du tableau ci-dessus. Les modules `2⁴⁸`,
 `2⁶¹−1` et `2⁶⁴` ne sont **pas** couverts par ce crible, et le §246 ne les couvre qu'en partie.
-C'est écrit ici plutôt que laissé à deviner.
+C'est écrit ici plutôt que laissé à deviner. *(Refermé au §259 : les motifs de rejet y sont
+énumérés et le pavé l'est exactement, sans Babai.)*
 
 Enfin, et c'est ce qui relie ce paragraphe au suivant : douze relevés pris des jours différents
 ne partagent aucun état, donc le crible ne peut pas **chaîner**. C'est pourquoi l'outil sépare
@@ -25257,3 +25258,116 @@ de la roue (`1,81·10⁻⁴`, contre un seuil de Holm à `1,61·10⁻⁴`) : **z
 sur le registre entier.**
 
 ---
+
+## 259. **Les grands modules sur les treize tirages ordonnés, exacts sous le rejet** : le trou que le §248 nommait, refermé (`h233_grands_modules_sous_rejet.py`)
+
+### Le trou, tel que le §248 l'écrivait
+
+> *« `m ≤ 2³²`. Au-delà, l'énumération est hors de portée et seul le réseau reste — avec son
+> hypothèse de préfixe sans rejet, donc avec le trou du tableau ci-dessus. Les modules `2⁴⁸`,
+> `2⁶¹−1` et `2⁶⁴` ne sont **pas** couverts par ce crible, et le §246 ne les couvre qu'en
+> partie. »*
+
+Deux défauts, et le §246 les avait tous les deux. Il lisait les `n` premiers numéros d'un
+tirage comme `n` mots **consécutifs** du générateur — vrai seulement si aucun rejet ne tombe
+dans ce préfixe, ce qui arrive avec probabilité `Π(1 − j/80)`, soit `0,42` pour `n = 12`. Et
+il tranchait par **Babai**, dont l'échec ne prouve rien. Le §251 avait retiré Babai pour le
+flux du bonus ; personne ne l'avait retiré pour les tirages ordonnés, et personne n'avait
+retiré l'hypothèse du préfixe. Avec treize tirages ordonnés (§258), le trou valait d'être
+refermé, et il se referme exactement.
+
+### Le rejet, énuméré au lieu d'être supposé absent
+
+Avant le `n`-ième numéro publié, `r` mots ont pu être consommés sans rien publier — un mot
+dont le numéro est déjà sorti. Un **motif de rejet**, c'est l'ensemble des positions de ces
+`r` mots muets parmi les `n + r` premiers mots ; le premier mot ne peut pas être muet, le
+dernier est le `n`-ième publié. Pour un motif donné, les numéros publiés sont à des positions
+**connues** — `p₁ = 0 < p₂ < … < pₙ` —, et le mot en `pᵢ` vaut `a^{pᵢ}·w₀ + c_{pᵢ}` : c'est un
+réseau, celui des positions publiées, et les mots muets n'y figurent pas. Ils ne contraignent
+rien ; ils sont simplement **retirés**.
+
+Tout motif à `r ≤ 4` mots muets est passé. Ce qui reste — les tirages dont le préfixe compte
+plus de quatre rejets — se calcule **exactement**, par la loi du nombre de mots muets (`k/80`
+au `k`-ième numéro), et c'est le seul résidu :
+
+    module      n    motifs    P(r > 4)
+    2^48        9       495    0,00042
+    2^61-1     11     1 001    0,00232
+    2^64       12     1 365    0,00474
+
+`n` est pris tel que `m/80ⁿ < 2⁻⁶` : sous la nulle, une énumération ne rend rien.
+
+### Babai, remplacé par l'énumération exacte du pavé
+
+Comme au §251 : **tous** les points du réseau dans le pavé des contraintes, en entiers et en
+`Fraction` (`lab/cvp_exact.py`). La base de chaque motif est d'abord réduite par le LLL
+flottant de `lab/lll.py` — une transformation unimodulaire, donc le **même** réseau —, puis
+passée à l'arithmétique exacte, qui ne dépend de la réduction que pour le nombre de nœuds
+visités, jamais pour la réponse. Le coût est là : `5,4 s` par base en réduction exacte, `0,4 s`
+en réduction flottante suivie de la décomposition exacte. Une base par motif et par
+générateur, servie à tous les tirages et aux deux règles.
+
+Chaque point rendu donne le premier mot `w₀` ; il est **rejoué** en entiers sur le tirage
+entier, rejet simulé, et doit reproduire les vingt numéros dans l'ordre — `126` bits de
+contrainte contre `64` d'état.
+
+### La grille, et les témoins dans la même passe
+
+Les `15` générateurs congruentiels à constantes publiées de module `> 2³²` du dossier : deux
+sur `2⁴⁸` (`java.util.Random`/`drand48`, avec et sans incrément), un sur `2⁶¹−1`, et les douze
+`mod 2⁶⁴` du §223. Deux règles de sortie, troncature pleine et troncature des `32` bits hauts.
+La règle « modulo `80` » n'est **pas** couverte au-dessus de `2³²` : sur un module puissance de
+deux, `x mod 80` n'est pas un intervalle de `x`, et le réseau ne la lit pas — c'est dit, pas
+contourné.
+
+Six témoins **plantés** — un par module et par règle, depuis un état tiré au sort, avec un ou
+deux rejets dans le préfixe, la voie que le §246 n'exerçait pas — et un témoin négatif
+traversent exactement la même grille que les treize tirages réels, dans la même passe,
+puisque la base d'un motif sert à tous. Leur verdict se lit en premier, et un témoin manqué
+invaliderait la passe entière.
+
+### Ce que rendent les témoins, puis l'archive
+
+    temoin 2^48,   regle 0, 1 rejet    : etat plante RENDU
+    temoin 2^48,   regle 1, 1 rejet    : etat plante RENDU
+    temoin 2^61-1, regle 0, 1 rejet    : etat plante RENDU
+    temoin 2^61-1, regle 1, 1 rejet    : etat plante RENDU
+    temoin 2^64,   regle 0, 1 rejet    : etat plante RENDU
+    temoin 2^64,   regle 1, 2 rejets   : etat plante RENDU  (sous deux motifs : le second
+                                          rejet repete le numero qui vient d'etre publie,
+                                          et les deux positions sont alors equivalentes)
+    temoin negatif, ordre au hasard    : 0 etat
+
+Chaque état planté est rendu par le motif qui est le sien — et par la règle voisine aussi,
+puisque les deux troncatures ne diffèrent qu'aux bornes des intervalles. La voie du rejet est
+donc **réellement exercée**, pas seulement décrite.
+
+    15 generateurs x 2 regles x 13 tirages x (495 | 1 001 | 1 365) motifs
+    583 890 enumerations exactes, 0 incomplete, 26 482 110 noeuds
+    12 316 s de calcul (51 min sur quatre coeurs)
+    0 etat sur les treize tirages reels                ->  conforme
+
+Sous la nulle, une énumération rend `m/80ⁿ < 2⁻⁶` point en espérance ; sur `583 890`
+énumérations il en sortirait quelques milliers de **candidats**, tous tués par le rejeu des
+vingt numéros. Il n'en est sorti aucun qui passe, et c'est la bonne lecture : le pavé est
+vide ou presque partout, et là où il ne l'est pas, le tirage entier tranche.
+
+### Ce que ça change, et ce que ça ne change pas
+
+**La famille congruentielle à constantes publiées est fermée sur les tirages ordonnés des
+deux côtés de `2³²`, et des deux côtés sans heuristique** : en dessous par l'énumération des
+états (§248, §258), au-dessus par l'énumération des points du réseau sous tout motif de rejet
+à quatre mots muets ou moins. Le §246 reste vrai ; il n'est simplement plus le dernier mot.
+
+Ce qui ne change pas : treize tirages **isolés** ne chaînent toujours pas, et c'est le
+segment continu du §247 qui manque — pas un instrument. Les constantes **non publiées**
+restent hors de portée de ce paragraphe comme du §253 au-dessus de `2³²`. Et le résidu
+ci-dessus est un résidu de **tirages**, pas d'états : sur un relevé continu, il suffirait
+d'un tirage à préfixe court pour que la question soit posée sans lui.
+
+**Ligne de registre.** `h233.grands_modules_sous_rejet`, piste B, conforme, `m_extra = 0`.
+Le registre compte `312` lignes ; le plus petit `p` reste celui du §131 : zéro résultat
+significatif.
+
+---
+

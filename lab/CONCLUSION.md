@@ -32,7 +32,7 @@ réseau ne voient un Fibonacci retardé.
 | `WELL19937a` derrière la même carte de rang | même machine | **§255** : les 109 pas `20`–`128` rendent tous un système **incompatible** — sous réserve de la fidélité de ma transcription du générateur, faute de référence sur la machine |
 | `WELL19937c`, la variante tempérée | même machine, tempérage ajouté aux formes de sortie | **§255, addendum 2** : les 109 pas `20`–`128` rendent tous un système **incompatible** — même réserve |
 | `WELL44497b`, le plus grand état publié, dernier nom de la phrase du §106 | même machine, `44 497` inconnues, `M5` affine en un bit | **§256** : les 22 pas `20`–`41` rendent tous un système **incompatible** — réserve de fidélité la plus forte du dossier, sur `M5` et le tempérage |
-| `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, **neuf** modules (`2¹⁶+1` à `2⁶⁴`), `614 400` relèvements, plus `1 024` cribles **exhaustifs** |
+| `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, **neuf** modules (`2¹⁶+1` à `2⁶⁴`), `614 400` relèvements, plus `1 024` cribles **exhaustifs** ; sur les **tirages ordonnés**, **§248**/**§258** (états énumérés, `m ≤ 2³²`) et **§259** (pavé énuméré exactement sous les motifs de rejet, `m > 2³²`) |
 | **coefficients unités** — Fibonacci retardé (`System.Random` .NET `21`/`55`, Go `273`/`607`, `ran3`) | concentration circulaire, **sans aucun paramètre** | **§242** : `1 537 600` relations, lags jusqu'à `620`, deux canaux. Les témoins plantés sont retrouvés *à leurs lags exacts* |
 | mélangeur non linéaire (PCG, splitmix64, xoshiro, CSPRNG, matériel) | *aucun outil connu* | **rien** |
 
@@ -119,6 +119,15 @@ exhaustif du §248, relancé sur les treize relevés : `572` cribles complets, `
 premier de la journée comme sur les autres. Et la voie qui l'a produit **fonctionne** : le
 pipeline de capture de cette branche a capté, validé contre le `REST` du même identifiant, et
 exporté un tirage réel. Il ne manque qu'une machine qui joigne `loro.ch`, et des jours.
+
+**Et le trou que le §248 nommait au-dessus de `2³²` est refermé (§259).** Le §246 lisait les
+`n` premiers numéros comme `n` mots consécutifs — vrai dans `42 %` des tirages pour `n = 12` —
+et tranchait par Babai. Le §259 énumère les **motifs de rejet** (jusqu'à quatre mots muets
+avant le `n`-ième numéro ; le résidu, `0,04 %` à `0,47 %` des tirages selon le module, est
+calculé exactement) et remplace Babai par l'énumération exacte du pavé. Six témoins plantés
+avec un ou deux rejets sont tous rendus ; `583 890` énumérations sur les treize tirages,
+`0` incomplète, `0` état. **La famille congruentielle à constantes publiées est fermée sur les
+tirages ordonnés des deux côtés de `2³²`, et des deux côtés sans heuristique.**
 
 ## Ce qui reste ouvert, et pourquoi ce n'est pas de la paresse
 
@@ -278,4 +287,4 @@ zone grise.
 | le protocole du labo et les deux pistes | `lab/README.md` |
 | le relevé ordonné à produire | `lab/RELEVE_ORDONNE.md` |
 | tout recalculé depuis les sources | `python3 lab/verifier.py` |
-| les 311 lignes de registre | `lab/ledger.jsonl` |
+| les 312 lignes de registre | `lab/ledger.jsonl` |
