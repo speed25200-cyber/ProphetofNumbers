@@ -21,6 +21,11 @@ for old, new in (('STRIDES = tuple(range(20, 65))', 'STRIDES = tuple(range(65, 1
                  ('LES GRANDS MODULES SANS BABAI (§251)', 'LES GRANDS MODULES SANS BABAI, PAS 65 A 128 (§251 addendum)')):
     assert src.count(old) == 1, old
     src = src.replace(old, new)
+# DANS LE VRAI __main__, PAS DANS UN DICTIONNAIRE QUI S'APPELLE AINSI. `multiprocessing`
+# serialise `_travail` par son nom qualifie, `__main__._travail`, et va le chercher dans
+# sys.modules["__main__"] : une premiere version executait h227 dans un dictionnaire a
+# part nomme "__main__", et le pool mourait a la premiere tache — apres un autotest reussi.
 sys.argv = [os.path.join(ICI, "h227_grands_modules_exacts.py")]
-g = {"__name__": "__main__", "__file__": os.path.join(ICI, "h227_grands_modules_exacts.py")}
+g = sys.modules["__main__"].__dict__
+g["__file__"] = os.path.join(ICI, "h227_grands_modules_exacts.py")
 exec(compile(src, "h227b", "exec"), g)
