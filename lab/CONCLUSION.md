@@ -27,8 +27,8 @@ réseau ne voient un Fibonacci retardé.
 
 | famille | outil | ce qui la ferme |
 |---|---|---|
-| `F₂`-linéaire (Mersenne Twister, xorshift, LFSR, WELL) | complexité linéaire conjointe | **§124** : tout état de moins de `47 040` bits — **à condition que les sorties observées soient des fonctionnelles linéaires de l'état**, ce que la carte de rang `⌊u·20⌋` n'est pas (voir la précision du §124) |
-| `MT19937` **derrière la carte de rang** — le cas que la ligne ci-dessus ne couvre pas | élimination `GF(2)`, `19 937` inconnues | **§254** : les 109 pas de bloc `20`–`128` rendent tous un système **incompatible**, sur les données déjà publiées et sans capture |
+| `F₂`-linéaire (Mersenne Twister, xorshift, LFSR, WELL) | complexité linéaire conjointe | **§124** : tout état de moins de `47 040` bits, sous la carte de rang — ses deux bits exacts sont les bits `31` et `30` du mot, linéaires en l'état ; et, par la borne de Key, tout LFSR filtré de degré `δ` jusqu'à `L ≤ 306` (`δ=2`), `65` (`δ=3`), `33` (`δ=4`) |
+| `MT19937` sous la carte de rang — **confirmation constructive** de la ligne ci-dessus, par une méthode indépendante | élimination `GF(2)`, `19 937` inconnues | **§254** : les 109 pas de bloc `20`–`128` rendent tous un système **incompatible** |
 | `WELL19937a` derrière la même carte de rang | même machine | **§255** : les 109 pas `20`–`128` rendent tous un système **incompatible** — sous réserve de la fidélité de ma transcription du générateur, faute de référence sur la machine |
 | `WELL19937c`, la variante tempérée | même machine, tempérage ajouté aux formes de sortie | **§255, addendum 2** : les 109 pas `20`–`128` rendent tous un système **incompatible** — même réserve |
 | `Z/2^W`-linéaire (tous les congruentiels) | réseau euclidien | **§230** + **§232** : `30` jeux de constantes, **neuf** modules (`2¹⁶+1` à `2⁶⁴`), `614 400` relèvements, plus `1 024` cribles **exhaustifs** |

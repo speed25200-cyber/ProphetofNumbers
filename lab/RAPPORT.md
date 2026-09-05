@@ -12877,34 +12877,40 @@ sur deux suites indépendantes il rend `2N/3` et non `N/2`.
 > **2 543 bits**. MT19937 et WELL19937 aussi, et tout état plus petit, **nommé ou
 > non**.
 
-> **PRÉCISION — et elle rétrécit cette conclusion, sérieusement.** Le théorème dit :
-> *« si un générateur de largeur `W` a produit les `M` suites, son polynôme caractéristique
-> `χ` annule les `M` préfixes »*. Cette implication demande que **chaque suite observée soit
-> une fonctionnelle `F₂`-linéaire de l'état**. C'est vrai des bits bruts d'une sortie
-> tempérée ; ce n'est **pas** vrai des bits que ce paragraphe mesure.
+> **CORRECTION DE LA « PRÉCISION » — elle était fausse, et le §124 avait raison.** J'avais
+> inséré ici une précision disant que la borne `W ≥ 47 040` ne valait pas contre un générateur
+> caché derrière la carte de rang, parce que `⌊u·20⌋` est un seuil et non une forme linéaire.
+> C'est vrai **du rang** ; c'est faux **des deux bits que ce paragraphe mesure**. Ces deux bits
+> exacts sont `[r ≥ 10]` et `[r mod 10 ≥ 5]`, c'est-à-dire, puisque `u ∈ [r/20, (r+1)/20)` et
+> que `20 = 4 × 5`, **exactement les bits `31` et `30` du mot** — les mêmes qu'un générateur
+> `F₂`-linéaire produit comme fonctionnelles *linéaires* de son état, tempérage compris. Sous
+> l'hypothèse « modulo », les deux bits bas de `u mod 20` sont ceux de `u mod 4`, linéaires
+> aussi. Le théorème s'applique donc tel quel, et sa conclusion tient : **`W ≥ 47 040`, et
+> `MT19937`, `WELL19937` et `WELL44497b` sont exclus par ce paragraphe, sous la carte de rang,
+> à tout pas de bloc fixe.** J'ai confondu la non-linéarité de la carte avec celle des bits
+> retenus, et j'ai propagé l'erreur au §252, au §254 et à la conclusion ; tout est corrigé.
 >
-> Le rang du bonus vaut `⌊u·20⌋` (troncature) ou `u mod 20` (modulo). Ni l'un ni l'autre
-> n'est `F₂`-linéaire en `u` : le premier est un **seuil** avec ses retenues, le second un
-> modulo par un entier qui n'est pas une puissance de deux. Or une sortie **filtrée non
-> linéairement** peut avoir une complexité linéaire très supérieure à la largeur de son
-> état — c'est exactement le principe du *filtered LFSR*, et c'est pour cela qu'on en
-> construit.
+> **Ce que la borne de Key ajoute, et c'est de la théorie utile.** Pour une sortie filtrée par
+> une fonction de degré `δ` d'un état `F₂`-linéaire de `L` bits, la complexité linéaire de la
+> suite vaut au plus `Σ_{i≤δ} C(L, i)`. La mesure `47 040` exclut donc, sans nommer personne :
 >
->     ce qui est etabli   aucun generateur F2-lineaire de largeur < 47 040 ne produit ces
->                         suites COMME FONCTIONNELLES LINEAIRES DE SON ETAT
->     ce qui ne l'est pas W >= 47 040 pour un generateur cache derriere une carte non
->                         lineaire — MT19937 suivi de floor(u*20) n'est PAS exclu ici
+>     δ = 1  (filtre lineaire)      L < 47 040     <- MT19937, WELL19937, WELL44497b
+>     δ = 2                         L <= 306
+>     δ = 3                         L <= 65
+>     δ = 4                         L <= 33
+>     δ = 5                         L <= 23
 >
-> La conclusion sur `WELL44497b` et `MT19937` vaut donc contre un générateur qui publierait
-> des **bits d'état** ; elle ne vaut pas contre le même générateur suivi de la carte de rang.
-> C'est la cinquième fois qu'une conclusion est recopiée plus large que sa source, et cette
-> fois-ci c'est moi qui l'ai recopiée.
+> Autrement dit, un LFSR filtré non linéairement n'échappe à ce paragraphe que s'il est à la
+> fois **grand et de haut degré** — et en dessous de `2²⁸` états, l'argument des doublons du
+> §229 le prend de toute façon.
 >
-> **Et cela a une conséquence constructive**, qui n'est pas une consolation : elle
-> **re-légitime** l'attaque `MT19937` de la branche `codex`, qui procède par élimination
-> `GF(2)` sur les tirages **ordonnés** et non par complexité linéaire. Là où ce paragraphe
-> croyait avoir rendu cette attaque superflue, il ne l'a pas fait — et c'est précisément
-> pourquoi la campagne de capture du §249 garde tout son sens.
+> **Les §254, §255 et §256 restent valides** : ce sont des exclusions *constructives* — on
+> monte le système à `19 937` ou `44 497` inconnues et il rend `0 = 1` —, obtenues par une
+> méthode indépendante de celle-ci. Deux méthodes qui ne partagent aucune hypothèse et rendent
+> le même verdict, c'est mieux qu'une. Mais leur présentation comme « premières fermetures »
+> d'un trou du §124 est retirée : le trou n'existait pas. Les jetons scellés de `h229`,
+> `h230` et `h231` portent cette présentation erronée dans leur hypothèse ; un jeton scellé
+> ne se réécrit pas, et la correction vit ici.
 
 **Registre : consigné.** `m = 58 148`, zéro significatif.
 
@@ -24585,9 +24591,9 @@ large qu'elle n'est :
 
 | ce qui est fermé | par quoi | nature |
 |---|---|---|
-| générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
-| `MT19937` derrière la carte de rang du §106, pas `20`–`128` | §254 et son addendum, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
-| `WELL19937a` derrière la carte de rang, pas `20`–`128` | §255 et son addendum, même machine | **certaine** — sous réserve de la fidélité de la transcription, dite au §255 |
+| générateurs `F₂`-linéaires `< 47 040` bits, sous la carte de rang, à tout pas fixe — et, par la borne de Key, leurs filtres de degré `δ` jusqu'à `L ≤ 306` (`δ=2`), `65` (`δ=3`), `33` (`δ=4`) | §124, complexité conjointe | **certaine** |
+| `MT19937` sous la carte de rang, pas `20`–`128` | §254, élimination `GF(2)` sur `19 937` inconnues | **certaine** — confirmation constructive du §124, méthode indépendante |
+| `WELL19937a` sous la carte de rang, pas `20`–`128` | §255, même machine | **certaine** — confirmation constructive du §124, sous réserve de la fidélité de la transcription |
 | `WELL19937c` (tempéré), même carte, pas `20`–`128` | §255, addendum 2 | **certaine** — même réserve, étendue aux constantes de tempérage |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m = 2²⁹` à `2³²`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
@@ -24731,13 +24737,12 @@ Sauf que le §88 teste un **autre modèle** :
 > Aucun des deux ne couvre l'autre. **Le §88 a le bon générateur et la mauvaise lecture ; le
 > §106 a la bonne lecture et pas ce générateur-là.** Chacun pouvait croire l'autre suffisant.
 
-Et le §124 ne comble pas le trou non plus. On pourrait croire `W ≥ 47 040` décisif contre
-`MT19937` et ses `19 937` bits — mais la précision ajoutée au §124 dit pourquoi non : ce
-théorème exige que les suites observées soient des fonctionnelles **linéaires** de l'état, et
-`⌊u·20⌋` est un **seuil**. Une sortie filtrée non linéairement peut avoir une complexité
-linéaire bien supérieure à la largeur de son état — c'est le principe même du *filtered LFSR*.
-
-**MT19937 sous la carte de rang n'était donc fermé nulle part.**
+**Et le §124 ?** J'ai d'abord écrit ici qu'il ne comblait pas ce trou, au motif que `⌊u·20⌋`
+n'est pas une forme linéaire. C'était faux, et la correction est au §124 : les deux bits exacts
+du rang **sont** les bits `31` et `30` du mot, linéaires en l'état, et `W ≥ 47 040` exclut bien
+`MT19937` sous cette carte. Ce paragraphe n'est donc pas une première fermeture mais une
+**confirmation constructive**, par une méthode qui ne partage aucune hypothèse avec la
+complexité linéaire — et deux verdicts indépendants valent mieux qu'un.
 
 ### Le décalage interne s'absorbe, il n'est pas négligé
 
