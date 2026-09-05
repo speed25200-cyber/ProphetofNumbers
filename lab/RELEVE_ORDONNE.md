@@ -190,6 +190,10 @@ planté et refuse une entrée triée :
     #    congruentiel de module <= 2^32, rejet simule des le filtre (§248, §258)
     python3 claude/research/lcg_family_solver.py crible ordered.txt
 
+    # 1b. au-dessus de 2^32, les constantes publiees sous tout motif de rejet (R <= 4),
+    #     pave enumere exactement (§259) — lit lab/draws_ordered.csv tel quel
+    python3 lab/experiments/h233_grands_modules_sous_rejet.py
+
     # 2. un SEGMENT a identifiants consecutifs (§249) : le pas de bloc W, un holdout intact,
     #    verdict RECOVERED / REJECTED / INCONCLUSIVE
     python3 claude/research/lcg_family_solver.py scan ordered.txt --holdout 50 --strides 20,21,22,23,24
