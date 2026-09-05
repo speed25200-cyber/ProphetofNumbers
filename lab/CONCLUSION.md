@@ -1,7 +1,8 @@
 # Ce qu'il faut retenir — une page
 
-Le rapport fait vingt-trois mille lignes et deux cent quatre-vingt-cinq expériences. Cette
-page-ci dit ce qu'il en sort, pour quelqu'un qui veut décider quoi faire.
+Le rapport fait vingt-cinq mille lignes, deux cent soixante sections et trois cent quatorze
+expériences pré-enregistrées. Cette page-ci dit ce qu'il en sort, pour quelqu'un qui veut
+décider quoi faire.
 
 ## La question, et la réponse
 
