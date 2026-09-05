@@ -488,6 +488,166 @@ static void sweep(int bits, const char *chemin, unsigned long part, unsigned lon
            part, nparts, bits, faits, nclasses, survivants, noeuds, dt);
 }
 
+/* Mode `multi` : PLUSIEURS suites de classes — une par tirage ORDONNE — contre le meme
+ * balayage. La reduction LLL, qui domine le cout (~50 us sur 54), ne depend que de (a, m) :
+ * elle est faite UNE fois par multiplicateur, puis chaque suite a son pave, son enumeration
+ * et sa verification. Treize suites coutent ainsi ~1,7 fois une seule, et non treize.
+ *
+ * Chaque suite est lue comme des mots CONSECUTIFS : un rejet dans la fenetre rend la suite
+ * illisible pour ce tirage, ce que le script d'appel chiffre (P(sans rejet) sur k mots) et
+ * compense par le nombre de tirages. */
+#define NSEQ 64
+#define KMOTS 10                  /* classes lues comme mots consecutifs : reseau + intersection */
+static int cls_s[NSEQ][64];       /* les KMOTS premieres classes de chaque suite */
+static int num_s[NSEQ][64];       /* le tirage ENTIER, dans l'ordre d'emission */
+static long ncl_s[NSEQ], nnum_s[NSEQ];
+
+/* LE TIRAGE ENTIER, REJET SIMULE : un mot dont le numero est deja sorti est consomme sans
+ * rien publier ; sinon il doit etre le suivant attendu. */
+static int rejoue_rejet(uint64_t a, uint64_t c, uint64_t x0, uint64_t m, const int *num,
+                        long nnum)
+{
+    uint64_t w = x0;
+    long pos = 0;
+    char vus[POOL];
+    memset(vus, 0, sizeof vus);
+    for (int k = 0; k < 300 && pos < nnum; k++) {
+        int v = classe(w, m);
+        if (!vus[v]) {
+            if (v != num[pos]) return 0;
+            vus[v] = 1;
+            pos++;
+        }
+        w = (uint64_t)(((unsigned __int128)a * w + c) % m);
+    }
+    return pos == nnum;
+}
+
+/* LA FAMILLE, BALAYEE PAR SEGMENTS. Le couple rendu par `verifie` est un membre de la
+ * famille (x1 + d, c1 + d(1 - a)), qui reproduit les KMOTS classes pour tout d d'un
+ * intervalle ; le tirage ENTIER, rejets compris, ne l'est que pour certains d. Les classes
+ * des mots x_j' + d ne changent qu'aux frontieres k*m/80 : on collecte ces points de
+ * rupture pour |d| < m/80 et l'on rejoue un d par segment. */
+static int cmp_i128(const void *u, const void *v)
+{
+    i128 a = *(const i128 *)u, b = *(const i128 *)v;
+    return a < b ? -1 : a > b;
+}
+
+static int verifie_complet(uint64_t a, uint64_t m, uint64_t c1, uint64_t x1,
+                           const int *num, long nnum, uint64_t *x0out, uint64_t *cout)
+{
+    i128 rup[4096];
+    int nr = 0;
+    i128 lim = (i128)m / POOL;
+    rup[nr++] = -lim + 1;
+    uint64_t w = x1;
+    for (int j = 0; j < 300 && nr < 4000; j++) {
+        /* frontieres k*m/80 a distance < m/80 de w */
+        i128 k0 = ((i128)w * POOL) / (i128)m;
+        for (i128 k = k0 - 1; k <= k0 + 2; k++) {
+            i128 B = (k * (i128)m + POOL - 1) / POOL;
+            i128 d = B - (i128)w;
+            if (d > -lim && d < lim) rup[nr++] = d;
+        }
+        w = (uint64_t)(((unsigned __int128)a * w + c1) % m);
+    }
+    qsort(rup, (size_t)nr, sizeof rup[0], cmp_i128);
+    for (int t = 0; t < nr; t++) {
+        if (t && rup[t] == rup[t - 1]) continue;
+        i128 d = rup[t];
+        uint64_t x0 = (uint64_t)((((i128)x1 + d) % (i128)m + (i128)m) % (i128)m);
+        i128 cc = ((i128)c1 + d * ((i128)1 - (i128)a)) % (i128)m;
+        if (cc < 0) cc += (i128)m;
+        if (rejoue_rejet(a, (uint64_t)cc, x0, m, num, nnum)) {
+            *x0out = x0; *cout = (uint64_t)cc;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int lire_suites(const char *chemin)
+{
+    FILE *f = fopen(chemin, "r");
+    if (!f) { perror(chemin); exit(2); }
+    char ligne[4096];
+    int ns = 0;
+    while (ns < NSEQ && fgets(ligne, sizeof ligne, f)) {
+        long k = 0;
+        char *p = ligne;
+        for (;;) {
+            char *fin;
+            long v = strtol(p, &fin, 10);
+            if (fin == p) break;
+            if (v < 0 || v >= POOL) { fprintf(stderr, "classe hors 0..79\n"); exit(2); }
+            if (k < 64) cls_s[ns][k++] = (int)v;
+            p = fin;
+        }
+        if (k >= N + 2) {
+            nnum_s[ns] = k;
+            memcpy(num_s[ns], cls_s[ns], sizeof(int) * (size_t)k);
+            ncl_s[ns] = k < KMOTS ? k : KMOTS;
+            ns++;
+        }
+    }
+    fclose(f);
+    return ns;
+}
+
+static void multi(int bits, const char *chemin, unsigned long part, unsigned long nparts)
+{
+    uint64_t m = 1ULL << bits;
+    int ns = lire_suites(chemin);
+    if (ns < 1) { fprintf(stderr, "aucune suite d'au moins %d classes\n", N + 2); exit(2); }
+    struct Pave P[NSEQ];
+    for (int s = 0; s < ns; s++) {
+        nclasses = ncl_s[s];
+        memcpy(cls, cls_s[s], sizeof(int) * (size_t)nclasses);
+        pave_diff(&P[s], m, N);
+    }
+    uint64_t total = m / 2;
+    long survivants = 0, candidats = 0, noeuds = 0;
+    uint64_t faits = 0;
+    clock_t t0 = clock();
+    for (uint64_t idx = part; idx < total; idx += nparts) {
+        uint64_t a = 2 * idx + 1;
+        i128 Z[NMAX][NMAX];
+        base_mult(Z, N, a, m);
+        lll(Z, N);
+        for (int s = 0; s < ns; s++) {
+            i128 out[64][NMAX];
+            int nb = points_pave(Z, N, &P[s], out, 64, &noeuds);
+            if (!nb) continue;
+            nclasses = ncl_s[s];
+            memcpy(cls, cls_s[s], sizeof(int) * (size_t)nclasses);
+            for (int t = 0; t < nb; t++) {
+                uint64_t rx, rc, fx, fc;
+                if (verifie(a, m, out[t], N, &rx, &rc)) {
+                    candidats++;
+                    if (verifie_complet(a, m, rc, rx, num_s[s], nnum_s[s], &fx, &fc)) {
+                        survivants++;
+                        printf("*** SURVIVANT suite=%d m=2^%d a=%" PRIu64 " c=%" PRIu64
+                               " x0=%" PRIu64 " (tirage entier, rejets compris)\n",
+                               s, bits, a, fc, fx);
+                        fflush(stdout);
+                    }
+                }
+            }
+        }
+        if (((++faits) & 0xFFFFFF) == 0) {
+            double dt = (double)(clock() - t0) / CLOCKS_PER_SEC;
+            fprintf(stderr, "   part %lu : %" PRIu64 " / %" PRIu64 " (%.1f%%), %.0f s\n",
+                    part, faits, total / nparts, 100.0 * faits / (total / nparts), dt);
+        }
+    }
+    double dt = (double)(clock() - t0) / CLOCKS_PER_SEC;
+    printf("part %lu/%lu : m = 2^%d, %" PRIu64 " multiplicateurs impairs, %d suites, "
+           "%ld candidat(s) sur %d classes, %ld survivant(s) sur le tirage entier, "
+           "%ld noeuds, %.0f s\n",
+           part, nparts, bits, faits, ns, candidats, KMOTS, survivants, noeuds, dt);
+}
+
 /* Mode `croise` : imprime, pour des instances tirees au hasard, le multiplicateur, les
  * classes et le NOMBRE de points du pave. `lab/cvp_exact.py` refait exactement le meme
  * calcul en Fraction ; si les deux comptes different, c'est que le `double` a
@@ -524,11 +684,18 @@ int main(int argc, char **argv)
         sweep(atoi(argv[2]), argv[3], part, nparts);
         return 0;
     }
+    if (argc >= 4 && !strcmp(argv[1], "multi")) {
+        unsigned long part = argc >= 5 ? strtoul(argv[4], NULL, 10) : 0;
+        unsigned long nparts = argc >= 6 ? strtoul(argv[5], NULL, 10) : 1;
+        multi(atoi(argv[2]), argv[3], part, nparts);
+        return 0;
+    }
     if (argc >= 5 && !strcmp(argv[1], "croise")) {
         croise(atoi(argv[2]), strtoul(argv[3], NULL, 10), atoi(argv[4]));
         return 0;
     }
     fprintf(stderr, "usage: %s autotest | bench <bits> | croise <bits> <graine> <reps>"
-            " | sweep <bits> <classes.txt> [<part> <nparts>]\n", argv[0]);
+            " | sweep <bits> <classes.txt> [<part> <nparts>]"
+            " | multi <bits> <suites.txt> [<part> <nparts>]\n", argv[0]);
     return 1;
 }
