@@ -24492,6 +24492,31 @@ Et les constantes restent celles qui sont **publiées**. C'est l'objet du §252.
 
 **Ligne de registre.** `h227.grands_modules_exacts`, piste B, conforme, `m_extra = 0`.
 
+### Addendum — les pas `65` à `128` (`h227b_grands_modules_pas_longs.py`)
+
+Ce paragraphe s'arrêtait au pas `64` et écrivait que les pas `65` à `128` *« restent couverts
+par la seule heuristique du §232 »*. C'était le dernier endroit du dossier où un zéro
+congruentiel à constantes publiées reposait encore sur Babai. Même machine, même fenêtre,
+même `n` par canal, même témoin :
+
+    60 flux plantes en autotest              -> 60 etats releves exactement
+    3 840 enumerations EXACTES en 8 483 s    -> 0 survivant
+    16 975 366 noeuds visites, budget jamais epuise
+
+`15` générateurs de module `> 2³²` × `64` pas × `2` canaux × `2` règles.
+
+> **Les pas `20` à `128` sont désormais couverts par énumération exacte, des deux côtés de
+> `2³²`.** Pour les constantes publiées, il ne reste dans la famille congruentielle aucun
+> zéro qui dépende d'une heuristique.
+
+Un accident d'outillage, qui vaut d'être noté : la première version exécutait `h227` dans un
+dictionnaire à part nommé `"__main__"`, et `multiprocessing`, qui sérialise `_travail` par son
+nom qualifié, ne le trouvait pas dans le vrai `sys.modules["__main__"]` — le pool mourait à la
+première tâche, **après** un autotest réussi. Aucune ligne de registre n'avait été écrite ;
+l'exécution se fait maintenant dans l'espace de noms du vrai module principal.
+
+**Ligne de registre.** `h227b.grands_modules_pas_longs`, piste B, conforme, `m_extra = 0`.
+
 ---
 
 ## 252. **Où se loge exactement ce qui reste** : la fenêtre des constantes non publiées, et son prix
@@ -24566,8 +24591,7 @@ large qu'elle n'est :
 | `WELL19937c` (tempéré), même carte, pas `20`–`128` | §255, addendum 2 | **certaine** — même réserve, étendue aux constantes de tempérage |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m = 2²⁹` à `2³²`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
-| congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
-| congruentiels `m > 2³²`, constantes publiées, pas `65`–`128` | §232, réseau + Babai | heuristique |
+| congruentiels `m > 2³²`, constantes publiées, pas `20`–`128` | §251 et son addendum, énumération exacte | **certaine** |
 | tirages ordonnés contre `m ≤ 2³²`, rejets compris | §248, énumération complète | **certaine** |
 | tout générateur d'état `S ≲ 2²⁸`, quelle que soit la famille | §229, doublons | certaine |
 | `35 280` retards, `2¹²⁸¹` parités, `36,1` millions de tests | §228, §231, registre | certaine |

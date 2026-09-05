@@ -104,6 +104,11 @@ complète et en simulant le rejet dès le filtre, ferme la moitié `m ≤ 2³²`
 congruentielle *sans aucune heuristique* — là où le §246 la fermait par un réseau qui suppose
 un préfixe sans rejet, hypothèse fausse dans `17` à `87 %` des tirages selon le module.
 
+Et le §251, avec son addendum, fait de même pour `m > 2³²` sur les pas `20` à `128` : Babai
+remplacé par l'énumération exacte du pavé, `6 540` énumérations, `0` survivant. **Pour les
+constantes publiées, aucun zéro de la famille congruentielle ne repose plus sur une
+heuristique.**
+
 ## Ce qui reste ouvert, et pourquoi ce n'est pas de la paresse
 
 1. **Les mélangeurs non linéaires.** `splitmix64` multiplie et décale ; PCG fait une rotation
