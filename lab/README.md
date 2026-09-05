@@ -217,6 +217,13 @@ Ce qui est relevé à l'écran va dans deux fichiers, et la distinction compte :
 | `draws_ordered.csv` | tirages dont **l'ordre de sortie** est visible | §68 à §86 — et eux seuls |
 | `observations_ecran.csv` | ce que l'écran publie tel quel, ordre absent possible, mais avec le **boost affiché** (`1.5` compris) et le **bonus** | §92 |
 
+`draws_ordered.csv` compte **treize** lignes. Douze viennent de l'écran, des vidéos ou de
+l'API ; la treizième (`1382010`, source `signalr-codex-REPRISE_ETAT`) est la transcription
+d'une capture active du flux d'animation `SignalR` rapportée dans `claude/REPRISE_ETAT.md`
+de la branche `codex/state-reconstruction-continuation` — la seule donnée ordonnée du dépôt
+qui n'était pas encore ici, et le seul relevé qui soit le **premier tirage de sa journée**
+(§258).
+
 **Deux relevés manquent, et ils sont petits.** (1) Un enregistrement d'un *seul*
 tirage montrant la grille **se remplir boule après boule** puis la boule EXTRA
 du même tirage : il tranche le §37, indécidable depuis. (2) **Vingt arrêts de la

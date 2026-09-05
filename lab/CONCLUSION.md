@@ -109,6 +109,16 @@ remplacé par l'énumération exacte du pavé, `6 540` énumérations, `0` survi
 constantes publiées, aucun zéro de la famille congruentielle ne repose plus sur une
 heuristique.**
 
+**Un treizième relevé, et il vient du dépôt lui-même (§258).** La branche `codex` (PR #3)
+rapporte, en prose, la première capture active du flux `SignalR` : le tirage `1382010` du
+4 septembre, ordre complet, bonus `37`, boost `×2`, les vingt numéros présents à `+30,1 s` de
+la clôture. C'est le seul relevé qui soit le **premier tirage de sa journée** — créneau `0` sur
+`204` —, donc les premiers mots d'un générateur qui serait réamorcé chaque matin. Le crible
+exhaustif du §248, relancé sur les treize relevés : `572` cribles complets, `0` état, sur le
+premier de la journée comme sur les autres. Et la voie qui l'a produit **fonctionne** : le
+pipeline de capture de cette branche a capté, validé contre le `REST` du même identifiant, et
+exporté un tirage réel. Il ne manque qu'une machine qui joigne `loro.ch`, et des jours.
+
 ## Ce qui reste ouvert, et pourquoi ce n'est pas de la paresse
 
 1. **Les mélangeurs non linéaires.** `splitmix64` multiplie et décale ; PCG fait une rotation
@@ -267,4 +277,4 @@ zone grise.
 | le protocole du labo et les deux pistes | `lab/README.md` |
 | le relevé ordonné à produire | `lab/RELEVE_ORDONNE.md` |
 | tout recalculé depuis les sources | `python3 lab/verifier.py` |
-| les 285 lignes de registre | `lab/ledger.jsonl` |
+| les 310 lignes de registre | `lab/ledger.jsonl` |

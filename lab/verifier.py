@@ -644,25 +644,27 @@ def bloc_ordonnes():
     0..79 dans l'ordre et retient au passage, donc sous sa forme naturelle elle sort
     TRIEE PAR INDICE.
     """
-    print("\n13. LES DOUZE TIRAGES ORDONNES, et la regle qu'ils eliminent")
+    print("\n13. LES TREIZE TIRAGES ORDONNES, et la regle qu'ils eliminent")
     chemin = os.path.join(ROOT, "draws_ordered.csv")
     L = [r for r in csv.DictReader(open(chemin, encoding="utf-8"))]
-    dit("douze tirages ordonnes", len(L) == 12, len(L), "12")
+    dit("treize tirages ordonnes (douze au §214, le treizieme au §258)",
+        len(L) == 13, len(L), "13")
 
     V = np.array([[int(r[f"o{j}"]) for j in range(1, DRAWN + 1)] for r in L], np.int64)
     dit("vingt numeros distincts par tirage",
         bool((np.diff(np.sort(V, axis=1), axis=1) > 0).all()), "tous", "")
     croissants = int((np.diff(V, axis=1) > 0).all(axis=1).sum())
     dit("AUCUN tirage croissant -> Knuth S en ordre d'indice eliminee",
-        croissants == 0, f"{croissants}/12 croissants", "0/12")
+        croissants == 0, f"{croissants}/{len(L)} croissants", f"0/{len(L)}")
 
     # nombre de montees : sous permutation uniforme de n elements, moyenne (n-1)/2 et
     # variance (n+1)/12, toutes deux EXACTES.
     montees = (np.diff(V, axis=1) > 0).sum(axis=1).astype(np.float64)
     mu, var = (DRAWN - 1) / 2, (DRAWN + 1) / 12
     z = (montees.mean() - mu) / sqrt(var / len(montees))
+    # 112 montees sur les douze tirages du §214 ; le treizieme (§258) en apporte 11.
     dit("montees : moyenne conforme a (n-1)/2",
-        proche(montees.mean(), 9.333, 5e-3) and abs(z) < 3,
+        proche(montees.mean(), 123 / 13, 5e-3) and abs(z) < 3,
         f"{montees.mean():.3f}, z = {z:+.2f}", f"{mu} +/- {sqrt(var/len(montees)):.3f}")
     dit("variance exacte des montees = (n+1)/12", proche(var, 1.75, 1e-12),
         f"{var:.4f}", "1,7500")

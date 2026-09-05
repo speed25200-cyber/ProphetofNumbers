@@ -25028,3 +25028,126 @@ sont écrits et calibrés. C'est là, et seulement là, que la théorie accumul�
 une arme.
 
 ---
+
+## 258. **La donnée ordonnée que le dépôt portait déjà** : le treizième tirage, et le seul qui soit le premier de sa journée (`h232_treizieme_tirage_premier_du_jour.py`)
+
+### La consigne, et ce que le fouillage a couvert
+
+« La donnée ordonnée est dispo dans le repo, fouille mieux. » Les trois vidéos des releases
+(§129, §130) étaient déjà transcrites ; il fallait donc chercher **ailleurs que là où j'avais
+déjà trouvé**. Le fouillage a couvert le dépôt distant en entier, et il se dit pour qu'on
+sache ce qu'il n'a pas manqué :
+
+    les 8 branches                 arbres complets, 1 005 fichiers distincts (chemin x taille x branche)
+    tous les objets git            cat-file --batch-all-objects : 2 370 objets epars + 1 788 empaquetes ;
+                                   4 inatteignables (2 commits d'etape, un binaire ELF, un vieux RAPPORT)
+    les 3 releases                 les videos, empreintes SHA-256 re-verifiees
+    les 3 PR                       corps et commentaires ; 0 issue ; 0 execution d'Actions
+    les 19 captures d'ecran        que la conversation portait, re-extraites et relues
+
+Il en sort **une** donnée ordonnée que `draws_ordered.csv` n'avait pas — une seule, et elle
+n'est ni dans une vidéo, ni dans l'API, ni dans un fichier de capture. Elle est dans la
+**prose** : `claude/REPRISE_ETAT.md` de la branche `codex/state-reconstruction-continuation`
+(PR #3), commit `6f26f34` du 4 septembre, blob `b73b0fd9`. Le texte rapporte la première
+capture **active** du flux d'animation `SignalR` que le §247 nommait comme seul canal d'ordre :
+
+    tirage 1382010      wagerEndDate = 2026-09-04T04:05:00Z  (06:05 Europe/Zurich)
+    DrawScene           +30,107 s : 22 24 30 41 6 76 73 9 45 36 37 54 39 21 72 15 10 38 64 79
+    ExtraScene          +146,1 s  : bonus 37    (le boost, x2, est deja dans le DrawScene)
+    verdict du collecteur   VERIFIED_ORDER, qualifie order_scope = ANIMATION_SEQUENCE_ONLY
+
+Ce que le fouillage n'a **pas** trouvé se dit aussi. Les captures d'écran du 4 septembre
+parlaient d'un tirage `1382041` « relu en `VERIFIED_ORDER` depuis les octets originaux » :
+ses fichiers sont exclus du dépôt par le `.gitignore` de la branche (`capture*.jsonl`,
+`ordered*.txt`, `*.manifest.jsonl`, `captures/`), et aucun objet git, atteignable ou non, ne
+porte cet identifiant. Il n'existe que sur la machine qui l'a capté. Les trois blobs qui
+contiennent un tableau `balls` sont les versions successives de `test_capture_order.py`, et
+leur tableau est synthétique — `[20, 1, 80] + range(2, 19)`.
+
+### Ce que ce tirage a que les douze autres n'ont pas
+
+La journée compte `204` créneaux et la numérotation les franchit sans une exception (§249).
+Depuis le dernier identifiant de l'archive — `1380173`, le 25 août à `21:00Z` :
+
+    1382010 − 1380173 = 1837 = 9 × 204 + 1
+
+Il est donc le **premier tirage du 4 septembre**, créneau `0`. Son heure le confirme :
+`04:05Z` est l'heure du premier tirage sur `191` des `345` journées de l'archive (les `154`
+autres, d'hiver, sont à `05:05Z`). Et la même arithmétique replace les douze autres relevés
+dans leur journée, avec une vérification que je n'avais pas faite :
+
+    1381023:33  1381026:36  1381028:38  1381030:40  1381031:41
+    1381256:62  1381257:63  1381258:64  1381259:65
+    1381278:84  1381481:83  1381483:85            1382010:0
+
+Les créneaux `84`, `83` et `85` tombent à `13:05`, `13:00` et `13:10` heure locale — et les
+trois vidéos s'appellent `13-05-00`, `13-00-20` et `13-10-08`. **La numérotation et l'horloge
+des vidéos se recoupent à la minute**, sur trois tirages pris à deux jours d'écart.
+
+> Douze relevés aux créneaux `33` à `85` ; un seul au créneau `0`. Si un générateur est
+> réamorcé chaque matin, ces vingt numéros ordonnés sont ses **premiers mots** — la situation
+> que les balayages de graine du dossier visaient, mais qu'aucun tirage ordonné n'avait encore
+> montrée.
+
+Onze montées sur dix-neuf ; la moyenne des treize relevés passe à `9,46` pour `9,5` attendu
+(`z = −0,10`), et la règle de Knuth en ordre d'indice reste éliminée (`0/13` croissants).
+
+### Ce qu'il permet, et ce qu'il ne permet pas — dit avant de calculer
+
+  * **Les balayages de graine ne gagnent rien.** Les §133, §161, §200 à §204, §212 et §214
+     travaillaient sur les `346` premiers tirages **triés** de l'archive, et un ensemble trié
+     est déjà un filtre à `61,6` bits : par graine, une coïncidence fausse a une probabilité
+     de `1/C(80,20)`. L'ordre n'ajoute aucun pouvoir de détection à ces zéros-là. Ils ne
+     sont pas refaits.
+  * **Les cribles des plans bas ne sont pas décisifs sur un tirage seul.** Les §154 et §159
+     tirent leur marge de plusieurs tirages d'une même journée ; un tirage isolé livre `22`
+     bits bas exacts contre des plans de `L ≤ 17` bits chacun. Cellule non décisive, et on
+     le dit plutôt que de faire tourner un instrument aveugle.
+  * **Ce qui gagne un tirage ordonné de plus, c'est l'instrument qui lit chaque tirage seul
+     et sans hypothèse** : le crible exhaustif du §248, qui énumère **tous** les états d'un
+     générateur congruentiel de module `≤ 2³²` en simulant le rejet dès le filtre. Un
+     réamorçage matinal ne lui change rien — il ne suppose pas d'état, il les essaie tous —,
+     donc son zéro, s'il vient, couvre aussi « le premier tirage après la graine du jour ».
+
+### Le crible
+
+Pré-enregistré (`h232`, piste B, jeton `44e9c40bdde660c2`) **après** la vérification de
+provenance — la ligne du CSV est relue contre le blob git, mot pour mot — et **avant** de
+lire les tirages. L'autotest du solveur passe comme au §248 : `44` couples plantés, `44`
+états relevés, `9` témoins avec un rejet dans la fenêtre même du filtre, témoin négatif à
+zéro. Les douze tirages du §248 sont recriblés comme contrôle de régression.
+
+    15 generateurs x 3 mappings x 13 tirages       585 cribles annonces
+    572 cribles COMPLETS en 414 s                   (4 coeurs, partages avec h231)
+    13 IMPOSSIBLES PAR CONSTRUCTION                 le ZX81 sous shr16 (image de 2 numeros)
+    treizieme tirage                                0 etat
+    les douze du §248                               0 etat, comme alors
+
+La nulle est un compte, pas une loi : `126` bits de contrainte contre un état d'au plus `32`,
+espérance des faux positifs sous `2⁻⁷⁰` sur la grille entière. **Conforme.** L'absence est
+certaine sur toute la famille de module `≤ 2³²`, pour le premier tirage d'une journée comme
+pour les autres, sans hypothèse de préfixe sans rejet.
+
+### Ce que ça change, et ce que ça ne change pas
+
+**Ce qui change.** Treize relevés au lieu de douze ; le premier créneau `0` ; et surtout une
+**voie qui marche** : le pipeline de la PR #3 (`capture_order.py`, `capture_campaign.py`) a
+capté un tirage réel, l'a validé contre le `REST` du même identifiant, et son résultat est
+exact — c'est la campagne prospective que le §247 (correction) décrivait comme la seule
+route vers un relevé **continu**. Ce qu'elle rapporte en plus, et qu'aucune vidéo ne donnait :
+la chronologie. Les vingt numéros sont tous dans le `DrawScene` à `+30,107 s` de la clôture,
+avant qu'une seule boule soit animée ; le bonus suit à `+146,1 s`, soit `30 + 20 × 5,5 + 6`.
+L'animation ne révèle pas un tirage en cours ; elle rejoue un tirage **fixé**.
+
+**Ce qui ne change pas.** Treize relevés isolés ne chaînent toujours pas — un état qui
+reproduit un tirage seul n'établit rien, le suivant seul tranche (§247, §249). La route
+existe et elle a été empruntée une fois ; cet environnement ne la joint pas (`403` au
+`CONNECT` vers `loro.ch`), donc elle se parcourt depuis une machine qui le peut, et
+`lab/RELEVE_ORDONNE.md` (addendum §258) dit avec quoi.
+
+**Lignes de registre.** `h232.treizieme_tirage_premier_du_jour`, piste B, conforme, `m_extra = 0`.
+Le registre compte `310` lignes ; le plus petit `p` reste celui du §131, l'angle de la roue
+(`1,81·10⁻⁴`, contre un seuil de Holm à `1,61·10⁻⁴`) : **zéro résultat significatif sur le
+registre entier.**
+
+---

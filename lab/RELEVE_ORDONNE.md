@@ -155,3 +155,30 @@ les attaques d'alignement que le §7.33 avait fermées faute de mots consécutif
 
 **C'est le seul levier du dossier qui multiplie la donnée par cinq mille, et il ne demande ni
 caméra ni calcul.**
+
+---
+
+## Addendum (§258) — un relevé de plus, et la voie qui l'a produit
+
+Le levier « ni caméra ni calcul » ci-dessus est **retiré** : le §247 (correction) établit que
+chaque endpoint `REST`, dans les trois langues, sert un ensemble **déjà trié**, et qu'aucun
+objet de boule ne porte de position. La seule source d'ordre est le flux d'animation
+`SignalR` (`POST /api/animation/negotiate`, puis `SendCurrentState`, champ `meta[lang].balls`),
+et il est **direct** : un tirage ordonné toutes les cinq minutes, jamais l'historique.
+
+Ce flux a déjà été capté une fois, et la capture est dans le dépôt — pas dans un fichier de
+données, dans la prose de `claude/REPRISE_ETAT.md` de la branche
+`codex/state-reconstruction-continuation` (PR #3) :
+
+    1382010   22 24 30 41 6 76 73 9 45 36 37 54 39 21 72 15 10 38 64 79   bonus 37   boost 2
+    DrawScene a +30,107 s de la cloture (2026-09-04T04:05:00Z), ExtraScene a +146,1 s
+
+C'est la **treizième** ligne de `draws_ordered.csv`, et la seule qui soit le **premier tirage
+de sa journée** (créneau `0` sur `204`). Le §258 dit ce qu'elle rend.
+
+**Pour en produire d'autres**, l'outil existe sur cette branche : `claude/research/capture_order.py`
+(un tirage, avec validation contre le `REST` du même identifiant) et `capture_campaign.py`
+(une série, segmentée aux nuits et aux trous d'identifiant). Il faut une machine qui joigne
+`loro.ch` — cet environnement ne le peut pas (`403` au `CONNECT`) — et le §249 donne le
+plafond de ce qu'une campagne peut contenir : `204` tirages à pas de `300 s` exactement, mais
+`70 560` à identifiant consécutif, la nuit ne cassant jamais la numérotation.
