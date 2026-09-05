@@ -25035,6 +25035,25 @@ données.
 
 **Ligne de registre.** `h231.well44497b_sous_troncature`, piste B, WELL44497b EXCLU, `m_extra = 0`.
 
+### Addendum — les pas `42` à `128` (`h231b_well44497b_pas_longs.py`)
+
+Le paragraphe disait que ce prolongement se ferait et n'apporterait qu'une confirmation de
+plus. Il a été fait, à la même machine, sous la même lecture, avec le témoin planté à un pas de
+**cet** intervalle, et le balayage découpé entre quatre processus comme au-dessus.
+
+    temoin, WELL44497b plante au pas 97  : COHERENT, rang 44 497/44 497, 14 194 tirages, 1 115 s
+    87 pas balayes (42 a 128), 13 879 a 13 885 tirages par systeme
+    rang atteint : 44 492 a 44 497 sur 44 497, puis 0 = 1 a chaque fois
+    727 a 1 941 s par pas, 86 447 s de calcul en tout (24 h CPU, 6 h 30 sur quatre coeurs)
+    0 compatible, 0 incomplet            ->  WELL44497b EXCLU
+
+> **Les pas `20` à `128` sont couverts sans trou pour les quatre noms** — `MT19937`,
+> `WELL19937a`, `WELL19937c`, `WELL44497b` —, sous la réserve de fidélité dite plus haut pour
+> les trois derniers. Le §124 le disait d'un coup, sans famille ; la machine le redit nom par
+> nom, pas par pas.
+
+**Ligne de registre.** `h231b.well44497b_pas_longs`, piste B, WELL44497b EXCLU, `m_extra = 0`.
+
 ---
 
 ## 257. **La frontière de la théorie** : ce qu'une mathématique nouvelle pourrait atteindre ici, et ce qu'elle ne pourrait pas
