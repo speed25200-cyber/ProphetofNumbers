@@ -24563,6 +24563,7 @@ large qu'elle n'est :
 | générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
 | `MT19937` derrière la carte de rang du §106, pas `20`–`128` | §254 et son addendum, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
 | `WELL19937a` derrière la carte de rang, pas `20`–`128` | §255 et son addendum, même machine | **certaine** — sous réserve de la fidélité de la transcription, dite au §255 |
+| `WELL19937c` (tempéré), même carte, pas `20`–`128` | §255, addendum 2 | **certaine** — même réserve, étendue aux constantes de tempérage |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m = 2²⁹` à `2³²`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
@@ -24867,5 +24868,35 @@ Comme pour `MT19937` au §254 : même machine, même lecture, témoin planté au
 > sous la réserve de fidélité dite plus haut pour le second.
 
 **Ligne de registre.** `h230b.well19937_pas_longs`, piste B, WELL19937a EXCLU, `m_extra = 0`.
+
+### Addendum 2 — la variante tempérée, `WELL19937c` (`h230c_well19937c_tempere.py`)
+
+Ce paragraphe nommait la variante `c` parmi ce qu'il ne couvre pas. Elle ne diffère de la
+variante `a` que par un **tempérage** de la sortie, que le code de référence active par
+`#define TEMPERING` :
+
+    y  = v ^ ((v << 7)  & 0xe46e1700)
+    y ^=     ((y << 15) & 0x9b868000)
+
+Deux masques, deux décalages, `F₂`-linéaires comme tout le reste : l'état, la récurrence, les
+`19 937` inconnues et la lecture sont ceux d'au-dessus, seules les formes de **sortie**
+changent. Les mêmes contrôles, dans le même ordre :
+
+    formes temperees contre entiers temperes, 1 500 pas    : JUSTE
+    WELL19937c plante, pas 21   : COHERENT, rang 19 937/19 937, 6 525 tirages
+    WELL19937c plante, pas 97   : COHERENT, rang 19 937/19 937, 6 521 tirages
+    temoin NEGATIF              : INCOHERENT
+
+    109 pas balayes (20 a 128) en 12 063 s
+    rang atteint : 19 934 a 19 937 sur 19 937, puis 0 = 1 a chaque fois
+    0 compatible, 0 incomplet            ->  WELL19937c EXCLU
+
+La réserve de fidélité tient, et s'étend aux deux constantes de tempérage.
+
+> Sous la carte de rang du §106, sur les pas `20` à `128`, sur les données déjà publiées :
+> **ni `MT19937`, ni `WELL19937a`, ni `WELL19937c`.** La phrase du §106 n'a plus de reste,
+> hormis `WELL44497b` — qui attendra une implémentation de référence.
+
+**Ligne de registre.** `h230c.well19937c_tempere`, piste B, WELL19937c EXCLU, `m_extra = 0`.
 
 ---
