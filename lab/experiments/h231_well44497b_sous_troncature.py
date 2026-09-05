@@ -55,6 +55,7 @@ POOL, DRAWN = 80, 20
 KB = DRAWN
 EXP_ID = "h231.well44497b_sous_troncature"
 FJETON = "/tmp/h231_jeton.json"
+CACHE = "/tmp/h231_faits.json"   # un pas coute dix minutes, et la machine redemarre
 STRIDES = tuple(range(20, 42))
 EXTRA = 300
 R, P, M1, M2, M3 = 1391, 15, 23, 481, 229
@@ -292,27 +293,53 @@ if __name__ == "__main__":
     if not ok:
         raise SystemExit("la propagation des formes ne suit pas la transcription entiere")
 
+    # UN CACHE PAR PAS. Chaque systeme coute une dizaine de minutes sur 44 497 inconnues,
+    # et le conteneur a deja ete redemarre deux fois en cours de balayage. Chaque pas
+    # termine — et le temoin, deterministe par sa graine — est ecrit dans CACHE ; une
+    # relance ne refait que ce qui manque, et la ligne de registre couvre tout.
+    deja = json.load(open(CACHE, encoding="utf-8")) if os.path.exists(CACHE) else {}
+
+    def consigne_cache():
+        json.dump(deja, open(CACHE, "w", encoding="utf-8"), ensure_ascii=False)
+
     say("\n   controle 2 : un WELL44497b plante, lu par la carte de rang")
     import random
     rng = random.Random(231_231)
     st = [rng.getrandbits(32) for _ in range(R)]
     nt = besoin + EXTRA + 600
-    outs = sorties_int(st, nt * 21 + 8)
-    rg = [(outs[t * 21 - 1] * KB) >> 32 if t else 0 for t in range(nt)]
-    v, rang, tt, dt = attaque(rg, 21, BUDGET * 3)
-    say(f"      pas 21 : {v}, rang {rang:,}/{NUNK:,}, {tt} tirages, {dt:.0f}s")
-    if not v.startswith("COHERENT"):
-        raise SystemExit("le temoin plante n'est pas reconnu : on n'exclut rien avec ca")
-    rg = [rng.randrange(KB) for _ in range(besoin + EXTRA + 600)]
-    v, rang, tt, dt = attaque(rg, 21, BUDGET * 3)
-    say(f"      temoin NEGATIF (rangs au hasard) : {v}, rang {rang:,}, {tt} tirages, {dt:.0f}s")
-    if v.startswith("COHERENT"):
-        raise SystemExit("le temoin negatif passe : la machine ne discrimine rien")
+    if deja.get("temoin") == "ok":
+        say("      temoins deja passes (graine deterministe) — repris du cache")
+    else:
+        outs = sorties_int(st, nt * 21 + 8)
+        rg = [(outs[t * 21 - 1] * KB) >> 32 if t else 0 for t in range(nt)]
+        v, rang, tt, dt = attaque(rg, 21, BUDGET * 3)
+        say(f"      pas 21 : {v}, rang {rang:,}/{NUNK:,}, {tt} tirages, {dt:.0f}s")
+        if not v.startswith("COHERENT"):
+            raise SystemExit("le temoin plante n'est pas reconnu : on n'exclut rien avec ca")
+        rg = [rng.randrange(KB) for _ in range(besoin + EXTRA + 600)]
+        v, rang, tt, dt = attaque(rg, 21, BUDGET * 3)
+        say(f"      temoin NEGATIF (rangs au hasard) : {v}, rang {rang:,}, {tt} tirages, {dt:.0f}s")
+        if v.startswith("COHERENT"):
+            raise SystemExit("le temoin negatif passe : la machine ne discrimine rien")
+        deja["temoin"] = "ok"
+        consigne_cache()
 
     say(f"\n   l'archive : {len(RANG)} rangs")
     res, compat, incomplets = [], [], []
     for pas in STRIDES:
+        if str(pas) in deja:
+            v, rang, tt, dt = deja[str(pas)]
+            say(f"      pas {pas:>3} : {v:<24} rang {rang:>6,}/{NUNK:,}, {tt:>5} tirages, "
+                f"{dt:>5.0f}s   (repris du cache)")
+            res.append((pas, v, rang, tt, dt))
+            if v.startswith("COHERENT"):
+                compat.append(pas)
+            elif v.startswith("budget") or v == "epuise":
+                incomplets.append(pas)
+            continue
         v, rang, tt, dt = attaque(RANG, pas, BUDGET)
+        deja[str(pas)] = [v, rang, tt, dt]
+        consigne_cache()
         res.append((pas, v, rang, tt, dt))
         marque = ""
         if v.startswith("COHERENT"):
