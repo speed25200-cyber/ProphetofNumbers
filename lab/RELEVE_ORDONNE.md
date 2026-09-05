@@ -182,3 +182,20 @@ de sa journée** (créneau `0` sur `204`). Le §258 dit ce qu'elle rend.
 `loro.ch` — cet environnement ne le peut pas (`403` au `CONNECT`) — et le §249 donne le
 plafond de ce qu'une campagne peut contenir : `204` tirages à pas de `300 s` exactement, mais
 `70 560` à identifiant consécutif, la nuit ne cassant jamais la numérotation.
+
+**Et une fois le relevé produit, dans cet ordre** — chaque outil est calibré par un témoin
+planté et refuse une entrée triée :
+
+    # 1. chaque tirage SEUL, sans hypothese de continuite : tout etat de tout generateur
+    #    congruentiel de module <= 2^32, rejet simule des le filtre (§248, §258)
+    python3 claude/research/lcg_family_solver.py crible ordered.txt
+
+    # 2. un SEGMENT a identifiants consecutifs (§249) : le pas de bloc W, un holdout intact,
+    #    verdict RECOVERED / REJECTED / INCONCLUSIVE
+    python3 claude/research/lcg_family_solver.py scan ordered.txt --holdout 50 --strides 20,21,22,23,24
+
+    # 3. MT19937 sur >= 450 tirages ordonnes consecutifs (branche codex, keno_break.c)
+    ./keno_break scanfile ordered.txt 20 64 --state-out recovered-state.txt --predict 1
+
+Un état relevé se **vérifie sur le tirage suivant avant d'être annoncé** — c'est la seule
+preuve qui compte, et `prospective_commit.py` (branche codex) sait l'engager avant la clôture.
