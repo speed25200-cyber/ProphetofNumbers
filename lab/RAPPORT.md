@@ -25335,12 +25335,10 @@ contrainte contre `64` d'état.
 Les `15` générateurs congruentiels à constantes publiées de module `> 2³²` du dossier : deux
 sur `2⁴⁸` (`java.util.Random`/`drand48`, avec et sans incrément), un sur `2⁶¹−1`, et les douze
 `mod 2⁶⁴` du §223. Deux règles de sortie, troncature pleine et troncature des `32` bits hauts.
-La règle « modulo `80` » n'est **pas** lue par ce réseau : sur un module puissance de deux,
-`x mod 80` n'est pas un intervalle de `x`. Mais elle n'a pas besoin de l'être — le §226 l'exclut
-déjà sur l'archive triée, pour **tout** `LCG mod 2^W`, quels que soient `a`, `c` et l'état :
-`w mod 16` y est un sous-système clos de période `16`, et les comptes par classe de résidus
-le trahiraient. Ne reste hors de portée que le module **premier** `2⁶¹−1` sous modulo `80`, où
-aucun sous-système bas n'existe — un générateur, une règle, et c'est dit.
+La règle « modulo `80` » n'est pas traitée ici : `x mod 80` n'est pas un intervalle de `x`, et
+j'écrivais d'abord que le réseau ne la lit pas. C'était faux — il lit les **quotients**
+`t = (x − r)/80`, et le §260 la prend, sur les quinze générateurs, avec en prime le canal
+`mod 16` du §226 lu tirage par tirage.
 
 Six témoins **plantés** — un par module et par règle, depuis un état tiré au sort, avec un ou
 deux rejets dans le préfixe, la voie que le §246 n'exerçait pas — et un témoin négatif
@@ -25393,3 +25391,68 @@ significatif.
 
 ---
 
+## 260. **La règle modulo `80` par les quotients** : ce que le §259 disait de trop, et le canal `mod 16` lu par tirage (`h234_modulo_80_par_les_quotients.py`)
+
+### La phrase de trop
+
+Le §259 écrivait que le réseau « ne lit pas » `x mod 80`, parce que `x mod 80 = r` n'est pas un
+intervalle de `x`. C'est vrai, et c'est sans conséquence : `x = r + 80·t` avec `t` dans
+l'intervalle `[0, (m − 1 − r)/80]`, et la récurrence de `x` est une récurrence de `t`.
+
+    module premier p     80·t_j ≡ a^{p_j}·(r_0 + 80·t_0) + c_{p_j} − r_j   (mod p)
+                         t_j ≡ a^{p_j}·t_0 + b_j,   b_j = (a^{p_j}·r_0 + c_{p_j} − r_j)·80^{-1}
+                         -> le MEME reseau qu'au §259, sur les quotients : 6,32 bits par numero
+
+    module 2^k           la meme congruence n'a de solution que si
+                         D_j = a^{p_j}·r_0 + c_{p_j} − r_j ≡ 0   (mod 16)      <- le canal mod 16
+                         puis  t_j ≡ a^{p_j}·t_0 + (D_j / 16)·5^{-1}   (mod 2^{k−4})
+                         -> un reseau de module 2^{k−4}, un pave de cote 2^{k−4}/5 : 2,32 bits par numero
+
+Le canal `mod 16`, c'est le §226 lu **par tirage et par motif**. Sous `mod 80`, `x mod 16` se lit
+directement — `x mod 16 = (v − 1) mod 16` — et pour un `(a, c)` connu la suite des résidus aux
+positions publiées est entièrement déterminée : pas une hypothèse à faire, pas un état à
+chercher, une égalité à vérifier, à `4` bits par numéro. Il exclut, ou non, exactement.
+
+### Ce qui se relève, et ce qui ne se relève pas
+
+    2^61-1   n = 11, 1 001 motifs   le pave est presque vide : l'etat se releve
+    2^48     20 numeros, 8 855 motifs   canal mod 16, puis reseau des quotients mod 2^44 :
+                                        2^44 / 5^20 = 0,19 candidat par motif, l'etat se releve
+    2^64     20 numeros, 8 855 motifs   canal seul : 58 bits de quotient contre 46 observes,
+                                        un tirage seul ne releve PAS l'etat ; il exclut, ou non
+
+Avec vingt numéros au motif, le résidu par tirage grimpe — `P(r > 4) = 0,1756`, contre
+`0,0047` à douze — mais c'est un résidu de **tirages** : pour qu'un générateur échappe à
+l'exclusion, il faudrait que les **treize** aient plus de quatre rejets avant leur vingtième
+numéro, soit `0,1756¹³ = 1,5·10⁻¹⁰`. Pour `2⁶¹−1` à onze numéros, `0,0023¹³`.
+
+### Les témoins, puis l'archive
+
+    temoin 2^48,   mod 80, 2 rejets   : canal passe sur son motif, etat plante RENDU par les quotients
+    temoin 2^61-1, mod 80, 1 rejet    : etat plante RENDU (sous deux motifs, rejet immediat)
+    temoin 2^64,   mod 80, 2 rejets   : canal mod 16 PASSE sur un motif — le sien
+    ordre au hasard                   : 0 passage
+
+    15 generateurs x 13 tirages x (8 855 | 1 001) motifs
+    1 841 840 canaux mod 16 verifies, 3 passages — les trois sont les temoins
+    14 015 enumerations exactes, 0 incomplete, 199 s de calcul
+    0 tirage reel reproduit                            ->  conforme
+
+Sur les treize tirages réels, **aucun motif d'aucun générateur ne passe le canal** : pas une
+seule énumération n'a eu lieu pour les modules `2⁴⁸` et `2⁶⁴`. Le module premier a été énuméré
+sur ses `1 001` motifs et ses treize tirages, pavé presque vide, rien qui passe le rejeu.
+
+### Ce que ça ferme
+
+Le §259 laissait « un générateur, une règle » — `2⁶¹−1` sous `mod 80` — et se trompait sur la
+raison. Il n'y a plus de reste : **les quinze générateurs à constantes publiées de module
+`> 2³²` sont exclus sur les tirages ordonnés sous les trois règles de sortie**, troncature
+pleine, troncature haute et modulo `80`, sous tout motif de rejet à quatre mots muets ou
+moins. Et sur les modules `2^k`, le canal `mod 16` ne dépendant que de `a` et `c` **modulo
+`16`**, ce que le §226 disait sur l'archive triée pour toutes les constantes vaut ici tirage
+par tirage.
+
+**Ligne de registre.** `h234.modulo_80_par_les_quotients`, piste B, conforme, `m_extra = 0`.
+Le registre compte `314` lignes ; zéro résultat significatif.
+
+---

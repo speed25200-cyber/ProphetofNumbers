@@ -127,7 +127,11 @@ avant le `n`-ième numéro ; le résidu, `0,04 %` à `0,47 %` des tirages selon 
 calculé exactement) et remplace Babai par l'énumération exacte du pavé. Six témoins plantés
 avec un ou deux rejets sont tous rendus ; `583 890` énumérations sur les treize tirages,
 `0` incomplète, `0` état. **La famille congruentielle à constantes publiées est fermée sur les
-tirages ordonnés des deux côtés de `2³²`, et des deux côtés sans heuristique.**
+tirages ordonnés des deux côtés de `2³²`, et des deux côtés sans heuristique.** Le §260 y
+ajoute la règle modulo `80`, que le §259 croyait hors de portée du réseau : `x = r + 80·t` et
+le réseau lit les quotients ; sur `2^k`, le canal `mod 16` du §226 lu tirage par tirage
+tranche seul. `1 841 840` vérifications, `14 015` énumérations, les trois témoins rendus, `0`
+tirage réel reproduit : les trois règles de sortie sont prises.
 
 ## Ce qui reste ouvert, et pourquoi ce n'est pas de la paresse
 
@@ -287,4 +291,4 @@ zone grise.
 | le protocole du labo et les deux pistes | `lab/README.md` |
 | le relevé ordonné à produire | `lab/RELEVE_ORDONNE.md` |
 | tout recalculé depuis les sources | `python3 lab/verifier.py` |
-| les 313 lignes de registre | `lab/ledger.jsonl` |
+| les 314 lignes de registre | `lab/ledger.jsonl` |

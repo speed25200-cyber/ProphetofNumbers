@@ -6092,10 +6092,15 @@ deux satisfaits par le même état. Un témoin l'a montré ; c'est un doublon, p
 
 ### Ce que le motif ne sauve pas
 
-  * la règle **modulo `80`** sur un module puissance de deux : `x mod 80` n'est pas un
-    intervalle de `x`, il n'y a pas de pavé. Mais ce cas n'a pas besoin du réseau : `w mod 16`
-    y est un sous-système clos de période `16`, et le §226 l'exclut sur l'archive triée pour
-    tout `a`, tout `c`, tout état. Seul le module **premier** `2⁶¹−1` sous modulo `80` échappe
-    aux deux méthodes ;
+  * la règle **modulo `80`** demande un changement de variable, pas une autre méthode :
+    `x = r + 80·t`, et la récurrence de `x` est une récurrence de `t`. Sur un module premier,
+    `t_j ≡ a^{p_j}·t_0 + b_j` avec `b_j = (a^{p_j}·r_0 + c_{p_j} − r_j)·80⁻¹` — le même
+    réseau, sur les quotients, `6,32` bits par numéro. Sur `2^k`, la congruence n'a de
+    solution que si `D_j = a^{p_j}·r_0 + c_{p_j} − r_j ≡ 0 (mod 16)` à chaque position — le
+    canal `mod 16` du §226 lu par tirage et par motif, `4` bits par numéro sans aucune
+    hypothèse — puis `t_j ≡ a^{p_j}·t_0 + (D_j/16)·5⁻¹ (mod 2^{k−4})`, un réseau de module
+    `2^{k−4}` et un pavé de côté `2^{k−4}/5`, `2,32` bits par numéro : `2⁴⁸` se relève sur vingt
+    numéros, `2⁶⁴` ne se relève pas depuis un tirage seul (`58` bits de quotient contre `46`
+    observés) mais s'exclut par le canal (§260) ;
   * les constantes **non publiées** : les différences éliminent `c`, pas `a`, et un
     multiplicateur inconnu ramène au balayage du §253, qui s'arrête à `2³²`.
