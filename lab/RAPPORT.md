@@ -24562,7 +24562,7 @@ large qu'elle n'est :
 |---|---|---|
 | générateurs `F₂`-linéaires `< 47 040` bits **dont les sorties observées sont des fonctionnelles linéaires de l'état** | §124, complexité conjointe | certaine — mais voir la précision du §124 : `MT19937` derrière la carte de rang **n'est pas** couvert |
 | `MT19937` derrière la carte de rang du §106, pas `20`–`128` | §254 et son addendum, élimination `GF(2)` sur `19 937` inconnues | **certaine** — et sans capture |
-| `WELL19937a` derrière la carte de rang, pas `20`–`41` | §255, même machine | **certaine** — sous réserve de la fidélité de la transcription, dite au §255 |
+| `WELL19937a` derrière la carte de rang, pas `20`–`128` | §255 et son addendum, même machine | **certaine** — sous réserve de la fidélité de la transcription, dite au §255 |
 | congruentiels `m ≤ 2³²`, constantes publiées, flux du bonus | §250, énumération complète | **certaine** |
 | congruentiels `m = 2²⁹`, `2³⁰`, `2³¹`, constantes **inconnues**, tout pas de bloc | §253, balayage du multiplicateur | **certaine** |
 | congruentiels `m > 2³²`, constantes publiées, pas `20`–`64` | §251, énumération exacte | **certaine** |
@@ -24852,5 +24852,19 @@ tirages de marge. Le témoin reçoit maintenant `400` tirages de marge.
 
 **Ligne de registre.** `h230.well19937_sous_troncature`, piste B, WELL19937a EXCLU,
 `m_extra = 0`.
+
+### Addendum — les pas `42` à `128` (`h230b_well19937_pas_longs.py`)
+
+Comme pour `MT19937` au §254 : même machine, même lecture, témoin planté au pas `97`.
+
+    temoin, WELL19937a plante au pas 97  : COHERENT, rang 19 937/19 937, 6 523 tirages
+    87 pas balayes (42 a 128) en 9 790 s
+    rang atteint : 19 934 a 19 937 sur 19 937, puis 0 = 1 a chaque fois
+    0 compatible, 0 incomplet            ->  WELL19937a EXCLU
+
+> **Les pas `20` à `128` sont couverts sans trou, pour `MT19937` comme pour `WELL19937a`** —
+> sous la réserve de fidélité dite plus haut pour le second.
+
+**Ligne de registre.** `h230b.well19937_pas_longs`, piste B, WELL19937a EXCLU, `m_extra = 0`.
 
 ---
